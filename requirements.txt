@@ -1,0 +1,6 @@
+streamlit
+databricks-sql-connector
+msal
+pandas
+python-dotenv
+databricks-sdk
