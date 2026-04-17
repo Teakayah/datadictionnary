@@ -1,0 +1,27 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Semantic</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:22px 28px;background:var(--paper);font-family:var(--font-sans)}
+  .group{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-60);margin:0 0 14px}
+  .row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .pair{display:flex;height:68px;border:1px solid var(--ink-10)}
+  .pair > div{flex:1;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px}
+  .lbl{display:flex;justify-content:space-between;margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--ink-60)}
+  .lbl b{color:var(--ink);font-weight:500}
+</style></head><body>
+  <div class="group">Semantic · desaturated ink tones</div>
+  <div class="row">
+    <div>
+      <div class="pair"><div style="background:#3F5E3A;color:#FAF7F0">ok</div><div style="background:#E3E9DE;color:#3F5E3A">wash</div></div>
+      <div class="lbl"><b>forest · success</b><span>#3F5E3A</span></div>
+    </div>
+    <div>
+      <div class="pair"><div style="background:#9A6D1C;color:#FAF7F0">warn</div><div style="background:#F0E5CC;color:#7A5512">wash</div></div>
+      <div class="lbl"><b>ochre · warning</b><span>#9A6D1C</span></div>
+    </div>
+    <div>
+      <div class="pair"><div style="background:#2B4A6B;color:#FAF7F0">info</div><div style="background:#DDE4EC;color:#2B4A6B">wash</div></div>
+      <div class="lbl"><b>deepblue · info</b><span>#2B4A6B</span></div>
+    </div>
+  </div>
+</body></html>
