@@ -62,3 +62,43 @@ def test_get_msal_app():
 
             # Verify it returns the instance created
             assert result == mock_cca.return_value
+
+@patch("app.logging.error")
+def test_error_logging_not_exposed(mock_logging_error):
+    """
+    Test that when an exception occurs during query execution, the exception is logged
+    but only a generic error message is shown to the user via st.error.
+    """
+    # Fix the mock of st.cache_data so the decorated run_query is a normal function
+    def mock_cache_data(**kwargs):
+        def decorator(func):
+            return func
+        return decorator
+    mock_st.cache_data = mock_cache_data
+
+    # Ensure that databricks connect raises our Exception
+    import sys
+    test_exception = Exception("Secret Database Error")
+    sys.modules["databricks"].sql.connect.side_effect = test_exception
+
+    # Simulate search input to trigger the try-except block
+    mock_st.text_input.return_value = "test search"
+    mock_st.session_state.user_groups = ["test-group"]
+
+    # Clear previous error calls
+    mock_st.error.reset_mock()
+
+    # Import or reload app to execute the UI flow
+    import app
+    import importlib
+    importlib.reload(app)
+
+    # Check that logging.error was called with the actual exception
+    mock_logging_error.assert_called_once_with(f"Error querying data: {test_exception}", exc_info=True)
+
+    # Check that st.error was called with the generic message
+    mock_st.error.assert_any_call("An error occurred while querying the data. Please try again later or contact support.")
+
+    # Verify the actual exception text is not passed to st.error
+    for call in mock_st.error.call_args_list:
+        assert "Secret Database Error" not in str(call)

@@ -2,6 +2,7 @@ import streamlit as st
 from databricks import sql
 import os
 import msal
+import logging
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -149,7 +150,8 @@ if search_query:
         else:
             st.warning("No authorized results found matching your search.")
     except Exception as e:
-        st.error(f"Error querying data: {e}")
+        logging.error(f"Error querying data: {e}", exc_info=True)
+        st.error("An error occurred while querying the data. Please try again later or contact support.")
         st.info("Ensure the sync job has been run and environment variables are correct.")
 
 else:
