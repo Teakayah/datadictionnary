@@ -127,17 +127,17 @@ def sync():
             cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache")
             
             # Batch inserts (In production, consider using COPY INTO or temporary views for speed)
-            for t in tables_data:
-                cursor.execute(f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%s, %s, %s, %s, %s, %s, current_timestamp())", 
-                               (t['full_name'], t['catalog_name'], t['schema_name'], t['table_name'], t['table_type'], t['comment']))
+            if tables_data:
+                cursor.executemany(f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%s, %s, %s, %s, %s, %s, current_timestamp())",
+                               [(t['full_name'], t['catalog_name'], t['schema_name'], t['table_name'], t['table_type'], t['comment']) for t in tables_data])
             
-            for c in columns_data:
-                cursor.execute(f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata VALUES (%s, %s, %s, %s)", 
-                               (c['table_full_name'], c['column_name'], c['data_type'], c['comment']))
+            if columns_data:
+                cursor.executemany(f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata VALUES (%s, %s, %s, %s)",
+                               [(c['table_full_name'], c['column_name'], c['data_type'], c['comment']) for c in columns_data])
                                
-            for p in permissions_data:
-                cursor.execute(f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache VALUES (%s, %s, %s)", 
-                               (p['table_full_name'], p['principal'], p['privilege']))
+            if permissions_data:
+                cursor.executemany(f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache VALUES (%s, %s, %s)",
+                               [(p['table_full_name'], p['principal'], p['privilege']) for p in permissions_data])
 
     print("✅ Sync completed successfully.")
 
