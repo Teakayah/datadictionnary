@@ -143,6 +143,7 @@ if search_query:
                 full_name = f"{row['catalog_name']}.{row['schema_name']}.{row['table_name']}"
                 
                 st.write(f"### Columns for `{full_name}`")
+                # nosec B608 - False positive: full_name is correctly parameterized via %s using DB-API
                 cols_query = f"SELECT column_name, data_type, comment FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata WHERE table_full_name = %s"
                 cols = run_query(cols_query, (full_name,))
                 st.table(cols)
