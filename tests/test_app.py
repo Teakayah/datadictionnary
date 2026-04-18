@@ -18,7 +18,17 @@ mock_st.query_params = {}
 sys.modules["streamlit"] = mock_st
 sys.modules["databricks"] = MagicMock()
 sys.modules["databricks.sql"] = MagicMock()
-sys.modules["msal"] = MagicMock()
+
+class DummyConfidentialClientApplication:
+    def __init__(self, *args, **kwargs):
+        pass
+    def get_authorization_request_url(self, *args, **kwargs):
+        return "mock_url"
+
+class MockMsalModule:
+    ConfidentialClientApplication = DummyConfidentialClientApplication
+
+sys.modules["msal"] = MockMsalModule()
 sys.modules["dotenv"] = MagicMock()
 sys.modules["pandas"] = MagicMock()
 
@@ -43,7 +53,10 @@ def test_get_msal_app():
 
         # Now we can patch msal.ConfidentialClientApplication because we mocked msal
         import msal
-        with patch.object(msal, "ConfidentialClientApplication") as mock_cca:
+        with patch.object(msal, "ConfidentialClientApplication", autospec=True) as mock_cca:
+            mock_instance = DummyConfidentialClientApplication()
+            mock_cca.return_value = mock_instance
+
             # We need to import app here so it picks up the patched os.environ
             import app
 
@@ -62,3 +75,4 @@ def test_get_msal_app():
 
             # Verify it returns the instance created
             assert result == mock_cca.return_value
+            assert isinstance(result, DummyConfidentialClientApplication)
