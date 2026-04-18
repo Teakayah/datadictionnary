@@ -1,4 +1,5 @@
 import os
+import concurrent.futures
 from databricks.sdk import WorkspaceClient
 from databricks import sql
 from dotenv import load_dotenv
@@ -66,6 +67,7 @@ def sync():
     permissions_data = []
 
     # 1. Iterate through catalogs (skipping system/internal ones if needed)
+    table_full_names = []
     for catalog in w.catalogs.list():
         if catalog.name in ['system', '__databricks_internal']:
             continue
@@ -77,6 +79,7 @@ def sync():
             try:
                 for table in w.tables.list(catalog_name=catalog.name, schema_name=schema.name):
                     full_name = f"{catalog.name}.{schema.name}.{table.name}"
+                    table_full_names.append(full_name)
                     
                     # Store table metadata
                     tables_data.append({
@@ -96,23 +99,30 @@ def sync():
                             "data_type": col.type_text,
                             "comment": col.comment or ""
                         })
-                    
-                    # 2. Extract permission grants
-                    # In a real-world scenario, you might want to handle errors if permissions can't be read
-                    try:
-                        grants = w.grants.get('TABLE', full_name)
-                        if grants.privilege_assignments:
-                            for assignment in grants.privilege_assignments:
-                                for priv in assignment.privileges:
-                                    permissions_data.append({
-                                        "table_full_name": full_name,
-                                        "principal": assignment.principal,
-                                        "privilege": str(priv)
-                                    })
-                    except Exception as e:
-                        print(f"    Could not fetch grants for {full_name}: {e}")
             except Exception as e:
                 print(f"  Error processing schema {schema.name}: {e}")
+
+    # 2. Extract permission grants concurrently
+    print("🔐 Fetching permission grants...")
+    def fetch_grants(full_name):
+        try:
+            return full_name, w.grants.get('TABLE', full_name)
+        except Exception as e:
+            print(f"    Could not fetch grants for {full_name}: {e}")
+            return full_name, None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        future_to_table = {executor.submit(fetch_grants, name): name for name in table_full_names}
+        for future in concurrent.futures.as_completed(future_to_table):
+            full_name, grants = future.result()
+            if grants and grants.privilege_assignments:
+                for assignment in grants.privilege_assignments:
+                    for priv in assignment.privileges:
+                        permissions_data.append({
+                            "table_full_name": full_name,
+                            "principal": assignment.principal,
+                            "privilege": str(priv)
+                        })
 
     # 3. Load into Databricks SQL Warehouse
     print("📂 Loading data into SQL Warehouse...")
