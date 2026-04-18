@@ -80,6 +80,7 @@ else:
     check_auth()
 
 # --- Databricks Query Helper ---
+@st.cache_data(ttl="1h")
 def run_query(query, params=None):
     with sql.connect(
         server_hostname=os.getenv("DATABRICKS_HOST"),
