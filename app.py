@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 from databricks import sql
 import os
 import msal
