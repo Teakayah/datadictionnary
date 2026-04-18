@@ -63,9 +63,11 @@ def check_auth():
         st.stop()
 
 # For local development/scaffolding without a real redirect loop
-# We'll use a "Mock Auth" toggle if environment variables are missing
-if not CLIENT_ID or CLIENT_ID == "your-client-id":
-    st.warning("⚠️ Entra ID credentials missing. Using Mock Authentication.")
+# We'll use a "Mock Auth" toggle ONLY if explicitly enabled via environment variable
+ENABLE_MOCK_AUTH = os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
+
+if ENABLE_MOCK_AUTH:
+    st.warning("⚠️ Mock Authentication is ENABLED.")
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
     
