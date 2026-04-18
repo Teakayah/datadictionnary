@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import streamlit as st
 from databricks import sql
 import os
@@ -723,6 +724,7 @@ if search_query:
                 <div class="dd-eyebrow" style="margin:12px 0">§ Columns</div>
                 """, unsafe_allow_html=True)
 
+                # nosec B608 - False positive: table_full_name is correctly parameterized via %s
                 cols_query = (
                     f"SELECT column_name, data_type, comment "
                     f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata "
@@ -752,7 +754,8 @@ if search_query:
             """, unsafe_allow_html=True)
 
     except Exception as e:
-        st.error(f"Error querying data: {e}")
+        logging.error("Error querying data: %s", e, exc_info=True)
+        st.error("An error occurred while querying the data. Please try again later or contact support.")
         st.info("Ensure the sync job has been run and environment variables are correct.")
 
 else:
