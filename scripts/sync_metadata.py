@@ -1,4 +1,5 @@
 import os
+import pandas as pd
 from databricks.sdk import WorkspaceClient
 from databricks import sql
 from dotenv import load_dotenv

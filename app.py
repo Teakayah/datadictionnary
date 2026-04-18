@@ -63,7 +63,10 @@ def check_auth():
 
 # For local development/scaffolding without a real redirect loop
 # We'll use a "Mock Auth" toggle ONLY if explicitly enabled via environment variable
-ENABLE_MOCK_AUTH = os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
+# AND we are explicitly in a development environment to prevent accidental activation in production
+_mock_auth_flag = os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
+_is_dev_env = os.getenv("ENVIRONMENT", "production").lower() == "development"
+ENABLE_MOCK_AUTH = _mock_auth_flag and _is_dev_env
 
 if ENABLE_MOCK_AUTH:
     st.warning("⚠️ Mock Authentication is ENABLED.")
