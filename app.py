@@ -92,6 +92,23 @@ def run_query(query, params=None):
             cursor.execute(query, params)
             return cursor.fetchall_as_pandas()
 
+@st.cache_data(ttl="1h")
+def get_authorized_tables(groups):
+    sql_query = f"""
+        SELECT DISTINCT
+            m.full_name,
+            m.catalog_name,
+            m.schema_name,
+            m.table_name,
+            m.comment as table_description,
+            m.table_type
+        FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata m
+        JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p
+          ON m.full_name = p.table_full_name
+        WHERE (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS')
+    """
+    return run_query(sql_query, {"groups": groups})
+
 # --- App Content ---
 st.sidebar.title("Data Dictionary")
 st.sidebar.info(f"Logged in as: {st.session_state.user_name}")
@@ -109,31 +126,26 @@ search_query = st.text_input("Search for tables or business terms...", placehold
 if search_query:
     st.subheader(f"Results for '{search_query}'")
     
-    # PERMISSION FILTERING LOGIC
-    # We join the metadata with the permissions cache and filter by the user's AD groups
-    # Note: We also include 'ANY FILE' or public groups if applicable
-    sql_query = f"""
-        SELECT DISTINCT 
-            m.catalog_name, 
-            m.schema_name, 
-            m.table_name, 
-            m.comment as table_description,
-            m.table_type
-        FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata m
-        JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p 
-          ON m.full_name = p.table_full_name
-        WHERE (m.full_name LIKE %(search)s OR m.comment LIKE %(search)s)
-          AND (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS')
-    """
-    
-    # Ensure groups is a tuple for the SQL IN clause
+    # Ensure groups is a tuple for the SQL IN clause (needed for cache hashing and SQL IN)
     groups = tuple(st.session_state.user_groups) if st.session_state.user_groups else ('none',)
     
     try:
-        results = run_query(sql_query, {"search": f"%{search_query}%", "groups": groups})
+        # Fetch all authorized tables for the user's groups (cached)
+        all_results = get_authorized_tables(groups)
+
+        # Apply local search filter using pandas
+        search_lower = search_query.lower()
+
+        # Safe string fillna before searching to prevent errors, and disable regex
+        full_name_match = all_results['full_name'].fillna('').str.lower().str.contains(search_lower, regex=False)
+        comment_match = all_results['table_description'].fillna('').str.lower().str.contains(search_lower, regex=False)
+
+        results = all_results[full_name_match | comment_match]
         
         if not results.empty:
-            st.dataframe(results, use_container_width=True)
+            # Drop full_name before displaying to match original UI
+            display_results = results.drop(columns=['full_name'])
+            st.dataframe(display_results, use_container_width=True)
             
             # Allow clicking on a table to see columns
             selected_table = st.selectbox("Select a table to view details:", results['table_name'])
