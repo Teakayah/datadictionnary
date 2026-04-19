@@ -635,6 +635,23 @@ else:
 render_header(user_name=st.session_state.get("user_name", ""))
 st.markdown('<div class="dd-page">', unsafe_allow_html=True)
 
+@st.cache_data(ttl="1h")
+def get_authorized_tables(groups):
+    sql_query = f"""
+        SELECT DISTINCT
+            m.full_name,
+            m.catalog_name,
+            m.schema_name,
+            m.table_name,
+            m.comment as table_description,
+            m.table_type
+        FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata m
+        JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p
+          ON m.full_name = p.table_full_name
+        WHERE (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS')
+    """
+    return run_query(sql_query, {"groups": groups})
+
 # Sign-out (hidden Streamlit widget used for state management)
 with st.sidebar:
     if st.button("Sign out"):
@@ -658,23 +675,17 @@ search_query = st.text_input(
 )
 
 if search_query:
-    sql_query = f"""
-        SELECT DISTINCT
-            m.catalog_name,
-            m.schema_name,
-            m.table_name,
-            m.comment AS table_description,
-            m.table_type
-        FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata m
-        JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p
-          ON m.full_name = p.table_full_name
-        WHERE (m.full_name LIKE %(search)s OR m.comment LIKE %(search)s)
-          AND (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS')
-    """
     groups = tuple(st.session_state.user_groups) if st.session_state.user_groups else ("none",)
 
     try:
-        results = run_query(sql_query, {"search": f"%{search_query}%", "groups": groups})
+        # Fetch all authorized tables for the user's groups (cached)
+        all_results = get_authorized_tables(groups)
+
+        # Apply local search filter using pandas
+        search_lower = search_query.lower()
+        full_name_match = all_results['full_name'].fillna('').str.lower().str.contains(search_lower, regex=False)
+        comment_match = all_results['table_description'].fillna('').str.lower().str.contains(search_lower, regex=False)
+        results = all_results[full_name_match | comment_match]
 
         if not results.empty:
             n = len(results)
@@ -685,8 +696,9 @@ if search_query:
             </div>
             """, unsafe_allow_html=True)
 
+            display_results = results.drop(columns=['full_name'])
             st.dataframe(
-                results,
+                display_results,
                 use_container_width=True,
                 hide_index=True,
                 column_config={
