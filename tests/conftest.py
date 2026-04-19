@@ -19,6 +19,7 @@ from __future__ import annotations
 import sys
 import pandas as pd
 import pytest
+import streamlit as st
 from unittest.mock import MagicMock
 
 
@@ -76,6 +77,7 @@ def reset_sql_mock():
     This prevents call-history from one test leaking into assertions in
     the next, and sets a safe default return value of an empty DataFrame.
     """
+    st.cache_data.clear()
     cursor = get_db_cursor()
     cursor.reset_mock()
     cursor.fetchall_as_pandas.return_value = pd.DataFrame()

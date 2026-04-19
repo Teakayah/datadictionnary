@@ -32,6 +32,7 @@ APP_PATH = os.path.join(os.path.dirname(__file__), "..", "app.py")
 
 def make_tables_df() -> pd.DataFrame:
     return pd.DataFrame({
+        "full_name":         ["main.sales.orders"],
         "catalog_name":      ["main"],
         "schema_name":       ["sales"],
         "table_name":        ["orders"],
@@ -51,7 +52,7 @@ def make_columns_df() -> pd.DataFrame:
 def empty_results_df() -> pd.DataFrame:
     """Empty DataFrame with correct schema — triggers the 'no results' branch."""
     return pd.DataFrame(columns=[
-        "catalog_name", "schema_name", "table_name",
+        "full_name", "catalog_name", "schema_name", "table_name",
         "table_description", "table_type",
     ])
 
@@ -159,22 +160,24 @@ class TestSearch:
         assert any("permissions_cache" in q for q in executed), \
             f"permissions_cache not found in queries: {executed}"
 
-    def test_search_passes_search_term_as_param(self):
-        """The search term must be a bound SQL parameter, not string-interpolated.
+    def test_search_term_not_in_sql(self):
+        """The search term must NOT appear as a SQL parameter.
 
-        Parameterized queries prevent SQL injection. If this fails, the term
-        is being directly f-string'd into the SQL which is a security bug.
+        Search filtering is now done locally in pandas (str.contains), not via
+        SQL LIKE, so the search term should never reach the database layer.
+        This prevents any SQL injection risk from the search input.
         """
         sql_returns(make_tables_df(), make_columns_df())
         at = authenticated_app()
         at.run()
         at.text_input[0].set_value("orders").run()
         cursor = get_db_cursor()
-        # First execute call is the search query
-        first_call_params = cursor.execute.call_args_list[0][0][1]
-        assert "orders" in first_call_params["search"], (
-            "Search term not in SQL params dict — likely interpolated into query string"
-        )
+        all_params = [call[0][1] for call in cursor.execute.call_args_list if len(call[0]) > 1]
+        for params in all_params:
+            if isinstance(params, dict):
+                assert "search" not in params, (
+                    "Search term found in SQL params — filtering should be local (pandas)"
+                )
 
     def test_search_passes_user_groups_as_param(self):
         """User groups must be a bound SQL parameter, not interpolated.
