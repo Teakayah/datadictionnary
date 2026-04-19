@@ -1,0 +1,34 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Rules & Radii</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:22px 28px;background:var(--paper);font-family:var(--font-sans)}
+  .eye{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-60);margin:0 0 14px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  .item{}
+  .name{font-family:var(--font-mono);font-size:11px;color:var(--ink-60);margin-bottom:8px}
+  .rule-ink{border-top:1px solid var(--ink)}
+  .rule-20{border-top:1px solid var(--ink-20)}
+  .rule-10{border-top:1px solid var(--ink-10)}
+  .shapes{display:flex;gap:12px;align-items:center}
+  .sq{width:56px;height:56px;background:var(--paper-deep);border:1px solid var(--ink-20)}
+  .r2{border-radius:2px}
+  .r0{border-radius:0}
+  .pill{padding:4px 10px;border:1px solid var(--ink);border-radius:999px;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+</style></head><body>
+  <div class="eye">Rules · Radii · Shadow</div>
+  <div class="grid">
+    <div class="item"><div class="name">rule (ink-20) · 1px</div><div class="rule-20" style="height:1px"></div>
+      <div class="name" style="margin-top:14px">rule-soft (ink-10) · 1px</div><div class="rule-10" style="height:1px"></div>
+      <div class="name" style="margin-top:14px">rule-ink · 1px</div><div class="rule-ink" style="height:1px"></div>
+    </div>
+    <div class="item"><div class="name">radii · 0 (cards) · 2 (inputs) · pill</div>
+      <div class="shapes">
+        <div class="sq r0"></div>
+        <div class="sq r2"></div>
+        <div class="pill">Beta</div>
+      </div>
+      <div class="name" style="margin-top:14px">shadow · hairline only</div>
+      <div style="width:160px;height:44px;background:var(--paper);box-shadow:0 1px 0 0 var(--ink-10);border-top:1px solid var(--ink-20)"></div>
+    </div>
+  </div>
+</body></html>

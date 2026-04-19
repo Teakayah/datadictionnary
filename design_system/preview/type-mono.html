@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Type · Mono</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:20px 28px;background:var(--paper)}
+  .eye{font-family:var(--font-sans);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-60);margin:0 0 14px}
+  table{border-collapse:collapse;width:100%;font-family:var(--font-mono);font-size:13px}
+  td{padding:6px 12px;border-top:1px solid var(--ink-10);color:var(--ink-80)}
+  td:first-child{color:var(--ink-40);width:110px}
+  .n{color:var(--ink);font-weight:500}
+  .hi{color:var(--accent)}
+</style></head><body>
+  <div class="eye">Mono · JetBrains Mono — identifiers, counts, SQL</div>
+  <table>
+    <tr><td>table</td><td class="n">main.sales.dim_customers</td></tr>
+    <tr><td>column</td><td class="n">customer_lifetime_value</td><td style="text-align:right;color:var(--ink-40)">DECIMAL(18,2)</td></tr>
+    <tr><td>count</td><td class="n">2,341 tables</td><td style="text-align:right" class="hi">+ 42</td></tr>
+    <tr><td>sql</td><td class="n">SELECT * FROM fct_orders WHERE id = 01234</td></tr>
+  </table>
+</body></html>

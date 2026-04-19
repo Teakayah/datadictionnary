@@ -1,0 +1,23 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Buttons</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:22px 28px;background:var(--paper);font-family:var(--font-sans)}
+  .eye{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-60);margin:0 0 14px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .btn{font-family:var(--font-sans);font-size:14px;font-weight:500;padding:10px 18px;border-radius:2px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);cursor:pointer;letter-spacing:-.005em}
+  .btn.sec{background:var(--paper);color:var(--ink)}
+  .btn.ghost{background:transparent;color:var(--ink);border-color:transparent;padding-left:4px;padding-right:4px;border-bottom:1px solid var(--ink)}
+  .btn.accent{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+  .btn.sm{font-size:12px;padding:6px 12px}
+  .btn[disabled]{opacity:.4;cursor:not-allowed}
+</style></head><body>
+  <div class="eye">Buttons</div>
+  <div class="row">
+    <button class="btn">Search</button>
+    <button class="btn sec">Cancel</button>
+    <button class="btn ghost">View table</button>
+    <button class="btn accent">Request access</button>
+    <button class="btn sm sec">Filter</button>
+    <button class="btn" disabled>Save</button>
+  </div>
+</body></html>

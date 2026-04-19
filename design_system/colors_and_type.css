@@ -1,0 +1,220 @@
+/* ============================================================
+   Data Dictionary — Design Tokens
+   Load this file first on every page.
+   ============================================================ */
+
+/* Fonts — Google Fonts -----------------------------------------
+   Fraunces  : display serif (literary, optical sizing)
+   Manrope   : body sans (substitute for GT Walsheim)
+   JetBrains Mono : identifiers, counts, SQL
+--------------------------------------------------------------- */
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+:root {
+  /* ---- Paper & Ink (warm neutrals) ------------------------- */
+  --paper:        #FAF7F0;  /* default surface */
+  --paper-deep:   #F2EDE1;  /* secondary surface, quiet sections */
+  --paper-ink:    #E8E1D0;  /* rules, subtle dividers */
+
+  --ink:          #14110C;  /* primary text */
+  --ink-90:       #2A2620;
+  --ink-80:       #3D3830;
+  --ink-60:       #6B645A;  /* secondary text */
+  --ink-40:       #9A9388;  /* tertiary text, metadata */
+  --ink-20:       #C9C2B4;  /* hairline rules */
+  --ink-10:       #DCD6C8;  /* softest rule */
+
+  /* ---- Accent (single, deliberate) ------------------------- */
+  --accent:       #B8362A;  /* oxidized red */
+  --accent-ink:   #8C271E;  /* pressed / deep */
+  --accent-wash:  #F3DFD9;  /* selection background only */
+
+  /* ---- Semantic (desaturated, ink-on-paper) ---------------- */
+  --forest:       #3F5E3A;  /* success */
+  --forest-wash:  #E3E9DE;
+  --ochre:        #9A6D1C;  /* warning */
+  --ochre-wash:   #F0E5CC;
+  --deepblue:     #2B4A6B;  /* info */
+  --deepblue-wash:#DDE4EC;
+
+  /* ---- Typography ----------------------------------------- */
+  --font-display: "Fraunces", "Cormorant Garamond", "Times New Roman", serif;
+  --font-sans:    "Manrope", "GT Walsheim", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Scale: 12 · 13 · 14 · 16 · 18 · 24 · 32 · 48 · 72 · 104 */
+  --fs-12: 12px; --fs-13: 13px; --fs-14: 14px; --fs-16: 16px;
+  --fs-18: 18px; --fs-24: 24px; --fs-32: 32px; --fs-48: 48px;
+  --fs-72: 72px; --fs-104: 104px;
+
+  --lh-tight:     1.1;
+  --lh-snug:      1.25;
+  --lh-body:      1.5;
+
+  --tr-display:   -0.02em;   /* negative tracking at display sizes */
+  --tr-body:      -0.005em;
+  --tr-mono:       0;
+  --tr-eyebrow:   0.14em;    /* generous for ALL CAPS eyebrows */
+
+  /* ---- Spacing (8pt grid + 4) ----------------------------- */
+  --s-4:   4px;  --s-8:   8px;  --s-12: 12px; --s-16: 16px;
+  --s-24: 24px;  --s-32: 32px;  --s-48: 48px; --s-64: 64px;
+  --s-96: 96px;  --s-128: 128px;
+
+  /* ---- Layout --------------------------------------------- */
+  --max-w:        1200px;
+  --gutter:       32px;
+  --page-margin:  48px;
+
+  /* ---- Borders & shape ------------------------------------ */
+  --rule:         1px solid var(--ink-20);
+  --rule-soft:    1px solid var(--ink-10);
+  --rule-ink:     1px solid var(--ink);
+  --radius-input: 2px;
+  --radius-card:  0;
+  --radius-pill:  999px;   /* used sparingly — e.g. beta badge */
+
+  /* ---- Shadow (one token, deliberate) --------------------- */
+  --shadow-rule:  0 1px 0 0 var(--ink-10);
+
+  /* ---- Motion --------------------------------------------- */
+  --ease:         cubic-bezier(0.2, 0, 0, 1);
+  --dur-hover:    120ms;
+  --dur-state:    180ms;
+  --dur-page:     240ms;
+}
+
+/* ============================================================
+   Semantic element styles
+   Apply these classes on top of reset-like defaults.
+   ============================================================ */
+
+html, body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--fs-16);
+  line-height: var(--lh-body);
+  letter-spacing: var(--tr-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---- Display headings (serif) -------------------------------- */
+.h-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--fs-104);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tr-display);
+  font-variation-settings: "opsz" 144;
+}
+.h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--fs-72);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tr-display);
+  font-variation-settings: "opsz" 96;
+}
+.h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--fs-48);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tr-display);
+  font-variation-settings: "opsz" 48;
+}
+.h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--fs-32);
+  line-height: var(--lh-snug);
+  letter-spacing: -0.015em;
+  font-variation-settings: "opsz" 32;
+}
+.h4 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: var(--fs-18);
+  line-height: var(--lh-snug);
+}
+
+/* ---- Body & UI ---------------------------------------------- */
+.p-lead {
+  font-size: var(--fs-18);
+  line-height: var(--lh-body);
+  color: var(--ink-80);
+  max-width: 60ch;
+}
+.p {
+  font-size: var(--fs-16);
+  line-height: var(--lh-body);
+  color: var(--ink-80);
+  max-width: 68ch;
+}
+.p-small { font-size: var(--fs-14); color: var(--ink-60); line-height: 1.5; }
+
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: var(--fs-12);
+  font-weight: 600;
+  letter-spacing: var(--tr-eyebrow);
+  text-transform: uppercase;
+  color: var(--ink-60);
+}
+
+.meta {
+  font-family: var(--font-sans);
+  font-size: var(--fs-12);
+  color: var(--ink-40);
+  letter-spacing: 0.02em;
+}
+
+/* ---- Mono (identifiers, SQL, numbers) ----------------------- */
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.94em;   /* optical match when inline with sans */
+  letter-spacing: var(--tr-mono);
+  font-feature-settings: "zero" 1, "ss01" 1;
+}
+code, pre { font-family: var(--font-mono); }
+
+/* ---- Links --------------------------------------------------- */
+a {
+  color: var(--ink);
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--ink-20);
+  transition: color var(--dur-hover) var(--ease),
+              text-decoration-color var(--dur-hover) var(--ease);
+}
+a:hover { color: var(--accent); text-decoration-color: var(--accent); }
+
+/* ---- Focus visible ------------------------------------------ */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-input);
+}
+
+/* ---- Selection ---------------------------------------------- */
+::selection { background: var(--accent-wash); color: var(--ink); }
+
+/* ---- Rule separator ----------------------------------------- */
+.rule { border: 0; border-top: var(--rule); margin: var(--s-48) 0; }
+.rule-soft { border: 0; border-top: var(--rule-soft); margin: var(--s-24) 0; }
+
+/* ---- Utility: paper-grain (optional, opt-in) ---------------- */
+.paper-grain {
+  position: relative;
+}
+.paper-grain::before {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.9 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  mix-blend-mode: multiply;
+}
