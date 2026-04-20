@@ -599,7 +599,7 @@ def check_auth():
         st.stop()
 
 # ── Databricks query helper ────────────────────────────────────────────────────
-@st.cache_resource(ttl="2h")
+@st.cache_resource(ttl="2h", validate=lambda conn: conn.open)
 def get_db_connection():
     return sql.connect(
         server_hostname=os.getenv("DATABRICKS_HOST"),
