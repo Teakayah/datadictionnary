@@ -229,6 +229,29 @@ class TestSearch:
         html = _html(*at.markdown)
         assert "permission-trimmed" in html
 
+    def test_search_exception_shows_generic_error(self):
+        """When an exception occurs during query execution, the UI must show a generic message, not the raw exception."""
+        cursor = get_db_cursor()
+        cursor.reset_mock()
+        cursor.execute.side_effect = Exception("SECRET_DB_ERROR_123")
+
+        at = authenticated_app()
+        at.run()
+        at.text_input[0].set_value("orders").run()
+
+        # Verify the generic error message is shown
+        assert any("An unexpected error occurred while querying the data" in msg.value for msg in at.error)
+
+        # Verify the raw exception text is not exposed anywhere in the UI
+        for e in at.error:
+            assert "SECRET_DB_ERROR_123" not in e.value, "Exception details leaked in st.error"
+        for w in at.warning:
+            assert "SECRET_DB_ERROR_123" not in w.value, "Exception details leaked in st.warning"
+        for i in at.info:
+            assert "SECRET_DB_ERROR_123" not in i.value, "Exception details leaked in st.info"
+        html = _html(*at.markdown)
+        assert "SECRET_DB_ERROR_123" not in html, "Exception details leaked in st.markdown"
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Table detail tests

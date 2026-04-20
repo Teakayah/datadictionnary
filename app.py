@@ -767,7 +767,7 @@ if search_query:
 
     except Exception as e:
         logging.error("Error querying data: %s", e, exc_info=True)
-        st.error("An error occurred while querying the data. Please try again later or contact support.")
+        st.error("An unexpected error occurred while querying the data. Please try again later or contact support.")
         st.info("Ensure the sync job has been run and environment variables are correct.")
 
 else:

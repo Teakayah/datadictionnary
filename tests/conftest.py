@@ -82,8 +82,10 @@ def reset_sql_mock():
     cursor.reset_mock()
     cursor.fetchall_as_pandas.return_value = pd.DataFrame()
     cursor.fetchall_as_pandas.side_effect = None
+    cursor.execute.side_effect = None
     yield
     cursor.reset_mock()
+    cursor.execute.side_effect = None
 
 
 def sql_returns(*dataframes: pd.DataFrame) -> None:
