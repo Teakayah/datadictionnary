@@ -151,3 +151,33 @@ def test_sync_schema_error(mock_print, mock_get_sql_connection, mock_workspace_c
 
     mock_print.assert_any_call("  Error processing schema schema1: Test error")
     mock_print.assert_any_call("  Processing schema: schema2")
+
+@patch("scripts.sync_metadata.WorkspaceClient")
+@patch("scripts.sync_metadata.get_sql_connection")
+@patch("builtins.print")
+def test_sync_grants_error(mock_print, mock_get_sql_connection, mock_workspace_client):
+    mock_w = MagicMock()
+    mock_workspace_client.return_value = mock_w
+
+    mock_catalog = MagicMock()
+    mock_catalog.name = "test_catalog"
+    mock_w.catalogs.list.return_value = [mock_catalog]
+
+    mock_schema = MagicMock()
+    mock_schema.name = "test_schema"
+    mock_w.schemas.list.return_value = [mock_schema]
+
+    mock_table = MagicMock()
+    mock_table.name = "test_table"
+    mock_table.table_type = "MANAGED"
+    mock_table.comment = "Table comment"
+    mock_table.columns = []
+    mock_w.tables.list.return_value = [mock_table]
+
+    # Simulate an error when fetching grants by making side_effect an exception class directly
+    mock_w.grants.get.side_effect = Exception("Grants error")
+
+    from scripts.sync_metadata import sync
+    sync()
+
+    mock_print.assert_any_call("    Could not fetch grants for test_catalog.test_schema.test_table: Grants error")
