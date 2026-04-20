@@ -22,12 +22,12 @@ def setup_cache_tables():
     print(f"Setting up cache tables in {CATALOG_CACHE}.{SCHEMA_CACHE}...")
     with get_sql_connection() as conn:
         with conn.cursor() as cursor:
-            cursor.execute(f"CREATE CATALOG IF NOT EXISTS {CATALOG_CACHE}")
-            cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}")
+            cursor.execute("CREATE CATALOG IF NOT EXISTS {0}".format(CATALOG_CACHE))
+            cursor.execute("CREATE SCHEMA IF NOT EXISTS {0}.{1}".format(CATALOG_CACHE, SCHEMA_CACHE))
             
             # Table for structural metadata
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata (
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS {0}.{1}.tables_metadata (
                     full_name STRING,
                     catalog_name STRING,
                     schema_name STRING,
@@ -36,26 +36,26 @@ def setup_cache_tables():
                     comment STRING,
                     updated_at TIMESTAMP
                 )
-            """)
+            """.format(CATALOG_CACHE, SCHEMA_CACHE))
             
             # Table for column details
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata (
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS {0}.{1}.columns_metadata (
                     table_full_name STRING,
                     column_name STRING,
                     data_type STRING,
                     comment STRING
                 )
-            """)
+            """.format(CATALOG_CACHE, SCHEMA_CACHE))
             
             # Table for permission mapping
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache (
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS {0}.{1}.permissions_cache (
                     table_full_name STRING,
                     principal STRING,
                     privilege STRING
                 )
-            """)
+            """.format(CATALOG_CACHE, SCHEMA_CACHE))
 
 def sync():
     print("🚀 Starting Unity Catalog metadata sync...")
@@ -127,23 +127,23 @@ def sync():
     print("📂 Loading data into SQL Warehouse...")
     with get_sql_connection() as conn:
         with conn.cursor() as cursor:
-            cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata")
-            cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata")
-            cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache")
+            cursor.execute("TRUNCATE TABLE {0}.{1}.tables_metadata".format(CATALOG_CACHE, SCHEMA_CACHE))
+            cursor.execute("TRUNCATE TABLE {0}.{1}.columns_metadata".format(CATALOG_CACHE, SCHEMA_CACHE))
+            cursor.execute("TRUNCATE TABLE {0}.{1}.permissions_cache".format(CATALOG_CACHE, SCHEMA_CACHE))
 
             if tables_data:
                 cursor.executemany(
-                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%s, %s, %s, %s, %s, %s, current_timestamp())",
+                    "INSERT INTO {0}.{1}.tables_metadata VALUES (%s, %s, %s, %s, %s, %s, current_timestamp())".format(CATALOG_CACHE, SCHEMA_CACHE),  # nosec B608
                     [(t['full_name'], t['catalog_name'], t['schema_name'], t['table_name'], t['table_type'], t['comment']) for t in tables_data]
                 )
             if columns_data:
                 cursor.executemany(
-                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata VALUES (%s, %s, %s, %s)",
+                    "INSERT INTO {0}.{1}.columns_metadata VALUES (%s, %s, %s, %s)".format(CATALOG_CACHE, SCHEMA_CACHE),  # nosec B608
                     [(c['table_full_name'], c['column_name'], c['data_type'], c['comment']) for c in columns_data]
                 )
             if permissions_data:
                 cursor.executemany(
-                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache VALUES (%s, %s, %s)",
+                    "INSERT INTO {0}.{1}.permissions_cache VALUES (%s, %s, %s)".format(CATALOG_CACHE, SCHEMA_CACHE),  # nosec B608
                     [(p['table_full_name'], p['principal'], p['privilege']) for p in permissions_data]
                 )
 

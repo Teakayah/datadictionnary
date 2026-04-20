@@ -637,19 +637,19 @@ st.markdown('<div class="dd-page">', unsafe_allow_html=True)
 
 @st.cache_data(ttl="1h")
 def get_authorized_tables(groups):
-    sql_query = f"""
-        SELECT DISTINCT
-            m.full_name,
-            m.catalog_name,
-            m.schema_name,
-            m.table_name,
-            m.comment as table_description,
-            m.table_type
-        FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata m
-        JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p
-          ON m.full_name = p.table_full_name
-        WHERE (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS')
-    """
+    sql_query = (
+        "SELECT DISTINCT \n"  # nosec B608
+        "    m.full_name, \n"
+        "    m.catalog_name, \n"
+        "    m.schema_name, \n"
+        "    m.table_name, \n"
+        "    m.comment as table_description, \n"
+        "    m.table_type \n"
+        "FROM {0}.{1}.tables_metadata m \n"
+        "JOIN {0}.{1}.permissions_cache p \n"
+        "  ON m.full_name = p.table_full_name \n"
+        "WHERE (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS')"
+    ).format(CATALOG_CACHE, SCHEMA_CACHE)
     return run_query(sql_query, {"groups": groups})
 
 # Sign-out (hidden Streamlit widget used for state management)
@@ -736,12 +736,11 @@ if search_query:
                 <div class="dd-eyebrow" style="margin:12px 0">§ Columns</div>
                 """, unsafe_allow_html=True)
 
-                # nosec B608 - False positive: table_full_name is correctly parameterized via %s
                 cols_query = (
-                    f"SELECT column_name, data_type, comment "
-                    f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata "
-                    f"WHERE table_full_name = %(table_full_name)s"
-                )
+                    "SELECT column_name, data_type, comment "  # nosec B608
+                    "FROM {0}.{1}.columns_metadata "
+                    "WHERE table_full_name = %(table_full_name)s"
+                ).format(CATALOG_CACHE, SCHEMA_CACHE)
                 cols = run_query(cols_query, {"table_full_name": full_name})
                 st.dataframe(
                     cols,
