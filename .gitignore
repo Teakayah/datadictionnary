@@ -50,3 +50,4 @@ Thumbs.db
 .digest/
 screenshots/
 venv/
+tests/__pycache__/
