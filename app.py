@@ -5,6 +5,7 @@ import streamlit as st
 from databricks import sql
 import os
 import msal
+import secrets
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -581,25 +582,60 @@ def check_auth():
 
     if st.session_state.auth_token is None:
         msal_app = get_msal_app()
-        auth_url = msal_app.get_authorization_request_url(SCOPE, redirect_uri=REDIRECT_URI)
-
-        render_signin_page(auth_url=auth_url, mock=False)
-        render_footer()
-
         query_params = st.query_params
+
+        # If a code is present, handle the callback logic first
         if "code" in query_params:
+            # Verify the state matches what we expect
+            state = query_params.get("state")
+            expected_state = st.session_state.get("oauth_state")
+
+            if not state or not expected_state or state != expected_state:
+                logging.error("OAuth state mismatch or missing.")
+                st.error("Authentication failed: Security verification (state mismatch). Please try again.")
+                # Clear the potentially compromised state
+                if "oauth_state" in st.session_state:
+                    del st.session_state["oauth_state"]
+                st.stop()
+
+            # The state is valid; proceed with exchanging the code
             result = msal_app.acquire_token_by_authorization_code(
                 query_params["code"], scopes=SCOPE, redirect_uri=REDIRECT_URI
             )
+
+            # Clear the state once it's used
+            if "oauth_state" in st.session_state:
+                del st.session_state["oauth_state"]
+
             if "access_token" in result:
                 st.session_state.auth_token = result
                 st.session_state.user_groups = result.get("id_token_claims", {}).get("groups", [])
                 st.session_state.user_name = result.get("id_token_claims", {}).get("name")
+                # Clear query params and rerun
+                st.query_params.clear()
                 st.rerun()
+            else:
+                logging.error(f"Failed to acquire token: {result.get('error_description', 'Unknown error')}")
+                st.error("Authentication failed. Please try again.")
+                st.stop()
+
+        # If no code is present, we need to generate auth URL and render the signin page
+        # Generate a new state and save it in session
+        if "oauth_state" not in st.session_state:
+            st.session_state.oauth_state = secrets.token_urlsafe(16)
+
+        auth_url = msal_app.get_authorization_request_url(
+            SCOPE,
+            redirect_uri=REDIRECT_URI,
+            state=st.session_state.oauth_state
+        )
+
+        render_signin_page(auth_url=auth_url, mock=False)
+        render_footer()
         st.stop()
 
 # ── Databricks query helper ────────────────────────────────────────────────────
-@st.cache_resource(ttl="2h")
+@st.cache_resource(ttl="2h", validate=lambda conn: conn.open)
 def get_db_connection():
     return sql.connect(
         server_hostname=os.getenv("DATABRICKS_HOST"),
