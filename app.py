@@ -740,9 +740,9 @@ if search_query:
                 cols_query = (
                     f"SELECT column_name, data_type, comment "
                     f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata "
-                    f"WHERE table_full_name = %s"
+                    f"WHERE table_full_name = %(table_full_name)s"
                 )
-                cols = run_query(cols_query, (full_name,))
+                cols = run_query(cols_query, {"table_full_name": full_name})
                 st.dataframe(
                     cols,
                     use_container_width=True,

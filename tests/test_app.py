@@ -267,8 +267,12 @@ class TestTableDetail:
         at.text_input[0].set_value("orders").run()
         cursor = get_db_cursor()
         _, col_params = cursor.execute.call_args_list[1][0]
-        # params is a tuple: (full_name,)
-        full_name = col_params[0] if isinstance(col_params, (tuple, list)) else col_params
+        # params is a dict: {"table_full_name": full_name}
+        if isinstance(col_params, dict):
+            full_name = col_params.get("table_full_name")
+        else:
+            full_name = col_params[0] if isinstance(col_params, (tuple, list)) else col_params
+
         assert full_name == "main.sales.orders", \
             f"Column query got full_name='{full_name}', expected 'main.sales.orders'"
 
