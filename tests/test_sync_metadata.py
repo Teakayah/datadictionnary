@@ -3,16 +3,16 @@ from unittest.mock import MagicMock, patch, call
 import os
 import pytest
 
-def mock_dependencies():
-    sys.modules["databricks"] = MagicMock()
-    sys.modules["databricks.sdk"] = MagicMock()
-    sys.modules["databricks.sql"] = MagicMock()
-    sys.modules["dotenv"] = MagicMock()
-
 @pytest.fixture(autouse=True)
 def setup_mocks():
-    mock_dependencies()
-    yield
+    mock_modules = {
+        "databricks": MagicMock(),
+        "databricks.sdk": MagicMock(),
+        "databricks.sql": MagicMock(),
+        "dotenv": MagicMock()
+    }
+    with patch.dict("sys.modules", mock_modules):
+        yield
 
 def test_get_sql_connection():
     env_vars = {
