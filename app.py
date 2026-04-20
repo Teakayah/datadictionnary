@@ -656,8 +656,9 @@ render_css()
 
 # ── Auth gate ─────────────────────────────────────────────────────────────────
 ENABLE_MOCK_AUTH = os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
 
-if ENABLE_MOCK_AUTH:
+if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
     st.warning("⚠️ Mock Authentication is ENABLED.")
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
