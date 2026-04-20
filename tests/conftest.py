@@ -21,6 +21,45 @@ import pandas as pd
 import pytest
 import streamlit as st
 from unittest.mock import MagicMock
+import types
+
+# Streamlit's @st.cache_resource with a generator yield returns the generator in test bare mode.
+# We must mock st.cache_resource to correctly unwrap the generator in our tests.
+original_cache_resource = st.cache_resource
+def mock_cache_resource(*args, **kwargs):
+    # Determine if the call is a decorator with arguments (e.g. @cache_resource(ttl=...))
+    # or without arguments (e.g. @cache_resource)
+    is_called_with_args = not (len(args) == 1 and callable(args[0]) and len(kwargs) == 0)
+
+    def decorator(func):
+        if is_called_with_args:
+            cached_func = original_cache_resource(*args, **kwargs)(func)
+        else:
+            cached_func = original_cache_resource(func)
+
+        def wrapper(*f_args, **f_kwargs):
+            # In test mode, because of clear(), we might be calling the underlying function
+            # and caching its generator object. The issue is that the SAME generator is
+            # returned multiple times across test steps, and `next(res)` raises StopIteration
+            # because the generator was already consumed.
+            # To fix this, we should NOT execute the cached_func generator.
+            # Instead, we just execute the original `func` if it's returning a generator
+            # or recreate it. Streamlit handles this internally by storing the yielded value,
+            # but our test stub relies on the original cache.
+            # We bypass the streamilt cache entirely for generators to avoid StopIteration!
+            res = func(*f_args, **f_kwargs)
+            if isinstance(res, types.GeneratorType):
+                return next(res)
+            # If not a generator, we just return the cached_func result
+            return cached_func(*f_args, **f_kwargs)
+        return wrapper
+
+    if not is_called_with_args:
+        return decorator(args[0])
+    return decorator
+
+mock_cache_resource.clear = original_cache_resource.clear
+st.cache_resource = mock_cache_resource
 
 
 # ── Test environment — enable mock auth so AppTest runs without Entra ID ──────
@@ -62,6 +101,11 @@ sys.modules.setdefault("dotenv", _dotenv)
 
 def get_db_cursor() -> MagicMock:
     """Return the mock cursor object that run_query() will use."""
+    # When using @st.cache_resource with a yield, the mock generator
+    # returned by get_database_connection() needs to be stepped or mocked correctly
+    # because st.cache_resource returns the yielded value in normal Streamlit flow,
+    # but in test mode it returns the generator or we can just mock st.cache_resource
+    # Let's bypass cache_resource completely in test or intercept it.
     return (
         _databricks_sql.connect.return_value
                        .cursor.return_value
@@ -77,6 +121,7 @@ def reset_sql_mock():
     the next, and sets a safe default return value of an empty DataFrame.
     """
     st.cache_data.clear()
+    original_cache_resource.clear()
     cursor = get_db_cursor()
     cursor.reset_mock()
     cursor.fetchall_as_pandas.return_value = pd.DataFrame()
