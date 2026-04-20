@@ -54,7 +54,7 @@ sys.modules.setdefault("dotenv", _dotenv)
 
 # ── SQL cursor helper ─────────────────────────────────────────────────────────
 # app.py's run_query() follows this chain:
-#   sql.connect(...) as conn → conn.cursor() as cursor → cursor.execute(...);
+#   conn = sql.connect(...) → conn.cursor() as cursor → cursor.execute(...);
 #   cursor.fetchall_as_pandas()
 #
 # All calls go through the same MagicMock chain because MagicMock.return_value
@@ -64,7 +64,6 @@ def get_db_cursor() -> MagicMock:
     """Return the mock cursor object that run_query() will use."""
     return (
         _databricks_sql.connect.return_value
-                       .__enter__.return_value
                        .cursor.return_value
                        .__enter__.return_value
     )
