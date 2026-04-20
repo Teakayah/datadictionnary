@@ -54,7 +54,7 @@ sys.modules.setdefault("dotenv", _dotenv)
 
 # ── SQL cursor helper ─────────────────────────────────────────────────────────
 # app.py's run_query() follows this chain:
-#   sql.connect(...) → conn.cursor() as cursor → cursor.execute(...);
+#   conn = sql.connect(...) → conn.cursor() as cursor → cursor.execute(...);
 #   cursor.fetchall_as_pandas()
 #
 # All calls go through the same MagicMock chain because MagicMock.return_value
