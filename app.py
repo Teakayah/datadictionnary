@@ -609,10 +609,17 @@ def get_db_connection():
 
 @st.cache_data(ttl="1h")
 def run_query(query, params=None):
-    conn = get_db_connection()
-    with conn.cursor() as cursor:
-        cursor.execute(query, params)
-        return cursor.fetchall_as_pandas()
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(query, params)
+            return cursor.fetchall_as_pandas()
+    except Exception as e:
+        get_db_connection.clear()
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(query, params)
+            return cursor.fetchall_as_pandas()
 
 
 # ── App entry point ────────────────────────────────────────────────────────────
