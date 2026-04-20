@@ -49,3 +49,4 @@ Thumbs.db
 # --- Project Specific ---
 .digest/
 screenshots/
+tests/__pycache__/
