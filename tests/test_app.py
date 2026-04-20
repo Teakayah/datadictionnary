@@ -17,6 +17,8 @@ Run with:
 
 from __future__ import annotations
 
+import sys
+from unittest.mock import patch
 import os
 import re
 import pandas as pd
@@ -382,9 +384,7 @@ class TestDesignSystem:
 # Additional Coverage Tests
 # ═══════════════════════════════════════════════════════════════════════════════
 
-from unittest.mock import patch
 
-import sys
 class TestRealAuth:
     """Real auth flow tests (CLIENT_ID set)."""
 
