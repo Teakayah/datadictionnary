@@ -375,3 +375,89 @@ class TestDesignSystem:
         at.run()
         html = _html(*at.markdown)
         assert "Finance User" in html, "User name not rendered in app header"
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Additional Coverage Tests
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from unittest.mock import patch
+
+class TestRealAuth:
+    """Real auth flow tests (CLIENT_ID set)."""
+
+    def test_real_auth_flow(self, monkeypatch):
+        monkeypatch.setenv("ENABLE_MOCK_AUTH", "false")
+        monkeypatch.setenv("CLIENT_ID", "test_client")
+        monkeypatch.setenv("TENANT_ID", "test_tenant")
+
+        # Needs to import conftest so sys.modules['msal'] is set
+        from tests.conftest import _make_stub
+
+        import sys
+        msal_mock = sys.modules["msal"]
+        msal_app_instance = msal_mock.ConfidentialClientApplication.return_value
+        msal_app_instance.acquire_token_by_authorization_code.return_value = {
+            "access_token": "secret_token",
+            "id_token_claims": {
+                "groups": ["group1"],
+                "name": "Real User"
+            }
+        }
+
+        at = AppTest.from_file(APP_PATH)
+        at.query_params["code"] = "test_auth_code"
+        at.run()
+
+        assert at.session_state["auth_token"] if "auth_token" in at.session_state else None is not None
+        assert at.session_state.get("user_name", "") == "Real User" if hasattr(at.session_state, "get") else at.session_state["user_name"] == "Real User"
+        assert "group1" in at.session_state["user_groups"]
+
+    def test_real_auth_flow_no_access_token(self, monkeypatch):
+        monkeypatch.setenv("ENABLE_MOCK_AUTH", "false")
+        monkeypatch.setenv("CLIENT_ID", "test_client")
+        monkeypatch.setenv("TENANT_ID", "test_tenant")
+
+        import sys
+        msal_mock = sys.modules["msal"]
+        msal_app_instance = msal_mock.ConfidentialClientApplication.return_value
+        msal_app_instance.acquire_token_by_authorization_code.return_value = {
+            "error": "invalid_grant"
+        }
+
+        at = AppTest.from_file(APP_PATH)
+        at.query_params["code"] = "test_auth_code"
+        at.run()
+
+        assert "auth_token" not in at.session_state or at.session_state["auth_token"] is None
+
+class TestSignoutAndExceptions:
+    """Tests for sign out button and database exceptions."""
+
+    def test_signout(self, monkeypatch):
+        monkeypatch.setenv("ENABLE_MOCK_AUTH", "true")
+        at = AppTest.from_file(APP_PATH)
+        at.session_state["authenticated"] = True
+        at.session_state["user_groups"] = ["g1"]
+        at.run()
+
+        assert len(at.button) > 0
+        signout_btn = [b for b in at.button if b.label == "Sign out"]
+        assert len(signout_btn) == 1
+
+        signout_btn[0].click().run()
+        assert not at.session_state["authenticated"]
+
+    def test_query_exception(self, monkeypatch):
+        monkeypatch.setenv("ENABLE_MOCK_AUTH", "true")
+        at = AppTest.from_file(APP_PATH)
+        at.session_state["authenticated"] = True
+        at.session_state["user_groups"] = ["g1"]
+        at.run()
+
+        with patch("app.run_query", side_effect=Exception("Database error!")):
+            at.text_input[0].set_value("test_query").run()
+
+        assert at.error
+        assert "An error occurred while querying the data" in at.error[0].value
