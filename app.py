@@ -596,16 +596,21 @@ def check_auth():
                 # Clear the potentially compromised state
                 if "oauth_state" in st.session_state:
                     del st.session_state["oauth_state"]
+                if "oauth_nonce" in st.session_state:
+                    del st.session_state["oauth_nonce"]
                 st.stop()
 
             # The state is valid; proceed with exchanging the code
+            expected_nonce = st.session_state.get("oauth_nonce")
             result = msal_app.acquire_token_by_authorization_code(
-                query_params["code"], scopes=SCOPE, redirect_uri=REDIRECT_URI
+                query_params["code"], scopes=SCOPE, redirect_uri=REDIRECT_URI, nonce=expected_nonce
             )
 
-            # Clear the state once it's used
+            # Clear the state and nonce once it's used
             if "oauth_state" in st.session_state:
                 del st.session_state["oauth_state"]
+            if "oauth_nonce" in st.session_state:
+                del st.session_state["oauth_nonce"]
 
             if "access_token" in result:
                 st.session_state.auth_token = result
@@ -620,14 +625,17 @@ def check_auth():
                 st.stop()
 
         # If no code is present, we need to generate auth URL and render the signin page
-        # Generate a new state and save it in session
+        # Generate a new state and nonce and save them in session
         if "oauth_state" not in st.session_state:
             st.session_state.oauth_state = secrets.token_urlsafe(16)
+        if "oauth_nonce" not in st.session_state:
+            st.session_state.oauth_nonce = secrets.token_urlsafe(16)
 
         auth_url = msal_app.get_authorization_request_url(
             SCOPE,
             redirect_uri=REDIRECT_URI,
-            state=st.session_state.oauth_state
+            state=st.session_state.oauth_state,
+            nonce=st.session_state.oauth_nonce
         )
 
         render_signin_page(auth_url=auth_url, mock=False)
