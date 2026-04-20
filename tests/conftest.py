@@ -64,7 +64,6 @@ def get_db_cursor() -> MagicMock:
     """Return the mock cursor object that run_query() will use."""
     return (
         _databricks_sql.connect.return_value
-                       .__enter__.return_value
                        .cursor.return_value
                        .__enter__.return_value
     )
