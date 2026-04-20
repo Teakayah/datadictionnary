@@ -384,6 +384,7 @@ class TestDesignSystem:
 
 from unittest.mock import patch
 
+import sys
 class TestRealAuth:
     """Real auth flow tests (CLIENT_ID set)."""
 
@@ -395,7 +396,6 @@ class TestRealAuth:
         # Needs to import conftest so sys.modules['msal'] is set
         from tests.conftest import _make_stub
 
-        import sys
         msal_mock = sys.modules["msal"]
         msal_app_instance = msal_mock.ConfidentialClientApplication.return_value
         msal_app_instance.acquire_token_by_authorization_code.return_value = {
@@ -410,8 +410,8 @@ class TestRealAuth:
         at.query_params["code"] = "test_auth_code"
         at.run()
 
-        assert at.session_state["auth_token"] if "auth_token" in at.session_state else None is not None
-        assert at.session_state.get("user_name", "") == "Real User" if hasattr(at.session_state, "get") else at.session_state["user_name"] == "Real User"
+        assert "auth_token" in at.session_state and at.session_state["auth_token"] is not None
+        assert "user_name" in at.session_state and at.session_state["user_name"] == "Real User"
         assert "group1" in at.session_state["user_groups"]
 
     def test_real_auth_flow_no_access_token(self, monkeypatch):
@@ -419,7 +419,6 @@ class TestRealAuth:
         monkeypatch.setenv("CLIENT_ID", "test_client")
         monkeypatch.setenv("TENANT_ID", "test_tenant")
 
-        import sys
         msal_mock = sys.modules["msal"]
         msal_app_instance = msal_mock.ConfidentialClientApplication.return_value
         msal_app_instance.acquire_token_by_authorization_code.return_value = {
