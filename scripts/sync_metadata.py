@@ -1,4 +1,5 @@
 import os
+import re
 import concurrent.futures
 from databricks.sdk import WorkspaceClient
 from databricks import sql
@@ -9,6 +10,14 @@ load_dotenv()
 # Configuration
 CATALOG_CACHE = "data_governance"
 SCHEMA_CACHE = "dictionary_cache"
+
+def validate_sql_identifier(identifier: str) -> None:
+    """Validates that an identifier only contains safe characters to prevent SQL injection."""
+    if not re.match(r"^[a-zA-Z0-9_]+$", identifier):
+        raise ValueError(f"Invalid SQL identifier: {identifier}. Only alphanumeric characters and underscores are allowed.")
+
+validate_sql_identifier(CATALOG_CACHE)
+validate_sql_identifier(SCHEMA_CACHE)
 
 def get_sql_connection():
     return sql.connect(
