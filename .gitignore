@@ -49,4 +49,5 @@ Thumbs.db
 # --- Project Specific ---
 .digest/
 screenshots/
+venv/
 tests/__pycache__/
