@@ -599,16 +599,20 @@ def check_auth():
         st.stop()
 
 # ── Databricks query helper ────────────────────────────────────────────────────
-@st.cache_data(ttl="1h")
-def run_query(query, params=None):
-    with sql.connect(
+@st.cache_resource(ttl="2h", validate=lambda conn: conn.open)
+def get_db_connection():
+    return sql.connect(
         server_hostname=os.getenv("DATABRICKS_HOST"),
         http_path=os.getenv("DATABRICKS_HTTP_PATH"),
         access_token=os.getenv("DATABRICKS_TOKEN"),
-    ) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(query, params)
-            return cursor.fetchall_as_pandas()
+    )
+
+@st.cache_data(ttl="1h")
+def run_query(query, params=None):
+    conn = get_db_connection()
+    with conn.cursor() as cursor:
+        cursor.execute(query, params)
+        return cursor.fetchall_as_pandas()
 
 
 # ── App entry point ────────────────────────────────────────────────────────────
