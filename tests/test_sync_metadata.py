@@ -181,3 +181,18 @@ def test_sync_grants_error(mock_print, mock_get_sql_connection, mock_workspace_c
     sync()
 
     mock_print.assert_any_call("    Could not fetch grants for test_catalog.test_schema.test_table: Grants error")
+
+
+
+
+def test_main_block(setup_mocks, capsys):
+    # Runpy bypasses patch.object, but our fixture `setup_mocks` correctly mocks the imports globally in sys.modules.
+    # Therefore, runpy running the module will use our MagicMocks for databricks.sdk, databricks.sql, etc.
+    # This means the script runs safely without hitting external APIs.
+    import runpy
+    runpy.run_module("scripts.sync_metadata", run_name="__main__")
+
+    # Verify the output to ensure it ran
+    captured = capsys.readouterr()
+    assert "Setting up cache tables" in captured.out
+    assert "Sync completed successfully" in captured.out
