@@ -117,9 +117,9 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
     # 3 executemany calls (tables, columns, permissions)
     executemany_calls = mock_cursor.executemany.call_args_list
     assert len(executemany_calls) == 3
-    assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata" in executemany_calls[0][0][0]
-    assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata" in executemany_calls[1][0][0]
-    assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache" in executemany_calls[2][0][0]
+    assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp())" in executemany_calls[0][0][0]
+    assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata VALUES (%(table_full_name)s, %(column_name)s, %(data_type)s, %(comment)s)" in executemany_calls[1][0][0]
+    assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache VALUES (%(table_full_name)s, %(principal)s, %(privilege)s)" in executemany_calls[2][0][0]
 
 @patch("scripts.sync_metadata.WorkspaceClient")
 @patch("scripts.sync_metadata.get_sql_connection")
