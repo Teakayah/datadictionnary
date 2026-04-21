@@ -57,6 +57,54 @@ def setup_cache_tables():
                 )
             """)
 
+            # Table for lineage edges (1-hop upstream / downstream)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache (
+                    table_full_name  STRING,
+                    direction        STRING,
+                    entity_full_name STRING,
+                    entity_type      STRING
+                )
+            """)
+
+def fetch_lineage(w, full_name):
+    """Returns 1-hop upstream/downstream lineage edges for *full_name*.
+
+    Uses the Databricks REST lineage-tracking API directly because the SDK
+    wrapper is not uniformly available across workspace tiers.  Silently
+    returns an empty list if the feature is disabled or the table type is
+    unsupported (e.g. external tables without Delta lineage enabled).
+    """
+    entries = []
+    try:
+        result = w.api_client.do(
+            "GET",
+            "/api/2.0/lineage-tracking/table-lineage",
+            query={"table_name": full_name},
+        )
+        for up in result.get("upstream_tables", []):
+            name = up.get("name") or up.get("full_name")
+            if name:
+                entries.append({
+                    "table_full_name":  full_name,
+                    "direction":        "UPSTREAM",
+                    "entity_full_name": name,
+                    "entity_type":      up.get("table_type", "TABLE"),
+                })
+        for down in result.get("downstream_tables", []):
+            name = down.get("name") or down.get("full_name")
+            if name:
+                entries.append({
+                    "table_full_name":  full_name,
+                    "direction":        "DOWNSTREAM",
+                    "entity_full_name": name,
+                    "entity_type":      down.get("table_type", "TABLE"),
+                })
+    except Exception as e:
+        print(f"    Lineage unavailable for {full_name}: {e}")
+    return entries
+
+
 def sync():
     print("🚀 Starting Unity Catalog metadata sync...")
     w = WorkspaceClient()
@@ -65,6 +113,7 @@ def sync():
     tables_data = []
     columns_data = []
     permissions_data = []
+    lineage_data = []
 
     # 1. Iterate through catalogs (skipping system/internal ones if needed)
     table_full_names = []
@@ -102,7 +151,7 @@ def sync():
             except Exception as e:
                 print(f"  Error processing schema {schema.name}: {e}")
 
-    # 2. Fetch permission grants concurrently
+    # 2. Fetch permission grants and lineage concurrently
     print("🔐 Fetching permission grants...")
 
     def fetch_grants(full_name):
@@ -123,6 +172,11 @@ def sync():
                             "privilege": str(priv)
                         })
 
+    print("🔗 Fetching lineage...")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        for entries in executor.map(lambda fn: fetch_lineage(w, fn), table_full_names):
+            lineage_data.extend(entries)
+
     # 3. Load into Databricks SQL Warehouse
     print("📂 Loading data into SQL Warehouse...")
     with get_sql_connection() as conn:
@@ -130,6 +184,7 @@ def sync():
             cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata")
             cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata")
             cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache")
+            cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache")
 
             if tables_data:
                 cursor.executemany(
@@ -145,6 +200,11 @@ def sync():
                 cursor.executemany(
                     f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache VALUES (%(table_full_name)s, %(principal)s, %(privilege)s)",
                     permissions_data
+                )
+            if lineage_data:
+                cursor.executemany(
+                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache VALUES (%(table_full_name)s, %(direction)s, %(entity_full_name)s, %(entity_type)s)",
+                    lineage_data
                 )
 
     print("✅ Sync completed successfully.")

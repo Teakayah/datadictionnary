@@ -1,13 +1,30 @@
 // AppShell — outer frame: sticky header + main column
 function AppShell({ children, user, onLogout }) {
   return (
-    <div style={{minHeight:'100vh', background:'var(--paper)'}}>
-      <header style={{
-        position:'sticky', top:0, zIndex:10,
-        background:'rgba(250,247,240,.92)', backdropFilter:'blur(8px)',
-        borderBottom:'1px solid var(--ink-20)'
+    <div style={{
+      minHeight:'100vh', 
+      background:'var(--paper-deep)', 
+      display:'flex', 
+      justifyContent:'center', 
+      padding:'20px 0'
+    }}>
+      <div style={{
+        width:'95%',
+        maxWidth:'1280px',
+        background:'var(--paper)',
+        boxShadow:'0 32px 64px -16px rgba(20,17,12,0.12)',
+        borderRadius:8,
+        display:'flex',
+        flexDirection:'column',
+        minHeight:'calc(100vh - 40px)',
+        overflow:'hidden'
       }}>
-        <div style={{maxWidth:1200, margin:'0 auto', padding:'14px 48px', display:'flex', alignItems:'center', gap:24}}>
+        <header style={{
+          position:'sticky', top:0, zIndex:10,
+          background:'rgba(250,247,240,.92)', backdropFilter:'blur(8px)',
+          borderBottom:'1px solid var(--ink-20)'
+        }}>
+          <div style={{maxWidth:1200, margin:'0 auto', padding:'14px 48px', display:'flex', alignItems:'center', gap:24}}>
           <a href="#" style={{display:'flex',alignItems:'center',gap:12,textDecoration:'none'}}>
             <img src="../../assets/logo-mark.svg" alt="" style={{height:30}}/>
             <span style={{fontFamily:'var(--font-display)', fontSize:22, fontWeight:500, color:'var(--ink)', letterSpacing:'-.01em'}}>Data Dictionary</span>
@@ -34,6 +51,7 @@ function AppShell({ children, user, onLogout }) {
           <span>main.data_governance.dictionary_cache</span>
         </div>
       </footer>
+      </div>
     </div>
   );
 }

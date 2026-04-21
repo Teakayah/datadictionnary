@@ -34,7 +34,7 @@ function ResultsList({ query, selected, onSelect }) {
       </header>
       {rows.map((r,i)=> (
         <div key={i} onClick={()=>onSelect(r)}
-          style={{display:'grid',gridTemplateColumns:'160px 1fr 140px 90px',gap:20,padding:'16px 8px',borderTop: i===0?'none':'1px solid var(--ink-10)',cursor:'pointer',alignItems:'baseline',background: selected?.name===r.name?'var(--accent-wash)':'transparent',transition:'background 120ms var(--ease)'}}
+          style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))',gap:20,padding:'16px 8px',borderTop: i===0?'none':'1px solid var(--ink-10)',cursor:'pointer',alignItems:'baseline',background: selected?.name===r.name?'var(--accent-wash)':'transparent',transition:'background 120ms var(--ease)'}}
           onMouseEnter={e=>{ if(selected?.name!==r.name) e.currentTarget.style.background='var(--paper-deep)';}}
           onMouseLeave={e=>{ if(selected?.name!==r.name) e.currentTarget.style.background='transparent';}}>
           <div className="mono" style={{fontSize:11,color:'var(--ink-40)'}}>{r.cat}.{r.sch}</div>

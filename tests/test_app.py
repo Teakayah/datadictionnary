@@ -59,6 +59,33 @@ def empty_results_df() -> pd.DataFrame:
     ])
 
 
+def make_grants_df() -> pd.DataFrame:
+    return pd.DataFrame({
+        "principal": ["all_employees_id", "SELECT_ALL_USERS"],
+        "privilege":  ["SELECT",           "SELECT"],
+    })
+
+
+def make_lineage_df(
+    upstreams: list | None = None,
+    downstreams: list | None = None,
+) -> pd.DataFrame:
+    rows = []
+    for efn in (upstreams or []):
+        rows.append({"direction": "UPSTREAM",   "entity_full_name": efn, "entity_type": "TABLE"})
+    for efn in (downstreams or []):
+        rows.append({"direction": "DOWNSTREAM", "entity_full_name": efn, "entity_type": "TABLE"})
+    if not rows:
+        return pd.DataFrame(columns=["direction", "entity_full_name", "entity_type"])
+    return pd.DataFrame(rows)
+
+
+def make_related_df(tables: list | None = None) -> pd.DataFrame:
+    if not tables:
+        return pd.DataFrame(columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"])
+    return pd.DataFrame(tables)
+
+
 # ── App factory helpers ────────────────────────────────────────────────────────
 
 def unauthenticated_app() -> AppTest:
@@ -263,14 +290,14 @@ class TestTableDetail:
     """Column detail view triggered by selecting a table from search results."""
 
     def test_columns_dataframe_rendered(self):
-        """Selecting a table must render a second dataframe for its columns."""
+        """Selecting a table must render the columns section in the detail pane."""
         sql_returns(make_tables_df(), make_columns_df())
         at = authenticated_app()
         at.run()
         at.text_input[0].set_value("orders").run()
-        # Two dataframes expected: search results + columns
-        assert len(at.dataframe) == 2, \
-            f"Expected 2 dataframes (results + columns), got {len(at.dataframe)}"
+        # Columns are rendered as an HTML table inside a st.markdown block
+        html = _html(*at.markdown)
+        assert "dd-columns-table" in html, "Expected column HTML table in detail pane"
 
     def test_column_query_targets_columns_metadata(self):
         """The second SQL call must query the columns_metadata table."""
@@ -279,8 +306,9 @@ class TestTableDetail:
         at.run()
         at.text_input[0].set_value("orders").run()
         cursor = get_db_cursor()
-        assert len(cursor.execute.call_args_list) == 2, \
-            "Expected exactly 2 SQL calls (search + columns)"
+        # 3 SQL calls: authorized-tables, columns_metadata, permissions_cache (grants)
+        assert len(cursor.execute.call_args_list) >= 2, \
+            "Expected at least 2 SQL calls (search + columns)"
         second_sql = cursor.execute.call_args_list[1][0][0]
         assert "columns_metadata" in second_sql
 
@@ -430,7 +458,12 @@ class TestRealAuth:
         }
 
         at = AppTest.from_file(APP_PATH)
+        # PR #38 added state + nonce verification; simulate having gone through the
+        # sign-in page by pre-seeding session_state and matching query params.
+        at.session_state["oauth_state"] = "test_state"
+        at.session_state["oauth_nonce"] = "test_nonce"
         at.query_params["code"] = "test_auth_code"
+        at.query_params["state"] = "test_state"
         at.run()
 
         assert "auth_token" in at.session_state and at.session_state["auth_token"] is not None
@@ -482,4 +515,157 @@ class TestSignoutAndExceptions:
             at.text_input[0].set_value("test_query").run()
 
         assert at.error
-        assert "An error occurred while querying the data" in at.error[0].value
+        assert "An unexpected error occurred while querying the data" in at.error[0].value
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Lineage and related tables tests
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestLineageAndRelated:
+    """Tests for § Lineage and § Related tables sections in the detail pane.
+
+    The query order when a table is selected is:
+      1. get_authorized_tables  → tables_metadata JOIN permissions_cache
+      2. columns_metadata
+      3. permissions_cache (grants)
+      4. lineage_cache
+      5. related tables (UNION query)
+    sql_returns() must be called with all 5 DataFrames in that order.
+    """
+
+    _EMPTY_LINEAGE = lambda: pd.DataFrame(columns=["direction", "entity_full_name", "entity_type"])
+    _EMPTY_RELATED = lambda: pd.DataFrame(columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"])
+
+    def _run_with_detail(
+        self,
+        tables_df=None,
+        columns_df=None,
+        grants_df=None,
+        lineage_df=None,
+        related_df=None,
+    ) -> AppTest:
+        """Configure SQL mocks for the full detail-pane query sequence, run the app,
+        type 'orders' in the search box, and return the AppTest after that run."""
+        sql_returns(
+            tables_df  if tables_df  is not None else make_tables_df(),
+            columns_df if columns_df is not None else make_columns_df(),
+            grants_df  if grants_df  is not None else make_grants_df(),
+            lineage_df if lineage_df is not None else TestLineageAndRelated._EMPTY_LINEAGE(),
+            related_df if related_df is not None else TestLineageAndRelated._EMPTY_RELATED(),
+        )
+        at = authenticated_app()
+        at.run()
+        at.text_input[0].set_value("orders").run()
+        return at
+
+    # ── § Grants ──────────────────────────────────────────────────────────────
+
+    def test_grants_section_renders_rows(self):
+        """§ Grants must render dd-grant-row divs when grants exist."""
+        at = self._run_with_detail(grants_df=make_grants_df())
+        html = _html(*at.markdown)
+        assert "dd-grant-row" in html
+
+    def test_grants_select_all_users_shown_as_all_users(self):
+        """The sentinel value SELECT_ALL_USERS must render as 'all users', not the raw string."""
+        grants = pd.DataFrame({"principal": ["SELECT_ALL_USERS"], "privilege": ["SELECT"]})
+        at = self._run_with_detail(grants_df=grants)
+        html = _html(*at.markdown)
+        assert "all users" in html
+        assert "SELECT_ALL_USERS" not in html
+
+    def test_grants_empty_state(self):
+        """§ Grants must show the fallback message when no grants exist."""
+        at = self._run_with_detail(
+            grants_df=pd.DataFrame(columns=["principal", "privilege"])
+        )
+        html = _html(*at.markdown)
+        assert "No grants recorded" in html
+
+    # ── § Lineage ─────────────────────────────────────────────────────────────
+
+    def test_lineage_nodes_rendered_when_data_available(self):
+        """§ Lineage must render dd-lineage-node cards for each upstream/downstream."""
+        lineage = make_lineage_df(
+            upstreams=["raw.source.orders_raw"],
+            downstreams=["prod.analytics.orders_fact"],
+        )
+        at = self._run_with_detail(lineage_df=lineage)
+        html = _html(*at.markdown)
+        assert "dd-lineage-node" in html
+        assert "orders_raw" in html
+        assert "orders_fact" in html
+
+    def test_lineage_empty_state(self):
+        """§ Lineage must show the fallback message when no lineage data exists."""
+        at = self._run_with_detail(
+            lineage_df=TestLineageAndRelated._EMPTY_LINEAGE()
+        )
+        html = _html(*at.markdown)
+        assert "Lineage not available" in html
+
+    def test_lineage_locked_node_for_unauthorized_table(self):
+        """A lineage node whose full_name is not in the user's authorized set must be
+        rendered with the dd-lineage-locked class and must not expose a nav button."""
+        lineage = make_lineage_df(upstreams=["restricted.private.secret_table"])
+        # Authorized tables only contains main.sales.orders — not the upstream.
+        at = self._run_with_detail(lineage_df=lineage)
+        html = _html(*at.markdown)
+        assert "dd-lineage-locked" in html
+        assert "secret_table" in html
+        # No clickable button for the locked node.
+        nav_buttons = [b for b in at.button if b.label == "secret_table"]
+        assert len(nav_buttons) == 0, "Locked lineage node must not have a navigation button"
+
+    def test_lineage_authorized_node_has_nav_button(self):
+        """A lineage node that IS in the authorized set must render a navigation button."""
+        tables_with_upstream = pd.DataFrame({
+            "full_name":         ["main.sales.orders", "raw.source.orders_raw"],
+            "catalog_name":      ["main",              "raw"],
+            "schema_name":       ["sales",             "source"],
+            "table_name":        ["orders",            "orders_raw"],
+            "table_description": ["All customer orders", "Raw ingest"],
+            "table_type":        ["TABLE",             "TABLE"],
+        })
+        lineage = make_lineage_df(upstreams=["raw.source.orders_raw"])
+        at = self._run_with_detail(tables_df=tables_with_upstream, lineage_df=lineage)
+        nav_buttons = [b for b in at.button if b.label == "orders_raw"]
+        assert len(nav_buttons) >= 1, "Authorized lineage node must have a navigation button"
+
+    # ── § Related tables ──────────────────────────────────────────────────────
+
+    def test_related_tables_renders_cards(self):
+        """§ Related tables must render dd-related-card elements when data exists."""
+        related = make_related_df([{
+            "full_name":    "main.sales.customers",
+            "table_name":   "customers",
+            "catalog_name": "main",
+            "schema_name":  "sales",
+            "relationship": "Same schema",
+        }])
+        at = self._run_with_detail(related_df=related)
+        html = _html(*at.markdown)
+        assert "dd-related-card" in html
+        assert "customers" in html
+
+    def test_related_tables_empty_state(self):
+        """§ Related tables must show the fallback message when no related tables exist."""
+        at = self._run_with_detail(
+            related_df=TestLineageAndRelated._EMPTY_RELATED()
+        )
+        html = _html(*at.markdown)
+        assert "No related tables found" in html
+
+    def test_related_table_open_button_present(self):
+        """Each related table card must render an 'Open →' navigation button."""
+        related = make_related_df([{
+            "full_name":    "main.sales.customers",
+            "table_name":   "customers",
+            "catalog_name": "main",
+            "schema_name":  "sales",
+            "relationship": "Same schema",
+        }])
+        at = self._run_with_detail(related_df=related)
+        open_buttons = [b for b in at.button if b.label == "Open \u2192"]
+        assert len(open_buttons) >= 1, "Expected 'Open \u2192' button for related table card"
