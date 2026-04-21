@@ -143,8 +143,7 @@ st.set_page_config(
 )
 
 # ── Design system CSS ──────────────────────────────────────────────────────────
-DESIGN_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+DESIGN_CSS = """@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
     --paper:        #FAF7F0;
@@ -731,6 +730,11 @@ button[data-testid="stBaseButton-secondary"]:hover {
     font-size: 12px;
     color: var(--ink-40);
 }
+
+.dd-nav a.active {
+    color: var(--accent) !important;
+    font-weight: 600 !important;
+}
 """
 
 # ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
@@ -759,30 +763,41 @@ def render_css():
     st.markdown(f"<style>{DESIGN_CSS}</style>", unsafe_allow_html=True)
 
 
-def render_header(user_name: str | None = None):
+
+
+
+
+def render_header(user_name: str | None = None, active_tab: str = "search"):
     user_section = ""
     if user_name:
-        user_section = f"""
+        user_section = f'''
         <span class="dd-nav-sep"></span>
         <span class="dd-nav-user">{user_name}</span>
-        """
-    st.markdown(f"""
+        '''
+    
+    def link(label, tab_id):
+        active = "active" if active_tab == tab_id else ""
+        return f'<a href="?tab={tab_id}&mock_login=true" target="_self" class="{active}">{label}</a>'
+
+    st.markdown(f'''
     <div class="dd-header">
       <div class="dd-header-inner">
-        <a href="#" class="dd-logo-link">
+        <a href="?tab=search&mock_login=true" target="_self" class="dd-logo-link">
           {LOGO_MARK_SVG}
           <span class="dd-logo-text">Data Dictionary</span>
           <span class="dd-pill">Beta</span>
         </a>
         <nav class="dd-nav">
-          <a href="#">Catalog</a>
-          <a href="#">Glossary</a>
-          <a href="#">Lineage</a>
+          {link("Search", "search")}
+          {link("Catalog", "catalog")}
+          {link("Glossary", "glossary")}
+          {link("Discovery", "discovery")}
+          {link("Health", "health")}
           {user_section}
         </nav>
       </div>
     </div>
-    """, unsafe_allow_html=True)
+    ''', unsafe_allow_html=True)
 
 
 def render_footer():
@@ -977,30 +992,6 @@ def run_query(query, params=None):
         return cursor.fetchall_as_pandas()
 
 
-# ── App entry point ────────────────────────────────────────────────────────────
-render_css()
-
-# ── Auth gate ─────────────────────────────────────────────────────────────────
-ENABLE_MOCK_AUTH = os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
-ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
-
-if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
-    st.warning("⚠️ Mock Authentication is ENABLED.")
-    if "authenticated" not in st.session_state:
-        st.session_state.authenticated = False
-    if not st.session_state.authenticated:
-        render_header()
-        st.markdown('<div class="dd-page">', unsafe_allow_html=True)
-        render_signin_page(mock=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-        render_footer()
-        st.stop()
-else:
-    check_auth()
-
-# ── Authenticated: header with user ───────────────────────────────────────────
-render_header(user_name=st.session_state.get("user_name", ""))
-st.markdown('<div class="dd-page">', unsafe_allow_html=True)
 
 @st.cache_data(ttl="1h")
 def get_authorized_tables(groups):
@@ -1019,449 +1010,253 @@ def get_authorized_tables(groups):
     """
     return run_query(sql_query, {"groups": groups})
 
-# Sign-out (hidden Streamlit widget used for state management)
-with st.sidebar:
-    if st.button("Sign out"):
-        st.session_state.clear()
-        st.rerun()
 
-# ── Search page ───────────────────────────────────────────────────────────────
-st.markdown("""
-<div class="dd-search-hero">
-  <div class="dd-eyebrow">§ Catalog search</div>
-  <h1>Find your data.</h1>
-  <p class="lead">Search tables, columns, and business terms across Unity Catalog —
-  filtered to what you can access.</p>
-</div>
-""", unsafe_allow_html=True)
-
-# Navigation override: a lineage/related-table click sets these keys so the
-# next run pre-fills the search box and highlights the right row.
-if "dd_search_override" in st.session_state:
-    st.session_state["catalog_search"] = st.session_state.pop("dd_search_override")
-
-active_group = st.session_state.get("group_filter")
-if active_group:
-    c1, c2 = st.columns([8, 2], gap="small", vertical_alignment="center")
-    with c1:
-        st.info(f"**Filtered by AD Group:** {active_group}", icon="🔒")
-    with c2:
-        if st.button("Clear Filter", use_container_width=True):
-            st.session_state.pop("group_filter", None)
-            st.rerun()
-
-# Determine which groups to query (either the filter or all user's groups)
-query_groups = (active_group,) if active_group else (tuple(st.session_state.user_groups) if st.session_state.user_groups else ("none",))
-
-try:
-    all_results = get_authorized_tables(query_groups)
-    table_options = sorted(all_results['table_name'].unique().tolist())
-except Exception as e:
-    logging.error("Error querying data: %s", e, exc_info=True)
-    st.error("Error loading catalog.")
-    all_results = None
-    table_options = []
-
-search_query = st.selectbox(
-    "Search the catalog",
-    options=table_options,
-    index=table_options.index(st.session_state.get("catalog_search")) if st.session_state.get("catalog_search") in table_options else None,
-    placeholder="Select or type a table name...",
-    label_visibility="collapsed",
-    key="catalog_search",
-)
-
-if search_query and all_results is not None:
+def render_catalog_browser(groups):
+    st.markdown('''
+    <div class="dd-search-hero">
+      <div class="dd-eyebrow">§ Catalog browser</div>
+      <h1>Explore the hierarchy.</h1>
+      <p class="lead">Drill down from catalogs to schemas and tables.</p>
+    </div>
+    ''', unsafe_allow_html=True)
+    
     try:
-        # Filter strictly by the selected table name
-        results = all_results[all_results['table_name'] == search_query]
-
-        if not results.empty:
-            col_main_detail, col_side_detail = st.columns([7, 5], gap="large")
-
-            _table_names = results["table_name"].tolist()
-            _nav_target  = st.session_state.pop("dd_nav_select", None)
-
-            # Auto-select the first result by default
-            _nav_idx = 0 if len(_table_names) > 0 else None
-
-            if _nav_target:
-                _nav_name = _nav_target.split(".")[-1]
-                if _nav_name in _table_names:
-                    _nav_idx = _table_names.index(_nav_name)
-
-            if _nav_idx is not None:
-                selected_table = _table_names[_nav_idx]
-                row = results[results["table_name"] == selected_table].iloc[0]
-                full_name = f"{row['catalog_name']}.{row['schema_name']}.{row['table_name']}"
+        all_data = get_authorized_tables(groups)
+        if all_data.empty:
+            st.info("No catalogs accessible.")
+            return
+            
+        catalogs = sorted(all_data['catalog_name'].unique().tolist())
+        
+        # Simple Tree Implementation using Streamlit expanders
+        for cat in catalogs:
+            with st.expander(f"📁 {cat}", expanded=False):
+                cat_data = all_data[all_data['catalog_name'] == cat]
+                schemas = sorted(cat_data['schema_name'].unique().tolist())
                 
-                with col_main_detail:
-                    st.markdown("""
-                    <div class="dd-detail-header" style="margin-top: 0;">
-                      <span class="dd-eyebrow" style="margin-bottom:0">§ Table detail</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    # ── Header ────────────────────────────────────────────────────
-                    _cat  = _html.escape(str(row['catalog_name']))
-                    _sch  = _html.escape(str(row['schema_name']))
-                    _tbl  = _html.escape(str(row['table_name']))
-                    _raw_desc = row.get('table_description', '')
-                    _desc = _html.escape(str(_raw_desc) if isinstance(_raw_desc, str) else '')
-                    _host = os.getenv("DATABRICKS_HOST", "").strip()
-                    _ext_link = (
-                        f'<a href="https://{_host}/explore/data/{_cat}/{_sch}/{_tbl}" '
-                        f'target="_blank" class="dd-link-external">Open in Databricks ↗</a>'
-                        if _host else ''
-                    )
-
-                    st.markdown(f"""
-                    <div class="dd-eyebrow" style="margin-bottom:4px">{_cat} · {_sch}</div>
-                    <div class="dd-detail-table-name">{_tbl}</div>
-                    <p class="dd-detail-desc">{_desc}</p>
-                    {_ext_link}
-                    """, unsafe_allow_html=True)
-
-                    st.code(full_name, language=None)
-
-                    # ── § Columns ─────────────────────────────────────────────────
-                    cols_query = (
-                        "SELECT column_name, data_type, comment "
-                        "FROM {0}.{1}.columns_metadata "
-                        "WHERE table_full_name = %(table_full_name)s "
-                        "ORDER BY column_name"  # nosec B608
-                    ).format(CATALOG_CACHE, SCHEMA_CACHE)
-                    cols = run_query(cols_query, {"table_full_name": full_name})
-                    n_cols = len(cols) if cols is not None and not cols.empty else 0
-
-                    st.markdown(f"""
-                    <div class="dd-section-header">
-                      <span class="dd-eyebrow" style="margin-bottom:0">§ Columns</span>
-                      <span class="dd-section-count">{n_cols}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    if n_cols > 0:
-                        rows_html = "".join(
-                            f'<tr class="dd-col-row">'
-                            f'<td class="dd-col-name">{_html.escape(str(c.get("column_name", "")))}</td>'
-                            f'<td class="dd-col-type">{_html.escape(str(c.get("data_type", "")))}</td>'
-                            f'<td class="dd-col-desc">{_html.escape(str(c.get("comment") or ""))}</td>'
-                            f'</tr>'
-                            for _, c in cols.iterrows()
-                        )
-                        st.markdown(
-                            f'<table class="dd-columns-table"><tbody>{rows_html}</tbody></table>',
-                            unsafe_allow_html=True,
-                        )
-                    else:
-                        st.markdown(
-                            '<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No columns recorded.</p>',
-                            unsafe_allow_html=True,
-                        )
-
-                with col_side_detail:
-                    # ── § Group Permissions ──────────────────────────────────────────────────
-                    grants_query = (
-                        "SELECT DISTINCT principal, privilege "
-                        "FROM {0}.{1}.permissions_cache "
-                        "WHERE table_full_name = %(table_full_name)s "
-                        "ORDER BY principal"  # nosec B608
-                    ).format(CATALOG_CACHE, SCHEMA_CACHE)
-                    grants = run_query(grants_query, {"table_full_name": full_name})
-                    n_grants = len(grants) if grants is not None and not grants.empty else 0
-
-                    st.markdown(f"""
-                    <div class="dd-section-header">
-                      <span class="dd-eyebrow" style="margin-bottom:0">§ Group Permissions</span>
-                      <span class="dd-section-count">{n_grants}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    if n_grants > 0:
-                        for _, g in grants.iterrows():
-                            principal = str(g.get("principal", ""))
-                            privilege = str(g.get("privilege", ""))
-                            if principal == "SELECT_ALL_USERS":
-                                st.markdown(f'<div class="dd-grant-row"><span class="dd-grant-who">all users</span><span class="dd-grant-what">{_html.escape(privilege)}</span></div>', unsafe_allow_html=True)
-                            else:
-                                st.markdown('<div style="border-top: 1px solid var(--ink-10); margin: 8px 0 4px 0;"></div>', unsafe_allow_html=True)
-                                if st.button(f"🔍 Search tables accessible to: {principal}  ({privilege})", key=f"grant_{full_name}_{principal}_{privilege}", use_container_width=True):
-                                    st.session_state["group_filter"] = principal
-                                    st.session_state.pop("catalog_search", None)
-                                    st.session_state.pop("dd_nav_select", None)
-                                    st.rerun()
-                    else:
-                        st.markdown(
-                            '<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No grants recorded.</p>',
-                            unsafe_allow_html=True,
-                        )
-
-                    # ── § Lineage ─────────────────────────────────────────────────
-                    lineage_query = (
-                        "SELECT direction, entity_full_name, entity_type "
-                        "FROM {0}.{1}.lineage_cache "
-                        "WHERE table_full_name = %(table_full_name)s "
-                        "ORDER BY direction, entity_full_name"  # nosec B608
-                    ).format(CATALOG_CACHE, SCHEMA_CACHE)
-                    lineage = run_query(lineage_query, {"table_full_name": full_name})
-                    has_lineage = lineage is not None and not lineage.empty
-
-                    st.markdown("""
-                    <div class="dd-section-header">
-                      <span class="dd-eyebrow" style="margin-bottom:0">§ Lineage</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    if has_lineage:
-                        _authorized_names = set(all_results["full_name"].tolist())
-                        upstreams   = lineage[lineage["direction"] == "UPSTREAM"]["entity_full_name"].tolist()
-                        downstreams = lineage[lineage["direction"] == "DOWNSTREAM"]["entity_full_name"].tolist()
-
-                        col_up, col_cur, col_down = st.columns([5, 4, 5], gap="small")
-
-                        def _lineage_node_html(efn: str, arrow: str, authorized: bool) -> str:
-                            parts  = efn.split(".")
-                            t_name = _html.escape(parts[-1]) if parts else _html.escape(efn)
-                            schema = _html.escape(".".join(parts[:2])) if len(parts) >= 3 else ""
-                            locked = "" if authorized else " dd-lineage-locked"
-                            return (
-                                f'<div class="dd-lineage-node{locked}">'
-                                f'<div style="font-family:var(--font-mono);font-size:10px;'
-                                f'color:var(--ink-40);margin-bottom:3px">{arrow}</div>'
-                                f'<div class="dd-lineage-node-name">{t_name}</div>'
-                                f'<div class="dd-lineage-node-schema">{schema}</div>'
-                                f'</div>'
-                            )
-
-                        with col_up:
-                            st.markdown('<div class="dd-lineage-dir">Sources</div>', unsafe_allow_html=True)
-                            if upstreams:
-                                for efn in upstreams:
-                                    authorized = efn in _authorized_names
-                                    st.markdown(_lineage_node_html(efn, "←", authorized), unsafe_allow_html=True)
-                                    if authorized:
-                                        if st.button(
-                                            efn.split(".")[-1],
-                                            key=f"lin_up_{efn}",
-                                            type="secondary",
-                                            use_container_width=True,
-                                        ):
-                                            st.session_state["dd_search_override"] = efn.split(".")[-1]
-                                            st.session_state["dd_nav_select"] = efn
-                                            st.rerun()
-                            else:
-                                st.markdown('<div class="dd-lineage-empty">No sources recorded.</div>', unsafe_allow_html=True)
-
-                        with col_cur:
-                            st.markdown(f"""
-                            <div style="padding-top:24px">
-                              <div class="dd-lineage-center">
-                                <div class="dd-lineage-center-name">{_tbl}</div>
-                                <div class="dd-lineage-center-schema">{_cat}.{_sch}</div>
-                              </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-
-                        with col_down:
-                            st.markdown('<div class="dd-lineage-dir">Consumers</div>', unsafe_allow_html=True)
-                            if downstreams:
-                                for efn in downstreams:
-                                    authorized = efn in _authorized_names
-                                    st.markdown(_lineage_node_html(efn, "→", authorized), unsafe_allow_html=True)
-                                    if authorized:
-                                        if st.button(
-                                            efn.split(".")[-1],
-                                            key=f"lin_down_{efn}",
-                                            type="secondary",
-                                            use_container_width=True,
-                                        ):
-                                            st.session_state["dd_search_override"] = efn.split(".")[-1]
-                                            st.session_state["dd_nav_select"] = efn
-                                            st.rerun()
-                            else:
-                                st.markdown('<div class="dd-lineage-empty">No consumers recorded.</div>', unsafe_allow_html=True)
-                    else:
-                        st.markdown(
-                            '<p style="font-size:13px;color:var(--ink-40);padding:12px 0">'
-                            'Lineage not available — run the sync job with lineage tracking enabled.</p>',
-                            unsafe_allow_html=True,
-                        )
-
-                    # ── § Related tables ──────────────────────────────────────────
-                    # Two relationship sources:
-                    #   a) Same schema (structural proximity)
-                    #   b) Shared column names (FK candidates, column overlap)
-                    related_query = (
-                        "SELECT t.full_name, t.table_name, t.catalog_name, t.schema_name, "
-                        "  'Same schema' AS relationship "
-                        "FROM {0}.{1}.tables_metadata t "
-                        "JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name "
-                        "WHERE t.catalog_name = %(catalog_name)s "
-                        "  AND t.schema_name  = %(schema_name)s "
-                        "  AND t.full_name   != %(full_name)s "
-                        "  AND (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS') "
-                        "UNION "
-                        "SELECT DISTINCT t.full_name, t.table_name, t.catalog_name, t.schema_name, "
-                        "  'Shared column' AS relationship "
-                        "FROM {0}.{1}.columns_metadata c1 "
-                        "JOIN {0}.{1}.columns_metadata c2 ON c1.column_name = c2.column_name "
-                        "JOIN {0}.{1}.tables_metadata t   ON c2.table_full_name = t.full_name "
-                        "JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name "
-                        "WHERE c1.table_full_name = %(full_name)s "
-                        "  AND c2.table_full_name != %(full_name)s "
-                        "  AND (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS') "
-                        "LIMIT 12"  # nosec B608
-                    ).format(CATALOG_CACHE, SCHEMA_CACHE)
-
-                    _groups_tuple = tuple(st.session_state.user_groups) if st.session_state.user_groups else ("none",)
-                    related = run_query(related_query, {
-                        "catalog_name": row["catalog_name"],
-                        "schema_name":  row["schema_name"],
-                        "full_name":    full_name,
-                        "groups":       _groups_tuple,
-                    })
-                    n_related = len(related) if related is not None and not related.empty else 0
-
-                    # ── § Lineage & Related Network Visualization ──
-                    st.markdown(f"""
-                    <div class="dd-section-header">
-                      <span class="dd-eyebrow" style="margin-bottom:0">§ Lineage & Related Tables</span>
-                      <span class="dd-section-count">{n_related} related</span>
-                    </div>
-                    """, unsafe_allow_html=True)
+                for sch in schemas:
+                    st.markdown(f'<div style="margin-left: 20px; font-weight: 500; color: var(--ink-60); margin-top: 10px; margin-bottom: 5px;">📂 {sch}</div>', unsafe_allow_html=True)
+                    sch_data = cat_data[cat_data['schema_name'] == sch]
+                    tables = sorted(sch_data['table_name'].unique().tolist())
                     
-                    graph_nodes = [{"id": full_name, "label": _tbl, "current": True, "relationship": "Current"}]
-                    graph_links = []
-                    
-                    if has_lineage:
-                        for efn in upstreams:
-                            _label = efn.split(".")[-1]
-                            if not any(n["id"] == efn for n in graph_nodes):
-                                graph_nodes.append({"id": efn, "label": _label, "current": False, "relationship": "Upstream"})
-                            graph_links.append({"from": efn, "to": full_name})
-                            
-                        for efn in downstreams:
-                            _label = efn.split(".")[-1]
-                            if not any(n["id"] == efn for n in graph_nodes):
-                                graph_nodes.append({"id": efn, "label": _label, "current": False, "relationship": "Downstream"})
-                            graph_links.append({"from": full_name, "to": efn})
-                            
-                    if n_related > 0:
-                        for _, rel in related.iterrows():
-                            _rel_full  = str(rel.get("full_name", ""))
-                            _rel_name  = _html.escape(str(rel.get("table_name", "")))
-                            _rel_badge = str(rel.get("relationship", ""))
-                            if not any(n["id"] == _rel_full for n in graph_nodes):
-                                graph_nodes.append({"id": _rel_full, "label": _rel_name, "current": False, "relationship": _rel_badge})
-                            if not any((l["from"] == full_name and l["to"] == _rel_full) or (l["from"] == _rel_full and l["to"] == full_name) for l in graph_links):
-                                graph_links.append({"from": full_name, "to": _rel_full})
+                    # Columns for tables to make it more compact
+                    t_cols = st.columns(3)
+                    for i, tbl in enumerate(tables):
+                        with t_cols[i % 3]:
+                            full_n = f"{cat}.{sch}.{tbl}"
+                            if st.button(f"📄 {tbl}", key=f"tree_{full_n}", use_container_width=True):
+                                st.query_params["tab"] = "search"
+                                st.session_state["dd_search_override"] = tbl
+                                st.session_state["dd_nav_select"] = full_n
+                                st.rerun()
+    except Exception as e:
+        logging.error("Error in catalog browser: %s", e)
+        st.error("Could not load catalog hierarchy.")
 
-                    import json
-                    graph_html = f"""
-                    <div id="mynetwork" style="width: 100%; height: 350px; background: #F2EDE1; border-radius: 4px; border: 1px solid #C9C2B4; overflow: hidden; margin-top: 16px;"></div>
-                    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-                    <script type="text/javascript">
-                      var nodes = new vis.DataSet({json.dumps(graph_nodes)});
-                      var edges = new vis.DataSet({json.dumps(graph_links)});
+def render_placeholder_page(title, subtitle):
+    st.markdown(f'''
+    <div class="dd-search-hero">
+      <div class="dd-eyebrow">§ {title}</div>
+      <h1>{subtitle}</h1>
+      <p class="lead">This feature is currently in development.</p>
+    </div>
+    ''', unsafe_allow_html=True)
+    st.info("Coming soon in v0.4.0")
 
-                      var container = document.getElementById('mynetwork');
-                      var data = {{ nodes: nodes, edges: edges }};
-                      var options = {{
-                        nodes: {{
-                            shape: 'box', margin: 10,
-                            font: {{ size: 14, face: 'sans-serif' }},
-                            borderWidth: 1, shadow: true
-                        }},
-                        edges: {{
-                            arrows: 'to', color: '#C9C2B4',
-                            smooth: {{ type: 'cubicBezier', forceDirection: 'horizontal' }}
-                        }},
-                        physics: {{
-                            barnesHut: {{ springLength: 100, springConstant: 0.04 }}, minVelocity: 0.75
-                        }},
-                        interaction: {{ hover: false, dragNodes: true, dragView: true, zoomView: true }}
-                      }};
-                      
-                      var updatedNodes = [];
-                      nodes.forEach(function(node) {{
-                          var isCurrent = node.current;
-                          var rel = node.relationship;
-                          var bg = isCurrent ? '#B8362A' : (rel === 'Shared column' ? '#DDE4EC' : '#FAF7F0');
-                          var border = isCurrent ? '#8C271E' : (rel === 'Shared column' ? '#2B4A6B' : '#C9C2B4');
-                          var text = isCurrent ? '#FAF7F0' : (rel === 'Shared column' ? '#2B4A6B' : '#14110C');
-                          
-                          updatedNodes.push({{
-                              id: node.id,
-                              color: {{ background: bg, border: border, highlight: {{ background: bg, border: border }} }},
-                              font: {{ color: text }}
-                          }});
-                      }});
-                      nodes.update(updatedNodes);
+# ── App entry point ────────────────────────────────────────────────────────────
+render_css()
 
-                      var network = new vis.Network(container, data, options);
-                      network.once("stabilizationIterationsDone", function() {{ network.fit(); }});
-                    </script>
-                    """
-                    components.html(graph_html, height=380)
+# ── Auth gate ─────────────────────────────────────────────────────────────────
+ENABLE_MOCK_AUTH = os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
 
-                    # ── Render Related Table Cards Below Graph ──
-                    if n_related > 0:
-                        st.markdown('<div style="margin-top: 16px;"></div>', unsafe_allow_html=True)
-                        _cols = st.columns(min(3, n_related), gap="small")
-                        for i, (_, rel) in enumerate(related.iterrows()):
-                            with _cols[i % 3]:
-                                _rel_full  = str(rel.get("full_name", ""))
-                                _rel_name  = _html.escape(str(rel.get("table_name", "")))
-                                _rel_sch   = _html.escape(f"{rel.get('catalog_name','')}.{rel.get('schema_name','')}")
-                                _rel_badge = _html.escape(str(rel.get("relationship", "")))
-                                st.markdown(f"""
-                                <div class="dd-related-card">
-                                  <div class="dd-related-badge">{_rel_badge}</div>
-                                  <div class="dd-related-name">{_rel_name}</div>
-                                  <div class="dd-related-schema">{_rel_sch}</div>
-                                </div>
-                                """, unsafe_allow_html=True)
-                                if st.button(
-                                    "Open →",
-                                    key=f"rel_{_rel_full}",
-                                    type="secondary",
-                                    use_container_width=True,
-                                ):
-                                    st.session_state["dd_search_override"] = str(rel.get("table_name", ""))
-                                    st.session_state["dd_nav_select"] = _rel_full
-                                    st.rerun()
-                    else:
-                        st.markdown(
-                            '<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No related tables found.</p>',
-                            unsafe_allow_html=True,
-                        )
+if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    
+    # Auto-login if returning from a nav link
+    if st.query_params.get("mock_login") == "true":
+        st.session_state.authenticated = True
+        st.session_state.user_groups = ["finance_dept_id", "all_employees_id"]
+        st.session_state.user_name = "Finance User"
+    if not st.session_state.authenticated:
+        render_header()
+        st.markdown('<div class="dd-page">', unsafe_allow_html=True)
+        render_signin_page(mock=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+        render_footer()
+        st.stop()
+else:
+    check_auth()
 
+# ── Authenticated: header with user ───────────────────────────────────────────
+current_tab = st.query_params.get("tab", "search")
+render_header(user_name=st.session_state.get("user_name", ""), active_tab=current_tab)
+st.markdown('<div class="dd-page">', unsafe_allow_html=True)
 
+groups = tuple(st.session_state.user_groups) if st.session_state.user_groups else ("none",)
+active_group = st.session_state.get("group_filter")
+query_groups = (active_group,) if active_group else groups
 
-        else:
-            st.markdown(f"""
-            <div style="padding:64px 8px;border-top:1px solid var(--ink-10);text-align:center">
-              <div style="font-family:var(--font-display);font-size:22px;margin-bottom:8px;letter-spacing:-0.01em">
-                No matches for &ldquo;{search_query}&rdquo;.
-              </div>
-              <p style="font-family:var(--font-sans);font-size:15px;color:var(--ink-60);max-width:44ch;margin:0 auto">
-                Try a shorter term, or request access to a catalog you don't yet see.
-              </p>
-            </div>
-            """, unsafe_allow_html=True)
+if current_tab == "search":
+    # --- START SEARCH PAGE ---
+    st.markdown('''
+    <div class="dd-search-hero">
+      <div class="dd-eyebrow">§ Catalog search</div>
+      <h1>Find your data.</h1>
+      <p class="lead">Search tables, columns, and business terms across Unity Catalog —
+      filtered to what you can access.</p>
+    </div>
+    ''', unsafe_allow_html=True)
 
+    if "dd_search_override" in st.session_state:
+        st.session_state["catalog_search"] = st.session_state.pop("dd_search_override")
+
+    if active_group:
+        c1, c2 = st.columns([8, 2], gap="small", vertical_alignment="center")
+        with c1:
+            st.info(f"**Filtered by AD Group:** {active_group}", icon="🔒")
+        with c2:
+            if st.button("Clear Filter", use_container_width=True):
+                st.session_state.pop("group_filter", None)
+                st.rerun()
+
+    try:
+        all_results = get_authorized_tables(query_groups)
+        table_options = sorted(all_results['table_name'].unique().tolist())
     except Exception as e:
         logging.error("Error querying data: %s", e, exc_info=True)
-        st.error("An unexpected error occurred while querying the data. Please try again later or contact support.")
-        st.info("Ensure the sync job has been run and environment variables are correct.")
+        st.error("Error loading catalog.")
+        all_results = None
+        table_options = []
 
-else:
-    st.markdown("""
-    <p style="font-family:var(--font-sans);font-size:15px;color:var(--ink-60);margin-top:8px">
-      Start typing to search the catalog.
-    </p>
-    """, unsafe_allow_html=True)
+    search_query = st.selectbox(
+        "Search the catalog",
+        options=table_options,
+        index=table_options.index(st.session_state.get("catalog_search")) if st.session_state.get("catalog_search") in table_options else None,
+        placeholder="Select or type a table name...",
+        label_visibility="collapsed",
+        key="catalog_search",
+    )
+
+    if search_query and all_results is not None:
+        try:
+            results = all_results[all_results['table_name'] == search_query]
+            if not results.empty:
+                col_main_detail, col_side_detail = st.columns([7, 5], gap="large")
+                _table_names = results["table_name"].tolist()
+                _nav_target  = st.session_state.pop("dd_nav_select", None)
+                _nav_idx = 0 if len(_table_names) > 0 else None
+                if _nav_target:
+                    _nav_name = _nav_target.split(".")[-1]
+                    if _nav_name in _table_names:
+                        _nav_idx = _table_names.index(_nav_name)
+
+                if _nav_idx is not None:
+                    selected_table = _table_names[_nav_idx]
+                    row = results[results["table_name"] == selected_table].iloc[0]
+                    full_name = f"{row['catalog_name']}.{row['schema_name']}.{row['table_name']}"
+                    with col_main_detail:
+                        st.markdown('<div class="dd-detail-header" style="margin-top: 0;"><span class="dd-eyebrow" style="margin-bottom:0">§ Table detail</span></div>', unsafe_allow_html=True)
+                        _cat, _sch, _tbl = _html.escape(str(row['catalog_name'])), _html.escape(str(row['schema_name'])), _html.escape(str(row['table_name']))
+                        _raw_desc = row.get('table_description', '')
+                        _desc = _html.escape(str(_raw_desc) if isinstance(_raw_desc, str) else '')
+                        _host = os.getenv("DATABRICKS_HOST", "").strip()
+                        _ext_link = f'<a href="https://{_host}/explore/data/{_cat}/{_sch}/{_tbl}" target="_blank" class="dd-link-external">Open in Databricks ↗</a>' if _host else ''
+                        st.markdown(f'<div class="dd-eyebrow" style="margin-bottom:4px">{_cat} · {_sch}</div><div class="dd-detail-table-name">{_tbl}</div><p class="dd-detail-desc">{_desc}</p>{_ext_link}', unsafe_allow_html=True)
+                        st.code(full_name, language=None)
+                        
+                        # --- § Columns ---
+                        cols_query = ("SELECT column_name, data_type, comment FROM {0}.{1}.columns_metadata WHERE table_full_name = %(table_full_name)s ORDER BY column_name").format(CATALOG_CACHE, SCHEMA_CACHE)
+                        cols = run_query(cols_query, {"table_full_name": full_name})
+                        n_cols = len(cols) if cols is not None and not cols.empty else 0
+                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Columns</span><span class="dd-section-count">{n_cols}</span></div>', unsafe_allow_html=True)
+                        if n_cols > 0:
+                            rows_html = "".join(f'<tr class="dd-col-row"><td class="dd-col-name">{_html.escape(str(c.get("column_name", "")))}</td><td class="dd-col-type">{_html.escape(str(c.get("data_type", "")))}</td><td class="dd-col-desc">{_html.escape(str(c.get("comment") or ""))}</td></tr>' for _, c in cols.iterrows())
+                            st.markdown(f'<table class="dd-columns-table"><tbody>{rows_html}</tbody></table>', unsafe_allow_html=True)
+                        else:
+                            st.markdown('<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No columns recorded.</p>', unsafe_allow_html=True)
+
+                    with col_side_detail:
+                        # --- § Group Permissions ---
+                        grants_query = ("SELECT DISTINCT principal, privilege FROM {0}.{1}.permissions_cache WHERE table_full_name = %(table_full_name)s ORDER BY principal").format(CATALOG_CACHE, SCHEMA_CACHE)
+                        grants = run_query(grants_query, {"table_full_name": full_name})
+                        n_grants = len(grants) if grants is not None and not grants.empty else 0
+                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Group Permissions</span><span class="dd-section-count">{n_grants}</span></div>', unsafe_allow_html=True)
+                        if n_grants > 0:
+                            for _, g in grants.iterrows():
+                                principal, privilege = str(g.get("principal", "")), str(g.get("privilege", ""))
+                                if principal == "SELECT_ALL_USERS": st.markdown(f'<div class="dd-grant-row"><span class="dd-grant-who">all users</span><span class="dd-grant-what">{_html.escape(privilege)}</span></div>', unsafe_allow_html=True)
+                                else:
+                                    st.markdown('<div style="border-top: 1px solid var(--ink-10); margin: 8px 0 4px 0;"></div>', unsafe_allow_html=True)
+                                    if st.button(f"🔍 Search tables accessible to: {principal} ({privilege})", key=f"grant_{full_name}_{principal}_{privilege}", use_container_width=True):
+                                        st.session_state["group_filter"] = principal
+                                        st.session_state.pop("catalog_search", None)
+                                        st.session_state.pop("dd_nav_select", None)
+                                        st.rerun()
+                        else:
+                            st.markdown('<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No grants recorded.</p>', unsafe_allow_html=True)
+
+                        # --- § Lineage ---
+                        lineage_query = ("SELECT direction, entity_full_name, entity_type FROM {0}.{1}.lineage_cache WHERE table_full_name = %(table_full_name)s ORDER BY direction, entity_full_name").format(CATALOG_CACHE, SCHEMA_CACHE)
+                        lineage = run_query(lineage_query, {"table_full_name": full_name})
+                        has_lineage = lineage is not None and not lineage.empty
+                        
+                        # --- § Related tables ---
+                        related_query = ("SELECT t.full_name, t.table_name, t.catalog_name, t.schema_name, 'Same schema' AS relationship FROM {0}.{1}.tables_metadata t JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name WHERE t.catalog_name = %(catalog_name)s AND t.schema_name = %(schema_name)s AND t.full_name != %(full_name)s AND (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS') UNION SELECT DISTINCT t.full_name, t.table_name, t.catalog_name, t.schema_name, 'Shared column' AS relationship FROM {0}.{1}.columns_metadata c1 JOIN {0}.{1}.columns_metadata c2 ON c1.column_name = c2.column_name JOIN {0}.{1}.tables_metadata t ON c2.table_full_name = t.full_name JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name WHERE c1.table_full_name = %(full_name)s AND c2.table_full_name != %(full_name)s AND (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS') LIMIT 12").format(CATALOG_CACHE, SCHEMA_CACHE)
+                        related = run_query(related_query, {"catalog_name": row["catalog_name"], "schema_name": row["schema_name"], "full_name": full_name, "groups": query_groups})
+                        n_related = len(related) if related is not None and not related.empty else 0
+                        
+                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Lineage & Related Tables</span><span class="dd-section-count">{n_related} related</span></div>', unsafe_allow_html=True)
+                        
+                        graph_nodes = [{"id": full_name, "label": _tbl, "current": True, "relationship": "Current"}]
+                        graph_links = []
+                        if has_lineage:
+                            upstreams = lineage[lineage["direction"] == "UPSTREAM"]["entity_full_name"].tolist()
+                            downstreams = lineage[lineage["direction"] == "DOWNSTREAM"]["entity_full_name"].tolist()
+                            for efn in upstreams:
+                                graph_nodes.append({"id": efn, "label": efn.split(".")[-1], "current": False, "relationship": "Upstream"})
+                                graph_links.append({"from": efn, "to": full_name})
+                            for efn in downstreams:
+                                graph_nodes.append({"id": efn, "label": efn.split(".")[-1], "current": False, "relationship": "Downstream"})
+                                graph_links.append({"from": full_name, "to": efn})
+                        if n_related > 0:
+                            for _, rel in related.iterrows():
+                                _rel_full, _rel_name, _rel_badge = str(rel.get("full_name", "")), _html.escape(str(rel.get("table_name", ""))), str(rel.get("relationship", ""))
+                                if not any(n["id"] == _rel_full for n in graph_nodes): graph_nodes.append({"id": _rel_full, "label": _rel_name, "current": False, "relationship": _rel_badge})
+                                if not any((l["from"] == full_name and l["to"] == _rel_full) or (l["from"] == _rel_full and l["to"] == full_name) for l in graph_links): graph_links.append({"from": full_name, "to": _rel_full})
+                        
+                        import json
+                        graph_html = f'''<div id="mynetwork" style="width: 100%; height: 350px; background: #F2EDE1; border-radius: 4px; border: 1px solid #C9C2B4; overflow: hidden; margin-top: 16px;"></div><script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script><script type="text/javascript">var nodes = new vis.DataSet({json.dumps(graph_nodes)}); var edges = new vis.DataSet({json.dumps(graph_links)}); var container = document.getElementById('mynetwork'); var data = {{ nodes: nodes, edges: edges }}; var options = {{ nodes: {{ shape: 'box', margin: 10, font: {{ size: 14, face: 'sans-serif' }}, borderWidth: 1, shadow: true }}, edges: {{ arrows: 'to', color: '#C9C2B4', smooth: {{ type: 'cubicBezier', forceDirection: 'horizontal' }} }}, physics: {{ barnesHut: {{ springLength: 100, springConstant: 0.04 }}, minVelocity: 0.75 }}, interaction: {{ hover: false, dragNodes: true, dragView: true, zoomView: true }} }}; var updatedNodes = []; nodes.forEach(function(node) {{ var isCurrent = node.current; var rel = node.relationship; var bg = isCurrent ? '#B8362A' : (rel === 'Shared column' ? '#DDE4EC' : '#FAF7F0'); var border = isCurrent ? '#8C271E' : (rel === 'Shared column' ? '#2B4A6B' : '#C9C2B4'); var text = isCurrent ? '#FAF7F0' : (rel === 'Shared column' ? '#2B4A6B' : '#14110C'); updatedNodes.push({{ id: node.id, color: {{ background: bg, border: border, highlight: {{ background: bg, border: border }} }}, font: {{ color: text }} }}); }}); nodes.update(updatedNodes); var network = new vis.Network(container, data, options); network.once("stabilizationIterationsDone", function() {{ network.fit(); }});</script>'''
+                        components.html(graph_html, height=380)
+
+                        if n_related > 0:
+                            st.markdown('<div style="margin-top: 16px;"></div>', unsafe_allow_html=True)
+                            _cols = st.columns(min(3, n_related), gap="small")
+                            for i, (_, rel) in enumerate(related.iterrows()):
+                                with _cols[i % 3]:
+                                    _rel_full, _rel_name, _rel_sch, _rel_badge = str(rel.get("full_name", "")), _html.escape(str(rel.get("table_name", ""))), _html.escape(f"{rel.get('catalog_name','')}.{rel.get('schema_name','')}"), _html.escape(str(rel.get("relationship", "")))
+                                    st.markdown(f'<div class="dd-related-card"><div class="dd-related-badge">{_rel_badge}</div><div class="dd-related-name">{_rel_name}</div><div class="dd-related-schema">{_rel_sch}</div></div>', unsafe_allow_html=True)
+                                    if st.button("Open →", key=f"rel_{_rel_full}", type="secondary", use_container_width=True):
+                                        st.session_state["dd_search_override"] = str(rel.get("table_name", ""))
+                                        st.session_state["dd_nav_select"] = _rel_full
+                                        st.rerun()
+
+        except Exception as e:
+            logging.error("Error displaying search results: %s", e, exc_info=True)
+            st.error("Error displaying details.")
+    else:
+        st.markdown('<p style="font-family:var(--font-sans);font-size:15px;color:var(--ink-60);margin-top:8px">Start typing to search the catalog.</p>', unsafe_allow_html=True)
+    # --- END SEARCH PAGE ---
+
+elif current_tab == "catalog":
+    render_catalog_browser(query_groups)
+elif current_tab == "glossary":
+    render_placeholder_page("Glossary", "Business Terms & Definitions")
+elif current_tab == "discovery":
+    render_placeholder_page("Discovery", "Group-Centric Data Discovery")
+elif current_tab == "health":
+    render_placeholder_page("Health", "Metadata Completeness Dashboard")
 
 st.markdown("</div>", unsafe_allow_html=True)
 render_footer()
