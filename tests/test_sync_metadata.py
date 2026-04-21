@@ -3,16 +3,16 @@ from unittest.mock import MagicMock, patch, call
 import os
 import pytest
 
-def mock_dependencies():
-    sys.modules["databricks"] = MagicMock()
-    sys.modules["databricks.sdk"] = MagicMock()
-    sys.modules["databricks.sql"] = MagicMock()
-    sys.modules["dotenv"] = MagicMock()
-
 @pytest.fixture(autouse=True)
 def setup_mocks():
-    mock_dependencies()
-    yield
+    mock_modules = {
+        "databricks": MagicMock(),
+        "databricks.sdk": MagicMock(),
+        "databricks.sql": MagicMock(),
+        "dotenv": MagicMock()
+    }
+    with patch.dict("sys.modules", mock_modules):
+        yield
 
 def test_get_sql_connection():
     env_vars = {
@@ -181,3 +181,24 @@ def test_sync_grants_error(mock_print, mock_get_sql_connection, mock_workspace_c
     sync()
 
     mock_print.assert_any_call("    Could not fetch grants for test_catalog.test_schema.test_table: Grants error")
+
+
+
+
+def test_main_coverage(setup_mocks):
+    # To test the main block reliably without brittle stdout checks,
+    # we can mock `sys.argv` and run the script, checking that `WorkspaceClient`
+    # from our globally mocked `databricks.sdk` in `sys.modules` was instantiated.
+    import runpy
+    import sys
+
+    # Reset call counts just in case
+    sys.modules["databricks.sdk"].WorkspaceClient.reset_mock()
+
+    # Run the module
+    runpy.run_module("scripts.sync_metadata", run_name="__main__")
+
+    # Verify the global mock was interacted with.
+    # The script does `from databricks.sdk import WorkspaceClient`.
+    # When `sys.modules["databricks.sdk"]` is a MagicMock, `WorkspaceClient` is an attribute on it.
+    assert sys.modules["databricks.sdk"].WorkspaceClient.called
