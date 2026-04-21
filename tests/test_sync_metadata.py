@@ -205,3 +205,61 @@ def test_main_coverage(setup_mocks):
     # The script does `from databricks.sdk import WorkspaceClient`.
     # When `sys.modules["databricks.sdk"]` is a MagicMock, `WorkspaceClient` is an attribute on it.
     assert sys.modules["databricks.sdk"].WorkspaceClient.called
+
+def test_fetch_lineage_success(setup_mocks):
+    from scripts.sync_metadata import fetch_lineage
+    mock_w = MagicMock()
+    mock_w.api_client.do.return_value = {
+        "upstream_tables": [
+            {"name": "up_table_1", "table_type": "MANAGED"},
+            {"full_name": "up_table_2", "table_type": "EXTERNAL"},
+            {"no_name": "ignore_me"}
+        ],
+        "downstream_tables": [
+            {"name": "down_table_1", "table_type": "MANAGED"},
+            {"full_name": "down_table_2", "table_type": "EXTERNAL"},
+            {"no_name": "ignore_me"}
+        ]
+    }
+
+    entries = fetch_lineage(mock_w, "my_catalog.my_schema.my_table")
+
+    assert mock_w.api_client.do.call_count == 1
+    mock_w.api_client.do.assert_called_once_with(
+        "GET",
+        "/api/2.0/lineage-tracking/table-lineage",
+        query={"table_name": "my_catalog.my_schema.my_table"},
+    )
+
+    assert len(entries) == 4
+
+    up1 = next((e for e in entries if e["entity_full_name"] == "up_table_1"), None)
+    assert up1 is not None
+    assert up1["direction"] == "UPSTREAM"
+    assert up1["entity_type"] == "MANAGED"
+
+    up2 = next((e for e in entries if e["entity_full_name"] == "up_table_2"), None)
+    assert up2 is not None
+    assert up2["direction"] == "UPSTREAM"
+    assert up2["entity_type"] == "EXTERNAL"
+
+    down1 = next((e for e in entries if e["entity_full_name"] == "down_table_1"), None)
+    assert down1 is not None
+    assert down1["direction"] == "DOWNSTREAM"
+    assert down1["entity_type"] == "MANAGED"
+
+    down2 = next((e for e in entries if e["entity_full_name"] == "down_table_2"), None)
+    assert down2 is not None
+    assert down2["direction"] == "DOWNSTREAM"
+    assert down2["entity_type"] == "EXTERNAL"
+
+@patch("builtins.print")
+def test_fetch_lineage_exception(mock_print, setup_mocks):
+    from scripts.sync_metadata import fetch_lineage
+    mock_w = MagicMock()
+    mock_w.api_client.do.side_effect = Exception("API error")
+
+    entries = fetch_lineage(mock_w, "my_catalog.my_schema.my_table")
+
+    assert entries == []
+    mock_print.assert_any_call("    Lineage unavailable for my_catalog.my_schema.my_table: API error")
