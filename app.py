@@ -1277,82 +1277,6 @@ if search_query and all_results is not None:
                                         st.rerun()
                         else:
                             st.markdown('<div class="dd-lineage-empty">No consumers recorded.</div>', unsafe_allow_html=True)
-                    
-                    # ── Inline Lineage Network Visualization ──
-                    graph_nodes = [{"id": full_name, "label": _tbl, "current": True, "relationship": "Current"}]
-                    graph_links = []
-                    
-                    for efn in upstreams:
-                        _label = efn.split(".")[-1]
-                        graph_nodes.append({"id": efn, "label": _label, "current": False, "relationship": "Upstream"})
-                        graph_links.append({"from": efn, "to": full_name})
-                        
-                    for efn in downstreams:
-                        _label = efn.split(".")[-1]
-                        graph_nodes.append({"id": efn, "label": _label, "current": False, "relationship": "Downstream"})
-                        graph_links.append({"from": full_name, "to": efn})
-                        
-                    import json
-                    graph_html = f"""
-                    <div id="mynetwork" style="width: 100%; height: 350px; background: #F2EDE1; border-radius: 4px; border: 1px solid #C9C2B4; overflow: hidden; margin-top: 24px;"></div>
-                    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-                    <script type="text/javascript">
-                      var nodes = new vis.DataSet({json.dumps(graph_nodes)});
-                      var edges = new vis.DataSet({json.dumps(graph_links)});
-
-                      var container = document.getElementById('mynetwork');
-                      var data = {{
-                        nodes: nodes,
-                        edges: edges
-                      }};
-                      var options = {{
-                        nodes: {{
-                            shape: 'box',
-                            margin: 10,
-                            font: {{ size: 14, face: 'sans-serif' }},
-                            borderWidth: 1,
-                            shadow: true
-                        }},
-                        edges: {{
-                            arrows: 'to',
-                            color: '#C9C2B4',
-                            smooth: {{ type: 'cubicBezier', forceDirection: 'horizontal' }}
-                        }},
-                        physics: {{
-                            barnesHut: {{ springLength: 100, springConstant: 0.04 }},
-                            minVelocity: 0.75
-                        }},
-                        interaction: {{
-                            hover: false,
-                            dragNodes: true,
-                            dragView: true,
-                            zoomView: true
-                        }}
-                      }};
-                      
-                      var updatedNodes = [];
-                      nodes.forEach(function(node) {{
-                          var isCurrent = node.current;
-                          var bg = isCurrent ? '#B8362A' : '#FAF7F0';
-                          var border = isCurrent ? '#8C271E' : '#C9C2B4';
-                          var text = isCurrent ? '#FAF7F0' : '#14110C';
-                          
-                          updatedNodes.push({{
-                              id: node.id,
-                              color: {{ background: bg, border: border, highlight: {{ background: bg, border: border }} }},
-                              font: {{ color: text }}
-                          }});
-                      }});
-                      nodes.update(updatedNodes);
-
-                      var network = new vis.Network(container, data, options);
-                      network.once("stabilizationIterationsDone", function() {{
-                          network.fit();
-                      }});
-                    </script>
-                    """
-                    components.html(graph_html, height=380)
-
                 else:
                     st.markdown(
                         '<p style="font-size:13px;color:var(--ink-40);padding:12px 0">'
@@ -1395,14 +1319,91 @@ if search_query and all_results is not None:
                 })
                 n_related = len(related) if related is not None and not related.empty else 0
 
+                # ── § Lineage & Related Network Visualization ──
                 st.markdown(f"""
                 <div class="dd-section-header">
-                  <span class="dd-eyebrow" style="margin-bottom:0">§ Related tables</span>
-                  <span class="dd-section-count">{n_related}</span>
+                  <span class="dd-eyebrow" style="margin-bottom:0">§ Lineage & Related Tables</span>
+                  <span class="dd-section-count">{n_related} related</span>
                 </div>
                 """, unsafe_allow_html=True)
-
+                
+                graph_nodes = [{"id": full_name, "label": _tbl, "current": True, "relationship": "Current"}]
+                graph_links = []
+                
+                if has_lineage:
+                    for efn in upstreams:
+                        _label = efn.split(".")[-1]
+                        if not any(n["id"] == efn for n in graph_nodes):
+                            graph_nodes.append({"id": efn, "label": _label, "current": False, "relationship": "Upstream"})
+                        graph_links.append({"from": efn, "to": full_name})
+                        
+                    for efn in downstreams:
+                        _label = efn.split(".")[-1]
+                        if not any(n["id"] == efn for n in graph_nodes):
+                            graph_nodes.append({"id": efn, "label": _label, "current": False, "relationship": "Downstream"})
+                        graph_links.append({"from": full_name, "to": efn})
+                        
                 if n_related > 0:
+                    for _, rel in related.iterrows():
+                        _rel_full  = str(rel.get("full_name", ""))
+                        _rel_name  = _html.escape(str(rel.get("table_name", "")))
+                        _rel_badge = str(rel.get("relationship", ""))
+                        if not any(n["id"] == _rel_full for n in graph_nodes):
+                            graph_nodes.append({"id": _rel_full, "label": _rel_name, "current": False, "relationship": _rel_badge})
+                        if not any((l["from"] == full_name and l["to"] == _rel_full) or (l["from"] == _rel_full and l["to"] == full_name) for l in graph_links):
+                            graph_links.append({"from": full_name, "to": _rel_full})
+
+                import json
+                graph_html = f"""
+                <div id="mynetwork" style="width: 100%; height: 350px; background: #F2EDE1; border-radius: 4px; border: 1px solid #C9C2B4; overflow: hidden; margin-top: 16px;"></div>
+                <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+                <script type="text/javascript">
+                  var nodes = new vis.DataSet({json.dumps(graph_nodes)});
+                  var edges = new vis.DataSet({json.dumps(graph_links)});
+
+                  var container = document.getElementById('mynetwork');
+                  var data = {{ nodes: nodes, edges: edges }};
+                  var options = {{
+                    nodes: {{
+                        shape: 'box', margin: 10,
+                        font: {{ size: 14, face: 'sans-serif' }},
+                        borderWidth: 1, shadow: true
+                    }},
+                    edges: {{
+                        arrows: 'to', color: '#C9C2B4',
+                        smooth: {{ type: 'cubicBezier', forceDirection: 'horizontal' }}
+                    }},
+                    physics: {{
+                        barnesHut: {{ springLength: 100, springConstant: 0.04 }}, minVelocity: 0.75
+                    }},
+                    interaction: {{ hover: false, dragNodes: true, dragView: true, zoomView: true }}
+                  }};
+                  
+                  var updatedNodes = [];
+                  nodes.forEach(function(node) {{
+                      var isCurrent = node.current;
+                      var rel = node.relationship;
+                      var bg = isCurrent ? '#B8362A' : (rel === 'Shared column' ? '#DDE4EC' : '#FAF7F0');
+                      var border = isCurrent ? '#8C271E' : (rel === 'Shared column' ? '#2B4A6B' : '#C9C2B4');
+                      var text = isCurrent ? '#FAF7F0' : (rel === 'Shared column' ? '#2B4A6B' : '#14110C');
+                      
+                      updatedNodes.push({{
+                          id: node.id,
+                          color: {{ background: bg, border: border, highlight: {{ background: bg, border: border }} }},
+                          font: {{ color: text }}
+                      }});
+                  }});
+                  nodes.update(updatedNodes);
+
+                  var network = new vis.Network(container, data, options);
+                  network.once("stabilizationIterationsDone", function() {{ network.fit(); }});
+                </script>
+                """
+                components.html(graph_html, height=380)
+
+                # ── Render Related Table Cards Below Graph ──
+                if n_related > 0:
+                    st.markdown('<div style="margin-top: 16px;"></div>', unsafe_allow_html=True)
                     _cols = st.columns(min(3, n_related), gap="small")
                     for i, (_, rel) in enumerate(related.iterrows()):
                         with _cols[i % 3]:
