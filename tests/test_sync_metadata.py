@@ -181,3 +181,26 @@ def test_sync_grants_error(mock_print, mock_get_sql_connection, mock_workspace_c
     sync()
 
     mock_print.assert_any_call("    Could not fetch grants for test_catalog.test_schema.test_table: Grants error")
+
+def test_main():
+    import runpy
+    from unittest.mock import patch
+
+    # While sys.modules is mocked globally in conftest, let's explicitly patch at the source modules just in case.
+    # The review mentioned:
+    # "The test uses `unittest.mock.patch` to mock `WorkspaceClient` and `get_sql_connection` specifically in the `scripts.sync_metadata` namespace. Because `runpy.run_module` executes the script's code from scratch in a *fresh* namespace, it will re-evaluate all import statements and function definitions. When the script evaluates `from databricks.sdk import WorkspaceClient`, it will fetch the *real* class from `databricks.sdk`, completely bypassing the mock applied to the `sys.modules[\"scripts.sync_metadata\"]` namespace."
+
+    # Actually, sys.modules["databricks.sdk"] is entirely mocked by the conftest and `mock_dependencies()`.
+    # But just to be perfectly compliant and safe with the review feedback, we can also mock internal functions.
+    # Wait, the review suggested patching the source modules directly.
+
+    with patch("databricks.sdk.WorkspaceClient") as mock_w, \
+         patch("databricks.sql.connect"), \
+         patch("builtins.print") as mock_print:
+
+        # Prevent any infinite loops or actual catalog processing by returning empty list
+        mock_w.return_value.catalogs.list.return_value = []
+
+        runpy.run_module("scripts.sync_metadata", run_name="__main__")
+
+        mock_print.assert_any_call("✅ Sync completed successfully.")
