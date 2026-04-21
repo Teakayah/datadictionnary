@@ -67,6 +67,16 @@ def setup_cache_tables():
                 )
             """)
 
+            # Table for tags (Glossary / Discovery metadata)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags (
+                    object_type      STRING,
+                    object_full_name STRING,
+                    tag_key          STRING,
+                    tag_value        STRING
+                )
+            """)
+
 def fetch_lineage(w, full_name):
     """Returns 1-hop upstream/downstream lineage edges for *full_name*.
 
@@ -114,6 +124,7 @@ def sync():
     columns_data = []
     permissions_data = []
     lineage_data = []
+    tags_data = []
 
     # 1. Iterate through catalogs (skipping system/internal ones if needed)
     table_full_names = []
@@ -122,8 +133,20 @@ def sync():
             continue
 
         print(f"Processing catalog: {catalog.name}")
+        
+        # Extract Catalog Tags
+        if catalog.properties:
+            for k, v in catalog.properties.items():
+                tags_data.append({"object_type": "CATALOG", "object_full_name": catalog.name, "tag_key": k, "tag_value": str(v)})
+
         for schema in w.schemas.list(catalog_name=catalog.name):
             print(f"  Processing schema: {schema.name}")
+            schema_full_name = f"{catalog.name}.{schema.name}"
+            
+            # Extract Schema Tags
+            if schema.properties:
+                for k, v in schema.properties.items():
+                    tags_data.append({"object_type": "SCHEMA", "object_full_name": schema_full_name, "tag_key": k, "tag_value": str(v)})
 
             try:
                 for table in w.tables.list(catalog_name=catalog.name, schema_name=schema.name):
@@ -139,6 +162,11 @@ def sync():
                         "table_type": str(table.table_type),
                         "comment": table.comment or "",
                     })
+                    
+                    # Extract Table Tags
+                    if table.properties:
+                        for k, v in table.properties.items():
+                            tags_data.append({"object_type": "TABLE", "object_full_name": full_name, "tag_key": k, "tag_value": str(v)})
 
                     # Store column metadata
                     for col in table.columns:
@@ -185,6 +213,7 @@ def sync():
             cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata")
             cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache")
             cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache")
+            cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags")
 
             if tables_data:
                 cursor.executemany(
@@ -205,6 +234,11 @@ def sync():
                 cursor.executemany(
                     f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache VALUES (%(table_full_name)s, %(direction)s, %(entity_full_name)s, %(entity_type)s)",
                     lineage_data
+                )
+            if tags_data:
+                cursor.executemany(
+                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags VALUES (%(object_type)s, %(object_full_name)s, %(tag_key)s, %(tag_value)s)",
+                    tags_data
                 )
 
     print("✅ Sync completed successfully.")

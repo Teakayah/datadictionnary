@@ -125,6 +125,30 @@ _DEMO_RELATED = {
     ),
 }
 
+_DEMO_GLOSSARY = pd.DataFrame({
+    "term": ["Churn Rate", "Customer Lifetime Value (CLV)", "Monthly Recurring Revenue (MRR)", "Active User"],
+    "definition": [
+        "The percentage of customers who stop using your product or service during a given time period.",
+        "The total amount of money a customer is expected to spend with your business during their lifetime.",
+        "The total amount of predictable revenue that a company expects to receive every month.",
+        "A user who has performed at least one meaningful action within the product in the last 30 days."
+    ],
+    "calculation": [
+        "(Customers lost during period / Total customers at start of period) * 100",
+        "Average Purchase Value * Average Purchase Frequency * Average Customer Lifespan",
+        "Sum of all subscription revenues from active customers in a month",
+        "COUNT(DISTINCT user_id) WHERE last_action_ts >= CURRENT_DATE - INTERVAL 30 DAYS"
+    ],
+    "domain": ["Sales & Marketing", "Finance", "Finance", "Product"],
+    "steward": ["Jane Doe (Marketing)", "John Smith (Finance)", "John Smith (Finance)", "Alice Wong (Product)"],
+    "related_tables": [
+        ["main.analytics.customers", "main.analytics.orders"],
+        ["main.analytics.customers", "main.analytics.transactions"],
+        ["main.analytics.transactions"],
+        ["main.staging.raw_events"]
+    ]
+})
+
 # Configuration
 TENANT_ID = os.getenv("TENANT_ID")
 CLIENT_ID = os.getenv("CLIENT_ID")
@@ -1053,6 +1077,89 @@ def render_catalog_browser(groups):
         logging.error("Error in catalog browser: %s", e)
         st.error("Could not load catalog hierarchy.")
 
+def render_glossary():
+    st.markdown('''
+    <div class="dd-search-hero">
+      <div class="dd-eyebrow">§ Business Glossary</div>
+      <h1>Speak the same language.</h1>
+      <p class="lead">Define business concepts and map them to technical data assets.</p>
+    </div>
+    ''', unsafe_allow_html=True)
+    
+    # Term Selection (Autocomplete)
+    all_terms = _DEMO_GLOSSARY["term"].tolist()
+    selected_term = st.selectbox(
+        "Search for a term",
+        options=all_terms,
+        placeholder="Select or type a business term...",
+        label_visibility="collapsed",
+        key="glossary_search",
+    )
+    
+    if selected_term:
+        term_row = _DEMO_GLOSSARY[_DEMO_GLOSSARY["term"] == selected_term].iloc[0]
+        
+        col_main, col_side = st.columns([7, 5], gap="large")
+        
+        with col_main:
+            st.markdown(f'''
+            <div class="dd-detail-header" style="margin-top: 0;">
+              <span class="dd-eyebrow" style="margin-bottom:0">§ Term Details</span>
+            </div>
+            <div class="dd-detail-table-name">{term_row["term"]}</div>
+            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">Definition</div>
+            <p class="dd-detail-desc" style="font-size:18px;">{term_row["definition"]}</p>
+            
+            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:24px; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">Logic / Calculation</div>
+            <div style="background:var(--paper-deep); padding:16px; border-radius:2px; font-family:var(--font-mono); font-size:14px; color:var(--ink); border-left:3px solid var(--accent); line-height:1.5;">
+              {term_row["calculation"]}
+            </div>
+            
+            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:32px; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em;">Linked Tables</div>
+            ''', unsafe_allow_html=True)
+            
+            for table_fn in term_row["related_tables"]:
+                if st.button(f"📄 {table_fn}", key=f"gloss_link_{table_fn}", use_container_width=True):
+                    st.query_params["tab"] = "search"
+                    st.session_state["dd_search_override"] = table_fn.split(".")[-1]
+                    st.session_state["dd_nav_select"] = table_fn
+                    st.rerun()
+
+        with col_side:
+            # Stewardship Section
+            st.markdown(f'''
+            <div class="dd-section-header">
+              <span class="dd-eyebrow" style="margin-bottom:0">§ Stewardship</span>
+            </div>
+            <div style="margin-top:16px;">
+              <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">Business Domain</div>
+              <div style="font-family:var(--font-sans); font-size:16px; font-weight:600; color:var(--ink); margin-top:4px;">{term_row["domain"]}</div>
+            </div>
+            <div style="margin-top:20px;">
+              <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">Data Steward</div>
+              <div style="font-family:var(--font-sans); font-size:16px; font-weight:600; color:var(--ink); margin-top:4px;">{term_row["steward"]}</div>
+            </div>
+            ''', unsafe_allow_html=True)
+            
+            # Concept Map (Graph)
+            st.markdown(f'''
+            <div class="dd-section-header" style="margin-top:32px;">
+              <span class="dd-eyebrow" style="margin-bottom:0">§ Concept Map</span>
+            </div>
+            ''', unsafe_allow_html=True)
+            
+            # Simple Graph: Term -> Tables
+            graph_nodes = [{"id": "TERM", "label": selected_term, "current": True, "relationship": "Current"}]
+            graph_links = []
+            for table_fn in term_row["related_tables"]:
+                t_label = table_fn.split(".")[-1]
+                graph_nodes.append({"id": table_fn, "label": t_label, "current": False, "relationship": "Table"})
+                graph_links.append({"from": "TERM", "to": table_fn})
+            
+            import json
+            graph_html = f'''<div id="mynetwork_glossary" style="width: 100%; height: 300px; background: #F2EDE1; border-radius: 4px; border: 1px solid #C9C2B4; overflow: hidden; margin-top: 16px;"></div><script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script><script type="text/javascript">var nodes = new vis.DataSet({json.dumps(graph_nodes)}); var edges = new vis.DataSet({json.dumps(graph_links)}); var container = document.getElementById('mynetwork_glossary'); var data = {{ nodes: nodes, edges: edges }}; var options = {{ nodes: {{ shape: 'box', margin: 10, font: {{ size: 14, face: 'sans-serif' }}, borderWidth: 1, shadow: true }}, edges: {{ arrows: 'to', color: '#C9C2B4', smooth: {{ type: 'cubicBezier', forceDirection: 'horizontal' }} }}, physics: {{ barnesHut: {{ springLength: 100, springConstant: 0.04 }}, minVelocity: 0.75 }}, interaction: {{ hover: false, dragNodes: true, dragView: true, zoomView: true }} }}; var updatedNodes = []; nodes.forEach(function(node) {{ var isCurrent = node.current; var bg = isCurrent ? '#B8362A' : '#FAF7F0'; var border = isCurrent ? '#8C271E' : '#C9C2B4'; var text = isCurrent ? '#FAF7F0' : '#14110C'; updatedNodes.push({{ id: node.id, color: {{ background: bg, border: border, highlight: {{ background: bg, border: border }} }}, font: {{ color: text }} }}); }}); nodes.update(updatedNodes); var network = new vis.Network(container, data, options); network.once("stabilizationIterationsDone", function() {{ network.fit(); }});</script>'''
+            components.html(graph_html, height=330)
+
 def render_placeholder_page(title, subtitle):
     st.markdown(f'''
     <div class="dd-search-hero">
@@ -1252,7 +1359,7 @@ if current_tab == "search":
 elif current_tab == "catalog":
     render_catalog_browser(query_groups)
 elif current_tab == "glossary":
-    render_placeholder_page("Glossary", "Business Terms & Definitions")
+    render_glossary()
 elif current_tab == "discovery":
     render_placeholder_page("Discovery", "Group-Centric Data Discovery")
 elif current_tab == "health":
