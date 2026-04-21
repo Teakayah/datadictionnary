@@ -26,6 +26,7 @@ from unittest.mock import MagicMock
 # ── Test environment — enable mock auth so AppTest runs without Entra ID ──────
 import os as _os
 _os.environ.setdefault("ENABLE_MOCK_AUTH", "true")
+_os.environ.setdefault("ENVIRONMENT", "development")
 
 # ── Stub missing packages ─────────────────────────────────────────────────────
 
