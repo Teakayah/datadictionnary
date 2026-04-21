@@ -181,3 +181,13 @@ def test_sync_grants_error(mock_print, mock_get_sql_connection, mock_workspace_c
     sync()
 
     mock_print.assert_any_call("    Could not fetch grants for test_catalog.test_schema.test_table: Grants error")
+
+def test_main_execution():
+    """Test the __main__ execution block."""
+    import runpy
+
+    # We use a context manager to suppress the print output
+    with patch("builtins.print"):
+        # Runpy executes a fresh copy of the module, covering lines 153-154.
+        # The mock_dependencies() fixture (autouse) ensures external calls are mocked.
+        runpy.run_module("scripts.sync_metadata", run_name="__main__")
