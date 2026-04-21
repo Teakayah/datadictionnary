@@ -133,18 +133,18 @@ def sync():
 
             if tables_data:
                 cursor.executemany(
-                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%s, %s, %s, %s, %s, %s, current_timestamp())",
-                    [(t['full_name'], t['catalog_name'], t['schema_name'], t['table_name'], t['table_type'], t['comment']) for t in tables_data]
+                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp())",
+                    tables_data
                 )
             if columns_data:
                 cursor.executemany(
-                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata VALUES (%s, %s, %s, %s)",
-                    [(c['table_full_name'], c['column_name'], c['data_type'], c['comment']) for c in columns_data]
+                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata VALUES (%(table_full_name)s, %(column_name)s, %(data_type)s, %(comment)s)",
+                    columns_data
                 )
             if permissions_data:
                 cursor.executemany(
-                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache VALUES (%s, %s, %s)",
-                    [(p['table_full_name'], p['principal'], p['privilege']) for p in permissions_data]
+                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache VALUES (%(table_full_name)s, %(principal)s, %(privilege)s)",
+                    permissions_data
                 )
 
     print("✅ Sync completed successfully.")
