@@ -205,3 +205,62 @@ def test_main_coverage(setup_mocks):
     # The script does `from databricks.sdk import WorkspaceClient`.
     # When `sys.modules["databricks.sdk"]` is a MagicMock, `WorkspaceClient` is an attribute on it.
     assert sys.modules["databricks.sdk"].WorkspaceClient.called
+
+@patch("scripts.sync_metadata.WorkspaceClient")
+def test_fetch_lineage_success(mock_workspace_client):
+    from scripts.sync_metadata import fetch_lineage
+
+    mock_w = MagicMock()
+    mock_w.api_client.do.return_value = {
+        "upstream_tables": [
+            {"name": "up_table_1", "table_type": "VIEW"},
+            {"full_name": "up_table_2"}
+        ],
+        "downstream_tables": [
+            {"name": "down_table_1"}
+        ]
+    }
+
+    entries = fetch_lineage(mock_w, "my_catalog.my_schema.my_table")
+
+    mock_w.api_client.do.assert_called_once_with(
+        "GET",
+        "/api/2.0/lineage-tracking/table-lineage",
+        query={"table_name": "my_catalog.my_schema.my_table"},
+    )
+
+    assert len(entries) == 3
+
+    assert entries[0]["table_full_name"] == "my_catalog.my_schema.my_table"
+    assert entries[0]["direction"] == "UPSTREAM"
+    assert entries[0]["entity_full_name"] == "up_table_1"
+    assert entries[0]["entity_type"] == "VIEW"
+
+    assert entries[1]["table_full_name"] == "my_catalog.my_schema.my_table"
+    assert entries[1]["direction"] == "UPSTREAM"
+    assert entries[1]["entity_full_name"] == "up_table_2"
+    assert entries[1]["entity_type"] == "TABLE"
+
+    assert entries[2]["table_full_name"] == "my_catalog.my_schema.my_table"
+    assert entries[2]["direction"] == "DOWNSTREAM"
+    assert entries[2]["entity_full_name"] == "down_table_1"
+    assert entries[2]["entity_type"] == "TABLE"
+
+@patch("scripts.sync_metadata.WorkspaceClient")
+@patch("builtins.print")
+def test_fetch_lineage_error(mock_print, mock_workspace_client):
+    from scripts.sync_metadata import fetch_lineage
+
+    mock_w = MagicMock()
+    mock_w.api_client.do.side_effect = Exception("API error")
+
+    entries = fetch_lineage(mock_w, "my_catalog.my_schema.my_table")
+
+    mock_w.api_client.do.assert_called_once_with(
+        "GET",
+        "/api/2.0/lineage-tracking/table-lineage",
+        query={"table_name": "my_catalog.my_schema.my_table"},
+    )
+
+    assert entries == []
+    mock_print.assert_any_call("    Lineage unavailable for my_catalog.my_schema.my_table: API error")
