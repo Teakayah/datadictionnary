@@ -181,3 +181,26 @@ def test_sync_grants_error(mock_print, mock_get_sql_connection, mock_workspace_c
     sync()
 
     mock_print.assert_any_call("    Could not fetch grants for test_catalog.test_schema.test_table: Grants error")
+
+def test_main_execution_block():
+    from unittest.mock import patch, MagicMock
+    import runpy
+    import warnings
+    import sys
+
+    # Explicitly mock external network dependencies to ensure complete safety
+    # when executing the main block via runpy, as requested by code review.
+    # We patch sys.modules so the script's imports return MagicMocks instead of real modules.
+    with patch.dict(sys.modules, {
+        "databricks": MagicMock(),
+        "databricks.sdk": MagicMock(),
+        "databricks.sql": MagicMock(),
+        "dotenv": MagicMock()
+    }), patch("builtins.print") as mock_print:
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            # Executing the script as __main__ to cover lines 153-154
+            runpy.run_module("scripts.sync_metadata", run_name="__main__")
+
+    mock_print.assert_any_call("✅ Sync completed successfully.")
