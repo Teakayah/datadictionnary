@@ -27,6 +27,10 @@ _DEMO_TABLES = pd.DataFrame({
         "Raw event stream ingested from upstream systems.",
     ],
     "table_type":        ["MANAGED", "MANAGED", "EXTERNAL", "EXTERNAL"],
+    "updated_at":        [pd.Timestamp.now() - pd.Timedelta(days=1), 
+                          pd.Timestamp.now() - pd.Timedelta(hours=5),
+                          pd.Timestamp.now() - pd.Timedelta(minutes=30),
+                          pd.Timestamp.now() - pd.Timedelta(days=3)],
 })
 
 _DEMO_COLUMNS = {
@@ -1026,7 +1030,8 @@ def get_authorized_tables(groups):
             m.schema_name,
             m.table_name,
             m.comment as table_description,
-            m.table_type
+            m.table_type,
+            m.updated_at
         FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata m
         JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p
           ON m.full_name = p.table_full_name
@@ -1159,6 +1164,62 @@ def render_glossary():
             import json
             graph_html = f'''<div id="mynetwork_glossary" style="width: 100%; height: 300px; background: #F2EDE1; border-radius: 4px; border: 1px solid #C9C2B4; overflow: hidden; margin-top: 16px;"></div><script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script><script type="text/javascript">var nodes = new vis.DataSet({json.dumps(graph_nodes)}); var edges = new vis.DataSet({json.dumps(graph_links)}); var container = document.getElementById('mynetwork_glossary'); var data = {{ nodes: nodes, edges: edges }}; var options = {{ nodes: {{ shape: 'box', margin: 10, font: {{ size: 14, face: 'sans-serif' }}, borderWidth: 1, shadow: true }}, edges: {{ arrows: 'to', color: '#C9C2B4', smooth: {{ type: 'cubicBezier', forceDirection: 'horizontal' }} }}, physics: {{ barnesHut: {{ springLength: 100, springConstant: 0.04 }}, minVelocity: 0.75 }}, interaction: {{ hover: false, dragNodes: true, dragView: true, zoomView: true }} }}; var updatedNodes = []; nodes.forEach(function(node) {{ var isCurrent = node.current; var bg = isCurrent ? '#B8362A' : '#FAF7F0'; var border = isCurrent ? '#8C271E' : '#C9C2B4'; var text = isCurrent ? '#FAF7F0' : '#14110C'; updatedNodes.push({{ id: node.id, color: {{ background: bg, border: border, highlight: {{ background: bg, border: border }} }}, font: {{ color: text }} }}); }}); nodes.update(updatedNodes); var network = new vis.Network(container, data, options); network.once("stabilizationIterationsDone", function() {{ network.fit(); }});</script>'''
             components.html(graph_html, height=330)
+
+def render_discovery(groups):
+    st.markdown('''
+    <div class="dd-search-hero">
+      <div class="dd-eyebrow">§ Data Discovery</div>
+      <h1>New & Notable.</h1>
+      <p class="lead">Recently updated data assets across your primary domains.</p>
+    </div>
+    ''', unsafe_allow_html=True)
+
+    # Use the first group in the list as the "primary" if no filter is active
+    primary_group = st.session_state.get("group_filter")
+    if not primary_group and groups:
+        primary_group = groups[0]
+
+    if primary_group:
+        st.info(f"✨ Highlights for your primary group: **{primary_group}**", icon="🏢")
+        
+        try:
+            # Re-use the authorized table fetch logic but sort by updated_at
+            all_authorized = get_authorized_tables((primary_group,))
+            
+            if not all_authorized.empty and "updated_at" in all_authorized.columns:
+                recent_tables = all_authorized.sort_values(by="updated_at", ascending=False).head(10)
+                
+                for _, row in recent_tables.iterrows():
+                    _ts = row["updated_at"]
+                    # Format timestamp
+                    if isinstance(_ts, pd.Timestamp):
+                        _time_str = _ts.strftime("%b %d, %H:%M UTC")
+                    else:
+                        _time_str = str(_ts)
+                        
+                    st.markdown(f'''
+                    <div style="background:var(--paper); border:1px solid var(--ink-10); padding:20px; margin-bottom:16px; border-radius:2px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+                            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{row["catalog_name"]} · {row["schema_name"]}</div>
+                            <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">Updated {_time_str}</div>
+                        </div>
+                        <div style="font-family:var(--font-mono); font-size:18px; font-weight:600; color:var(--ink); margin-bottom:8px;">{row["table_name"]}</div>
+                        <p style="font-family:var(--font-sans); font-size:14px; color:var(--ink-60); line-height:1.5; margin-bottom:16px;">{_html.escape(str(row["table_description"]))}</p>
+                    </div>
+                    ''', unsafe_allow_html=True)
+                    
+                    if st.button(f"Explore {row['table_name']} →", key=f"disc_{row['full_name']}", type="secondary"):
+                        st.query_params["tab"] = "search"
+                        st.session_state["dd_search_override"] = row["table_name"]
+                        st.session_state["dd_nav_select"] = row["full_name"]
+                        st.rerun()
+            else:
+                st.info("No recent updates found for this group.")
+        except Exception as e:
+            logging.error("Error in discovery tab: %s", e)
+            st.error("Could not load discovery feed.")
+    else:
+        st.warning("Please sign in or select a group to view discovery highlights.")
 
 def render_placeholder_page(title, subtitle):
     st.markdown(f'''
@@ -1361,7 +1422,7 @@ elif current_tab == "catalog":
 elif current_tab == "glossary":
     render_glossary()
 elif current_tab == "discovery":
-    render_placeholder_page("Discovery", "Group-Centric Data Discovery")
+    render_discovery(query_groups)
 elif current_tab == "health":
     render_placeholder_page("Health", "Metadata Completeness Dashboard")
 
