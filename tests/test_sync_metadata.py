@@ -44,7 +44,7 @@ def test_setup_cache_tables(mock_get_sql_connection):
     from scripts.sync_metadata import setup_cache_tables, CATALOG_CACHE, SCHEMA_CACHE
     setup_cache_tables()
 
-    assert mock_cursor.execute.call_count == 5
+    assert mock_cursor.execute.call_count == 6
 
     calls = mock_cursor.execute.call_args_list
     assert f"CREATE CATALOG IF NOT EXISTS {CATALOG_CACHE}" in calls[0][0][0]
@@ -52,6 +52,7 @@ def test_setup_cache_tables(mock_get_sql_connection):
     assert f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata" in calls[2][0][0]
     assert f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata" in calls[3][0][0]
     assert f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache" in calls[4][0][0]
+    assert f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache" in calls[5][0][0]
 
 @patch("scripts.sync_metadata.concurrent.futures.ThreadPoolExecutor")
 @patch("scripts.sync_metadata.WorkspaceClient")
@@ -109,17 +110,19 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
 
     # 3 truncates via execute
     execute_calls = mock_cursor.execute.call_args_list
-    assert len(execute_calls) == 3
+    assert len(execute_calls) == 4
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata" in execute_calls[0][0][0]
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata" in execute_calls[1][0][0]
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache" in execute_calls[2][0][0]
+    assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache" in execute_calls[3][0][0]
 
-    # 3 executemany calls (tables, columns, permissions)
+    # 4 executemany calls: tables, columns, permissions, lineage
     executemany_calls = mock_cursor.executemany.call_args_list
-    assert len(executemany_calls) == 3
+    assert len(executemany_calls) == 4
     assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp())" in executemany_calls[0][0][0]
     assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata VALUES (%(table_full_name)s, %(column_name)s, %(data_type)s, %(comment)s)" in executemany_calls[1][0][0]
     assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache VALUES (%(table_full_name)s, %(principal)s, %(privilege)s)" in executemany_calls[2][0][0]
+    assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache VALUES (%(table_full_name)s, %(direction)s, %(entity_full_name)s, %(entity_type)s)" in executemany_calls[3][0][0]
 
 @patch("scripts.sync_metadata.WorkspaceClient")
 @patch("scripts.sync_metadata.get_sql_connection")

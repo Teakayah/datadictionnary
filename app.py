@@ -2,13 +2,128 @@ from __future__ import annotations
 
 import logging
 import streamlit as st
+import streamlit.components.v1 as components
 from databricks import sql
 import os
 import msal
+import html as _html
 import secrets
+import pandas as pd
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ── Demo data (returned in mock/dev mode instead of hitting Databricks) ────────
+_DEMO_TABLES = pd.DataFrame({
+    "full_name":         ["main.analytics.customers", "main.analytics.orders",
+                          "main.analytics.transactions", "main.staging.raw_events"],
+    "catalog_name":      ["main", "main", "main", "main"],
+    "schema_name":       ["analytics", "analytics", "analytics", "staging"],
+    "table_name":        ["customers", "orders", "transactions", "raw_events"],
+    "table_description": [
+        "Deduplicated customer master — one row per customer_id.",
+        "Orders with customer foreign key reference.",
+        "Transaction-level detail enriched with customer data.",
+        "Raw event stream ingested from upstream systems.",
+    ],
+    "table_type":        ["MANAGED", "MANAGED", "EXTERNAL", "EXTERNAL"],
+})
+
+_DEMO_COLUMNS = {
+    "main.analytics.customers": pd.DataFrame({
+        "column_name": ["customer_id", "email", "segment", "created_at"],
+        "data_type":   ["BIGINT", "STRING", "STRING", "TIMESTAMP"],
+        "comment":     ["Primary key.", "Customer email address.",
+                        "Marketing segment label.", "Account creation timestamp."],
+    }),
+    "main.analytics.orders": pd.DataFrame({
+        "column_name": ["order_id", "customer_id", "amount", "order_date"],
+        "data_type":   ["BIGINT", "BIGINT", "DECIMAL(18,2)", "DATE"],
+        "comment":     ["Unique order identifier.", "FK to customers.customer_id.",
+                        "Order total in USD.", "Date the order was placed."],
+    }),
+    "main.analytics.transactions": pd.DataFrame({
+        "column_name": ["transaction_id", "order_id", "customer_id", "amount", "type"],
+        "data_type":   ["BIGINT", "BIGINT", "BIGINT", "DECIMAL(18,2)", "STRING"],
+        "comment":     ["Transaction PK.", "FK to orders.", "FK to customers.",
+                        "Transaction amount.", "DEBIT or CREDIT."],
+    }),
+    "main.staging.raw_events": pd.DataFrame({
+        "column_name": ["event_id", "customer_id", "event_type", "ts"],
+        "data_type":   ["STRING", "BIGINT", "STRING", "TIMESTAMP"],
+        "comment":     ["Unique event identifier.", "Customer associated with event.",
+                        "Event classification (click, view, purchase).", "Event timestamp."],
+    }),
+}
+
+_DEMO_GRANTS = {
+    "main.analytics.customers": pd.DataFrame({
+        "principal": ["finance_dept_id", "all_employees_id", "SELECT_ALL_USERS"],
+        "privilege":  ["SELECT",          "SELECT",           "SELECT"],
+    }),
+    "main.analytics.orders": pd.DataFrame({
+        "principal": ["finance_dept_id", "SELECT_ALL_USERS"],
+        "privilege":  ["SELECT",          "SELECT"],
+    }),
+    "main.analytics.transactions": pd.DataFrame({
+        "principal": ["finance_dept_id"],
+        "privilege":  ["SELECT"],
+    }),
+    "main.staging.raw_events": pd.DataFrame({
+        "principal": ["all_employees_id"],
+        "privilege":  ["SELECT"],
+    }),
+}
+
+_DEMO_LINEAGE = {
+    "main.analytics.customers": pd.DataFrame({
+        "direction":        ["UPSTREAM", "UPSTREAM",                  "DOWNSTREAM"],
+        "entity_full_name": ["main.staging.raw_events",
+                             "main.bronze.customer_raw",              # not in authorized set → locked node
+                             "main.analytics.orders"],
+        "entity_type":      ["TABLE",    "TABLE",                     "TABLE"],
+    }),
+    "main.analytics.orders": pd.DataFrame({
+        "direction":        ["UPSTREAM",                    "DOWNSTREAM"],
+        "entity_full_name": ["main.analytics.customers",   "main.analytics.transactions"],
+        "entity_type":      ["TABLE",                       "TABLE"],
+    }),
+    "main.analytics.transactions": pd.DataFrame({
+        "direction":        ["UPSTREAM"],
+        "entity_full_name": ["main.analytics.orders"],
+        "entity_type":      ["TABLE"],
+    }),
+    "main.staging.raw_events": pd.DataFrame(
+        columns=["direction", "entity_full_name", "entity_type"]
+    ),
+}
+
+_DEMO_RELATED = {
+    "main.analytics.customers": pd.DataFrame({
+        "full_name":    ["main.analytics.orders",     "main.analytics.transactions"],
+        "table_name":   ["orders",                    "transactions"],
+        "catalog_name": ["main",                      "main"],
+        "schema_name":  ["analytics",                 "analytics"],
+        "relationship": ["Same schema",               "Shared column"],
+    }),
+    "main.analytics.orders": pd.DataFrame({
+        "full_name":    ["main.analytics.customers",  "main.analytics.transactions"],
+        "table_name":   ["customers",                 "transactions"],
+        "catalog_name": ["main",                      "main"],
+        "schema_name":  ["analytics",                 "analytics"],
+        "relationship": ["Same schema",               "Same schema"],
+    }),
+    "main.analytics.transactions": pd.DataFrame({
+        "full_name":    ["main.analytics.customers",  "main.analytics.orders"],
+        "table_name":   ["customers",                 "orders"],
+        "catalog_name": ["main",                      "main"],
+        "schema_name":  ["analytics",                 "analytics"],
+        "relationship": ["Shared column",             "Same schema"],
+    }),
+    "main.staging.raw_events": pd.DataFrame(
+        columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"]
+    ),
+}
 
 # Configuration
 TENANT_ID = os.getenv("TENANT_ID")
@@ -77,17 +192,18 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
 
 /* Remove default Streamlit top padding so our fixed header sits flush */
 [data-testid="stMainBlockContainer"] {
-    padding-top: 80px !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-    max-width: 100% !important;
+    padding-top: 100px !important;
+    padding-left: 48px !important;
+    padding-right: 48px !important;
+    padding-bottom: 96px !important;
+    max-width: 1200px !important;
+    margin: 0 auto !important;
 }
 
 /* Inner content wrapper — applied via .dd-content divs */
 .dd-page {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 48px 48px 96px;
+    /* No longer needed as a wrapper since we constrain stMainBlockContainer, 
+       but kept for any inner markdown sections if necessary */
 }
 
 /* ── Inputs ── */
@@ -149,7 +265,11 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
     border-radius: 2px !important;
     background: var(--paper) !important;
     font-family: var(--font-sans) !important;
-    font-size: 14px !important;
+    font-size: 16px !important;
+    color: var(--ink) !important;
+}
+[data-testid="stSelectbox"] input {
+    color: var(--ink) !important;
 }
 
 /* Dataframe */
@@ -421,6 +541,181 @@ code, pre, .stCode {
     line-height: 1.5;
 }
 
+/* ── Secondary / ghost nav buttons (used in lineage + related sections) ── */
+button[data-testid="stBaseButton-secondary"] {
+    background: transparent !important;
+    color: var(--ink-60) !important;
+    border: 1px solid var(--ink-20) !important;
+    font-size: 12px !important;
+    font-family: var(--font-mono) !important;
+    padding: 5px 10px !important;
+    letter-spacing: 0 !important;
+}
+button[data-testid="stBaseButton-secondary"]:hover {
+    color: var(--ink) !important;
+    border-color: var(--ink) !important;
+    background: transparent !important;
+}
+
+/* ── Lineage flow ── */
+.dd-lineage-dir {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-40);
+    margin-bottom: 8px;
+}
+.dd-lineage-node {
+    border: 1px solid var(--ink-10);
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: var(--paper);
+}
+.dd-lineage-node.dd-lineage-locked {
+    opacity: 0.45;
+    background: var(--paper-deep);
+}
+.dd-lineage-node-name {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--ink);
+}
+.dd-lineage-node-schema {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+    margin-top: 2px;
+}
+.dd-lineage-center {
+    border: 2px solid var(--accent);
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: var(--paper);
+}
+.dd-lineage-center-name {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+}
+.dd-lineage-center-schema {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+    margin-top: 2px;
+}
+.dd-lineage-empty {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    color: var(--ink-40);
+    padding: 8px 0;
+    font-style: italic;
+}
+
+/* ── Related tables cards ── */
+.dd-related-card {
+    border: 1px solid var(--ink-10);
+    padding: 12px;
+    background: var(--paper);
+    margin-bottom: 4px;
+    transition: border-color var(--dur-hover) var(--ease);
+}
+.dd-related-card:hover { border-color: var(--ink-40); }
+.dd-related-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-40);
+    margin-bottom: 4px;
+}
+.dd-related-name {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 500;
+}
+.dd-related-schema {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+    margin-top: 2px;
+}
+
+/* ── Detail: section sub-headers (§ columns, § grants, …) ── */
+.dd-section-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--ink);
+    margin-top: 28px;
+    margin-bottom: 0;
+}
+.dd-section-count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+}
+
+/* ── Columns HTML table ── */
+.dd-columns-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.dd-col-row { border-top: 1px solid var(--ink-10); }
+.dd-col-name {
+    padding: 9px 16px 9px 0;
+    font-family: var(--font-mono);
+    color: var(--ink);
+    white-space: nowrap;
+    vertical-align: top;
+}
+.dd-col-type {
+    padding: 9px 16px 9px 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+    white-space: nowrap;
+    vertical-align: top;
+}
+.dd-col-desc {
+    padding: 9px 0;
+    color: var(--ink-60);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.4;
+    vertical-align: top;
+}
+
+/* ── Grants list ── */
+.dd-grant-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-top: 1px solid var(--ink-10);
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+.dd-grant-who { color: var(--ink); }
+.dd-grant-what { color: var(--ink-60); }
+
+/* ── External link (Open in Databricks) ── */
+.dd-link-external {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-60);
+    text-decoration: none;
+    border-bottom: 1px solid var(--ink-20);
+    transition: color var(--dur-hover) var(--ease), border-color var(--dur-hover) var(--ease);
+    display: inline-block;
+    margin-top: 4px;
+    margin-bottom: 20px;
+}
+.dd-link-external:hover { color: var(--ink); border-color: var(--ink); }
+
 /* ── Footer ── */
 .dd-footer {
     border-top: 1px solid var(--ink-10);
@@ -653,6 +948,29 @@ def get_db_connection():
 
 @st.cache_data(ttl="1h")
 def run_query(query, params=None):
+    # ── Demo mode: return hardcoded DataFrames without hitting Databricks ──────
+    # Activated by setting DEMO_DATA=true in .env (independent of mock auth).
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        p = params or {}
+        # Related tables: has both "full_name" and "groups" params
+        if "full_name" in p and "groups" in p:
+            return _DEMO_RELATED.get(p["full_name"], pd.DataFrame(
+                columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"]))
+        # Authorized tables: only "groups" param
+        if "groups" in p:
+            return _DEMO_TABLES
+        # Detail-pane queries keyed by table_full_name
+        fn = p.get("table_full_name", "")
+        if "lineage_cache" in query:
+            return _DEMO_LINEAGE.get(fn, pd.DataFrame(
+                columns=["direction", "entity_full_name", "entity_type"]))
+        if "columns_metadata" in query:
+            return _DEMO_COLUMNS.get(fn, pd.DataFrame(
+                columns=["column_name", "data_type", "comment"]))
+        # permissions_cache (grants)
+        return _DEMO_GRANTS.get(fn, pd.DataFrame(columns=["principal", "privilege"]))
+
+    # ── Production: hit Databricks SQL Warehouse ───────────────────────────────
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute(query, params)
@@ -717,91 +1035,405 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-search_query = st.text_input(
+# Navigation override: a lineage/related-table click sets these keys so the
+# next run pre-fills the search box and highlights the right row.
+if "dd_search_override" in st.session_state:
+    st.session_state["catalog_search"] = st.session_state.pop("dd_search_override")
+
+active_group = st.session_state.get("group_filter")
+if active_group:
+    c1, c2 = st.columns([8, 2], gap="small", vertical_alignment="center")
+    with c1:
+        st.info(f"**Filtered by AD Group:** {active_group}", icon="🔒")
+    with c2:
+        if st.button("Clear Filter", use_container_width=True):
+            st.session_state.pop("group_filter", None)
+            st.rerun()
+
+# Determine which groups to query (either the filter or all user's groups)
+query_groups = (active_group,) if active_group else (tuple(st.session_state.user_groups) if st.session_state.user_groups else ("none",))
+
+try:
+    all_results = get_authorized_tables(query_groups)
+    table_options = sorted(all_results['table_name'].unique().tolist())
+except Exception as e:
+    logging.error("Error querying data: %s", e, exc_info=True)
+    st.error("Error loading catalog.")
+    all_results = None
+    table_options = []
+
+search_query = st.selectbox(
     "Search the catalog",
-    placeholder="e.g. customer_lifetime_value",
+    options=table_options,
+    index=table_options.index(st.session_state.get("catalog_search")) if st.session_state.get("catalog_search") in table_options else None,
+    placeholder="Select or type a table name...",
     label_visibility="collapsed",
+    key="catalog_search",
 )
 
-if search_query:
-    groups = tuple(st.session_state.user_groups) if st.session_state.user_groups else ("none",)
-
+if search_query and all_results is not None:
     try:
-        # Fetch all authorized tables for the user's groups (cached)
-        all_results = get_authorized_tables(groups)
-
-        # Apply local search filter using pandas
-        search_lower = search_query.lower()
-        full_name_match = all_results['full_name'].fillna('').str.lower().str.contains(search_lower, regex=False)
-        comment_match = all_results['table_description'].fillna('').str.lower().str.contains(search_lower, regex=False)
-        results = all_results[full_name_match | comment_match]
+        # Filter strictly by the selected table name
+        results = all_results[all_results['table_name'] == search_query]
 
         if not results.empty:
-            n = len(results)
-            st.markdown(f"""
-            <div class="dd-results-header">
-              <span class="dd-eyebrow" style="margin-bottom:0">Results</span>
-              <span class="dd-results-count">{n} table{'s' if n != 1 else ''} · permission-trimmed</span>
-            </div>
-            """, unsafe_allow_html=True)
-
-            display_results = results.drop(columns=['full_name'])
-            st.dataframe(
-                display_results,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "catalog_name": st.column_config.TextColumn("Catalog"),
-                    "schema_name": st.column_config.TextColumn("Schema"),
-                    "table_name": st.column_config.TextColumn("Table"),
-                    "table_description": st.column_config.TextColumn("Description"),
-                    "table_type": st.column_config.TextColumn("Type"),
-                },
-            )
-
             st.markdown("""
-            <div class="dd-detail-header">
+            <div class="dd-detail-header" style="margin-top: 0;">
               <span class="dd-eyebrow" style="margin-bottom:0">§ Table detail</span>
             </div>
             """, unsafe_allow_html=True)
 
-            selected_table = st.selectbox(
-                "Select a table",
-                results["table_name"].tolist(),
-                label_visibility="collapsed",
-            )
+            _table_names = results["table_name"].tolist()
+            _nav_target  = st.session_state.pop("dd_nav_select", None)
+            
+            # Auto-select the first result by default
+            _nav_idx = 0 if len(_table_names) > 0 else None
+            
+            if _nav_target:
+                _nav_name = _nav_target.split(".")[-1]
+                if _nav_name in _table_names:
+                    _nav_idx = _table_names.index(_nav_name)
 
-            if selected_table:
+            if _nav_idx is not None:
+                selected_table = _table_names[_nav_idx]
                 row = results[results["table_name"] == selected_table].iloc[0]
                 full_name = f"{row['catalog_name']}.{row['schema_name']}.{row['table_name']}"
+
+                # ── Header ────────────────────────────────────────────────────
+                _cat  = _html.escape(str(row['catalog_name']))
+                _sch  = _html.escape(str(row['schema_name']))
+                _tbl  = _html.escape(str(row['table_name']))
+                _raw_desc = row.get('table_description', '')
+                _desc = _html.escape(str(_raw_desc) if isinstance(_raw_desc, str) else '')
+                _host = os.getenv("DATABRICKS_HOST", "").strip()
+                _ext_link = (
+                    f'<a href="https://{_host}/explore/data/{_cat}/{_sch}/{_tbl}" '
+                    f'target="_blank" class="dd-link-external">Open in Databricks ↗</a>'
+                    if _host else ''
+                )
+
                 st.markdown(f"""
-                <div class="dd-eyebrow" style="margin-bottom:4px">{row['catalog_name']} · {row['schema_name']}</div>
-                <div class="dd-detail-table-name">{row['table_name']}</div>
-                <p class="dd-detail-desc">{row.get('table_description', '')}</p>
+                <div class="dd-eyebrow" style="margin-bottom:4px">{_cat} · {_sch}</div>
+                <div class="dd-detail-table-name">{_tbl}</div>
+                <p class="dd-detail-desc">{_desc}</p>
+                {_ext_link}
                 """, unsafe_allow_html=True)
+
+                st.code(full_name, language=None)
+
+                # ── § Columns ─────────────────────────────────────────────────
+                cols_query = (
+                    "SELECT column_name, data_type, comment "
+                    "FROM {0}.{1}.columns_metadata "
+                    "WHERE table_full_name = %(table_full_name)s "
+                    "ORDER BY column_name"  # nosec B608
+                ).format(CATALOG_CACHE, SCHEMA_CACHE)
+                cols = run_query(cols_query, {"table_full_name": full_name})
+                n_cols = len(cols) if cols is not None and not cols.empty else 0
+
+                st.markdown(f"""
+                <div class="dd-section-header">
+                  <span class="dd-eyebrow" style="margin-bottom:0">§ Columns</span>
+                  <span class="dd-section-count">{n_cols}</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+                if n_cols > 0:
+                    rows_html = "".join(
+                        f'<tr class="dd-col-row">'
+                        f'<td class="dd-col-name">{_html.escape(str(c.get("column_name", "")))}</td>'
+                        f'<td class="dd-col-type">{_html.escape(str(c.get("data_type", "")))}</td>'
+                        f'<td class="dd-col-desc">{_html.escape(str(c.get("comment") or ""))}</td>'
+                        f'</tr>'
+                        for _, c in cols.iterrows()
+                    )
+                    st.markdown(
+                        f'<table class="dd-columns-table"><tbody>{rows_html}</tbody></table>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        '<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No columns recorded.</p>',
+                        unsafe_allow_html=True,
+                    )
+
+                # ── § Group Permissions ──────────────────────────────────────────────────
+                grants_query = (
+                    "SELECT DISTINCT principal, privilege "
+                    "FROM {0}.{1}.permissions_cache "
+                    "WHERE table_full_name = %(table_full_name)s "
+                    "ORDER BY principal"  # nosec B608
+                ).format(CATALOG_CACHE, SCHEMA_CACHE)
+                grants = run_query(grants_query, {"table_full_name": full_name})
+                n_grants = len(grants) if grants is not None and not grants.empty else 0
+
+                st.markdown(f"""
+                <div class="dd-section-header">
+                  <span class="dd-eyebrow" style="margin-bottom:0">§ Group Permissions</span>
+                  <span class="dd-section-count">{n_grants}</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+                if n_grants > 0:
+                    for _, g in grants.iterrows():
+                        principal = str(g.get("principal", ""))
+                        privilege = str(g.get("privilege", ""))
+                        if principal == "SELECT_ALL_USERS":
+                            st.markdown(f'<div class="dd-grant-row"><span class="dd-grant-who">all users</span><span class="dd-grant-what">{_html.escape(privilege)}</span></div>', unsafe_allow_html=True)
+                        else:
+                            st.markdown('<div style="border-top: 1px solid var(--ink-10); margin: 8px 0 4px 0;"></div>', unsafe_allow_html=True)
+                            if st.button(f"🔍 Search tables accessible to: {principal}  ({privilege})", key=f"grant_{full_name}_{principal}_{privilege}", use_container_width=True):
+                                st.session_state["group_filter"] = principal
+                                st.session_state.pop("catalog_search", None)
+                                st.session_state.pop("dd_nav_select", None)
+                                st.rerun()
+                else:
+                    st.markdown(
+                        '<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No grants recorded.</p>',
+                        unsafe_allow_html=True,
+                    )
+
+                # ── § Lineage ─────────────────────────────────────────────────
+                lineage_query = (
+                    "SELECT direction, entity_full_name, entity_type "
+                    "FROM {0}.{1}.lineage_cache "
+                    "WHERE table_full_name = %(table_full_name)s "
+                    "ORDER BY direction, entity_full_name"  # nosec B608
+                ).format(CATALOG_CACHE, SCHEMA_CACHE)
+                lineage = run_query(lineage_query, {"table_full_name": full_name})
+                has_lineage = lineage is not None and not lineage.empty
 
                 st.markdown("""
-                <div class="dd-rule-ink" style="margin:24px 0 0"></div>
-                <div class="dd-eyebrow" style="margin:12px 0">§ Columns</div>
+                <div class="dd-section-header">
+                  <span class="dd-eyebrow" style="margin-bottom:0">§ Lineage</span>
+                </div>
                 """, unsafe_allow_html=True)
 
-                # nosec B608 - False positive: table_full_name is correctly parameterized via %s
-                cols_query = (
-                    f"SELECT column_name, data_type, comment "
-                    f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata "
-                    f"WHERE table_full_name = %(table_full_name)s"
-                )
-                cols = run_query(cols_query, {"table_full_name": full_name})
-                st.dataframe(
-                    cols,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "column_name": st.column_config.TextColumn("Column"),
-                        "data_type": st.column_config.TextColumn("Type"),
-                        "comment": st.column_config.TextColumn("Description"),
-                    },
-                )
+                if has_lineage:
+                    _authorized_names = set(all_results["full_name"].tolist())
+                    upstreams   = lineage[lineage["direction"] == "UPSTREAM"]["entity_full_name"].tolist()
+                    downstreams = lineage[lineage["direction"] == "DOWNSTREAM"]["entity_full_name"].tolist()
+
+                    col_up, col_cur, col_down = st.columns([5, 4, 5], gap="small")
+
+                    def _lineage_node_html(efn: str, arrow: str, authorized: bool) -> str:
+                        parts  = efn.split(".")
+                        t_name = _html.escape(parts[-1]) if parts else _html.escape(efn)
+                        schema = _html.escape(".".join(parts[:2])) if len(parts) >= 3 else ""
+                        locked = "" if authorized else " dd-lineage-locked"
+                        return (
+                            f'<div class="dd-lineage-node{locked}">'
+                            f'<div style="font-family:var(--font-mono);font-size:10px;'
+                            f'color:var(--ink-40);margin-bottom:3px">{arrow}</div>'
+                            f'<div class="dd-lineage-node-name">{t_name}</div>'
+                            f'<div class="dd-lineage-node-schema">{schema}</div>'
+                            f'</div>'
+                        )
+
+                    with col_up:
+                        st.markdown('<div class="dd-lineage-dir">Sources</div>', unsafe_allow_html=True)
+                        if upstreams:
+                            for efn in upstreams:
+                                authorized = efn in _authorized_names
+                                st.markdown(_lineage_node_html(efn, "←", authorized), unsafe_allow_html=True)
+                                if authorized:
+                                    if st.button(
+                                        efn.split(".")[-1],
+                                        key=f"lin_up_{efn}",
+                                        type="secondary",
+                                        use_container_width=True,
+                                    ):
+                                        st.session_state["dd_search_override"] = efn.split(".")[-1]
+                                        st.session_state["dd_nav_select"] = efn
+                                        st.rerun()
+                        else:
+                            st.markdown('<div class="dd-lineage-empty">No sources recorded.</div>', unsafe_allow_html=True)
+
+                    with col_cur:
+                        st.markdown(f"""
+                        <div style="padding-top:24px">
+                          <div class="dd-lineage-center">
+                            <div class="dd-lineage-center-name">{_tbl}</div>
+                            <div class="dd-lineage-center-schema">{_cat}.{_sch}</div>
+                          </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                    with col_down:
+                        st.markdown('<div class="dd-lineage-dir">Consumers</div>', unsafe_allow_html=True)
+                        if downstreams:
+                            for efn in downstreams:
+                                authorized = efn in _authorized_names
+                                st.markdown(_lineage_node_html(efn, "→", authorized), unsafe_allow_html=True)
+                                if authorized:
+                                    if st.button(
+                                        efn.split(".")[-1],
+                                        key=f"lin_down_{efn}",
+                                        type="secondary",
+                                        use_container_width=True,
+                                    ):
+                                        st.session_state["dd_search_override"] = efn.split(".")[-1]
+                                        st.session_state["dd_nav_select"] = efn
+                                        st.rerun()
+                        else:
+                            st.markdown('<div class="dd-lineage-empty">No consumers recorded.</div>', unsafe_allow_html=True)
+                    
+                    # ── Inline Lineage Network Visualization ──
+                    graph_nodes = [{"id": full_name, "label": _tbl, "current": True, "relationship": "Current"}]
+                    graph_links = []
+                    
+                    for efn in upstreams:
+                        _label = efn.split(".")[-1]
+                        graph_nodes.append({"id": efn, "label": _label, "current": False, "relationship": "Upstream"})
+                        graph_links.append({"from": efn, "to": full_name})
+                        
+                    for efn in downstreams:
+                        _label = efn.split(".")[-1]
+                        graph_nodes.append({"id": efn, "label": _label, "current": False, "relationship": "Downstream"})
+                        graph_links.append({"from": full_name, "to": efn})
+                        
+                    import json
+                    graph_html = f"""
+                    <div id="mynetwork" style="width: 100%; height: 350px; background: #F2EDE1; border-radius: 4px; border: 1px solid #C9C2B4; overflow: hidden; margin-top: 24px;"></div>
+                    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+                    <script type="text/javascript">
+                      var nodes = new vis.DataSet({json.dumps(graph_nodes)});
+                      var edges = new vis.DataSet({json.dumps(graph_links)});
+
+                      var container = document.getElementById('mynetwork');
+                      var data = {{
+                        nodes: nodes,
+                        edges: edges
+                      }};
+                      var options = {{
+                        nodes: {{
+                            shape: 'box',
+                            margin: 10,
+                            font: {{ size: 14, face: 'sans-serif' }},
+                            borderWidth: 1,
+                            shadow: true
+                        }},
+                        edges: {{
+                            arrows: 'to',
+                            color: '#C9C2B4',
+                            smooth: {{ type: 'cubicBezier', forceDirection: 'horizontal' }}
+                        }},
+                        physics: {{
+                            barnesHut: {{ springLength: 100, springConstant: 0.04 }},
+                            minVelocity: 0.75
+                        }},
+                        interaction: {{
+                            hover: false,
+                            dragNodes: true,
+                            dragView: true,
+                            zoomView: true
+                        }}
+                      }};
+                      
+                      var updatedNodes = [];
+                      nodes.forEach(function(node) {{
+                          var isCurrent = node.current;
+                          var bg = isCurrent ? '#B8362A' : '#FAF7F0';
+                          var border = isCurrent ? '#8C271E' : '#C9C2B4';
+                          var text = isCurrent ? '#FAF7F0' : '#14110C';
+                          
+                          updatedNodes.push({{
+                              id: node.id,
+                              color: {{ background: bg, border: border, highlight: {{ background: bg, border: border }} }},
+                              font: {{ color: text }}
+                          }});
+                      }});
+                      nodes.update(updatedNodes);
+
+                      var network = new vis.Network(container, data, options);
+                      network.once("stabilizationIterationsDone", function() {{
+                          network.fit();
+                      }});
+                    </script>
+                    """
+                    components.html(graph_html, height=380)
+
+                else:
+                    st.markdown(
+                        '<p style="font-size:13px;color:var(--ink-40);padding:12px 0">'
+                        'Lineage not available — run the sync job with lineage tracking enabled.</p>',
+                        unsafe_allow_html=True,
+                    )
+
+                # ── § Related tables ──────────────────────────────────────────
+                # Two relationship sources:
+                #   a) Same schema (structural proximity)
+                #   b) Shared column names (FK candidates, column overlap)
+                related_query = (
+                    "SELECT t.full_name, t.table_name, t.catalog_name, t.schema_name, "
+                    "  'Same schema' AS relationship "
+                    "FROM {0}.{1}.tables_metadata t "
+                    "JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name "
+                    "WHERE t.catalog_name = %(catalog_name)s "
+                    "  AND t.schema_name  = %(schema_name)s "
+                    "  AND t.full_name   != %(full_name)s "
+                    "  AND (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS') "
+                    "UNION "
+                    "SELECT DISTINCT t.full_name, t.table_name, t.catalog_name, t.schema_name, "
+                    "  'Shared column' AS relationship "
+                    "FROM {0}.{1}.columns_metadata c1 "
+                    "JOIN {0}.{1}.columns_metadata c2 ON c1.column_name = c2.column_name "
+                    "JOIN {0}.{1}.tables_metadata t   ON c2.table_full_name = t.full_name "
+                    "JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name "
+                    "WHERE c1.table_full_name = %(full_name)s "
+                    "  AND c2.table_full_name != %(full_name)s "
+                    "  AND (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS') "
+                    "LIMIT 12"  # nosec B608
+                ).format(CATALOG_CACHE, SCHEMA_CACHE)
+
+                _groups_tuple = tuple(st.session_state.user_groups) if st.session_state.user_groups else ("none",)
+                related = run_query(related_query, {
+                    "catalog_name": row["catalog_name"],
+                    "schema_name":  row["schema_name"],
+                    "full_name":    full_name,
+                    "groups":       _groups_tuple,
+                })
+                n_related = len(related) if related is not None and not related.empty else 0
+
+                st.markdown(f"""
+                <div class="dd-section-header">
+                  <span class="dd-eyebrow" style="margin-bottom:0">§ Related tables</span>
+                  <span class="dd-section-count">{n_related}</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+                if n_related > 0:
+                    _cols = st.columns(min(3, n_related), gap="small")
+                    for i, (_, rel) in enumerate(related.iterrows()):
+                        with _cols[i % 3]:
+                            _rel_full  = str(rel.get("full_name", ""))
+                            _rel_name  = _html.escape(str(rel.get("table_name", "")))
+                            _rel_sch   = _html.escape(f"{rel.get('catalog_name','')}.{rel.get('schema_name','')}")
+                            _rel_badge = _html.escape(str(rel.get("relationship", "")))
+                            st.markdown(f"""
+                            <div class="dd-related-card">
+                              <div class="dd-related-badge">{_rel_badge}</div>
+                              <div class="dd-related-name">{_rel_name}</div>
+                              <div class="dd-related-schema">{_rel_sch}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            if st.button(
+                                "Open →",
+                                key=f"rel_{_rel_full}",
+                                type="secondary",
+                                use_container_width=True,
+                            ):
+                                st.session_state["dd_search_override"] = str(rel.get("table_name", ""))
+                                st.session_state["dd_nav_select"] = _rel_full
+                                st.rerun()
+                else:
+                    st.markdown(
+                        '<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No related tables found.</p>',
+                        unsafe_allow_html=True,
+                    )
+
+
+
         else:
             st.markdown(f"""
             <div style="padding:64px 8px;border-top:1px solid var(--ink-10);text-align:center">
