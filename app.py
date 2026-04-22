@@ -9,9 +9,16 @@ import msal
 import html as _html
 import secrets
 import pandas as pd
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
+
+def validate_identifier(identifier: str) -> str:
+    """Validate that an identifier only contains alphanumeric characters and underscores."""
+    if not re.match(r"^[a-zA-Z0-9_]+$", identifier):
+        raise ValueError(f"Invalid identifier format: {identifier}")
+    return identifier
 
 # ── Demo data (returned in mock/dev mode instead of hitting Databricks) ────────
 _DEMO_TABLES = pd.DataFrame({
@@ -133,8 +140,8 @@ AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 SCOPE = ["User.Read", "GroupMember.Read.All"]
 
-CATALOG_CACHE = "data_governance"
-SCHEMA_CACHE = "dictionary_cache"
+CATALOG_CACHE = validate_identifier("data_governance")
+SCHEMA_CACHE = validate_identifier("dictionary_cache")
 
 st.set_page_config(
     page_title="Data Dictionary",
@@ -1004,19 +1011,19 @@ st.markdown('<div class="dd-page">', unsafe_allow_html=True)
 
 @st.cache_data(ttl="1h")
 def get_authorized_tables(groups):
-    sql_query = f"""
-        SELECT DISTINCT
-            m.full_name,
-            m.catalog_name,
-            m.schema_name,
-            m.table_name,
-            m.comment as table_description,
-            m.table_type
-        FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata m
-        JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p
-          ON m.full_name = p.table_full_name
-        WHERE (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS')
-    """
+    sql_query = (
+        "SELECT DISTINCT "
+        "    m.full_name, "
+        "    m.catalog_name, "
+        "    m.schema_name, "
+        "    m.table_name, "
+        "    m.comment as table_description, "
+        "    m.table_type "
+        "FROM {0}.{1}.tables_metadata m "
+        "JOIN {0}.{1}.permissions_cache p "
+        "  ON m.full_name = p.table_full_name "
+        "WHERE (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS')"
+    ).format(CATALOG_CACHE, SCHEMA_CACHE)  # nosec B608
     return run_query(sql_query, {"groups": groups})
 
 # Sign-out (hidden Streamlit widget used for state management)
