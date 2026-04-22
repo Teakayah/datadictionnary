@@ -125,6 +125,73 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
     assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache VALUES (%(table_full_name)s, %(direction)s, %(entity_full_name)s, %(entity_type)s)" in executemany_calls[3][0][0]
 
 @patch("scripts.sync_metadata.WorkspaceClient")
+def test_fetch_lineage(mock_workspace_client):
+    mock_w = MagicMock()
+    mock_workspace_client.return_value = mock_w
+
+    # Setup mock response
+    mock_response = {
+        "upstream_tables": [
+            {"name": "up_table_1", "table_type": "TABLE"},
+            {"full_name": "up_table_2"} # fallback to full_name, default table_type
+        ],
+        "downstream_tables": [
+            {"name": "down_table_1", "table_type": "VIEW"}
+        ]
+    }
+    mock_w.api_client.do.return_value = mock_response
+
+    from scripts.sync_metadata import fetch_lineage
+
+    full_name = "test_catalog.test_schema.test_table"
+    entries = fetch_lineage(mock_w, full_name)
+
+    mock_w.api_client.do.assert_called_once_with(
+        "GET",
+        "/api/2.0/lineage-tracking/table-lineage",
+        query={"table_name": full_name},
+    )
+
+    assert len(entries) == 3
+    assert entries[0] == {
+        "table_full_name": full_name,
+        "direction": "UPSTREAM",
+        "entity_full_name": "up_table_1",
+        "entity_type": "TABLE",
+    }
+    assert entries[1] == {
+        "table_full_name": full_name,
+        "direction": "UPSTREAM",
+        "entity_full_name": "up_table_2",
+        "entity_type": "TABLE",
+    }
+    assert entries[2] == {
+        "table_full_name": full_name,
+        "direction": "DOWNSTREAM",
+        "entity_full_name": "down_table_1",
+        "entity_type": "VIEW",
+    }
+
+
+@patch("builtins.print")
+@patch("scripts.sync_metadata.WorkspaceClient")
+def test_fetch_lineage_error(mock_workspace_client, mock_print):
+    mock_w = MagicMock()
+    mock_workspace_client.return_value = mock_w
+
+    error_msg = "API failure"
+    mock_w.api_client.do.side_effect = Exception(error_msg)
+
+    from scripts.sync_metadata import fetch_lineage
+
+    full_name = "test_catalog.test_schema.test_table"
+    entries = fetch_lineage(mock_w, full_name)
+
+    assert entries == []
+    mock_print.assert_called_once_with(f"    Lineage unavailable for {full_name}: {error_msg}")
+
+
+@patch("scripts.sync_metadata.WorkspaceClient")
 @patch("scripts.sync_metadata.get_sql_connection")
 @patch("builtins.print")
 def test_sync_schema_error(mock_print, mock_get_sql_connection, mock_workspace_client):
