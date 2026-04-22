@@ -36,7 +36,7 @@ This is a **Python-native Business Data Dictionary** for Databricks Unity Catalo
   - `permissions_cache` — one row per (table, principal, privilege) grant
 
 **`app.py` — Streamlit Frontend**
-- On startup: checks for `CLIENT_ID` env var; if missing/placeholder, falls back to **Mock Auth** (hardcoded Finance group IDs) for local dev
+- On startup: checks for `ENABLE_MOCK_AUTH` and `ENVIRONMENT` env vars; if true and development, falls back to **Mock Auth** (hardcoded Finance group IDs) for local dev
 - Real auth: MSAL OAuth 2.0 / OIDC flow against Entra ID; user's AD group Object IDs are read from the `groups` claim of the ID token
 - Search queries always `JOIN tables_metadata` with `permissions_cache` filtered by `p.principal IN (user's groups)` — users mathematically cannot see unauthorized tables
 - Table detail view queries `columns_metadata` for the selected table
@@ -48,7 +48,7 @@ Permission enforcement is "push-down" SQL: the Streamlit app never fetches all r
 All cache tables live in `data_governance.dictionary_cache` (constants `CATALOG_CACHE`/`SCHEMA_CACHE` defined in both files). `setup_cache_tables()` in the sync script creates the catalog, schema, and tables with `IF NOT EXISTS` — safe to run repeatedly.
 
 ### Development with Mock Auth
-When `CLIENT_ID` is unset or equals `"your-client-id"`, the app skips Entra ID and renders a **"Mock Login (Finance Group)"** button that sets `st.session_state.user_groups = ["finance_dept_id", "all_employees_id"]`. No Databricks credentials are needed to test the UI — but queries will still fail without a valid SQL Warehouse connection.
+When `ENABLE_MOCK_AUTH=true` and `ENVIRONMENT=development` are set, the app skips Entra ID and renders a **"Mock Login (Finance Group)"** button that sets `st.session_state.user_groups = ["finance_dept_id", "all_employees_id"]`. No Databricks credentials are needed to test the UI — but queries will still fail without a valid SQL Warehouse connection.
 
 ## Design system
 

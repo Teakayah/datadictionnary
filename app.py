@@ -1055,7 +1055,10 @@ query_groups = (active_group,) if active_group else (tuple(st.session_state.user
 
 try:
     all_results = get_authorized_tables(query_groups)
-    table_options = sorted(all_results['table_name'].unique().tolist())
+    if all_results is not None and not all_results.empty:
+        table_options = sorted(all_results['table_name'].unique().tolist())
+    else:
+        table_options = []
 except Exception as e:
     logging.error("Error querying data: %s", e, exc_info=True)
     st.error("Error loading catalog.")
@@ -1202,6 +1205,7 @@ if search_query and all_results is not None:
                 ).format(CATALOG_CACHE, SCHEMA_CACHE)
                 lineage = run_query(lineage_query, {"table_full_name": full_name})
                 has_lineage = lineage is not None and not lineage.empty
+                print("LINEAGE:", lineage)
 
                 st.markdown("""
                 <div class="dd-section-header">
