@@ -1055,7 +1055,10 @@ query_groups = (active_group,) if active_group else (tuple(st.session_state.user
 
 try:
     all_results = get_authorized_tables(query_groups)
-    table_options = sorted(all_results['table_name'].unique().tolist())
+    if all_results is not None and not all_results.empty:
+        table_options = sorted(all_results['table_name'].unique().tolist())
+    else:
+        table_options = []
 except Exception as e:
     logging.error("Error querying data: %s", e, exc_info=True)
     st.error("Error loading catalog.")
