@@ -138,7 +138,7 @@ SCHEMA_CACHE = "dictionary_cache"
 
 st.set_page_config(
     page_title="Data Dictionary",
-    page_icon="assets/logo-mark.svg",
+    page_icon="assets/favicon.png",
     layout="wide",
 )
 
