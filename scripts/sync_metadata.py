@@ -77,6 +77,58 @@ def setup_cache_tables():
                 )
             """)
 
+            # Table for human-friendly business name overrides (power-user edits)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides (
+                    table_full_name STRING,
+                    column_name     STRING,
+                    business_name   STRING,
+                    definition      STRING,
+                    edited_by       STRING,
+                    edited_at       TIMESTAMP
+                )
+            """)
+
+def push_business_name_overrides():
+    """Write column business name overrides back to Unity Catalog as column comments.
+
+    Reads every row from business_name_overrides and executes
+    ALTER TABLE ... ALTER COLUMN ... COMMENT '...'
+    so the override is visible in Unity Catalog alongside the cache.
+
+    Note: business_name_overrides is the authoritative source for the app display.
+    Writing back to Unity Catalog is best-effort; the app does NOT read from UC comments.
+    """
+    print("📝 Pushing business name overrides to Unity Catalog...")
+    with get_sql_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT table_full_name, column_name, business_name, definition "
+                f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
+            )
+            overrides = cursor.fetchall_as_pandas()
+
+    if overrides is None or overrides.empty:
+        print("  No overrides to push.")
+        return
+
+    with get_sql_connection() as conn:
+        with conn.cursor() as cursor:
+            for _, row in overrides.iterrows():
+                full_name = str(row["table_full_name"])
+                col_name  = str(row["column_name"])
+                # Escape single quotes before embedding in SQL DDL
+                biz_name  = str(row["business_name"]).replace("'", "\\'")
+                try:
+                    cursor.execute(
+                        f"ALTER TABLE {full_name} "
+                        f"ALTER COLUMN {col_name} COMMENT '{biz_name}'"
+                    )
+                    print(f"  ✓ {full_name}.{col_name}")
+                except Exception as e:
+                    print(f"  ✗ {full_name}.{col_name}: {e}")
+
+
 def fetch_lineage(w, full_name):
     """Returns 1-hop upstream/downstream lineage edges for *full_name*.
 
@@ -242,6 +294,7 @@ def sync():
                 )
 
     print("✅ Sync completed successfully.")
+    push_business_name_overrides()
 
 if __name__ == "__main__":
     setup_cache_tables()

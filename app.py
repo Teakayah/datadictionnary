@@ -163,6 +163,7 @@ SCOPE = ["User.Read", "GroupMember.Read.All"]
 
 CATALOG_CACHE = "data_governance"
 SCHEMA_CACHE = "dictionary_cache"
+MAX_BUSINESS_NAME_LEN = 255
 
 st.set_page_config(
     page_title="Data Dictionary",
@@ -695,35 +696,53 @@ button[data-testid="stBaseButton-secondary"]:hover {
     color: var(--ink-40);
 }
 
-/* ── Columns HTML table ── */
-.dd-columns-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-}
-.dd-col-row { border-top: 1px solid var(--ink-10); }
+/* ── Columns list (Streamlit-column-based rows) ── */
 .dd-col-name {
-    padding: 9px 16px 9px 0;
     font-family: var(--font-mono);
+    font-size: 13px;
     color: var(--ink);
-    white-space: nowrap;
-    vertical-align: top;
+    line-height: 1.5;
 }
 .dd-col-type {
-    padding: 9px 16px 9px 0;
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--ink-40);
-    white-space: nowrap;
-    vertical-align: top;
+    line-height: 1.5;
 }
 .dd-col-desc {
-    padding: 9px 0;
-    color: var(--ink-60);
     font-family: var(--font-sans);
     font-size: 13px;
+    color: var(--ink-60);
     line-height: 1.4;
-    vertical-align: top;
+}
+.dd-col-biz-name {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 500;
+    line-height: 1.4;
+    display: block;
+}
+.dd-col-tech-sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+    display: block;
+    line-height: 1.3;
+    margin-top: 2px;
+}
+.dd-col-desc-faded {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--ink-40);
+    display: block;
+    line-height: 1.3;
+    margin-top: 2px;
+}
+.dd-col-divider {
+    border: none;
+    border-top: 1px solid var(--ink-10);
+    margin: 2px 0;
 }
 
 /* ── Grants list ── */
@@ -775,6 +794,41 @@ button[data-testid="stBaseButton-secondary"]:hover {
 
 /* Hide the zero-height JS bridge iframe */
 iframe[height="0"] { display: none !important; }
+
+/* ── Business name editor ── */
+.dd-edit-banner {
+    background: var(--ochre);
+    color: var(--paper);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px 14px;
+    border-radius: 2px;
+    margin-bottom: 16px;
+    letter-spacing: -0.005em;
+}
+.dd-business-name {
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.1;
+    margin: 4px 0 4px 0;
+}
+.dd-tech-name-sub {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-40);
+    margin-bottom: 12px;
+}
+.dd-biz-audit {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--ink-40);
+    margin-top: -8px;
+    margin-bottom: 12px;
+    letter-spacing: -0.003em;
+}
 """
 
 # ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
@@ -1090,6 +1144,89 @@ def run_query(query, params=None):
         cursor.execute(query, params)
         return cursor.fetchall_as_pandas()
 
+
+
+def is_power_user() -> bool:
+    """True if the current user belongs to at least one EDITOR_GROUPS group."""
+    editor_groups = {g.strip() for g in os.getenv("EDITOR_GROUPS", "").split(",") if g.strip()}
+    if not editor_groups:
+        return False
+    return bool(editor_groups & set(st.session_state.get("user_groups", [])))
+
+
+def get_column_business_names(table_full_name: str) -> dict:
+    """Return all column business name overrides for a table as a dict.
+
+    Returns: {column_name: {"business_name": str, "edited_by": str, "edited_at": str}}
+    One bulk query — not N per-column queries.
+    In demo mode reads from session state instead of Databricks.
+    """
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        return st.session_state.get("demo_business_names", {}).get(table_full_name, {})
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT column_name, business_name, definition, edited_by, edited_at "
+                f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides "
+                f"WHERE table_full_name = %(table_full_name)s",
+                {"table_full_name": table_full_name},
+            )
+            rows = cursor.fetchall_as_pandas()
+            if rows is not None and not rows.empty:
+                return {
+                    str(r["column_name"]): {
+                        "business_name": str(r["business_name"]) if r["business_name"] else "",
+                        "definition":    str(r["definition"])    if r["definition"]    else "",
+                        "edited_by":     str(r["edited_by"]),
+                        "edited_at":     str(r["edited_at"]),
+                    }
+                    for _, r in rows.iterrows()
+                }
+    except Exception as e:
+        logging.warning("Could not fetch column business names for %s: %s", table_full_name, e)
+    return {}
+
+
+def save_business_name(table_full_name: str, column_name: str, business_name: str, definition: str = "") -> None:
+    """Atomically upsert a column override (business name + definition) using MERGE INTO.
+
+    Raises:
+        PermissionError: if the current session user is not a power user.
+        ValueError: if business_name or definition exceeds MAX_BUSINESS_NAME_LEN characters.
+
+    In demo mode writes to session state (ephemeral, lost on browser close).
+    Demo mode structure: {table_full_name: {column_name: {business_name, definition, ...}}}
+    """
+    if not is_power_user():
+        raise PermissionError("Only power users can save business name overrides.")
+    if len(business_name) > MAX_BUSINESS_NAME_LEN:
+        raise ValueError(
+            f"Business name must be {MAX_BUSINESS_NAME_LEN} characters or fewer "
+            f"(got {len(business_name)})."
+        )
+    if len(definition) > MAX_BUSINESS_NAME_LEN:
+        raise ValueError(
+            f"Definition must be {MAX_BUSINESS_NAME_LEN} characters or fewer "
+            f"(got {len(definition)})."
+        )
+    user_name = st.session_state.get("user_name", "unknown")
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        if "demo_business_names" not in st.session_state:
+            st.session_state["demo_business_names"] = {}
+        tbl = st.session_state["demo_business_names"].setdefault(table_full_name, {})
+        tbl[column_name] = {"business_name": business_name, "definition": definition, "edited_by": user_name, "edited_at": "just now"}
+        return
+    conn = get_db_connection()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            f"MERGE INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides AS target "
+            f"USING (SELECT %(table_full_name)s AS table_full_name, %(column_name)s AS column_name, %(business_name)s AS business_name, %(definition)s AS definition, %(edited_by)s AS edited_by) AS source "
+            f"ON target.table_full_name = source.table_full_name AND target.column_name = source.column_name "
+            f"WHEN MATCHED THEN UPDATE SET target.business_name = source.business_name, target.definition = source.definition, target.edited_by = source.edited_by, target.edited_at = current_timestamp() "
+            f"WHEN NOT MATCHED THEN INSERT (table_full_name, column_name, business_name, definition, edited_by, edited_at) VALUES (source.table_full_name, source.column_name, source.business_name, source.definition, source.edited_by, current_timestamp())",
+            {"table_full_name": table_full_name, "column_name": column_name, "business_name": business_name, "definition": definition, "edited_by": user_name},
+        )
 
 
 @st.cache_data(ttl="1h")
@@ -1504,23 +1641,111 @@ if current_tab == "search":
                     row = results[results["table_name"] == selected_table].iloc[0]
                     full_name = f"{row['catalog_name']}.{row['schema_name']}.{row['table_name']}"
                     with col_main_detail:
-                        st.markdown('<div class="dd-detail-header" style="margin-top: 0;"><span class="dd-eyebrow" style="margin-bottom:0">§ Table detail</span></div>', unsafe_allow_html=True)
                         _cat, _sch, _tbl = _html.escape(str(row['catalog_name'])), _html.escape(str(row['schema_name'])), _html.escape(str(row['table_name']))
                         _raw_desc = row.get('table_description', '')
                         _desc = _html.escape(str(_raw_desc) if isinstance(_raw_desc, str) else '')
                         _host = os.getenv("DATABRICKS_HOST", "").strip()
                         _ext_link = f'<a href="https://{_host}/explore/data/{_cat}/{_sch}/{_tbl}" target="_blank" class="dd-link-external">Open in Databricks ↗</a>' if _host else ''
-                        st.markdown(f'<div class="dd-eyebrow" style="margin-bottom:4px">{_cat} · {_sch}</div><div class="dd-detail-table-name">{_tbl}</div><p class="dd-detail-desc">{_desc}</p>{_ext_link}', unsafe_allow_html=True)
+
+                        # Section header
+                        st.markdown('<div class="dd-detail-header" style="margin-top: 0;"><span class="dd-eyebrow" style="margin-bottom:0">§ Table detail</span></div>', unsafe_allow_html=True)
+
+                        # Table identity block
+                        st.markdown(
+                            f'<div class="dd-eyebrow" style="margin-bottom:4px">{_cat} · {_sch}</div>'
+                            f'<div class="dd-detail-table-name">{_tbl}</div>'
+                            f'<p class="dd-detail-desc">{_desc}</p>{_ext_link}',
+                            unsafe_allow_html=True,
+                        )
                         st.code(full_name, language=None)
-                        
+
                         # --- § Columns ---
+                        # Bulk-fetch overrides first (one query for all columns)
+                        col_overrides = get_column_business_names(full_name)
+
                         cols_query = ("SELECT column_name, data_type, comment FROM {0}.{1}.columns_metadata WHERE table_full_name = %(table_full_name)s ORDER BY column_name").format(CATALOG_CACHE, SCHEMA_CACHE)
                         cols = run_query(cols_query, {"table_full_name": full_name})
                         n_cols = len(cols) if cols is not None and not cols.empty else 0
                         st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Columns</span><span class="dd-section-count">{n_cols}</span></div>', unsafe_allow_html=True)
+                        _power = is_power_user()
+                        _col_edit = st.session_state.get("dd_col_edit_mode", "")
+
                         if n_cols > 0:
-                            rows_html = "".join(f'<tr class="dd-col-row"><td class="dd-col-name">{_html.escape(str(c.get("column_name", "")))}</td><td class="dd-col-type">{_html.escape(str(c.get("data_type", "")))}</td><td class="dd-col-desc">{_html.escape(str(c.get("comment") or ""))}</td></tr>' for _, c in cols.iterrows())
-                            st.markdown(f'<table class="dd-columns-table"><tbody>{rows_html}</tbody></table>', unsafe_allow_html=True)
+                            for _, c in cols.iterrows():
+                                _cname    = str(c.get("column_name", ""))
+                                _ctype    = str(c.get("data_type", ""))
+                                _ccomment = str(c.get("comment") or "")
+                                _edit_key = f"{full_name}__{_cname}"
+                                _override   = col_overrides.get(_cname, {})
+                                _col_biz    = _override.get("business_name", "")
+                                _col_def    = _override.get("definition", "")
+
+                                st.markdown('<hr class="dd-col-divider">', unsafe_allow_html=True)
+                                _r_name, _r_type, _r_desc, _r_btn = st.columns([3, 2, 5, 1], gap="small")
+
+                                # Name cell: business name above, technical name faded below
+                                if _col_biz:
+                                    _r_name.markdown(
+                                        f'<span class="dd-col-biz-name">{_html.escape(_col_biz)}</span>'
+                                        f'<span class="dd-col-tech-sub">{_html.escape(_cname)}</span>',
+                                        unsafe_allow_html=True,
+                                    )
+                                else:
+                                    _r_name.markdown(f'<span class="dd-col-name">{_html.escape(_cname)}</span>', unsafe_allow_html=True)
+
+                                _r_type.markdown(f'<span class="dd-col-type">{_html.escape(_ctype)}</span>', unsafe_allow_html=True)
+
+                                # Desc cell: business definition above, system comment faded below
+                                if _col_def:
+                                    _r_desc.markdown(
+                                        f'<span class="dd-col-desc">{_html.escape(_col_def)}</span>'
+                                        f'<span class="dd-col-desc-faded">{_html.escape(_ccomment)}</span>',
+                                        unsafe_allow_html=True,
+                                    )
+                                else:
+                                    _r_desc.markdown(f'<span class="dd-col-desc">{_html.escape(_ccomment)}</span>', unsafe_allow_html=True)
+
+                                if _power and _col_edit != _edit_key:
+                                    if _r_btn.button("✎", key=f"col_edit_{_edit_key}", use_container_width=True):
+                                        st.session_state["dd_col_edit_mode"] = _edit_key
+                                        st.rerun()
+
+                                if _col_edit == _edit_key:
+                                    st.markdown('<div class="dd-edit-banner">Edit mode — changes are saved immediately and visible to all users.</div>', unsafe_allow_html=True)
+                                    _inp_name = st.text_input(
+                                        "Business name",
+                                        value=_col_biz,
+                                        placeholder="e.g. Customer ID",
+                                        max_chars=MAX_BUSINESS_NAME_LEN,
+                                        key=f"col_biz_name_{_edit_key}",
+                                    )
+                                    _inp_def = st.text_input(
+                                        "Definition",
+                                        value=_col_def,
+                                        placeholder="e.g. Unique identifier assigned to each customer at registration.",
+                                        max_chars=MAX_BUSINESS_NAME_LEN,
+                                        key=f"col_biz_def_{_edit_key}",
+                                    )
+                                    _sc, _cc, _ = st.columns([2, 2, 4], gap="small")
+                                    with _sc:
+                                        if st.button("Save", key=f"col_biz_save_{_edit_key}", use_container_width=True):
+                                            try:
+                                                save_business_name(full_name, _cname, _inp_name.strip(), _inp_def.strip())
+                                                st.session_state.pop("dd_col_edit_mode", None)
+                                                st.rerun()
+                                            except PermissionError:
+                                                st.error("You do not have permission to edit business names.")
+                                            except ValueError as exc:
+                                                st.error(str(exc))
+                                    with _cc:
+                                        if st.button("Cancel", key=f"col_biz_cancel_{_edit_key}", use_container_width=True):
+                                            st.session_state.pop("dd_col_edit_mode", None)
+                                            st.rerun()
+                                    if _override.get("edited_by"):
+                                        st.markdown(
+                                            f'<div class="dd-biz-audit">Last edited by {_html.escape(_override["edited_by"])} · {_html.escape(str(_override.get("edited_at", "")))}</div>',
+                                            unsafe_allow_html=True,
+                                        )
                         else:
                             st.markdown('<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No columns recorded.</p>', unsafe_allow_html=True)
 
