@@ -98,9 +98,12 @@ def sql_returns(*dataframes: pd.DataFrame) -> None:
     """
     cursor = get_db_cursor()
     cursor.reset_mock()
-    if len(dataframes) == 1:
-        cursor.fetchall_as_pandas.return_value = dataframes[0]
-        cursor.fetchall_as_pandas.side_effect = None
-    else:
-        cursor.fetchall_as_pandas.side_effect = list(dataframes)
-        cursor.fetchall_as_pandas.return_value = None
+    def side_effect(*args, **kwargs):
+        if hasattr(side_effect, "index") and side_effect.index < len(dataframes):
+            df = dataframes[side_effect.index]
+            side_effect.index += 1
+            return df
+        return pd.DataFrame()
+    side_effect.index = 0
+    cursor.fetchall_as_pandas.side_effect = side_effect
+    cursor.fetchall_as_pandas.return_value = None

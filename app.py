@@ -217,6 +217,15 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
     -webkit-font-smoothing: antialiased;
 }
 
+/* Smooth fade-in on rerun to prevent white flash */
+@keyframes ddFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+.stApp {
+    animation: ddFadeIn 0.25s ease-out;
+}
+
 /* Remove default Streamlit top padding so our fixed header sits flush */
 [data-testid="stMainBlockContainer"] {
     padding-top: 100px !important;
@@ -763,6 +772,9 @@ button[data-testid="stBaseButton-secondary"]:hover {
     color: var(--accent) !important;
     font-weight: 600 !important;
 }
+
+/* Hide the zero-height JS bridge iframe */
+iframe[height="0"] { display: none !important; }
 """
 
 # ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
@@ -802,15 +814,15 @@ def render_header(user_name: str | None = None, active_tab: str = "search"):
         <span class="dd-nav-sep"></span>
         <span class="dd-nav-user">{user_name}</span>
         '''
-    
+
     def link(label, tab_id):
         active = "active" if active_tab == tab_id else ""
-        return f'<a href="?tab={tab_id}&mock_login=true" target="_self" class="{active}">{label}</a>'
+        return f'<a href="#" data-tab="{tab_id}" class="dd-nav-tab {active}">{label}</a>'
 
     st.markdown(f'''
     <div class="dd-header">
       <div class="dd-header-inner">
-        <a href="?tab=search&mock_login=true" target="_self" class="dd-logo-link">
+        <a href="#" data-tab="search" class="dd-logo-link">
           {LOGO_MARK_SVG}
           <span class="dd-logo-text">Data Dictionary</span>
           <span class="dd-pill">Beta</span>
@@ -826,6 +838,65 @@ def render_header(user_name: str | None = None, active_tab: str = "search"):
       </div>
     </div>
     ''', unsafe_allow_html=True)
+
+    # Hidden Streamlit buttons — JS in the component iframe clicks these
+    _tabs = ["search", "catalog", "glossary", "discovery", "health"]
+    for tab_id in _tabs:
+        if st.button(tab_id.capitalize(), key=f"nav_{tab_id}"):
+            st.query_params["tab"] = tab_id
+            st.query_params["mock_login"] = "true"
+            st.rerun()
+
+    # Zero-height iframe: wires header nav clicks → hidden Streamlit buttons
+    _nav_labels_js = str(["Search", "Catalog", "Glossary", "Discovery", "Health"])
+    components.html(f"""
+    <script>
+    (function() {{
+        const parentDoc = window.parent.document;
+        const NAV_LABELS = {_nav_labels_js};
+
+        function findNavButtons() {{
+            const all = parentDoc.querySelectorAll('button[data-testid="stBaseButton-secondary"]');
+            const navBtns = {{}};
+            all.forEach(btn => {{
+                const label = btn.textContent.trim();
+                if (NAV_LABELS.includes(label)) navBtns[label] = btn;
+            }});
+            return navBtns;
+        }}
+
+        function wireNav() {{
+            const navLinks = parentDoc.querySelectorAll('a.dd-nav-tab[data-tab], a.dd-logo-link[data-tab]');
+            const navBtns = findNavButtons();
+            if (navLinks.length === 0 || Object.keys(navBtns).length === 0) {{
+                setTimeout(wireNav, 150);
+                return;
+            }}
+
+            // Hide the proxy buttons
+            Object.values(navBtns).forEach(btn => {{
+                const wrapper = btn.closest('div[data-testid="stButton"]');
+                if (wrapper) wrapper.style.display = 'none';
+            }});
+
+            navLinks.forEach(link => {{
+                if (link._wired) return;
+                link._wired = true;
+                link.addEventListener('click', function(e) {{
+                    e.preventDefault();
+                    const tabId = this.getAttribute('data-tab');
+                    const label = tabId.charAt(0).toUpperCase() + tabId.slice(1);
+                    const btns = findNavButtons();
+                    if (btns[label]) btns[label].click();
+                }});
+            }});
+        }}
+        wireNav();
+        const observer = new MutationObserver(() => setTimeout(wireNav, 50));
+        observer.observe(parentDoc.body, {{childList: true, subtree: true}});
+    }})();
+    </script>
+    """, height=0)
 
 
 def render_footer():
