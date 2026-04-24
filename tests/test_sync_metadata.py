@@ -205,3 +205,93 @@ def test_main_coverage(setup_mocks):
     # The script does `from databricks.sdk import WorkspaceClient`.
     # When `sys.modules["databricks.sdk"]` is a MagicMock, `WorkspaceClient` is an attribute on it.
     assert sys.modules["databricks.sdk"].WorkspaceClient.called
+
+def test_fetch_lineage_success():
+    from scripts.sync_metadata import fetch_lineage
+    mock_w = MagicMock()
+
+    mock_w.api_client.do.return_value = {
+        "upstream_tables": [
+            {"name": "up_table_1", "table_type": "MANAGED"},
+            {"full_name": "up_table_2", "table_type": "EXTERNAL"}
+        ],
+        "downstream_tables": [
+            {"name": "down_table_1", "table_type": "MANAGED"},
+            {"full_name": "down_table_2"}
+        ]
+    }
+
+    entries = fetch_lineage(mock_w, "my_catalog.my_schema.my_table")
+
+    mock_w.api_client.do.assert_called_once_with(
+        "GET",
+        "/api/2.0/lineage-tracking/table-lineage",
+        query={"table_name": "my_catalog.my_schema.my_table"}
+    )
+
+    assert len(entries) == 4
+    assert entries[0] == {
+        "table_full_name": "my_catalog.my_schema.my_table",
+        "direction": "UPSTREAM",
+        "entity_full_name": "up_table_1",
+        "entity_type": "MANAGED"
+    }
+    assert entries[1] == {
+        "table_full_name": "my_catalog.my_schema.my_table",
+        "direction": "UPSTREAM",
+        "entity_full_name": "up_table_2",
+        "entity_type": "EXTERNAL"
+    }
+    assert entries[2] == {
+        "table_full_name": "my_catalog.my_schema.my_table",
+        "direction": "DOWNSTREAM",
+        "entity_full_name": "down_table_1",
+        "entity_type": "MANAGED"
+    }
+    assert entries[3] == {
+        "table_full_name": "my_catalog.my_schema.my_table",
+        "direction": "DOWNSTREAM",
+        "entity_full_name": "down_table_2",
+        "entity_type": "TABLE"
+    }
+
+@patch("builtins.print")
+def test_fetch_lineage_exception(mock_print):
+    from scripts.sync_metadata import fetch_lineage
+    mock_w = MagicMock()
+
+    mock_w.api_client.do.side_effect = Exception("Test exception")
+
+    entries = fetch_lineage(mock_w, "my_catalog.my_schema.my_table")
+
+    mock_w.api_client.do.assert_called_once_with(
+        "GET",
+        "/api/2.0/lineage-tracking/table-lineage",
+        query={"table_name": "my_catalog.my_schema.my_table"}
+    )
+
+    assert len(entries) == 0
+    mock_print.assert_called_once_with("    Lineage unavailable for my_catalog.my_schema.my_table: Test exception")
+
+def test_fetch_lineage_missing_name():
+    from scripts.sync_metadata import fetch_lineage
+    mock_w = MagicMock()
+
+    mock_w.api_client.do.return_value = {
+        "upstream_tables": [
+            {"table_type": "MANAGED"}  # Missing name and full_name
+        ],
+        "downstream_tables": [
+            {"table_type": "EXTERNAL"} # Missing name and full_name
+        ]
+    }
+
+    entries = fetch_lineage(mock_w, "my_catalog.my_schema.my_table")
+
+    mock_w.api_client.do.assert_called_once_with(
+        "GET",
+        "/api/2.0/lineage-tracking/table-lineage",
+        query={"table_name": "my_catalog.my_schema.my_table"}
+    )
+
+    assert len(entries) == 0
