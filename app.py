@@ -1205,7 +1205,6 @@ if search_query and all_results is not None:
                 ).format(CATALOG_CACHE, SCHEMA_CACHE)
                 lineage = run_query(lineage_query, {"table_full_name": full_name})
                 has_lineage = lineage is not None and not lineage.empty
-                print("LINEAGE:", lineage)
 
                 st.markdown("""
                 <div class="dd-section-header">
