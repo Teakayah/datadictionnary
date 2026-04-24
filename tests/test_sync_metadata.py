@@ -44,7 +44,7 @@ def test_setup_cache_tables(mock_get_sql_connection):
     from scripts.sync_metadata import setup_cache_tables, CATALOG_CACHE, SCHEMA_CACHE
     setup_cache_tables()
 
-    assert mock_cursor.execute.call_count == 6
+    assert mock_cursor.execute.call_count == 7
 
     calls = mock_cursor.execute.call_args_list
     assert f"CREATE CATALOG IF NOT EXISTS {CATALOG_CACHE}" in calls[0][0][0]
@@ -53,6 +53,7 @@ def test_setup_cache_tables(mock_get_sql_connection):
     assert f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata" in calls[3][0][0]
     assert f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache" in calls[4][0][0]
     assert f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache" in calls[5][0][0]
+    assert f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags" in calls[6][0][0]
 
 @patch("scripts.sync_metadata.concurrent.futures.ThreadPoolExecutor")
 @patch("scripts.sync_metadata.WorkspaceClient")
@@ -108,15 +109,17 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
     mock_w.schemas.list.assert_called_once_with(catalog_name='my_catalog')
     mock_w.tables.list.assert_called_once_with(catalog_name='my_catalog', schema_name='my_schema')
 
-    # 3 truncates via execute
+    # 5 truncates via execute (tables, columns, permissions, lineage, object_tags)
     execute_calls = mock_cursor.execute.call_args_list
-    assert len(execute_calls) == 4
+    assert len(execute_calls) == 5
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata" in execute_calls[0][0][0]
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata" in execute_calls[1][0][0]
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache" in execute_calls[2][0][0]
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache" in execute_calls[3][0][0]
+    assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags" in execute_calls[4][0][0]
 
     # 4 executemany calls: tables, columns, permissions, lineage
+    # (object_tags has no data here since mock catalogs have no .properties set)
     executemany_calls = mock_cursor.executemany.call_args_list
     assert len(executemany_calls) == 4
     assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp())" in executemany_calls[0][0][0]

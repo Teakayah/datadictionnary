@@ -54,8 +54,17 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+## 📊 Project Status
+
+The project has reached a **Production-Ready MVP** state with the following core features implemented:
+
+*   **Custom UI System:** A bespoke Streamlit design system implemented in `app.py`, featuring editorial typography, custom-inlined SVG iconography, and a responsive two-column layout.
+*   **Automated Sync Pipeline:** A high-performance metadata crawler (`scripts/sync_metadata.py`) that extracts structure, comments, and permission grants from Unity Catalog and caches them in a Databricks SQL Warehouse.
+*   **Security & Permissions:** Full integration with **Microsoft Entra ID (Azure AD)** for OIDC authentication. The search engine automatically enforces Unity Catalog permissions by filtering results against an extracted ACL cache.
+*   **Comprehensive Testing:** A robust suite of unit and integration tests (using `pytest` and Streamlit `AppTest`) covering the frontend design, authentication logic, and the sync engine.
+
 ## 📅 Roadmap
 - [x] **Phase 1:** UI Scaffolding & Project Structure
-- [ ] **Phase 2:** Metadata Sync Job (Unity Catalog -> SQL Warehouse)
-- [ ] **Phase 3:** Entra ID Integration & Permission-Trimmed Search
+- [x] **Phase 2:** Metadata Sync Job (Unity Catalog -> SQL Warehouse)
+- [x] **Phase 3:** Entra ID Integration & Permission-Trimmed Search
 - [ ] **Phase 4:** Advanced Features (Lineage visualization, Data Quality tags)
