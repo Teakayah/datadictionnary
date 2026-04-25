@@ -407,30 +407,10 @@ def write_duckdb(
              "actor_email", "old_value", "new_value", "created_at"]),
     }
 
-    # --- Append-only tables (preserved from previous file) ---
-    empty_comments = _empty(["comment_id", "object_type", "object_name", "comment_text",
-                              "author_name", "author_email", "created_at", "steward_email",
-                              "parent_comment_id"])
-    empty_overrides = _empty(["table_full_name", "column_name", "business_name",
-                               "definition", "edited_by", "edited_at"])
-
-    append_frames = {"comments": empty_comments, "business_name_overrides": empty_overrides}
-    if os.path.exists(duckdb_path):
-        try:
-            src = duckdb.connect(duckdb_path, read_only=True)
-            for tbl, fallback in append_frames.items():
-                try:
-                    append_frames[tbl] = src.execute(f"SELECT * FROM {tbl}").df()
-                except Exception:
-                    pass  # table absent in old file — use empty fallback
-            src.close()
-        except Exception as e:
-            print(f"  ⚠  Could not read append-only tables from existing file: {e}")
-
     # --- Write to tmp, then atomic swap ---
     try:
         con = duckdb.connect(tmp_path)
-        for tbl, df in {**reload_frames, **append_frames}.items():
+        for tbl, df in reload_frames.items():
             if df.empty:
                 # Use explicit VARCHAR DDL — DuckDB can't infer types from empty DataFrames
                 # and may default non-object columns to INT32.

@@ -42,16 +42,45 @@ def _load_duckdb_helpers():
     from app.py by exec-ing the relevant source block in a minimal namespace.
     No Streamlit or Databricks imports needed.
     """
+    import types
+    import threading as _threading
+    import duckdb as _duckdb_module
+
     src_path = os.path.join(os.path.dirname(__file__), "..", "app.py")
     with open(src_path) as f:
         source = f.read()
 
-    # Grab the block from _duckdb_available through _get_databricks_connection
+    # Grab the block from _duckdb_available up to (but not including) the
+    # Databricks @st.cache_resource(ttl=...) so we capture _DuckDBCursor and
+    # _DuckDBConn which now live after _get_shared_duckdb_connection.
     start = source.find("\ndef _duckdb_available(")
-    end   = source.find("\n@st.cache_resource", start)
+    end   = source.find("\n@st.cache_resource(ttl=", start)
     block = source[start:end]
 
-    ns = {"os": os, "pd": pd, "re": _re, "MagicMock": MagicMock}
+    # Mock st so @st.cache_resource decorator doesn't require a running Streamlit
+    mock_st = types.SimpleNamespace()
+    def _mock_cache_resource(*args, **kwargs):
+        # @st.cache_resource          → called with the function directly
+        # @st.cache_resource(...)     → called with kwargs, returns a decorator
+        if args and callable(args[0]):
+            return args[0]
+        return lambda f: f
+    mock_st.cache_resource = _mock_cache_resource
+
+    ns = {
+        "os": os,
+        "pd": pd,
+        "re": _re,
+        "MagicMock": MagicMock,
+        "st": mock_st,
+        "duckdb": _duckdb_module,
+        "threading": _threading,
+        # Default values so _duckdb_available() and _get_shared_duckdb_connection()
+        # don't raise NameError; individual tests override as needed.
+        "DUCKDB_PATH": "",
+        "USER_DATA_PATH": "",
+        "_db_write_lock": _threading.Lock(),
+    }
     exec(textwrap.dedent(block), ns)
     return ns
 
@@ -170,17 +199,23 @@ class TestDuckDBAdapter:
         df = cur.fetchall_as_pandas()
         assert isinstance(df, pd.DataFrame) and df.empty
 
-    def test_context_manager_closes_connection(self, tmp_path):
+    def test_context_manager_does_not_close_shared_connection(self, tmp_path):
+        # __exit__ is intentionally a no-op — the singleton must stay open
         cur = self._cursor(str(tmp_path / "t.duckdb"))
         with cur:
             cur.execute("SELECT 1")
-        # Connection closed — next execute should raise
-        with pytest.raises(Exception):
-            cur.execute("SELECT 1")
+        # Cursor must still be usable after the context manager exits
+        cur.execute("SELECT 2")
+        df = cur.fetchall_as_pandas()
+        assert df.iloc[0].iloc[0] == 2
 
     def test_duckconn_cursor_returns_cursor(self, tmp_path):
         db = str(tmp_path / "t.duckdb")
-        duckdb.connect(db).close()  # create file
+        user_db = str(tmp_path / "user.duckdb")
+        duckdb.connect(db).close()  # create catalog file
+        # _DuckDBConn routes through the singleton — patch the module-level paths
+        self.h["DUCKDB_PATH"] = db
+        self.h["USER_DATA_PATH"] = user_db
         conn = self.h["_DuckDBConn"](db)
         cur = conn.cursor()
         assert hasattr(cur, "execute")
@@ -188,8 +223,12 @@ class TestDuckDBAdapter:
 
     def test_duckconn_open_property(self, tmp_path):
         db = str(tmp_path / "t.duckdb")
+        # File absent → singleton returns None → open is False
+        self.h["DUCKDB_PATH"] = db
+        self.h["USER_DATA_PATH"] = str(tmp_path / "user.duckdb")
         conn_absent = self.h["_DuckDBConn"](db)
         assert conn_absent.open is False
+        # File present → singleton succeeds → open is True
         duckdb.connect(db).close()
         conn_present = self.h["_DuckDBConn"](db)
         assert conn_present.open is True
@@ -287,53 +326,27 @@ class TestWriteDuckdb:
             self.write_duckdb([], [], [], [], [])
         con = duckdb.connect(db, read_only=True)
         for tbl in ("tables_metadata", "columns_metadata", "permissions_cache",
-                    "lineage_cache", "object_tags", "audit_log", "comments", "business_name_overrides"):
+                    "lineage_cache", "object_tags", "audit_log"):
             df = con.execute(f"SELECT * FROM {tbl}").df()
             assert isinstance(df, pd.DataFrame), f"{tbl} missing"
         con.close()
 
-    def test_comments_preserved_across_sync(self, tmp_path):
-        db = str(tmp_path / "cache.duckdb")
-        with patch.dict(os.environ, {"DUCKDB_PATH": db}):
-            self.write_duckdb(self._tables(), [], [], [], [])
+    def test_user_data_tables_absent_from_catalog_file(self, tmp_path):
+        """comments and business_name_overrides must NOT exist in the catalog file.
 
-        # Insert a comment into the existing file
-        con = duckdb.connect(db)
-        con.execute(
-            "INSERT INTO comments VALUES "
-            "('id1','TABLE','c.s.t','Hi','Alice','a@x.com',current_timestamp,'st@x.com',NULL)"
-        )
-        con.close()
-
-        # Second sync — comments must survive
-        with patch.dict(os.environ, {"DUCKDB_PATH": db}):
-            self.write_duckdb(self._tables(), [], [], [], [])
-
-        con = duckdb.connect(db, read_only=True)
-        df = con.execute("SELECT * FROM comments").df()
-        con.close()
-        assert len(df) == 1 and df.iloc[0]["comment_id"] == "id1"
-
-    def test_overrides_preserved_across_sync(self, tmp_path):
+        They now live in the separate user_data file (USER_DATA_PATH) which the
+        sync job never touches — so they are never written by write_duckdb.
+        """
         db = str(tmp_path / "cache.duckdb")
         with patch.dict(os.environ, {"DUCKDB_PATH": db}):
             self.write_duckdb(self._tables(), self._columns(), [], [], [])
-
-        con = duckdb.connect(db)
-        con.execute(
-            "INSERT INTO business_name_overrides VALUES "
-            "('c.s.t','id','Customer ID','PK','alice@x.com',current_timestamp)"
-        )
-        con.close()
-
-        with patch.dict(os.environ, {"DUCKDB_PATH": db}):
-            self.write_duckdb(self._tables(), self._columns(), [], [], [])
-
         con = duckdb.connect(db, read_only=True)
-        df = con.execute("SELECT * FROM business_name_overrides").df()
+        tables = con.execute(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'"
+        ).df()["table_name"].tolist()
         con.close()
-        assert len(df) == 1
-        assert df.iloc[0]["business_name"] == "Customer ID"
+        assert "comments" not in tables
+        assert "business_name_overrides" not in tables
 
     def test_skipped_when_path_empty(self, tmp_path):
         """write_duckdb is a no-op when DUCKDB_PATH is unset."""
