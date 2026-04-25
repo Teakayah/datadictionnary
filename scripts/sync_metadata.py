@@ -319,6 +319,94 @@ def sync():
 
     print("✅ Sync completed successfully.")
     push_business_name_overrides()
+    write_duckdb(tables_data, columns_data, permissions_data, lineage_data, tags_data)
+
+
+def write_duckdb(
+    tables_data: list,
+    columns_data: list,
+    permissions_data: list,
+    lineage_data: list,
+    tags_data: list,
+) -> None:
+    """Export sync data to a local DuckDB file for fast local queries.
+
+    Writes to ``<path>.tmp`` then does an atomic ``os.replace()`` so the app
+    never serves a half-written file.  Append-only tables (comments,
+    business_name_overrides) are carried forward from the existing file so
+    no user data is lost across syncs.
+
+    Skipped entirely if DUCKDB_PATH is not set or if ``duckdb`` is not
+    installed — the app falls back to Databricks SQL automatically.
+    """
+    duckdb_path = os.getenv("DUCKDB_PATH", "")
+    if not duckdb_path:
+        return
+
+    try:
+        import duckdb
+        import pandas as pd
+    except ImportError:
+        print("  ⚠  duckdb not installed — skipping local cache export.")
+        return
+
+    tmp_path = duckdb_path + ".tmp"
+    print(f"📦 Exporting to DuckDB: {duckdb_path} ...")
+
+    # --- Truncate-reload tables (rebuilt entirely on each sync) ---
+    reload_frames = {
+        "tables_metadata": pd.DataFrame(tables_data) if tables_data else pd.DataFrame(
+            columns=["full_name", "catalog_name", "schema_name", "table_name",
+                     "table_type", "comment", "updated_at", "steward_email"]),
+        "columns_metadata": pd.DataFrame(columns_data) if columns_data else pd.DataFrame(
+            columns=["table_full_name", "column_name", "data_type", "comment"]),
+        "permissions_cache": pd.DataFrame(permissions_data) if permissions_data else pd.DataFrame(
+            columns=["table_full_name", "principal", "privilege"]),
+        "lineage_cache": pd.DataFrame(lineage_data) if lineage_data else pd.DataFrame(
+            columns=["table_full_name", "direction", "entity_full_name", "entity_type"]),
+        "object_tags": pd.DataFrame(tags_data) if tags_data else pd.DataFrame(
+            columns=["object_type", "object_full_name", "tag_key", "tag_value"]),
+    }
+
+    # --- Append-only tables (preserved from previous file) ---
+    empty_comments = pd.DataFrame(
+        columns=["comment_id", "object_type", "object_name", "comment_text",
+                 "author_name", "author_email", "created_at", "steward_email",
+                 "parent_comment_id"])
+    empty_overrides = pd.DataFrame(
+        columns=["table_full_name", "column_name", "business_name",
+                 "definition", "edited_by", "edited_at"])
+
+    append_frames = {"comments": empty_comments, "business_name_overrides": empty_overrides}
+    if os.path.exists(duckdb_path):
+        try:
+            src = duckdb.connect(duckdb_path, read_only=True)
+            for tbl, fallback in append_frames.items():
+                try:
+                    append_frames[tbl] = src.execute(f"SELECT * FROM {tbl}").df()
+                except Exception:
+                    pass  # table absent in old file — use empty fallback
+            src.close()
+        except Exception as e:
+            print(f"  ⚠  Could not read append-only tables from existing file: {e}")
+
+    # --- Write to tmp, then atomic swap ---
+    try:
+        con = duckdb.connect(tmp_path)
+        for tbl, df in {**reload_frames, **append_frames}.items():
+            con.execute(f"CREATE OR REPLACE TABLE {tbl} AS SELECT * FROM df")
+        # Useful indexes for the permission JOIN and detail lookups
+        con.execute("CREATE INDEX IF NOT EXISTS idx_perm_principal ON permissions_cache (principal)")
+        con.execute("CREATE INDEX IF NOT EXISTS idx_perm_table ON permissions_cache (table_full_name)")
+        con.execute("CREATE INDEX IF NOT EXISTS idx_cols_table ON columns_metadata (table_full_name)")
+        con.close()
+        os.replace(tmp_path, duckdb_path)
+        print(f"  ✓ DuckDB written ({duckdb_path})")
+    except Exception as e:
+        print(f"  ✗ DuckDB export failed: {e}")
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
 
 if __name__ == "__main__":
     setup_cache_tables()

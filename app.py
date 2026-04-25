@@ -1147,28 +1147,150 @@ def check_auth():
         st.stop()
 
 # ── Databricks query helper ────────────────────────────────────────────────────
+# ── DuckDB local-cache adapter ────────────────────────────────────────────────
+# When DUCKDB_PATH points to an existing file (written by the sync job), all
+# read queries and app writes are served locally — no network round-trip.
+# The adapter translates the existing %(name)s pyformat SQL into DuckDB's
+# $name named-parameter style so no query code needs to change.
+
+DUCKDB_PATH = os.getenv("DUCKDB_PATH", "")
+
+def _duckdb_available() -> bool:
+    return bool(DUCKDB_PATH and os.path.exists(DUCKDB_PATH))
+
+
+def _to_duckdb_sql(sql: str, params: dict) -> tuple:
+    """Convert %(name)s pyformat SQL + dict params to DuckDB $name style.
+
+    Special case: ``IN %(name)s`` where the value is a list/tuple is rewritten
+    to ``= ANY($name)`` so the DuckDB array-contains operator is used.
+    Returns (converted_sql, converted_params_dict).
+    """
+    import re
+    if not params:
+        return sql, {}
+    converted = {}
+    result = sql
+    for name, value in params.items():
+        if isinstance(value, (list, tuple)):
+            # IN %(name)s  →  = ANY($name)
+            result = re.sub(
+                rf"\bIN\s+%\({re.escape(name)}\)s",
+                f"= ANY(${name})",
+                result,
+                flags=re.IGNORECASE,
+            )
+            converted[name] = list(value)
+        else:
+            converted[name] = value
+    # Remaining %(name)s → $name
+    result = re.sub(r"%\((\w+)\)s", r"$\1", result)
+    return result, converted
+
+
+class _DuckDBCursor:
+    """Cursor-like wrapper around a DuckDB connection, mimicking the
+    databricks.sql cursor interface used throughout the app."""
+
+    def __init__(self, con):
+        self._con = con
+        self._rel = None
+
+    def execute(self, sql: str, params=None):
+        if params is None:
+            self._rel = self._con.execute(sql)
+        elif isinstance(params, dict):
+            converted_sql, converted_params = _to_duckdb_sql(sql, params)
+            self._rel = self._con.execute(converted_sql, converted_params)
+        else:
+            self._rel = self._con.execute(sql, params)
+
+    def fetchall_as_pandas(self):
+        if self._rel is None:
+            return pd.DataFrame()
+        return self._rel.df()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self._con.close()
+
+
+class _DuckDBConn:
+    """Connection-like wrapper that opens a fresh DuckDB handle per cursor()
+    call so concurrent Streamlit sessions don't share a single connection."""
+
+    def __init__(self, path: str):
+        self._path = path
+
+    def cursor(self):
+        import duckdb
+        con = duckdb.connect(self._path)
+        return _DuckDBCursor(con)
+
+    # Support ``with get_db_connection() as conn:`` usage in sync helpers
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        pass
+
+    # databricks.sql connections expose .open; replicate it for cache validate
+    @property
+    def open(self):
+        return os.path.exists(self._path)
+
+
 @st.cache_resource(ttl="2h", validate=lambda conn: conn.open)
-def get_db_connection():
+def _get_databricks_connection():
     return sql.connect(
         server_hostname=os.getenv("DATABRICKS_HOST"),
         http_path=os.getenv("DATABRICKS_HTTP_PATH"),
         access_token=os.getenv("DATABRICKS_TOKEN"),
     )
 
+
+def get_db_connection():
+    """Return a DB connection.
+
+    Returns a DuckDB-backed connection when DUCKDB_PATH points to an existing
+    file (fast, local, no network).  Falls back to the cached Databricks SQL
+    Warehouse connection otherwise.
+    """
+    if _duckdb_available():
+        return _DuckDBConn(DUCKDB_PATH)
+    return _get_databricks_connection()
+
+
 @st.cache_data(ttl="1h")
+def _run_databricks_query(query, params=None):
+    """Cached Databricks query — 1 h TTL to amortise network latency."""
+    conn = _get_databricks_connection()
+    with conn.cursor() as cursor:
+        cursor.execute(query, params)
+        return cursor.fetchall_as_pandas()
+
+
+def _run_duckdb_query(query, params=None):
+    """Uncached DuckDB query — local file is fast enough that caching adds
+    overhead rather than benefit, and skipping the cache means the app
+    always sees the freshest file after the nightly sync."""
+    conn = _DuckDBConn(DUCKDB_PATH)
+    with conn.cursor() as cursor:
+        cursor.execute(query, params)
+        return cursor.fetchall_as_pandas()
+
+
 def run_query(query, params=None):
-    # ── Demo mode: return hardcoded DataFrames without hitting Databricks ──────
-    # Activated by setting DEMO_DATA=true in .env (independent of mock auth).
+    # ── Demo mode: return hardcoded DataFrames without hitting any DB ──────────
     if os.getenv("DEMO_DATA", "false").lower() == "true":
         p = params or {}
-        # Related tables: has both "full_name" and "groups" params
         if "full_name" in p and "groups" in p:
             return _DEMO_RELATED.get(p["full_name"], pd.DataFrame(
                 columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"]))
-        # Authorized tables: only "groups" param
         if "groups" in p:
             return _DEMO_TABLES
-        # Detail-pane queries keyed by table_full_name
         fn = p.get("table_full_name", "")
         if "lineage_cache" in query:
             return _DEMO_LINEAGE.get(fn, pd.DataFrame(
@@ -1176,14 +1298,11 @@ def run_query(query, params=None):
         if "columns_metadata" in query:
             return _DEMO_COLUMNS.get(fn, pd.DataFrame(
                 columns=["column_name", "data_type", "comment"]))
-        # permissions_cache (grants)
         return _DEMO_GRANTS.get(fn, pd.DataFrame(columns=["principal", "privilege"]))
 
-    # ── Production: hit Databricks SQL Warehouse ───────────────────────────────
-    conn = get_db_connection()
-    with conn.cursor() as cursor:
-        cursor.execute(query, params)
-        return cursor.fetchall_as_pandas()
+    if _duckdb_available():
+        return _run_duckdb_query(query, params)
+    return _run_databricks_query(query, params)
 
 
 
