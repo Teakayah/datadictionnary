@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import uuid
+import threading
+import time
 import streamlit as st
 import streamlit.components.v1 as components
 from databricks import sql
@@ -1163,6 +1165,16 @@ def check_auth():
 # $name named-parameter style so no query code needs to change.
 
 DUCKDB_PATH = os.getenv("DUCKDB_PATH", "")
+# User data (comments, overrides, audit) lives in a separate persistent file
+# that is never swapped by the nightly sync job.
+USER_DATA_PATH = (
+    DUCKDB_PATH.replace(".duckdb", "_user_data.duckdb")
+    if ".duckdb" in DUCKDB_PATH
+    else DUCKDB_PATH + "_user_data.duckdb"
+) if DUCKDB_PATH else ""
+
+_db_write_lock = threading.Lock()
+
 
 def _duckdb_available() -> bool:
     return bool(DUCKDB_PATH and os.path.exists(DUCKDB_PATH))
@@ -1197,9 +1209,61 @@ def _to_duckdb_sql(sql: str, params: dict) -> tuple:
     return result, converted
 
 
+@st.cache_resource(validate=lambda c: c is not None)
+def _get_shared_duckdb_connection():
+    """Singleton connection shared across all Streamlit sessions/threads."""
+    if not _duckdb_available():
+        return None
+
+    import duckdb
+    con = duckdb.connect(DUCKDB_PATH)
+
+    # Attach the persistent user data database
+    con.execute(f"ATTACH IF NOT EXISTS '{USER_DATA_PATH}' AS user_data")
+
+    # Initialize user data tables with primary keys (if they don't exist)
+    with _db_write_lock:
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS user_data.comments (
+                comment_id        VARCHAR PRIMARY KEY,
+                object_type       VARCHAR,
+                object_name       VARCHAR,
+                comment_text      VARCHAR,
+                author_name       VARCHAR,
+                author_email      VARCHAR,
+                created_at        TIMESTAMP,
+                steward_email     VARCHAR,
+                parent_comment_id VARCHAR
+            )
+        """)
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS user_data.business_name_overrides (
+                table_full_name VARCHAR,
+                column_name     VARCHAR,
+                business_name   VARCHAR,
+                definition      VARCHAR,
+                edited_by       VARCHAR,
+                edited_at       TIMESTAMP,
+                PRIMARY KEY (table_full_name, column_name)
+            )
+        """)
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS user_data.audit_log (
+                event_id        VARCHAR PRIMARY KEY,
+                event_type      VARCHAR,
+                object_type     VARCHAR,
+                object_name     VARCHAR,
+                actor_email     VARCHAR,
+                old_value       VARCHAR,
+                new_value       VARCHAR,
+                created_at      TIMESTAMP
+            )
+        """)
+    return con
+
+
 class _DuckDBCursor:
-    """Cursor-like wrapper around a DuckDB connection, mimicking the
-    databricks.sql cursor interface used throughout the app."""
+    """Cursor-like wrapper around a shared DuckDB connection."""
 
     def __init__(self, con):
         self._con = con
@@ -1214,6 +1278,11 @@ class _DuckDBCursor:
         else:
             self._rel = self._con.execute(sql, params)
 
+    def execute_write(self, sql: str, params=None):
+        """Thread-safe write execution wrapped in a lock."""
+        with _db_write_lock:
+            self.execute(sql, params)
+
     def fetchall_as_pandas(self):
         if self._rel is None:
             return pd.DataFrame()
@@ -1223,32 +1292,28 @@ class _DuckDBCursor:
         return self
 
     def __exit__(self, *_):
-        self._con.close()
+        # We do NOT close the shared connection!
+        pass
 
 
 class _DuckDBConn:
-    """Connection-like wrapper that opens a fresh DuckDB handle per cursor()
-    call so concurrent Streamlit sessions don't share a single connection."""
+    """Connection-like wrapper that uses the shared singleton connection."""
 
     def __init__(self, path: str):
-        self._path = path
+        self._con = _get_shared_duckdb_connection()
 
     def cursor(self):
-        import duckdb
-        con = duckdb.connect(self._path)
-        return _DuckDBCursor(con)
+        return _DuckDBCursor(self._con)
 
-    # Support ``with get_db_connection() as conn:`` usage in sync helpers
     def __enter__(self):
         return self
 
     def __exit__(self, *_):
         pass
 
-    # databricks.sql connections expose .open; replicate it for cache validate
     @property
     def open(self):
-        return os.path.exists(self._path)
+        return self._con is not None
 
 
 @st.cache_resource(ttl="2h", validate=lambda conn: conn.open)
@@ -1258,6 +1323,13 @@ def _get_databricks_connection():
         http_path=os.getenv("DATABRICKS_HTTP_PATH"),
         access_token=os.getenv("DATABRICKS_TOKEN"),
     )
+
+
+def _get_write_connection():
+    """Return a DB connection for write operations (DuckDB primary)."""
+    if _duckdb_available():
+        return _DuckDBConn(DUCKDB_PATH)
+    return _get_databricks_write_connection()
 
 
 def _get_databricks_write_connection():
@@ -1364,10 +1436,11 @@ def get_column_business_names(table_full_name: str) -> dict:
         return st.session_state.get("demo_business_names", {}).get(table_full_name, {})
     try:
         conn = get_db_connection()
+        tbl = "user_data.business_name_overrides" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
         with conn.cursor() as cursor:
             cursor.execute(
                 f"SELECT column_name, business_name, definition, edited_by, edited_at "
-                f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides "
+                f"FROM {tbl} "
                 f"WHERE table_full_name = %(table_full_name)s",
                 {"table_full_name": table_full_name},
             )
@@ -1404,12 +1477,11 @@ def log_audit_event(event_type: str, object_type: str, object_name: str, old_val
                 "created_at":  pd.Timestamp.now(),
             })
         else:
-            # Always write to Databricks — DuckDB is a read-only cache that is
-            # rebuilt from Databricks on each sync and would discard local inserts.
-            conn = _get_databricks_write_connection()
+            conn = _get_write_connection()
             with conn.cursor() as cursor:
-                cursor.execute(
-                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log "
+                table_name = "user_data.audit_log" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log"
+                cursor.execute_write(
+                    f"INSERT INTO {table_name} "
                     f"(event_id, event_type, object_type, object_name, actor_email, old_value, new_value, created_at) "
                     f"VALUES (%(event_id)s, %(event_type)s, %(object_type)s, %(object_name)s, "
                     f"%(actor_email)s, %(old_value)s, %(new_value)s, current_timestamp())",
@@ -1459,18 +1531,40 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
         tbl[column_name] = {"business_name": business_name, "definition": definition, "edited_by": user_name, "edited_at": "just now"}
         log_audit_event("business_name_change", "COLUMN", f"{table_full_name}.{column_name}", old_value, business_name)
         return
-    # Always write to Databricks — DuckDB does not support MERGE INTO (Spark SQL)
-    # and the local cache would lose the write on the next sync.
-    conn = _get_databricks_write_connection()
+    # Use DuckDB if available, otherwise Databricks
+    conn = _get_write_connection()
     with conn.cursor() as cursor:
-        cursor.execute(
-            f"MERGE INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides AS target "
-            f"USING (SELECT %(table_full_name)s AS table_full_name, %(column_name)s AS column_name, %(business_name)s AS business_name, %(definition)s AS definition, %(edited_by)s AS edited_by) AS source "
-            f"ON target.table_full_name = source.table_full_name AND target.column_name = source.column_name "
-            f"WHEN MATCHED THEN UPDATE SET target.business_name = source.business_name, target.definition = source.definition, target.edited_by = source.edited_by, target.edited_at = current_timestamp() "
-            f"WHEN NOT MATCHED THEN INSERT (table_full_name, column_name, business_name, definition, edited_by, edited_at) VALUES (source.table_full_name, source.column_name, source.business_name, source.definition, source.edited_by, current_timestamp())",
-            {"table_full_name": table_full_name, "column_name": column_name, "business_name": business_name, "definition": definition, "edited_by": user_name},
-        )
+        if _duckdb_available():
+            cursor.execute_write(
+                """
+                INSERT INTO user_data.business_name_overrides (
+                    table_full_name, column_name, business_name, definition, edited_by, edited_at
+                ) VALUES (
+                    %(table_full_name)s, %(column_name)s, %(business_name)s, %(definition)s, %(edited_by)s, current_timestamp()
+                )
+                ON CONFLICT (table_full_name, column_name) DO UPDATE SET
+                    business_name = excluded.business_name,
+                    definition = excluded.definition,
+                    edited_by = excluded.edited_by,
+                    edited_at = excluded.edited_at
+                """,
+                {
+                    "table_full_name": table_full_name,
+                    "column_name": column_name,
+                    "business_name": business_name,
+                    "definition": definition,
+                    "edited_by": user_name,
+                },
+            )
+        else:
+            cursor.execute(
+                f"MERGE INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides AS target "
+                f"USING (SELECT %(table_full_name)s AS table_full_name, %(column_name)s AS column_name, %(business_name)s AS business_name, %(definition)s AS definition, %(edited_by)s AS edited_by) AS source "
+                f"ON target.table_full_name = source.table_full_name AND target.column_name = source.column_name "
+                f"WHEN MATCHED THEN UPDATE SET target.business_name = source.business_name, target.definition = source.definition, target.edited_by = source.edited_by, target.edited_at = current_timestamp() "
+                f"WHEN NOT MATCHED THEN INSERT (table_full_name, column_name, business_name, definition, edited_by, edited_at) VALUES (source.table_full_name, source.column_name, source.business_name, source.definition, source.edited_by, current_timestamp())",
+                {"table_full_name": table_full_name, "column_name": column_name, "business_name": business_name, "definition": definition, "edited_by": user_name},
+            )
     log_audit_event("business_name_change", "COLUMN", f"{table_full_name}.{column_name}", old_value, business_name)
 
 
@@ -1510,10 +1604,11 @@ def get_table_comments(object_name: str) -> list:
         return _build_comment_tree(flat)
     try:
         conn = get_db_connection()
+        tbl = "user_data.comments" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
         with conn.cursor() as cursor:
             cursor.execute(
                 f"SELECT comment_id, author_name, author_email, comment_text, created_at, parent_comment_id "
-                f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
+                f"FROM {tbl} "
                 f"WHERE object_name = %(object_name)s ORDER BY created_at ASC",
                 {"object_name": object_name},
             )
@@ -1627,9 +1722,10 @@ def _fetch_comment_author_email(comment_id: str) -> str:
     """
     try:
         conn = get_db_connection()
+        tbl = "user_data.comments" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
         with conn.cursor() as cursor:
             cursor.execute(
-                f"SELECT author_email FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
+                f"SELECT author_email FROM {tbl} "
                 f"WHERE comment_id = %(comment_id)s LIMIT 1",
                 {"comment_id": comment_id},
             )
@@ -1687,26 +1783,44 @@ def save_comment(
         log_audit_event(_event_type, object_type, object_name, "", comment_text)
         return
 
-    # Always write to Databricks — DuckDB is a read-only cache.
-    conn = _get_databricks_write_connection()
+    conn = _get_write_connection()
     with conn.cursor() as cursor:
-        cursor.execute(
-            f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
-            f"(comment_id, object_type, object_name, comment_text, author_name, author_email, "
-            f"created_at, steward_email, parent_comment_id) "
-            f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
-            f"%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
-            {
-                "comment_id":        comment_id,
-                "object_type":       object_type,
-                "object_name":       object_name,
-                "comment_text":      comment_text,
-                "author_name":       author_name,
-                "author_email":      author_email,
-                "steward_email":     steward_email,
-                "parent_comment_id": parent_comment_id,
-            },
-        )
+        if _duckdb_available():
+            cursor.execute_write(
+                "INSERT INTO user_data.comments "
+                "(comment_id, object_type, object_name, comment_text, author_name, author_email, "
+                "created_at, steward_email, parent_comment_id) "
+                "VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
+                "%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
+                {
+                    "comment_id":        comment_id,
+                    "object_type":       object_type,
+                    "object_name":       object_name,
+                    "comment_text":      comment_text,
+                    "author_name":       author_name,
+                    "author_email":      author_email,
+                    "steward_email":     steward_email,
+                    "parent_comment_id": parent_comment_id,
+                },
+            )
+        else:
+            cursor.execute(
+                f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
+                f"(comment_id, object_type, object_name, comment_text, author_name, author_email, "
+                f"created_at, steward_email, parent_comment_id) "
+                f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
+                f"%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
+                {
+                    "comment_id":        comment_id,
+                    "object_type":       object_type,
+                    "object_name":       object_name,
+                    "comment_text":      comment_text,
+                    "author_name":       author_name,
+                    "author_email":      author_email,
+                    "steward_email":     steward_email,
+                    "parent_comment_id": parent_comment_id,
+                },
+            )
     if parent_comment_id:
         # Re-fetch the parent author's email from the DB — do NOT trust the
         # UI-supplied parent_author_email to prevent open-relay abuse.
@@ -2048,10 +2162,15 @@ def get_admin_stats() -> dict:
             "overrides": sum(len(v) for v in st.session_state.get("demo_business_names", {}).values()),
         }
     try:
-        tables_cnt    = run_query(f"SELECT COUNT(*) AS c FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata").iloc[0]["c"]
-        columns_cnt   = run_query(f"SELECT COUNT(*) AS c FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata").iloc[0]["c"]
-        comments_cnt  = run_query(f"SELECT COUNT(*) AS c FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.comments").iloc[0]["c"]
-        overrides_cnt = run_query(f"SELECT COUNT(*) AS c FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides").iloc[0]["c"]
+        _ud = _duckdb_available()
+        comments_tbl  = "user_data.comments"                if _ud else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
+        overrides_tbl = "user_data.business_name_overrides" if _ud else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
+        tables_tbl    = "tables_metadata"                   if _ud else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata"
+        columns_tbl   = "columns_metadata"                  if _ud else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata"
+        tables_cnt    = run_query(f"SELECT COUNT(*) AS c FROM {tables_tbl}").iloc[0]["c"]
+        columns_cnt   = run_query(f"SELECT COUNT(*) AS c FROM {columns_tbl}").iloc[0]["c"]
+        comments_cnt  = run_query(f"SELECT COUNT(*) AS c FROM {comments_tbl}").iloc[0]["c"]
+        overrides_cnt = run_query(f"SELECT COUNT(*) AS c FROM {overrides_tbl}").iloc[0]["c"]
         return {"tables": tables_cnt, "columns": columns_cnt, "comments": comments_cnt, "overrides": overrides_cnt}
     except Exception as e:
         logging.warning("Failed to fetch admin stats: %s", e)
@@ -2065,9 +2184,10 @@ def get_business_name_change_log() -> pd.DataFrame:
         if not logs:
             return pd.DataFrame(columns=["event_id", "object_name", "old_value", "new_value", "actor_email", "created_at"])
         return pd.DataFrame(logs).sort_values("created_at", ascending=False).head(200)
+    audit_tbl = "user_data.audit_log" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log"
     return run_query(
         f"SELECT event_id, object_name, old_value, new_value, actor_email, created_at "
-        f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log "
+        f"FROM {audit_tbl} "
         f"WHERE event_type = 'business_name_change' "
         f"ORDER BY created_at DESC LIMIT 200"
     )
@@ -2082,9 +2202,10 @@ def get_comment_log() -> pd.DataFrame:
             return pd.DataFrame(columns=["event_id", "object_name", "comment_preview", "actor_email", "created_at"])
         df = pd.DataFrame(logs).rename(columns={"new_value": "comment_preview"})
         return df.sort_values("created_at", ascending=False).head(200)
+    audit_tbl = "user_data.audit_log" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log"
     return run_query(
         f"SELECT event_id, object_name, new_value AS comment_preview, actor_email, created_at "
-        f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log "
+        f"FROM {audit_tbl} "
         f"WHERE event_type IN ('comment_added', 'comment_reply') "
         f"ORDER BY created_at DESC LIMIT 200"
     )
