@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+import uuid
+import threading
+import time
 import streamlit as st
 import streamlit.components.v1 as components
 from databricks import sql
@@ -867,6 +870,46 @@ iframe[height="0"] { display: none !important; }
     border-left: 2px solid var(--ink-10);
     margin-top: 4px;
 }
+
+/* ── Expanders ── */
+[data-testid="stExpander"] {
+    border: 1px solid var(--ink-20) !important;
+    border-radius: 2px !important;
+    background: var(--paper) !important;
+}
+[data-testid="stExpander"] details {
+    background: var(--paper) !important;
+}
+[data-testid="stExpander"] details summary {
+    background: var(--paper-deep) !important;
+    color: var(--ink) !important;
+}
+[data-testid="stExpander"] details summary:hover {
+    background: var(--paper-ink) !important;
+    color: var(--ink) !important;
+}
+/* Target only the label paragraph — NOT span, which carries the Material Icons glyph */
+[data-testid="stExpander"] details summary p {
+    color: var(--ink) !important;
+    font-family: var(--font-sans) !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+}
+
+/* ── Dataframe (glide-data-grid) ── */
+[data-testid="stDataFrame"] {
+    --gdg-bg-cell:        var(--paper) !important;
+    --gdg-bg-cell-medium: var(--paper-deep) !important;
+    --gdg-bg-header:      var(--paper-deep) !important;
+    --gdg-bg-header-has-focus: var(--paper-ink) !important;
+    --gdg-text-dark:      var(--ink) !important;
+    --gdg-text-medium:    var(--ink-60) !important;
+    --gdg-text-light:     var(--ink-40) !important;
+    --gdg-border-color:   var(--ink-10) !important;
+}
+[data-testid="stDataFrame"] > div {
+    background: var(--paper) !important;
+}
 """
 
 # ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
@@ -899,17 +942,19 @@ def render_css():
 
 
 
-def render_header(user_name: str | None = None, active_tab: str = "search"):
+def render_header(user_name: str | None = None, active_tab: str = "search", show_admin: bool = False):
     user_section = ""
     if user_name:
         user_section = f'''
         <span class="dd-nav-sep"></span>
-        <span class="dd-nav-user">{user_name}</span>
+        <span class="dd-nav-user">{_html.escape(user_name)}</span>
         '''
 
     def link(label, tab_id):
         active = "active" if active_tab == tab_id else ""
         return f'<a href="#" data-tab="{tab_id}" class="dd-nav-tab {active}">{label}</a>'
+
+    admin_link = link("Admin", "admin") if show_admin else ""
 
     st.markdown(f'''
     <div class="dd-header">
@@ -925,6 +970,7 @@ def render_header(user_name: str | None = None, active_tab: str = "search"):
           {link("Glossary", "glossary")}
           {link("Discovery", "discovery")}
           {link("Health", "health")}
+          {admin_link}
           {user_section}
         </nav>
       </div>
@@ -933,6 +979,8 @@ def render_header(user_name: str | None = None, active_tab: str = "search"):
 
     # Hidden Streamlit buttons — JS in the component iframe clicks these
     _tabs = ["search", "catalog", "glossary", "discovery", "health"]
+    if show_admin:
+        _tabs.append("admin")
     for tab_id in _tabs:
         if st.button(tab_id.capitalize(), key=f"nav_{tab_id}"):
             st.query_params["tab"] = tab_id
@@ -940,7 +988,10 @@ def render_header(user_name: str | None = None, active_tab: str = "search"):
             st.rerun()
 
     # Zero-height iframe: wires header nav clicks → hidden Streamlit buttons
-    _nav_labels_js = str(["Search", "Catalog", "Glossary", "Discovery", "Health"])
+    _nav_labels = ["Search", "Catalog", "Glossary", "Discovery", "Health"]
+    if show_admin:
+        _nav_labels.append("Admin")
+    _nav_labels_js = str(_nav_labels)
     components.html(f"""
     <script>
     (function() {{
@@ -1147,28 +1198,238 @@ def check_auth():
         st.stop()
 
 # ── Databricks query helper ────────────────────────────────────────────────────
+# ── DuckDB local-cache adapter ────────────────────────────────────────────────
+# When DUCKDB_PATH points to an existing file (written by the sync job), all
+# read queries and app writes are served locally — no network round-trip.
+# The adapter translates the existing %(name)s pyformat SQL into DuckDB's
+# $name named-parameter style so no query code needs to change.
+
+DUCKDB_PATH = os.getenv("DUCKDB_PATH", "")
+# User data (comments, overrides, audit) lives in a separate persistent file
+# that is never swapped by the nightly sync job.
+USER_DATA_PATH = (
+    DUCKDB_PATH.replace(".duckdb", "_user_data.duckdb")
+    if ".duckdb" in DUCKDB_PATH
+    else DUCKDB_PATH + "_user_data.duckdb"
+) if DUCKDB_PATH else ""
+
+_db_write_lock = threading.Lock()
+
+
+def _duckdb_available() -> bool:
+    return bool(DUCKDB_PATH and os.path.exists(DUCKDB_PATH))
+
+
+def _to_duckdb_sql(sql: str, params: dict) -> tuple:
+    """Convert %(name)s pyformat SQL + dict params to DuckDB $name style.
+
+    Special case: ``IN %(name)s`` where the value is a list/tuple is rewritten
+    to ``= ANY($name)`` so the DuckDB array-contains operator is used.
+    Returns (converted_sql, converted_params_dict).
+    """
+    import re
+    if not params:
+        return sql, {}
+    converted = {}
+    result = sql
+    for name, value in params.items():
+        if isinstance(value, (list, tuple)):
+            # IN %(name)s  →  = ANY($name)
+            result = re.sub(
+                rf"\bIN\s+%\({re.escape(name)}\)s",
+                f"= ANY(${name})",
+                result,
+                flags=re.IGNORECASE,
+            )
+            converted[name] = list(value)
+        else:
+            converted[name] = value
+    # Remaining %(name)s → $name
+    result = re.sub(r"%\((\w+)\)s", r"$\1", result)
+    return result, converted
+
+
+@st.cache_resource(validate=lambda c: c is not None)
+def _get_shared_duckdb_connection():
+    """Singleton connection shared across all Streamlit sessions/threads."""
+    if not _duckdb_available():
+        return None
+
+    import duckdb
+    con = duckdb.connect(DUCKDB_PATH)
+
+    # Attach the persistent user data database
+    con.execute(f"ATTACH IF NOT EXISTS '{USER_DATA_PATH}' AS user_data")
+
+    # Initialize user data tables with primary keys (if they don't exist)
+    with _db_write_lock:
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS user_data.comments (
+                comment_id        VARCHAR PRIMARY KEY,
+                object_type       VARCHAR,
+                object_name       VARCHAR,
+                comment_text      VARCHAR,
+                author_name       VARCHAR,
+                author_email      VARCHAR,
+                created_at        TIMESTAMP,
+                steward_email     VARCHAR,
+                parent_comment_id VARCHAR
+            )
+        """)
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS user_data.business_name_overrides (
+                table_full_name VARCHAR,
+                column_name     VARCHAR,
+                business_name   VARCHAR,
+                definition      VARCHAR,
+                edited_by       VARCHAR,
+                edited_at       TIMESTAMP,
+                PRIMARY KEY (table_full_name, column_name)
+            )
+        """)
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS user_data.audit_log (
+                event_id        VARCHAR PRIMARY KEY,
+                event_type      VARCHAR,
+                object_type     VARCHAR,
+                object_name     VARCHAR,
+                actor_email     VARCHAR,
+                old_value       VARCHAR,
+                new_value       VARCHAR,
+                created_at      TIMESTAMP
+            )
+        """)
+    return con
+
+
+class _DuckDBCursor:
+    """Cursor-like wrapper around a shared DuckDB connection."""
+
+    def __init__(self, con):
+        self._con = con
+        self._rel = None
+
+    def execute(self, sql: str, params=None):
+        if params is None:
+            self._rel = self._con.execute(sql)
+        elif isinstance(params, dict):
+            converted_sql, converted_params = _to_duckdb_sql(sql, params)
+            self._rel = self._con.execute(converted_sql, converted_params)
+        else:
+            self._rel = self._con.execute(sql, params)
+
+    def execute_write(self, sql: str, params=None):
+        """Thread-safe write execution wrapped in a lock."""
+        with _db_write_lock:
+            self.execute(sql, params)
+
+    def fetchall_as_pandas(self):
+        if self._rel is None:
+            return pd.DataFrame()
+        return self._rel.df()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        # We do NOT close the shared connection!
+        pass
+
+
+class _DuckDBConn:
+    """Connection-like wrapper that uses the shared singleton connection."""
+
+    def __init__(self, path: str):
+        self._con = _get_shared_duckdb_connection()
+
+    def cursor(self):
+        return _DuckDBCursor(self._con)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        pass
+
+    @property
+    def open(self):
+        return self._con is not None
+
+
 @st.cache_resource(ttl="2h", validate=lambda conn: conn.open)
-def get_db_connection():
+def _get_databricks_connection():
     return sql.connect(
         server_hostname=os.getenv("DATABRICKS_HOST"),
         http_path=os.getenv("DATABRICKS_HTTP_PATH"),
         access_token=os.getenv("DATABRICKS_TOKEN"),
     )
 
+
+def _get_write_connection():
+    """Return a DB connection for write operations (DuckDB primary)."""
+    if _duckdb_available():
+        return _DuckDBConn(DUCKDB_PATH)
+    return _get_databricks_write_connection()
+
+
+def _get_databricks_write_connection():
+    """Return a fresh (uncached) Databricks connection for write operations.
+
+    Write operations (INSERT, MERGE INTO) must always target the Databricks SQL
+    Warehouse — never the local DuckDB file, which is a read-only cache that is
+    rebuilt from Databricks on each sync and would silently discard any local
+    writes.  This function bypasses the read-path DuckDB check intentionally.
+    """
+    return sql.connect(
+        server_hostname=os.getenv("DATABRICKS_HOST"),
+        http_path=os.getenv("DATABRICKS_HTTP_PATH"),
+        access_token=os.getenv("DATABRICKS_TOKEN"),
+    )
+
+
+def get_db_connection():
+    """Return a DB connection for read queries.
+
+    Returns a DuckDB-backed connection when DUCKDB_PATH points to an existing
+    file (fast, local, no network).  Falls back to the cached Databricks SQL
+    Warehouse connection otherwise.
+
+    Do NOT use this for write operations — use _get_databricks_write_connection()
+    instead so writes always reach Databricks regardless of cache state.
+    """
+    if _duckdb_available():
+        return _DuckDBConn(DUCKDB_PATH)
+    return _get_databricks_connection()
+
+
 @st.cache_data(ttl="1h")
+def _run_databricks_query(query, params=None):
+    """Cached Databricks query — 1 h TTL to amortise network latency."""
+    conn = _get_databricks_connection()
+    with conn.cursor() as cursor:
+        cursor.execute(query, params)
+        return cursor.fetchall_as_pandas()
+
+
+def _run_duckdb_query(query, params=None):
+    """Uncached DuckDB query — local file is fast enough that caching adds
+    overhead rather than benefit, and skipping the cache means the app
+    always sees the freshest file after the nightly sync."""
+    conn = _DuckDBConn(DUCKDB_PATH)
+    with conn.cursor() as cursor:
+        cursor.execute(query, params)
+        return cursor.fetchall_as_pandas()
+
+
 def run_query(query, params=None):
-    # ── Demo mode: return hardcoded DataFrames without hitting Databricks ──────
-    # Activated by setting DEMO_DATA=true in .env (independent of mock auth).
+    # ── Demo mode: return hardcoded DataFrames without hitting any DB ──────────
     if os.getenv("DEMO_DATA", "false").lower() == "true":
         p = params or {}
-        # Related tables: has both "full_name" and "groups" params
         if "full_name" in p and "groups" in p:
             return _DEMO_RELATED.get(p["full_name"], pd.DataFrame(
                 columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"]))
-        # Authorized tables: only "groups" param
         if "groups" in p:
             return _DEMO_TABLES
-        # Detail-pane queries keyed by table_full_name
         fn = p.get("table_full_name", "")
         if "lineage_cache" in query:
             return _DEMO_LINEAGE.get(fn, pd.DataFrame(
@@ -1176,14 +1437,11 @@ def run_query(query, params=None):
         if "columns_metadata" in query:
             return _DEMO_COLUMNS.get(fn, pd.DataFrame(
                 columns=["column_name", "data_type", "comment"]))
-        # permissions_cache (grants)
         return _DEMO_GRANTS.get(fn, pd.DataFrame(columns=["principal", "privilege"]))
 
-    # ── Production: hit Databricks SQL Warehouse ───────────────────────────────
-    conn = get_db_connection()
-    with conn.cursor() as cursor:
-        cursor.execute(query, params)
-        return cursor.fetchall_as_pandas()
+    if _duckdb_available():
+        return _run_duckdb_query(query, params)
+    return _run_databricks_query(query, params)
 
 
 
@@ -1193,6 +1451,18 @@ def is_power_user() -> bool:
     if not editor_groups:
         return False
     return bool(editor_groups & set(st.session_state.get("user_groups", [])))
+
+
+def is_admin() -> bool:
+    """True if the current user belongs to at least one ADMIN_GROUPS group.
+
+    No demo-mode bypass — admins must be in the real Entra group even in
+    demo/development mode, unlike is_power_user() which has a mock shortcut.
+    """
+    admin_groups = {g.strip() for g in os.getenv("ADMIN_GROUPS", "").split(",") if g.strip()}
+    if not admin_groups:
+        return False
+    return bool(admin_groups & set(st.session_state.get("user_groups", [])))
 
 
 def get_column_business_names(table_full_name: str) -> dict:
@@ -1206,10 +1476,11 @@ def get_column_business_names(table_full_name: str) -> dict:
         return st.session_state.get("demo_business_names", {}).get(table_full_name, {})
     try:
         conn = get_db_connection()
+        tbl = "user_data.business_name_overrides" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
         with conn.cursor() as cursor:
             cursor.execute(
                 f"SELECT column_name, business_name, definition, edited_by, edited_at "
-                f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides "
+                f"FROM {tbl} "
                 f"WHERE table_full_name = %(table_full_name)s",
                 {"table_full_name": table_full_name},
             )
@@ -1227,6 +1498,45 @@ def get_column_business_names(table_full_name: str) -> dict:
     except Exception as e:
         logging.warning("Could not fetch column business names for %s: %s", table_full_name, e)
     return {}
+
+
+def log_audit_event(event_type: str, object_type: str, object_name: str, old_value: str, new_value: str) -> None:
+    """Record an audit event for admin review.  Never raises — failures are logged and swallowed."""
+    actor_email = st.session_state.get("user_email", "")
+    event_id = str(uuid.uuid4())
+    try:
+        if os.getenv("DEMO_DATA", "false").lower() == "true":
+            st.session_state.setdefault("demo_audit_log", []).append({
+                "event_id":    event_id,
+                "event_type":  event_type,
+                "object_type": object_type,
+                "object_name": object_name,
+                "actor_email": actor_email,
+                "old_value":   old_value,
+                "new_value":   new_value,
+                "created_at":  pd.Timestamp.now(),
+            })
+        else:
+            conn = _get_write_connection()
+            with conn.cursor() as cursor:
+                table_name = "user_data.audit_log" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log"
+                cursor.execute_write(
+                    f"INSERT INTO {table_name} "
+                    f"(event_id, event_type, object_type, object_name, actor_email, old_value, new_value, created_at) "
+                    f"VALUES (%(event_id)s, %(event_type)s, %(object_type)s, %(object_name)s, "
+                    f"%(actor_email)s, %(old_value)s, %(new_value)s, current_timestamp())",
+                    {
+                        "event_id":    event_id,
+                        "event_type":  event_type,
+                        "object_type": object_type,
+                        "object_name": object_name,
+                        "actor_email": actor_email,
+                        "old_value":   old_value,
+                        "new_value":   new_value,
+                    },
+                )
+    except Exception as e:
+        logging.warning("Audit logging failed for %s: %s", event_id, e)
 
 
 def save_business_name(table_full_name: str, column_name: str, business_name: str, definition: str = "") -> None:
@@ -1252,22 +1562,50 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
             f"(got {len(definition)})."
         )
     user_name = st.session_state.get("user_name", "unknown")
+    old_override = get_column_business_names(table_full_name).get(column_name, {})
+    old_value = old_override.get("business_name", "")
     if os.getenv("DEMO_DATA", "false").lower() == "true":
         if "demo_business_names" not in st.session_state:
             st.session_state["demo_business_names"] = {}
         tbl = st.session_state["demo_business_names"].setdefault(table_full_name, {})
         tbl[column_name] = {"business_name": business_name, "definition": definition, "edited_by": user_name, "edited_at": "just now"}
+        log_audit_event("business_name_change", "COLUMN", f"{table_full_name}.{column_name}", old_value, business_name)
         return
-    conn = get_db_connection()
+    # Use DuckDB if available, otherwise Databricks
+    conn = _get_write_connection()
     with conn.cursor() as cursor:
-        cursor.execute(
-            f"MERGE INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides AS target "
-            f"USING (SELECT %(table_full_name)s AS table_full_name, %(column_name)s AS column_name, %(business_name)s AS business_name, %(definition)s AS definition, %(edited_by)s AS edited_by) AS source "
-            f"ON target.table_full_name = source.table_full_name AND target.column_name = source.column_name "
-            f"WHEN MATCHED THEN UPDATE SET target.business_name = source.business_name, target.definition = source.definition, target.edited_by = source.edited_by, target.edited_at = current_timestamp() "
-            f"WHEN NOT MATCHED THEN INSERT (table_full_name, column_name, business_name, definition, edited_by, edited_at) VALUES (source.table_full_name, source.column_name, source.business_name, source.definition, source.edited_by, current_timestamp())",
-            {"table_full_name": table_full_name, "column_name": column_name, "business_name": business_name, "definition": definition, "edited_by": user_name},
-        )
+        if _duckdb_available():
+            cursor.execute_write(
+                """
+                INSERT INTO user_data.business_name_overrides (
+                    table_full_name, column_name, business_name, definition, edited_by, edited_at
+                ) VALUES (
+                    %(table_full_name)s, %(column_name)s, %(business_name)s, %(definition)s, %(edited_by)s, current_timestamp()
+                )
+                ON CONFLICT (table_full_name, column_name) DO UPDATE SET
+                    business_name = excluded.business_name,
+                    definition = excluded.definition,
+                    edited_by = excluded.edited_by,
+                    edited_at = excluded.edited_at
+                """,
+                {
+                    "table_full_name": table_full_name,
+                    "column_name": column_name,
+                    "business_name": business_name,
+                    "definition": definition,
+                    "edited_by": user_name,
+                },
+            )
+        else:
+            cursor.execute(
+                f"MERGE INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides AS target "
+                f"USING (SELECT %(table_full_name)s AS table_full_name, %(column_name)s AS column_name, %(business_name)s AS business_name, %(definition)s AS definition, %(edited_by)s AS edited_by) AS source "
+                f"ON target.table_full_name = source.table_full_name AND target.column_name = source.column_name "
+                f"WHEN MATCHED THEN UPDATE SET target.business_name = source.business_name, target.definition = source.definition, target.edited_by = source.edited_by, target.edited_at = current_timestamp() "
+                f"WHEN NOT MATCHED THEN INSERT (table_full_name, column_name, business_name, definition, edited_by, edited_at) VALUES (source.table_full_name, source.column_name, source.business_name, source.definition, source.edited_by, current_timestamp())",
+                {"table_full_name": table_full_name, "column_name": column_name, "business_name": business_name, "definition": definition, "edited_by": user_name},
+            )
+    log_audit_event("business_name_change", "COLUMN", f"{table_full_name}.{column_name}", old_value, business_name)
 
 
 def get_table_steward(table_full_name: str) -> str:
@@ -1306,10 +1644,11 @@ def get_table_comments(object_name: str) -> list:
         return _build_comment_tree(flat)
     try:
         conn = get_db_connection()
+        tbl = "user_data.comments" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
         with conn.cursor() as cursor:
             cursor.execute(
                 f"SELECT comment_id, author_name, author_email, comment_text, created_at, parent_comment_id "
-                f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
+                f"FROM {tbl} "
                 f"WHERE object_name = %(object_name)s ORDER BY created_at ASC",
                 {"object_name": object_name},
             )
@@ -1350,8 +1689,11 @@ def send_comment_email(to_email: str, author_name: str, object_name: str, commen
     if not smtp_host or not to_email:
         logging.warning("Comment saved but email not sent: SMTP_HOST or steward_email not configured.")
         return
-    msg = MIMEText(f"{author_name} left a comment on {object_name}:\n\n{comment_text}", "plain")
-    msg["Subject"] = f"[Data Dictionary] Comment on {object_name}"
+    # Strip newlines from header fields to prevent SMTP header injection.
+    safe_object_name = object_name.replace("\r", "").replace("\n", "")
+    safe_author_name = author_name.replace("\r", "").replace("\n", "")
+    msg = MIMEText(f"{safe_author_name} left a comment on {safe_object_name}:\n\n{comment_text}", "plain")
+    msg["Subject"] = f"[Data Dictionary] Comment on {safe_object_name}"
     msg["From"]    = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
     msg["To"]      = to_email
     try:
@@ -1391,11 +1733,14 @@ def send_reply_email(
         logging.warning("Reply saved but email not sent: SMTP_HOST not configured.")
         return
 
+    # Strip newlines from header fields to prevent SMTP header injection.
+    safe_object_name  = object_name.replace("\r", "").replace("\n", "")
+    safe_reply_author = reply_author_name.replace("\r", "").replace("\n", "")
     msg = MIMEText(
-        f"{reply_author_name} replied to a comment on {object_name}:\n\n{reply_text}",
+        f"{safe_reply_author} replied to a comment on {safe_object_name}:\n\n{reply_text}",
         "plain",
     )
-    msg["Subject"] = f"[Data Dictionary] Reply on {object_name}"
+    msg["Subject"] = f"[Data Dictionary] Reply on {safe_object_name}"
     msg["From"]    = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
     msg["To"]      = ", ".join(recipients)
     try:
@@ -1417,9 +1762,10 @@ def _fetch_comment_author_email(comment_id: str) -> str:
     """
     try:
         conn = get_db_connection()
+        tbl = "user_data.comments" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
         with conn.cursor() as cursor:
             cursor.execute(
-                f"SELECT author_email FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
+                f"SELECT author_email FROM {tbl} "
                 f"WHERE comment_id = %(comment_id)s LIMIT 1",
                 {"comment_id": comment_id},
             )
@@ -1458,6 +1804,8 @@ def save_comment(
     author_name  = st.session_state.get("user_name", "unknown")
     author_email = (st.session_state.get("user_email", "") or "").lower().strip()
 
+    _event_type = "comment_reply" if parent_comment_id else "comment_added"
+
     if os.getenv("DEMO_DATA", "false").lower() == "true":
         demo = st.session_state.setdefault("demo_comments", {})
         demo.setdefault(object_name, []).append({
@@ -1472,27 +1820,47 @@ def save_comment(
             send_reply_email(parent_author_email, author_name, object_name, comment_text, steward_email)
         else:
             send_comment_email(steward_email, author_name, object_name, comment_text)
+        log_audit_event(_event_type, object_type, object_name, "", comment_text)
         return
 
-    conn = get_db_connection()
+    conn = _get_write_connection()
     with conn.cursor() as cursor:
-        cursor.execute(
-            f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
-            f"(comment_id, object_type, object_name, comment_text, author_name, author_email, "
-            f"created_at, steward_email, parent_comment_id) "
-            f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
-            f"%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
-            {
-                "comment_id":        comment_id,
-                "object_type":       object_type,
-                "object_name":       object_name,
-                "comment_text":      comment_text,
-                "author_name":       author_name,
-                "author_email":      author_email,
-                "steward_email":     steward_email,
-                "parent_comment_id": parent_comment_id,
-            },
-        )
+        if _duckdb_available():
+            cursor.execute_write(
+                "INSERT INTO user_data.comments "
+                "(comment_id, object_type, object_name, comment_text, author_name, author_email, "
+                "created_at, steward_email, parent_comment_id) "
+                "VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
+                "%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
+                {
+                    "comment_id":        comment_id,
+                    "object_type":       object_type,
+                    "object_name":       object_name,
+                    "comment_text":      comment_text,
+                    "author_name":       author_name,
+                    "author_email":      author_email,
+                    "steward_email":     steward_email,
+                    "parent_comment_id": parent_comment_id,
+                },
+            )
+        else:
+            cursor.execute(
+                f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
+                f"(comment_id, object_type, object_name, comment_text, author_name, author_email, "
+                f"created_at, steward_email, parent_comment_id) "
+                f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
+                f"%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
+                {
+                    "comment_id":        comment_id,
+                    "object_type":       object_type,
+                    "object_name":       object_name,
+                    "comment_text":      comment_text,
+                    "author_name":       author_name,
+                    "author_email":      author_email,
+                    "steward_email":     steward_email,
+                    "parent_comment_id": parent_comment_id,
+                },
+            )
     if parent_comment_id:
         # Re-fetch the parent author's email from the DB — do NOT trust the
         # UI-supplied parent_author_email to prevent open-relay abuse.
@@ -1500,6 +1868,7 @@ def save_comment(
         send_reply_email(verified_parent_email, author_name, object_name, comment_text, steward_email)
     else:
         send_comment_email(steward_email, author_name, object_name, comment_text)
+    log_audit_event(_event_type, object_type, object_name, "", comment_text)
 
 
 @st.cache_data(ttl="1h")
@@ -1820,6 +2189,122 @@ def render_placeholder_page(title, subtitle):
     ''', unsafe_allow_html=True)
     st.info("Coming soon in v0.4.0")
 
+
+# ── Admin page ─────────────────────────────────────────────────────────────────
+
+def get_admin_stats() -> dict:
+    """Return four catalog-wide counts for the admin dashboard."""
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        return {
+            "tables":    len(_DEMO_TABLES),
+            "columns":   sum(len(df) for df in _DEMO_COLUMNS.values()),
+            "comments":  sum(len(v) for v in st.session_state.get("demo_comments", {}).values()),
+            "overrides": sum(len(v) for v in st.session_state.get("demo_business_names", {}).values()),
+        }
+    try:
+        _ud = _duckdb_available()
+        comments_tbl  = "user_data.comments"                if _ud else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
+        overrides_tbl = "user_data.business_name_overrides" if _ud else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
+        tables_tbl    = "tables_metadata"                   if _ud else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata"
+        columns_tbl   = "columns_metadata"                  if _ud else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata"
+        tables_cnt    = run_query(f"SELECT COUNT(*) AS c FROM {tables_tbl}").iloc[0]["c"]
+        columns_cnt   = run_query(f"SELECT COUNT(*) AS c FROM {columns_tbl}").iloc[0]["c"]
+        comments_cnt  = run_query(f"SELECT COUNT(*) AS c FROM {comments_tbl}").iloc[0]["c"]
+        overrides_cnt = run_query(f"SELECT COUNT(*) AS c FROM {overrides_tbl}").iloc[0]["c"]
+        return {"tables": tables_cnt, "columns": columns_cnt, "comments": comments_cnt, "overrides": overrides_cnt}
+    except Exception as e:
+        logging.warning("Failed to fetch admin stats: %s", e)
+        return {"tables": 0, "columns": 0, "comments": 0, "overrides": 0}
+
+
+def get_business_name_change_log() -> pd.DataFrame:
+    """Return the last 200 business name change events for the admin log."""
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        logs = [l for l in st.session_state.get("demo_audit_log", []) if l["event_type"] == "business_name_change"]
+        if not logs:
+            return pd.DataFrame(columns=["event_id", "object_name", "old_value", "new_value", "actor_email", "created_at"])
+        return pd.DataFrame(logs).sort_values("created_at", ascending=False).head(200)
+    audit_tbl = "user_data.audit_log" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log"
+    return run_query(
+        f"SELECT event_id, object_name, old_value, new_value, actor_email, created_at "
+        f"FROM {audit_tbl} "
+        f"WHERE event_type = 'business_name_change' "
+        f"ORDER BY created_at DESC LIMIT 200"
+    )
+
+
+def get_comment_log() -> pd.DataFrame:
+    """Return the last 200 comment/reply events for the admin log."""
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        logs = [l for l in st.session_state.get("demo_audit_log", [])
+                if l["event_type"] in ("comment_added", "comment_reply")]
+        if not logs:
+            return pd.DataFrame(columns=["event_id", "object_name", "comment_preview", "actor_email", "created_at"])
+        df = pd.DataFrame(logs).rename(columns={"new_value": "comment_preview"})
+        return df.sort_values("created_at", ascending=False).head(200)
+    audit_tbl = "user_data.audit_log" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log"
+    return run_query(
+        f"SELECT event_id, object_name, new_value AS comment_preview, actor_email, created_at "
+        f"FROM {audit_tbl} "
+        f"WHERE event_type IN ('comment_added', 'comment_reply') "
+        f"ORDER BY created_at DESC LIMIT 200"
+    )
+
+
+def render_admin_page():
+    if not is_admin():
+        st.error("Admin access required.")
+        st.stop()
+
+    st.markdown('''
+    <div class="dd-search-hero">
+      <div class="dd-eyebrow">§ Admin</div>
+      <h1>Administration.</h1>
+      <p class="lead">Catalog health, audit trail, and change history.</p>
+    </div>
+    ''', unsafe_allow_html=True)
+
+    stats = get_admin_stats()
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric("Total tables", f"{stats.get('tables', 0):,}")
+    with c2:
+        st.metric("Total columns", f"{stats.get('columns', 0):,}")
+    with c3:
+        st.metric("Total comments", f"{stats.get('comments', 0):,}")
+    with c4:
+        st.metric("Business name overrides", f"{stats.get('overrides', 0):,}")
+
+    with st.expander("Business name change log", expanded=True):
+        biz_log = get_business_name_change_log()
+        st.dataframe(
+            biz_log,
+            column_config={
+                "object_name": st.column_config.TextColumn("Object"),
+                "old_value":   st.column_config.TextColumn("Old name"),
+                "new_value":   st.column_config.TextColumn("New name"),
+                "actor_email": st.column_config.TextColumn("Changed by"),
+                "created_at":  st.column_config.TextColumn("Changed at"),
+            },
+            hide_index=True,
+            use_container_width=True,
+        )
+
+    with st.expander("Comment log", expanded=True):
+        comment_log = get_comment_log()
+        st.dataframe(
+            comment_log,
+            column_config={
+                "object_name":      st.column_config.TextColumn("Object"),
+                "comment_preview":  st.column_config.TextColumn("Comment preview"),
+                "actor_email":      st.column_config.TextColumn("Author"),
+                "created_at":       st.column_config.TextColumn("Posted at"),
+            },
+            hide_index=True,
+            use_container_width=True,
+        )
+
+
 # ── App entry point ────────────────────────────────────────────────────────────
 render_css()
 
@@ -1849,7 +2334,7 @@ else:
 
 # ── Authenticated: header with user ───────────────────────────────────────────
 current_tab = st.query_params.get("tab", "search")
-render_header(user_name=st.session_state.get("user_name", ""), active_tab=current_tab)
+render_header(user_name=st.session_state.get("user_name", ""), active_tab=current_tab, show_admin=is_admin())
 st.markdown('<div class="dd-page">', unsafe_allow_html=True)
 
 groups = tuple(st.session_state.user_groups) if st.session_state.user_groups else ("none",)
@@ -2207,6 +2692,8 @@ elif current_tab == "discovery":
     render_discovery(query_groups)
 elif current_tab == "health":
     render_health(query_groups)
+elif current_tab == "admin":
+    render_admin_page()
 
 st.markdown("</div>", unsafe_allow_html=True)
 render_footer()
