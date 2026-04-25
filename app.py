@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 import streamlit as st
 import streamlit.components.v1 as components
 from databricks import sql
@@ -899,7 +900,7 @@ def render_css():
 
 
 
-def render_header(user_name: str | None = None, active_tab: str = "search"):
+def render_header(user_name: str | None = None, active_tab: str = "search", show_admin: bool = False):
     user_section = ""
     if user_name:
         user_section = f'''
@@ -910,6 +911,8 @@ def render_header(user_name: str | None = None, active_tab: str = "search"):
     def link(label, tab_id):
         active = "active" if active_tab == tab_id else ""
         return f'<a href="#" data-tab="{tab_id}" class="dd-nav-tab {active}">{label}</a>'
+
+    admin_link = link("Admin", "admin") if show_admin else ""
 
     st.markdown(f'''
     <div class="dd-header">
@@ -925,6 +928,7 @@ def render_header(user_name: str | None = None, active_tab: str = "search"):
           {link("Glossary", "glossary")}
           {link("Discovery", "discovery")}
           {link("Health", "health")}
+          {admin_link}
           {user_section}
         </nav>
       </div>
@@ -933,6 +937,8 @@ def render_header(user_name: str | None = None, active_tab: str = "search"):
 
     # Hidden Streamlit buttons — JS in the component iframe clicks these
     _tabs = ["search", "catalog", "glossary", "discovery", "health"]
+    if show_admin:
+        _tabs.append("admin")
     for tab_id in _tabs:
         if st.button(tab_id.capitalize(), key=f"nav_{tab_id}"):
             st.query_params["tab"] = tab_id
@@ -940,7 +946,10 @@ def render_header(user_name: str | None = None, active_tab: str = "search"):
             st.rerun()
 
     # Zero-height iframe: wires header nav clicks → hidden Streamlit buttons
-    _nav_labels_js = str(["Search", "Catalog", "Glossary", "Discovery", "Health"])
+    _nav_labels = ["Search", "Catalog", "Glossary", "Discovery", "Health"]
+    if show_admin:
+        _nav_labels.append("Admin")
+    _nav_labels_js = str(_nav_labels)
     components.html(f"""
     <script>
     (function() {{
@@ -1314,6 +1323,18 @@ def is_power_user() -> bool:
     return bool(editor_groups & set(st.session_state.get("user_groups", [])))
 
 
+def is_admin() -> bool:
+    """True if the current user belongs to at least one ADMIN_GROUPS group.
+
+    No demo-mode bypass — admins must be in the real Entra group even in
+    demo/development mode, unlike is_power_user() which has a mock shortcut.
+    """
+    admin_groups = {g.strip() for g in os.getenv("ADMIN_GROUPS", "").split(",") if g.strip()}
+    if not admin_groups:
+        return False
+    return bool(admin_groups & set(st.session_state.get("user_groups", [])))
+
+
 def get_column_business_names(table_full_name: str) -> dict:
     """Return all column business name overrides for a table as a dict.
 
@@ -1348,6 +1369,44 @@ def get_column_business_names(table_full_name: str) -> dict:
     return {}
 
 
+def log_audit_event(event_type: str, object_type: str, object_name: str, old_value: str, new_value: str) -> None:
+    """Record an audit event for admin review.  Never raises — failures are logged and swallowed."""
+    actor_email = st.session_state.get("user_email", "")
+    event_id = str(uuid.uuid4())
+    try:
+        if os.getenv("DEMO_DATA", "false").lower() == "true":
+            st.session_state.setdefault("demo_audit_log", []).append({
+                "event_id":    event_id,
+                "event_type":  event_type,
+                "object_type": object_type,
+                "object_name": object_name,
+                "actor_email": actor_email,
+                "old_value":   old_value,
+                "new_value":   new_value,
+                "created_at":  pd.Timestamp.now(),
+            })
+        else:
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log "
+                    f"(event_id, event_type, object_type, object_name, actor_email, old_value, new_value, created_at) "
+                    f"VALUES (%(event_id)s, %(event_type)s, %(object_type)s, %(object_name)s, "
+                    f"%(actor_email)s, %(old_value)s, %(new_value)s, current_timestamp())",
+                    {
+                        "event_id":    event_id,
+                        "event_type":  event_type,
+                        "object_type": object_type,
+                        "object_name": object_name,
+                        "actor_email": actor_email,
+                        "old_value":   old_value,
+                        "new_value":   new_value,
+                    },
+                )
+    except Exception as e:
+        logging.warning("Audit logging failed for %s: %s", event_id, e)
+
+
 def save_business_name(table_full_name: str, column_name: str, business_name: str, definition: str = "") -> None:
     """Atomically upsert a column override (business name + definition) using MERGE INTO.
 
@@ -1371,11 +1430,14 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
             f"(got {len(definition)})."
         )
     user_name = st.session_state.get("user_name", "unknown")
+    old_override = get_column_business_names(table_full_name).get(column_name, {})
+    old_value = old_override.get("business_name", "")
     if os.getenv("DEMO_DATA", "false").lower() == "true":
         if "demo_business_names" not in st.session_state:
             st.session_state["demo_business_names"] = {}
         tbl = st.session_state["demo_business_names"].setdefault(table_full_name, {})
         tbl[column_name] = {"business_name": business_name, "definition": definition, "edited_by": user_name, "edited_at": "just now"}
+        log_audit_event("business_name_change", "COLUMN", f"{table_full_name}.{column_name}", old_value, business_name)
         return
     conn = get_db_connection()
     with conn.cursor() as cursor:
@@ -1387,6 +1449,7 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
             f"WHEN NOT MATCHED THEN INSERT (table_full_name, column_name, business_name, definition, edited_by, edited_at) VALUES (source.table_full_name, source.column_name, source.business_name, source.definition, source.edited_by, current_timestamp())",
             {"table_full_name": table_full_name, "column_name": column_name, "business_name": business_name, "definition": definition, "edited_by": user_name},
         )
+    log_audit_event("business_name_change", "COLUMN", f"{table_full_name}.{column_name}", old_value, business_name)
 
 
 def get_table_steward(table_full_name: str) -> str:
@@ -1577,6 +1640,8 @@ def save_comment(
     author_name  = st.session_state.get("user_name", "unknown")
     author_email = (st.session_state.get("user_email", "") or "").lower().strip()
 
+    _event_type = "comment_reply" if parent_comment_id else "comment_added"
+
     if os.getenv("DEMO_DATA", "false").lower() == "true":
         demo = st.session_state.setdefault("demo_comments", {})
         demo.setdefault(object_name, []).append({
@@ -1591,6 +1656,7 @@ def save_comment(
             send_reply_email(parent_author_email, author_name, object_name, comment_text, steward_email)
         else:
             send_comment_email(steward_email, author_name, object_name, comment_text)
+        log_audit_event(_event_type, object_type, object_name, "", comment_text)
         return
 
     conn = get_db_connection()
@@ -1619,6 +1685,7 @@ def save_comment(
         send_reply_email(verified_parent_email, author_name, object_name, comment_text, steward_email)
     else:
         send_comment_email(steward_email, author_name, object_name, comment_text)
+    log_audit_event(_event_type, object_type, object_name, "", comment_text)
 
 
 @st.cache_data(ttl="1h")
@@ -1939,6 +2006,115 @@ def render_placeholder_page(title, subtitle):
     ''', unsafe_allow_html=True)
     st.info("Coming soon in v0.4.0")
 
+
+# ── Admin page ─────────────────────────────────────────────────────────────────
+
+def get_admin_stats() -> dict:
+    """Return four catalog-wide counts for the admin dashboard."""
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        return {
+            "tables":    len(_DEMO_TABLES),
+            "columns":   sum(len(df) for df in _DEMO_COLUMNS.values()),
+            "comments":  sum(len(v) for v in st.session_state.get("demo_comments", {}).values()),
+            "overrides": sum(len(v) for v in st.session_state.get("demo_business_names", {}).values()),
+        }
+    try:
+        tables_cnt    = run_query(f"SELECT COUNT(*) AS c FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata").iloc[0]["c"]
+        columns_cnt   = run_query(f"SELECT COUNT(*) AS c FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata").iloc[0]["c"]
+        comments_cnt  = run_query(f"SELECT COUNT(*) AS c FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.comments").iloc[0]["c"]
+        overrides_cnt = run_query(f"SELECT COUNT(*) AS c FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides").iloc[0]["c"]
+        return {"tables": tables_cnt, "columns": columns_cnt, "comments": comments_cnt, "overrides": overrides_cnt}
+    except Exception as e:
+        logging.warning("Failed to fetch admin stats: %s", e)
+        return {"tables": 0, "columns": 0, "comments": 0, "overrides": 0}
+
+
+def get_business_name_change_log() -> pd.DataFrame:
+    """Return the last 200 business name change events for the admin log."""
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        logs = [l for l in st.session_state.get("demo_audit_log", []) if l["event_type"] == "business_name_change"]
+        if not logs:
+            return pd.DataFrame(columns=["event_id", "object_name", "old_value", "new_value", "actor_email", "created_at"])
+        return pd.DataFrame(logs).sort_values("created_at", ascending=False).head(200)
+    return run_query(
+        f"SELECT event_id, object_name, old_value, new_value, actor_email, created_at "
+        f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log "
+        f"WHERE event_type = 'business_name_change' "
+        f"ORDER BY created_at DESC LIMIT 200"
+    )
+
+
+def get_comment_log() -> pd.DataFrame:
+    """Return the last 200 comment/reply events for the admin log."""
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        logs = [l for l in st.session_state.get("demo_audit_log", [])
+                if l["event_type"] in ("comment_added", "comment_reply")]
+        if not logs:
+            return pd.DataFrame(columns=["event_id", "object_name", "comment_preview", "actor_email", "created_at"])
+        df = pd.DataFrame(logs).rename(columns={"new_value": "comment_preview"})
+        return df.sort_values("created_at", ascending=False).head(200)
+    return run_query(
+        f"SELECT event_id, object_name, new_value AS comment_preview, actor_email, created_at "
+        f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log "
+        f"WHERE event_type IN ('comment_added', 'comment_reply') "
+        f"ORDER BY created_at DESC LIMIT 200"
+    )
+
+
+def render_admin_page():
+    if not is_admin():
+        st.error("Admin access required.")
+        st.stop()
+
+    st.markdown('''
+    <div class="dd-search-hero">
+      <div class="dd-eyebrow">§ Admin</div>
+      <h1>Administration.</h1>
+      <p class="lead">Catalog health, audit trail, and change history.</p>
+    </div>
+    ''', unsafe_allow_html=True)
+
+    stats = get_admin_stats()
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric("Total tables", f"{stats.get('tables', 0):,}")
+    with c2:
+        st.metric("Total columns", f"{stats.get('columns', 0):,}")
+    with c3:
+        st.metric("Total comments", f"{stats.get('comments', 0):,}")
+    with c4:
+        st.metric("Business name overrides", f"{stats.get('overrides', 0):,}")
+
+    with st.expander("Business name change log", expanded=True):
+        biz_log = get_business_name_change_log()
+        st.dataframe(
+            biz_log,
+            column_config={
+                "object_name": st.column_config.TextColumn("Object"),
+                "old_value":   st.column_config.TextColumn("Old name"),
+                "new_value":   st.column_config.TextColumn("New name"),
+                "actor_email": st.column_config.TextColumn("Changed by"),
+                "created_at":  st.column_config.TextColumn("Changed at"),
+            },
+            hide_index=True,
+            use_container_width=True,
+        )
+
+    with st.expander("Comment log", expanded=True):
+        comment_log = get_comment_log()
+        st.dataframe(
+            comment_log,
+            column_config={
+                "object_name":      st.column_config.TextColumn("Object"),
+                "comment_preview":  st.column_config.TextColumn("Comment preview"),
+                "actor_email":      st.column_config.TextColumn("Author"),
+                "created_at":       st.column_config.TextColumn("Posted at"),
+            },
+            hide_index=True,
+            use_container_width=True,
+        )
+
+
 # ── App entry point ────────────────────────────────────────────────────────────
 render_css()
 
@@ -1968,7 +2144,7 @@ else:
 
 # ── Authenticated: header with user ───────────────────────────────────────────
 current_tab = st.query_params.get("tab", "search")
-render_header(user_name=st.session_state.get("user_name", ""), active_tab=current_tab)
+render_header(user_name=st.session_state.get("user_name", ""), active_tab=current_tab, show_admin=is_admin())
 st.markdown('<div class="dd-page">', unsafe_allow_html=True)
 
 groups = tuple(st.session_state.user_groups) if st.session_state.user_groups else ("none",)
@@ -2326,6 +2502,8 @@ elif current_tab == "discovery":
     render_discovery(query_groups)
 elif current_tab == "health":
     render_health(query_groups)
+elif current_tab == "admin":
+    render_admin_page()
 
 st.markdown("</div>", unsafe_allow_html=True)
 render_footer()

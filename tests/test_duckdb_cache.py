@@ -287,7 +287,7 @@ class TestWriteDuckdb:
             self.write_duckdb([], [], [], [], [])
         con = duckdb.connect(db, read_only=True)
         for tbl in ("tables_metadata", "columns_metadata", "permissions_cache",
-                    "lineage_cache", "object_tags", "comments", "business_name_overrides"):
+                    "lineage_cache", "object_tags", "audit_log", "comments", "business_name_overrides"):
             df = con.execute(f"SELECT * FROM {tbl}").df()
             assert isinstance(df, pd.DataFrame), f"{tbl} missing"
         con.close()
