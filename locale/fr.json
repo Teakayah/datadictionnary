@@ -1,0 +1,109 @@
+{
+  "nav": {
+    "search": "Recherche",
+    "catalog": "Catalogue",
+    "discovery": "D\u00e9couverte",
+    "health": "Sant\u00e9",
+    "glossary": "Glossaire",
+    "admin": "Admin",
+    "sign_out": "D\u00e9connexion"
+  },
+  "auth": {
+    "title": "Un catalogue pour votre entrep\u00f4t.",
+    "subtitle": "Recherchez des tables, des colonnes et des termes m\u00e9tier dans Unity Catalog \u2014 filtr\u00e9s selon vos acc\u00e8s.",
+    "sign_in_button": "Se connecter avec Entra ID",
+    "mock_button": "Se connecter avec Entra ID (d\u00e9mo)",
+    "signed_in_as": "Connect\u00e9 en tant que"
+  },
+  "search": {
+    "hero_title": "Rechercher dans le catalogue.",
+    "hero_subtitle": "Trouvez des donn\u00e9es dans toute l\u2019organisation.",
+    "placeholder": "Rechercher des tables ou des colonnes\u2026",
+    "results_count": "{count} r\u00e9sultats",
+    "no_results": "Aucun r\u00e9sultat pour \u00ab\u202f{query}\u202f\u00bb",
+    "loading": "Recherche en cours\u2026"
+  },
+  "table": {
+    "columns": "Colonnes",
+    "grants": "Permissions",
+    "lineage": "Lignage",
+    "comments": "Commentaires",
+    "business_name": "Nom m\u00e9tier",
+    "description": "Description",
+    "type": "Type",
+    "open_in_databricks": "Ouvrir dans Databricks"
+  },
+  "detail": {
+    "section_columns": "\u00a7 Colonnes",
+    "section_grants": "\u00a7 Permissions",
+    "section_lineage": "\u00a7 Lignage",
+    "section_comments": "\u00a7 Commentaires",
+    "section_related": "\u00a7 Tables li\u00e9es"
+  },
+  "comment": {
+    "add_comment": "Ajouter un commentaire",
+    "reply": "R\u00e9pondre",
+    "save": "Enregistrer le commentaire",
+    "cancel": "Annuler",
+    "steward": "Responsable",
+    "posted_by": "Post\u00e9 par",
+    "no_comments": "Aucun commentaire pour le moment."
+  },
+  "editor": {
+    "edit_business_name": "Modifier le nom m\u00e9tier",
+    "business_name_label": "Nom m\u00e9tier",
+    "definition_label": "D\u00e9finition",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "saved_by": "Enregistr\u00e9 par {user}"
+  },
+  "admin": {
+    "title": "\u00a7 Admin",
+    "stats_tables": "Total tables",
+    "stats_columns": "Total colonnes",
+    "stats_comments": "Total commentaires",
+    "stats_overrides": "Surcharges de noms m\u00e9tier",
+    "biz_log_title": "Historique des noms m\u00e9tier",
+    "comment_log_title": "Historique des commentaires",
+    "no_data": "Aucune donn\u00e9e d\u2019audit disponible.",
+    "access_denied": "Acc\u00e8s administrateur requis."
+  },
+  "health": {
+    "title": "\u00a7 Sant\u00e9 du catalogue",
+    "subtitle": "Couverture et \u00e9tat de la documentation.",
+    "total_tables": "Total tables",
+    "documented": "Document\u00e9",
+    "with_grants": "Avec permissions",
+    "last_sync": "Derni\u00e8re synchro"
+  },
+  "glossary": {
+    "title": "\u00a7 Glossaire m\u00e9tier",
+    "subtitle": "D\u00e9finissez les concepts m\u00e9tier et liez-les aux donn\u00e9es techniques.",
+    "search_placeholder": "Rechercher un terme\u2026",
+    "no_terms": "Aucun terme trouv\u00e9."
+  },
+  "discovery": {
+    "title": "\u00a7 D\u00e9couverte",
+    "subtitle": "Parcourez le catalogue par catalogue, sch\u00e9ma et table."
+  },
+  "footer": {
+    "built_with": "Data Dictionary \u00b7 v0.1.0 \u00b7 synchronis\u00e9 chaque nuit depuis Unity Catalog"
+  },
+  "common": {
+    "loading": "Chargement\u2026",
+    "error": "Une erreur est survenue.",
+    "empty": "Aucune donn\u00e9e.",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "search": "Rechercher",
+    "back": "Retour"
+  },
+  "language": {
+    "en": "EN",
+    "fr": "FR",
+    "switch_to_en": "Switch to English",
+    "switch_to_fr": "Passer en fran\u00e7ais"
+  }
+}
