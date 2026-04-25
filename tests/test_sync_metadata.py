@@ -44,7 +44,7 @@ def test_setup_cache_tables(mock_get_sql_connection):
     from scripts.sync_metadata import setup_cache_tables, CATALOG_CACHE, SCHEMA_CACHE
     setup_cache_tables()
 
-    assert mock_cursor.execute.call_count == 9
+    assert mock_cursor.execute.call_count == 10
 
     calls = mock_cursor.execute.call_args_list
     assert f"CREATE CATALOG IF NOT EXISTS {CATALOG_CACHE}" in calls[0][0][0]
@@ -60,6 +60,9 @@ def test_setup_cache_tables(mock_get_sql_connection):
     assert f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides" in calls[8][0][0]
     assert "column_name" in calls[8][0][0], "business_name_overrides DDL must include column_name"
     assert "definition"  in calls[8][0][0], "business_name_overrides DDL must include definition"
+    assert f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log" in calls[9][0][0]
+    assert "event_type"  in calls[9][0][0], "audit_log DDL must include event_type"
+    assert "actor_email" in calls[9][0][0], "audit_log DDL must include actor_email"
 
 @patch("scripts.sync_metadata.concurrent.futures.ThreadPoolExecutor")
 @patch("scripts.sync_metadata.WorkspaceClient")
@@ -117,14 +120,16 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
 
     # 5 truncates via execute (tables, columns, permissions, lineage, object_tags)
     # + 1 SELECT from push_business_name_overrides (no overrides to push → returns empty)
+    # + 1 SELECT from audit_log fetch for DuckDB export
     execute_calls = mock_cursor.execute.call_args_list
-    assert len(execute_calls) == 6
+    assert len(execute_calls) == 7
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata" in execute_calls[0][0][0]
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata" in execute_calls[1][0][0]
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache" in execute_calls[2][0][0]
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache" in execute_calls[3][0][0]
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags" in execute_calls[4][0][0]
-    assert f"business_name_overrides" in execute_calls[5][0][0]
+    assert f"audit_log" in execute_calls[5][0][0]
+    assert f"business_name_overrides" in execute_calls[6][0][0]
 
     # 4 executemany calls: tables, columns, permissions, lineage
     # (object_tags has no data here since mock catalogs have no .properties set)
