@@ -905,7 +905,7 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
     if user_name:
         user_section = f'''
         <span class="dd-nav-sep"></span>
-        <span class="dd-nav-user">{user_name}</span>
+        <span class="dd-nav-user">{_html.escape(user_name)}</span>
         '''
 
     def link(label, tab_id):
@@ -1260,12 +1260,30 @@ def _get_databricks_connection():
     )
 
 
+def _get_databricks_write_connection():
+    """Return a fresh (uncached) Databricks connection for write operations.
+
+    Write operations (INSERT, MERGE INTO) must always target the Databricks SQL
+    Warehouse — never the local DuckDB file, which is a read-only cache that is
+    rebuilt from Databricks on each sync and would silently discard any local
+    writes.  This function bypasses the read-path DuckDB check intentionally.
+    """
+    return sql.connect(
+        server_hostname=os.getenv("DATABRICKS_HOST"),
+        http_path=os.getenv("DATABRICKS_HTTP_PATH"),
+        access_token=os.getenv("DATABRICKS_TOKEN"),
+    )
+
+
 def get_db_connection():
-    """Return a DB connection.
+    """Return a DB connection for read queries.
 
     Returns a DuckDB-backed connection when DUCKDB_PATH points to an existing
     file (fast, local, no network).  Falls back to the cached Databricks SQL
     Warehouse connection otherwise.
+
+    Do NOT use this for write operations — use _get_databricks_write_connection()
+    instead so writes always reach Databricks regardless of cache state.
     """
     if _duckdb_available():
         return _DuckDBConn(DUCKDB_PATH)
@@ -1386,7 +1404,9 @@ def log_audit_event(event_type: str, object_type: str, object_name: str, old_val
                 "created_at":  pd.Timestamp.now(),
             })
         else:
-            conn = get_db_connection()
+            # Always write to Databricks — DuckDB is a read-only cache that is
+            # rebuilt from Databricks on each sync and would discard local inserts.
+            conn = _get_databricks_write_connection()
             with conn.cursor() as cursor:
                 cursor.execute(
                     f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log "
@@ -1439,7 +1459,9 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
         tbl[column_name] = {"business_name": business_name, "definition": definition, "edited_by": user_name, "edited_at": "just now"}
         log_audit_event("business_name_change", "COLUMN", f"{table_full_name}.{column_name}", old_value, business_name)
         return
-    conn = get_db_connection()
+    # Always write to Databricks — DuckDB does not support MERGE INTO (Spark SQL)
+    # and the local cache would lose the write on the next sync.
+    conn = _get_databricks_write_connection()
     with conn.cursor() as cursor:
         cursor.execute(
             f"MERGE INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides AS target "
@@ -1532,8 +1554,11 @@ def send_comment_email(to_email: str, author_name: str, object_name: str, commen
     if not smtp_host or not to_email:
         logging.warning("Comment saved but email not sent: SMTP_HOST or steward_email not configured.")
         return
-    msg = MIMEText(f"{author_name} left a comment on {object_name}:\n\n{comment_text}", "plain")
-    msg["Subject"] = f"[Data Dictionary] Comment on {object_name}"
+    # Strip newlines from header fields to prevent SMTP header injection.
+    safe_object_name = object_name.replace("\r", "").replace("\n", "")
+    safe_author_name = author_name.replace("\r", "").replace("\n", "")
+    msg = MIMEText(f"{safe_author_name} left a comment on {safe_object_name}:\n\n{comment_text}", "plain")
+    msg["Subject"] = f"[Data Dictionary] Comment on {safe_object_name}"
     msg["From"]    = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
     msg["To"]      = to_email
     try:
@@ -1573,11 +1598,14 @@ def send_reply_email(
         logging.warning("Reply saved but email not sent: SMTP_HOST not configured.")
         return
 
+    # Strip newlines from header fields to prevent SMTP header injection.
+    safe_object_name  = object_name.replace("\r", "").replace("\n", "")
+    safe_reply_author = reply_author_name.replace("\r", "").replace("\n", "")
     msg = MIMEText(
-        f"{reply_author_name} replied to a comment on {object_name}:\n\n{reply_text}",
+        f"{safe_reply_author} replied to a comment on {safe_object_name}:\n\n{reply_text}",
         "plain",
     )
-    msg["Subject"] = f"[Data Dictionary] Reply on {object_name}"
+    msg["Subject"] = f"[Data Dictionary] Reply on {safe_object_name}"
     msg["From"]    = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
     msg["To"]      = ", ".join(recipients)
     try:
@@ -1659,7 +1687,8 @@ def save_comment(
         log_audit_event(_event_type, object_type, object_name, "", comment_text)
         return
 
-    conn = get_db_connection()
+    # Always write to Databricks — DuckDB is a read-only cache.
+    conn = _get_databricks_write_connection()
     with conn.cursor() as cursor:
         cursor.execute(
             f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
