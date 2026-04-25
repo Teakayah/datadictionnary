@@ -870,6 +870,46 @@ iframe[height="0"] { display: none !important; }
     border-left: 2px solid var(--ink-10);
     margin-top: 4px;
 }
+
+/* ── Expanders ── */
+[data-testid="stExpander"] {
+    border: 1px solid var(--ink-20) !important;
+    border-radius: 2px !important;
+    background: var(--paper) !important;
+}
+[data-testid="stExpander"] details {
+    background: var(--paper) !important;
+}
+[data-testid="stExpander"] details summary {
+    background: var(--paper-deep) !important;
+    color: var(--ink) !important;
+}
+[data-testid="stExpander"] details summary:hover {
+    background: var(--paper-ink) !important;
+    color: var(--ink) !important;
+}
+/* Target only the label paragraph — NOT span, which carries the Material Icons glyph */
+[data-testid="stExpander"] details summary p {
+    color: var(--ink) !important;
+    font-family: var(--font-sans) !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+}
+
+/* ── Dataframe (glide-data-grid) ── */
+[data-testid="stDataFrame"] {
+    --gdg-bg-cell:        var(--paper) !important;
+    --gdg-bg-cell-medium: var(--paper-deep) !important;
+    --gdg-bg-header:      var(--paper-deep) !important;
+    --gdg-bg-header-has-focus: var(--paper-ink) !important;
+    --gdg-text-dark:      var(--ink) !important;
+    --gdg-text-medium:    var(--ink-60) !important;
+    --gdg-text-light:     var(--ink-40) !important;
+    --gdg-border-color:   var(--ink-10) !important;
+}
+[data-testid="stDataFrame"] > div {
+    background: var(--paper) !important;
+}
 """
 
 # ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
