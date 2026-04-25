@@ -105,6 +105,20 @@ def setup_cache_tables():
                 )
             """)
 
+            # Table for audit events (business name changes, comments)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log (
+                    event_id        STRING,
+                    event_type      STRING,
+                    object_type     STRING,
+                    object_name     STRING,
+                    actor_email     STRING,
+                    old_value       STRING,
+                    new_value       STRING,
+                    created_at      TIMESTAMP
+                )
+            """)
+
 def push_business_name_overrides():
     """Write column business name overrides back to Unity Catalog as column comments.
 
@@ -317,9 +331,21 @@ def sync():
                     tags_data
                 )
 
+    # Fetch audit_log for DuckDB export (rebuild from Databricks each sync)
+    audit_log_data = []
+    try:
+        with get_sql_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(f"SELECT * FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log")
+                audit_df = cursor.fetchall_as_pandas()
+                if audit_df is not None and not audit_df.empty:
+                    audit_log_data = audit_df.to_dict(orient="records")
+    except Exception as e:
+        print(f"  ⚠  Could not fetch audit_log for DuckDB: {e}")
+
     print("✅ Sync completed successfully.")
     push_business_name_overrides()
-    write_duckdb(tables_data, columns_data, permissions_data, lineage_data, tags_data)
+    write_duckdb(tables_data, columns_data, permissions_data, lineage_data, tags_data, audit_log_data)
 
 
 def write_duckdb(
@@ -328,6 +354,7 @@ def write_duckdb(
     permissions_data: list,
     lineage_data: list,
     tags_data: list,
+    audit_log_data: list = None,
 ) -> None:
     """Export sync data to a local DuckDB file for fast local queries.
 
@@ -375,6 +402,9 @@ def write_duckdb(
             ["table_full_name", "direction", "entity_full_name", "entity_type"]),
         "object_tags": pd.DataFrame(tags_data) if tags_data else _empty(
             ["object_type", "object_full_name", "tag_key", "tag_value"]),
+        "audit_log": pd.DataFrame(audit_log_data) if audit_log_data else _empty(
+            ["event_id", "event_type", "object_type", "object_name",
+             "actor_email", "old_value", "new_value", "created_at"]),
     }
 
     # --- Append-only tables (preserved from previous file) ---
