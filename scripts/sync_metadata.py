@@ -353,29 +353,36 @@ def write_duckdb(
     tmp_path = duckdb_path + ".tmp"
     print(f"📦 Exporting to DuckDB: {duckdb_path} ...")
 
+    def _empty(cols):
+        """Return an empty DataFrame with explicit string dtypes for all columns.
+
+        pandas defaults empty columns to object dtype, but DuckDB can infer
+        those as INT32 when there are no rows.  Explicit str dtype ensures
+        VARCHAR in the resulting DuckDB table.
+        """
+        return pd.DataFrame({c: pd.Series(dtype=str) for c in cols})
+
     # --- Truncate-reload tables (rebuilt entirely on each sync) ---
     reload_frames = {
-        "tables_metadata": pd.DataFrame(tables_data) if tables_data else pd.DataFrame(
-            columns=["full_name", "catalog_name", "schema_name", "table_name",
-                     "table_type", "comment", "updated_at", "steward_email"]),
-        "columns_metadata": pd.DataFrame(columns_data) if columns_data else pd.DataFrame(
-            columns=["table_full_name", "column_name", "data_type", "comment"]),
-        "permissions_cache": pd.DataFrame(permissions_data) if permissions_data else pd.DataFrame(
-            columns=["table_full_name", "principal", "privilege"]),
-        "lineage_cache": pd.DataFrame(lineage_data) if lineage_data else pd.DataFrame(
-            columns=["table_full_name", "direction", "entity_full_name", "entity_type"]),
-        "object_tags": pd.DataFrame(tags_data) if tags_data else pd.DataFrame(
-            columns=["object_type", "object_full_name", "tag_key", "tag_value"]),
+        "tables_metadata": pd.DataFrame(tables_data) if tables_data else _empty(
+            ["full_name", "catalog_name", "schema_name", "table_name",
+             "table_type", "comment", "updated_at", "steward_email"]),
+        "columns_metadata": pd.DataFrame(columns_data) if columns_data else _empty(
+            ["table_full_name", "column_name", "data_type", "comment"]),
+        "permissions_cache": pd.DataFrame(permissions_data) if permissions_data else _empty(
+            ["table_full_name", "principal", "privilege"]),
+        "lineage_cache": pd.DataFrame(lineage_data) if lineage_data else _empty(
+            ["table_full_name", "direction", "entity_full_name", "entity_type"]),
+        "object_tags": pd.DataFrame(tags_data) if tags_data else _empty(
+            ["object_type", "object_full_name", "tag_key", "tag_value"]),
     }
 
     # --- Append-only tables (preserved from previous file) ---
-    empty_comments = pd.DataFrame(
-        columns=["comment_id", "object_type", "object_name", "comment_text",
-                 "author_name", "author_email", "created_at", "steward_email",
-                 "parent_comment_id"])
-    empty_overrides = pd.DataFrame(
-        columns=["table_full_name", "column_name", "business_name",
-                 "definition", "edited_by", "edited_at"])
+    empty_comments = _empty(["comment_id", "object_type", "object_name", "comment_text",
+                              "author_name", "author_email", "created_at", "steward_email",
+                              "parent_comment_id"])
+    empty_overrides = _empty(["table_full_name", "column_name", "business_name",
+                               "definition", "edited_by", "edited_at"])
 
     append_frames = {"comments": empty_comments, "business_name_overrides": empty_overrides}
     if os.path.exists(duckdb_path):
@@ -394,7 +401,13 @@ def write_duckdb(
     try:
         con = duckdb.connect(tmp_path)
         for tbl, df in {**reload_frames, **append_frames}.items():
-            con.execute(f"CREATE OR REPLACE TABLE {tbl} AS SELECT * FROM df")
+            if df.empty:
+                # Use explicit VARCHAR DDL — DuckDB can't infer types from empty DataFrames
+                # and may default non-object columns to INT32.
+                col_defs = ", ".join(f'"{c}" VARCHAR' for c in df.columns)
+                con.execute(f"CREATE OR REPLACE TABLE {tbl} ({col_defs})")
+            else:
+                con.execute(f"CREATE OR REPLACE TABLE {tbl} AS SELECT * FROM df")
         # Useful indexes for the permission JOIN and detail lookups
         con.execute("CREATE INDEX IF NOT EXISTS idx_perm_principal ON permissions_cache (principal)")
         con.execute("CREATE INDEX IF NOT EXISTS idx_perm_table ON permissions_cache (table_full_name)")
