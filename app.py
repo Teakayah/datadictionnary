@@ -1408,6 +1408,29 @@ def send_reply_email(
         logging.error("Failed to send reply email to %s: %s", recipients, e)
 
 
+def _fetch_comment_author_email(comment_id: str) -> str:
+    """Look up the author_email of a comment from the DB.
+
+    Used by save_comment to resolve the reply recipient server-side rather
+    than trusting the value passed in from the UI (open-relay mitigation).
+    Returns '' if the comment is not found or on error.
+    """
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT author_email FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
+                f"WHERE comment_id = %(comment_id)s LIMIT 1",
+                {"comment_id": comment_id},
+            )
+            row = cursor.fetchall_as_pandas()
+            if row is not None and not row.empty:
+                return str(row.iloc[0]["author_email"] or "")
+    except Exception as e:
+        logging.warning("Could not fetch author_email for comment %s: %s", comment_id, e)
+    return ""
+
+
 def save_comment(
     object_type: str,
     object_name: str,
@@ -1420,6 +1443,11 @@ def save_comment(
 
     For a top-level comment, notifies the steward.
     For a reply (parent_comment_id set), notifies the original commenter and steward.
+
+    The reply recipient email is re-fetched from the database rather than
+    trusting the caller-supplied parent_author_email, preventing an
+    authenticated user from using the SMTP relay to spam arbitrary addresses.
+    parent_author_email is used only in demo mode (no DB available).
 
     In demo mode writes to st.session_state["demo_comments"] dict.
     object_name for table comments is the full_name; for column comments
@@ -1466,7 +1494,10 @@ def save_comment(
             },
         )
     if parent_comment_id:
-        send_reply_email(parent_author_email, author_name, object_name, comment_text, steward_email)
+        # Re-fetch the parent author's email from the DB — do NOT trust the
+        # UI-supplied parent_author_email to prevent open-relay abuse.
+        verified_parent_email = _fetch_comment_author_email(parent_comment_id)
+        send_reply_email(verified_parent_email, author_name, object_name, comment_text, steward_email)
     else:
         send_comment_email(steward_email, author_name, object_name, comment_text)
 

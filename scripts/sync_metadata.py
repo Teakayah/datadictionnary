@@ -131,18 +131,25 @@ def push_business_name_overrides():
     with get_sql_connection() as conn:
         with conn.cursor() as cursor:
             for _, row in overrides.iterrows():
-                full_name = str(row["table_full_name"])
-                col_name  = str(row["column_name"])
-                # Escape single quotes before embedding in SQL DDL
-                biz_name  = str(row["business_name"]).replace("'", "\\'")
+                raw_full_name = str(row["table_full_name"])
+                raw_col_name  = str(row["column_name"])
+                raw_biz_name  = str(row["business_name"])
+                # Backtick-quote identifiers (escape embedded backticks) and
+                # use '' to escape single-quotes in the comment string.
+                # \' is NOT correct Spark SQL — use the ANSI '' form.
+                full_name_q = ".".join(
+                    f"`{p.replace('`', '``')}`" for p in raw_full_name.split(".")
+                )
+                col_name_q  = f"`{raw_col_name.replace('`', '``')}`"
+                biz_name_q  = raw_biz_name.replace("'", "''")
                 try:
                     cursor.execute(
-                        f"ALTER TABLE {full_name} "
-                        f"ALTER COLUMN {col_name} COMMENT '{biz_name}'"
+                        f"ALTER TABLE {full_name_q} "
+                        f"ALTER COLUMN {col_name_q} COMMENT '{biz_name_q}'"
                     )
-                    print(f"  ✓ {full_name}.{col_name}")
+                    print(f"  ✓ {raw_full_name}.{raw_col_name}")
                 except Exception as e:
-                    print(f"  ✗ {full_name}.{col_name}: {e}")
+                    print(f"  ✗ {raw_full_name}.{raw_col_name}: {e}")
 
 
 def fetch_lineage(w, full_name):
