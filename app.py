@@ -861,6 +861,12 @@ iframe[height="0"] { display: none !important; }
     font-style: italic;
     margin-top: 4px;
 }
+.dd-comment-reply {
+    border-top: none;
+    padding: 6px 0 6px 12px;
+    border-left: 2px solid var(--ink-10);
+    margin-top: 4px;
+}
 """
 
 # ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
@@ -1289,28 +1295,43 @@ def get_table_steward(table_full_name: str) -> str:
 
 
 def get_table_comments(object_name: str) -> list:
-    """Fetch all comments for an object (table or column) ordered by created_at.
+    """Fetch all comments for an object, returned as a tree (parent comments
+    with a ``replies`` list each).
 
     In demo mode reads from st.session_state["demo_comments"].
     Not cached — always fresh so new comments appear immediately.
     """
     if os.getenv("DEMO_DATA", "false").lower() == "true":
-        return st.session_state.get("demo_comments", {}).get(object_name, [])
+        flat = st.session_state.get("demo_comments", {}).get(object_name, [])
+        return _build_comment_tree(flat)
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute(
-                f"SELECT comment_id, author_name, author_email, comment_text, created_at "
+                f"SELECT comment_id, author_name, author_email, comment_text, created_at, parent_comment_id "
                 f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
-                f"WHERE object_name = %(object_name)s ORDER BY created_at",
+                f"WHERE object_name = %(object_name)s ORDER BY created_at ASC",
                 {"object_name": object_name},
             )
             rows = cursor.fetchall_as_pandas()
             if rows is not None and not rows.empty:
-                return rows.to_dict(orient="records")
+                return _build_comment_tree(rows.to_dict(orient="records"))
     except Exception as e:
         logging.warning("Could not fetch comments for %s: %s", object_name, e)
     return []
+
+
+def _build_comment_tree(flat: list) -> list:
+    """Group a flat list of comment dicts into a parent/replies tree."""
+    by_id = {c["comment_id"]: {**c, "replies": []} for c in flat}
+    roots = []
+    for c in by_id.values():
+        pid = c.get("parent_comment_id")
+        if pid and pid in by_id:
+            by_id[pid]["replies"].append(c)
+        else:
+            roots.append(c)
+    return roots
 
 
 def send_comment_email(to_email: str, author_name: str, object_name: str, comment_text: str) -> None:
@@ -1343,8 +1364,62 @@ def send_comment_email(to_email: str, author_name: str, object_name: str, commen
         logging.error("Failed to send comment email to %s: %s", to_email, e)
 
 
-def save_comment(object_type: str, object_name: str, comment_text: str, steward_email: str) -> None:
-    """Persist a comment and trigger a steward notification email.
+def send_reply_email(
+    parent_author_email: str,
+    reply_author_name: str,
+    object_name: str,
+    reply_text: str,
+    steward_email: str,
+) -> None:
+    """Notify the original commenter (and the steward if different) of a reply.
+
+    In demo mode logs to console. Silently skips if SMTP_HOST is not configured.
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+
+    recipients = list({e for e in [parent_author_email, steward_email] if e})
+    if not recipients:
+        return
+
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        print(f"[DEMO REPLY] To: {recipients} | Object: {object_name} | From: {reply_author_name}\n{reply_text}")
+        return
+
+    smtp_host = os.getenv("SMTP_HOST", "")
+    if not smtp_host:
+        logging.warning("Reply saved but email not sent: SMTP_HOST not configured.")
+        return
+
+    msg = MIMEText(
+        f"{reply_author_name} replied to a comment on {object_name}:\n\n{reply_text}",
+        "plain",
+    )
+    msg["Subject"] = f"[Data Dictionary] Reply on {object_name}"
+    msg["From"]    = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
+    msg["To"]      = ", ".join(recipients)
+    try:
+        with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587"))) as s:
+            s.starttls()
+            s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASSWORD", ""))
+            s.sendmail(msg["From"], recipients, msg.as_string())
+        logging.info("Reply email sent to %s", recipients)
+    except Exception as e:
+        logging.error("Failed to send reply email to %s: %s", recipients, e)
+
+
+def save_comment(
+    object_type: str,
+    object_name: str,
+    comment_text: str,
+    steward_email: str,
+    parent_comment_id: str = None,
+    parent_author_email: str = "",
+) -> None:
+    """Persist a comment (or reply) and trigger notification emails.
+
+    For a top-level comment, notifies the steward.
+    For a reply (parent_comment_id set), notifies the original commenter and steward.
 
     In demo mode writes to st.session_state["demo_comments"] dict.
     object_name for table comments is the full_name; for column comments
@@ -1353,38 +1428,47 @@ def save_comment(object_type: str, object_name: str, comment_text: str, steward_
     import uuid
     comment_id   = str(uuid.uuid4())
     author_name  = st.session_state.get("user_name", "unknown")
-    author_email = st.session_state.get("user_email", "")
+    author_email = (st.session_state.get("user_email", "") or "").lower().strip()
 
     if os.getenv("DEMO_DATA", "false").lower() == "true":
         demo = st.session_state.setdefault("demo_comments", {})
         demo.setdefault(object_name, []).append({
-            "comment_id":   comment_id,
-            "author_name":  author_name,
-            "author_email": author_email,
-            "comment_text": comment_text,
-            "created_at":   "just now",
+            "comment_id":        comment_id,
+            "author_name":       author_name,
+            "author_email":      author_email,
+            "comment_text":      comment_text,
+            "created_at":        "just now",
+            "parent_comment_id": parent_comment_id,
         })
-        send_comment_email(steward_email, author_name, object_name, comment_text)
+        if parent_comment_id:
+            send_reply_email(parent_author_email, author_name, object_name, comment_text, steward_email)
+        else:
+            send_comment_email(steward_email, author_name, object_name, comment_text)
         return
 
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute(
             f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
-            f"(comment_id, object_type, object_name, comment_text, author_name, author_email, created_at, steward_email) "
+            f"(comment_id, object_type, object_name, comment_text, author_name, author_email, "
+            f"created_at, steward_email, parent_comment_id) "
             f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
-            f"%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s)",
+            f"%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
             {
-                "comment_id":   comment_id,
-                "object_type":  object_type,
-                "object_name":  object_name,
-                "comment_text": comment_text,
-                "author_name":  author_name,
-                "author_email": author_email,
-                "steward_email": steward_email,
+                "comment_id":        comment_id,
+                "object_type":       object_type,
+                "object_name":       object_name,
+                "comment_text":      comment_text,
+                "author_name":       author_name,
+                "author_email":      author_email,
+                "steward_email":     steward_email,
+                "parent_comment_id": parent_comment_id,
             },
         )
-    send_comment_email(steward_email, author_name, object_name, comment_text)
+    if parent_comment_id:
+        send_reply_email(parent_author_email, author_name, object_name, comment_text, steward_email)
+    else:
+        send_comment_email(steward_email, author_name, object_name, comment_text)
 
 
 @st.cache_data(ttl="1h")
@@ -1911,12 +1995,50 @@ if current_tab == "search":
                         # --- § Comments ---
                         _steward      = get_table_steward(full_name)
                         _comments     = get_table_comments(full_name)
-                        _n_comments   = len(_comments)
+                        _n_comments   = sum(1 + len(_c.get("replies", [])) for _c in _comments)
                         _comment_open = f"dd_comment_open_{full_name}"
 
                         st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Comments</span><span class="dd-section-count">{_n_comments}</span></div>', unsafe_allow_html=True)
 
+                        def _render_comment_form(key_suffix: str, parent_comment_id: str = None, parent_author_email: str = "") -> None:
+                            """Render a text-area + Send/Cancel for a new comment or reply."""
+                            _open_key = f"dd_comment_open_{key_suffix}"
+                            if not st.session_state.get(_open_key):
+                                _label = "Reply" if parent_comment_id else "Leave a comment"
+                                if st.button(_label, key=f"dd_comment_btn_{key_suffix}"):
+                                    st.session_state[_open_key] = True
+                                    st.rerun()
+                            else:
+                                _placeholder = "Write a reply…" if parent_comment_id else "Ask a question or flag an issue about this table."
+                                _inp = st.text_area(
+                                    "Your comment" if not parent_comment_id else "Your reply",
+                                    placeholder=_placeholder,
+                                    max_chars=1000,
+                                    key=f"dd_comment_text_{key_suffix}",
+                                )
+                                _cs, _cc, _ = st.columns([2, 2, 4], gap="small")
+                                with _cs:
+                                    if st.button("Send", key=f"dd_comment_send_{key_suffix}", use_container_width=True):
+                                        if _inp.strip():
+                                            save_comment(
+                                                "TABLE", full_name, _inp.strip(), _steward,
+                                                parent_comment_id=parent_comment_id,
+                                                parent_author_email=parent_author_email,
+                                            )
+                                            st.session_state.pop(_open_key, None)
+                                            st.rerun()
+                                        else:
+                                            st.warning("Comment cannot be empty.")
+                                with _cc:
+                                    if st.button("Cancel", key=f"dd_comment_cancel_{key_suffix}", use_container_width=True):
+                                        st.session_state.pop(_open_key, None)
+                                        st.rerun()
+                                if not _steward and not parent_comment_id:
+                                    st.markdown('<p class="dd-comment-no-steward">No steward configured — comment will be saved but not emailed.</p>', unsafe_allow_html=True)
+
                         for _c in _comments:
+                            _cid    = str(_c.get("comment_id", ""))
+                            _cemail = str(_c.get("author_email", ""))
                             st.markdown(
                                 f'<div class="dd-comment-row">'
                                 f'<span class="dd-comment-author">{_html.escape(str(_c.get("author_name", "")))}</span>'
@@ -1925,33 +2047,29 @@ if current_tab == "search":
                                 f'</div>',
                                 unsafe_allow_html=True,
                             )
+                            # Render replies nested under parent
+                            for _r in _c.get("replies", []):
+                                _, _reply_col = st.columns([1, 11])
+                                with _reply_col:
+                                    st.markdown(
+                                        f'<div class="dd-comment-row dd-comment-reply">'
+                                        f'<span class="dd-comment-author">{_html.escape(str(_r.get("author_name", "")))}</span>'
+                                        f'<span class="dd-comment-date"> · {_html.escape(str(_r.get("created_at", "")))}</span>'
+                                        f'<div class="dd-comment-text">{_html.escape(str(_r.get("comment_text", "")))}</div>'
+                                        f'</div>',
+                                        unsafe_allow_html=True,
+                                    )
+                            # Reply button/form for this parent comment
+                            _, _reply_form_col = st.columns([1, 11])
+                            with _reply_form_col:
+                                _render_comment_form(
+                                    key_suffix=f"{full_name}_{_cid}",
+                                    parent_comment_id=_cid,
+                                    parent_author_email=_cemail,
+                                )
 
-                        if not st.session_state.get(_comment_open):
-                            if st.button("Leave a comment", key=f"dd_comment_btn_{full_name}"):
-                                st.session_state[_comment_open] = True
-                                st.rerun()
-                        else:
-                            _inp_comment = st.text_area(
-                                "Your comment",
-                                placeholder="Ask a question or flag an issue about this table.",
-                                max_chars=1000,
-                                key=f"dd_comment_text_{full_name}",
-                            )
-                            _cs, _cc, _ = st.columns([2, 2, 4], gap="small")
-                            with _cs:
-                                if st.button("Send", key=f"dd_comment_send_{full_name}", use_container_width=True):
-                                    if _inp_comment.strip():
-                                        save_comment("TABLE", full_name, _inp_comment.strip(), _steward)
-                                        st.session_state.pop(_comment_open, None)
-                                        st.rerun()
-                                    else:
-                                        st.warning("Comment cannot be empty.")
-                            with _cc:
-                                if st.button("Cancel", key=f"dd_comment_cancel_{full_name}", use_container_width=True):
-                                    st.session_state.pop(_comment_open, None)
-                                    st.rerun()
-                            if not _steward:
-                                st.markdown('<p class="dd-comment-no-steward">No steward configured — comment will be saved but not emailed.</p>', unsafe_allow_html=True)
+                        # Top-level new comment form
+                        _render_comment_form(key_suffix=full_name)
 
                     with col_side_detail:
                         # --- § Group Permissions ---

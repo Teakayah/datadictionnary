@@ -252,10 +252,13 @@ class TestSendCommentEmail:
         at.text_area(key=f"dd_comment_text_{FULL_NAME}").set_value("Hello!").run()
         next(b for b in at.button if b.label == "Send").click().run()
 
-        # No exception = test passes; comment should be saved
-        assert not any(b.label == "Send" for b in at.button), (
-            "Send button still visible — form did not close, suggesting an error occurred"
-        )
+        # Verify the comment was persisted — AppTest accumulates widgets across
+        # st.rerun() boundaries so checking button absence is unreliable; checking
+        # session_state is authoritative.
+        assert not at.exception, f"Exception raised: {at.exception}"
+        saved = (at.session_state["demo_comments"] if "demo_comments" in at.session_state else {}).get(FULL_NAME, [])
+        assert len(saved) == 1, f"Expected 1 saved comment, got {len(saved)}"
+        assert saved[0]["comment_text"] == "Hello!"
 
     def test_no_smtp_config_send_still_saves_comment(self, monkeypatch):
         """Without SMTP_HOST configured, Send must still persist the comment."""

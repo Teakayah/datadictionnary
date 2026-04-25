@@ -81,14 +81,15 @@ def setup_cache_tables():
             # Table for user comments (append-only — never truncated by sync)
             cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.comments (
-                    comment_id    STRING,
-                    object_type   STRING,
-                    object_name   STRING,
-                    comment_text  STRING,
-                    author_name   STRING,
-                    author_email  STRING,
-                    created_at    TIMESTAMP,
-                    steward_email STRING
+                    comment_id        STRING,
+                    object_type       STRING,
+                    object_name       STRING,
+                    comment_text      STRING,
+                    author_name       STRING,
+                    author_email      STRING,
+                    created_at        TIMESTAMP,
+                    steward_email     STRING,
+                    parent_comment_id STRING
                 )
             """)
 
