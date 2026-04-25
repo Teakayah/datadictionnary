@@ -28,13 +28,14 @@ def setup_cache_tables():
             # Table for structural metadata
             cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata (
-                    full_name STRING,
-                    catalog_name STRING,
-                    schema_name STRING,
-                    table_name STRING,
-                    table_type STRING,
-                    comment STRING,
-                    updated_at TIMESTAMP
+                    full_name      STRING,
+                    catalog_name   STRING,
+                    schema_name    STRING,
+                    table_name     STRING,
+                    table_type     STRING,
+                    comment        STRING,
+                    updated_at     TIMESTAMP,
+                    steward_email  STRING
                 )
             """)
             
@@ -76,6 +77,80 @@ def setup_cache_tables():
                     tag_value        STRING
                 )
             """)
+
+            # Table for user comments (append-only — never truncated by sync)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.comments (
+                    comment_id        STRING,
+                    object_type       STRING,
+                    object_name       STRING,
+                    comment_text      STRING,
+                    author_name       STRING,
+                    author_email      STRING,
+                    created_at        TIMESTAMP,
+                    steward_email     STRING,
+                    parent_comment_id STRING
+                )
+            """)
+
+            # Table for human-friendly business name overrides (power-user edits)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides (
+                    table_full_name STRING,
+                    column_name     STRING,
+                    business_name   STRING,
+                    definition      STRING,
+                    edited_by       STRING,
+                    edited_at       TIMESTAMP
+                )
+            """)
+
+def push_business_name_overrides():
+    """Write column business name overrides back to Unity Catalog as column comments.
+
+    Reads every row from business_name_overrides and executes
+    ALTER TABLE ... ALTER COLUMN ... COMMENT '...'
+    so the override is visible in Unity Catalog alongside the cache.
+
+    Note: business_name_overrides is the authoritative source for the app display.
+    Writing back to Unity Catalog is best-effort; the app does NOT read from UC comments.
+    """
+    print("📝 Pushing business name overrides to Unity Catalog...")
+    with get_sql_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT table_full_name, column_name, business_name, definition "
+                f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
+            )
+            overrides = cursor.fetchall_as_pandas()
+
+    if overrides is None or overrides.empty:
+        print("  No overrides to push.")
+        return
+
+    with get_sql_connection() as conn:
+        with conn.cursor() as cursor:
+            for _, row in overrides.iterrows():
+                raw_full_name = str(row["table_full_name"])
+                raw_col_name  = str(row["column_name"])
+                raw_biz_name  = str(row["business_name"])
+                # Backtick-quote identifiers (escape embedded backticks) and
+                # use '' to escape single-quotes in the comment string.
+                # \' is NOT correct Spark SQL — use the ANSI '' form.
+                full_name_q = ".".join(
+                    f"`{p.replace('`', '``')}`" for p in raw_full_name.split(".")
+                )
+                col_name_q  = f"`{raw_col_name.replace('`', '``')}`"
+                biz_name_q  = raw_biz_name.replace("'", "''")
+                try:
+                    cursor.execute(
+                        f"ALTER TABLE {full_name_q} "
+                        f"ALTER COLUMN {col_name_q} COMMENT '{biz_name_q}'"
+                    )
+                    print(f"  ✓ {raw_full_name}.{raw_col_name}")
+                except Exception as e:
+                    print(f"  ✗ {raw_full_name}.{raw_col_name}: {e}")
+
 
 def fetch_lineage(w, full_name):
     """Returns 1-hop upstream/downstream lineage edges for *full_name*.
@@ -155,12 +230,13 @@ def sync():
 
                     # Store table metadata
                     tables_data.append({
-                        "full_name": full_name,
-                        "catalog_name": catalog.name,
-                        "schema_name": schema.name,
-                        "table_name": table.name,
-                        "table_type": str(table.table_type),
-                        "comment": table.comment or "",
+                        "full_name":     full_name,
+                        "catalog_name":  catalog.name,
+                        "schema_name":   schema.name,
+                        "table_name":    table.name,
+                        "table_type":    str(table.table_type),
+                        "comment":       table.comment or "",
+                        "steward_email": (table.properties or {}).get("steward_email", ""),
                     })
                     
                     # Extract Table Tags
@@ -217,7 +293,7 @@ def sync():
 
             if tables_data:
                 cursor.executemany(
-                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp())",
+                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp(), %(steward_email)s)",
                     tables_data
                 )
             if columns_data:
@@ -242,6 +318,7 @@ def sync():
                 )
 
     print("✅ Sync completed successfully.")
+    push_business_name_overrides()
 
 if __name__ == "__main__":
     setup_cache_tables()
