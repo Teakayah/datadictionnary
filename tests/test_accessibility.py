@@ -1,0 +1,250 @@
+"""
+WCAG 2.0 accessibility compliance tests.
+
+Scope (testable without a real browser or axe-core):
+  1.1 — Language attribute present on the page (Success Criterion 3.1.1)
+  1.2 — Form inputs have non-empty labels (SC 1.3.1)
+  1.3 — Buttons have non-empty, descriptive labels (SC 4.1.2)
+  1.4 — Error messages use semantic st.error, not bare st.write (SC 1.3.3)
+  1.5 — Landmark / navigation region present in header HTML (SC 1.3.6)
+  1.6 — Heading hierarchy: h1 before h3 (SC 1.3.1)
+  1.7 — Language toggle is discoverable and labelled (SC 3.1.2)
+  1.8 — Color is not sole means of conveying state (SC 1.4.1)
+  1.9 — Admin access denial expressed with st.error (SC 4.1.3)
+  1.10 — Search input has a descriptive label or placeholder (SC 1.3.1)
+"""
+from __future__ import annotations
+
+import os
+import re
+import pandas as pd
+import pytest
+from streamlit.testing.v1 import AppTest
+
+from tests.conftest import sql_returns
+
+APP_PATH = os.path.join(os.path.dirname(__file__), "..", "app.py")
+
+ADMIN_GROUP    = "admin_group_id"
+STANDARD_GROUP = "finance_dept_id"
+
+
+def _html(*markdowns) -> str:
+    return " ".join(m.value for m in markdowns)
+
+
+def _signed_in_app(*, groups: list[str] | None = None) -> AppTest:
+    at = AppTest.from_file(APP_PATH, default_timeout=15)
+    at.session_state["authenticated"] = True
+    at.session_state["user_groups"] = groups or [STANDARD_GROUP]
+    at.session_state["user_name"]   = "Test User"
+    at.session_state["user_email"]  = "test@example.com"
+    return at
+
+
+# ── 1.1  Language attribute ───────────────────────────────────────────────────
+
+class TestLanguageAttribute:
+    """SC 3.1.1 — Language of Page."""
+
+    def test_lang_attribute_in_header_html(self):
+        """The dd-header element must carry a lang= attribute for screen readers."""
+        at = _signed_in_app()
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        html = _html(*at.markdown)
+        assert re.search(r'lang=["\'](?:en|fr)["\']', html), \
+            "No lang= attribute found in rendered header HTML"
+
+
+# ── 1.2  Form input labels ────────────────────────────────────────────────────
+
+class TestInputLabels:
+    """SC 1.3.1 — Info and Relationships: every input must have a visible label."""
+
+    def test_text_inputs_have_labels(self):
+        at = _signed_in_app()
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        for inp in at.text_input:
+            assert inp.label and inp.label.strip(), \
+                f"st.text_input key={inp.key!r} has no label"
+
+    def test_text_areas_have_labels(self):
+        at = _signed_in_app()
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        for area in at.text_area:
+            assert area.label and area.label.strip(), \
+                f"st.text_area key={area.key!r} has no label"
+
+    def test_selectboxes_have_labels(self):
+        at = _signed_in_app()
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        for sel in at.selectbox:
+            assert sel.label and sel.label.strip(), \
+                f"st.selectbox key={sel.key!r} has no label"
+
+
+# ── 1.3  Button labels ────────────────────────────────────────────────────────
+
+class TestButtonLabels:
+    """SC 4.1.2 — Name, Role, Value: buttons must have descriptive text."""
+
+    def test_buttons_have_non_empty_labels(self):
+        at = _signed_in_app()
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        # Exclude the hidden nav/lang proxy buttons (label = tab id or "Lang XX")
+        # All visible buttons must still have a label
+        for btn in at.button:
+            assert btn.label is not None and len(btn.label.strip()) > 0, \
+                f"Button key={btn.key!r} has an empty label"
+
+
+# ── 1.4  Semantic error states ────────────────────────────────────────────────
+
+class TestSemanticErrors:
+    """SC 1.3.3 — Sensory Characteristics: errors must not rely on color alone."""
+
+    def test_admin_denial_uses_st_error(self, monkeypatch):
+        """Non-admin navigating to /admin must get an st.error, not a bare write."""
+        monkeypatch.setenv("ADMIN_GROUPS", ADMIN_GROUP)
+        at = _signed_in_app(groups=[STANDARD_GROUP])
+        at.query_params["tab"] = "admin"
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        assert len(at.error) > 0, "Expected at least one st.error for access denied"
+        assert any("access" in e.value.lower() for e in at.error), \
+            "Access-denied message not found in st.error widgets"
+
+
+# ── 1.5  Navigation landmark ──────────────────────────────────────────────────
+
+class TestLandmarkRegions:
+    """SC 1.3.6 — Identify Purpose: navigation landmarks aid screen-reader users."""
+
+    def test_nav_role_or_class_present(self):
+        at = _signed_in_app()
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        html = _html(*at.markdown)
+        has_nav = (
+            "<nav" in html
+            or 'role="navigation"' in html
+            or "dd-nav" in html
+        )
+        assert has_nav, "No navigation landmark found in rendered HTML"
+
+    def test_nav_has_aria_label(self):
+        at = _signed_in_app()
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        html = _html(*at.markdown)
+        assert "aria-label" in html, \
+            "Navigation element missing aria-label attribute"
+
+
+# ── 1.6  Heading hierarchy ────────────────────────────────────────────────────
+
+class TestHeadingHierarchy:
+    """SC 1.3.1 — Headings must follow a logical order (h1 → h2 → h3)."""
+
+    def test_no_orphaned_h3_without_h1(self):
+        at = _signed_in_app()
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        html = _html(*at.markdown)
+        has_h3 = bool(re.search(r"<h3|^### ", html, re.MULTILINE))
+        has_h1 = bool(re.search(r"<h1|^# ", html, re.MULTILINE))
+        if has_h3:
+            assert has_h1, "h3 heading found without a preceding h1"
+
+
+# ── 1.7  Language toggle ──────────────────────────────────────────────────────
+
+class TestLanguageToggle:
+    """SC 3.1.2 — Language of Parts: user must be able to change the display language."""
+
+    def test_language_toggle_present_in_header(self):
+        at = _signed_in_app()
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        html = _html(*at.markdown)
+        assert "EN" in html and "FR" in html, \
+            "Language toggle (EN / FR) not found in rendered header HTML"
+
+    def test_language_toggle_has_title_attribute(self):
+        at = _signed_in_app()
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        html = _html(*at.markdown)
+        # Gemini-designed toggle renders title= on each lang link
+        assert "switch_to" in html.lower() or "switch to" in html.lower() \
+            or "passer en" in html.lower() or "title=" in html, \
+            "Language toggle links missing accessible title attributes"
+
+    def test_locale_switches_to_french(self):
+        """Setting session_state.locale='fr' must change visible labels."""
+        at = _signed_in_app()
+        at.session_state["locale"] = "fr"
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        html = _html(*at.markdown)
+        # French nav label must appear somewhere in the header
+        assert "Recherche" in html or "Glossaire" in html or "Santé" in html, \
+            "French locale not applied to navigation labels"
+
+    def test_locale_defaults_to_english(self):
+        """Without a locale override the app defaults to English labels."""
+        at = _signed_in_app()
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        html = _html(*at.markdown)
+        assert "Search" in html or "Glossary" in html, \
+            "Default English locale not applied to navigation labels"
+
+
+# ── 1.8  Color not sole indicator ────────────────────────────────────────────
+
+class TestColorNotSoleIndicator:
+    """SC 1.4.1 — Status must be conveyed by more than color."""
+
+    def test_active_nav_tab_has_text_class(self):
+        """Active navigation tab must use a CSS class, not just inline color."""
+        at = _signed_in_app()
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        html = _html(*at.markdown)
+        # The active class 'active' is added to the current tab link
+        assert 'class="dd-nav-tab active"' in html or "dd-nav-tab active" in html, \
+            "Active tab not indicated by a CSS class (color-only would fail WCAG 1.4.1)"
+
+
+# ── 1.9  Search input ────────────────────────────────────────────────────────
+
+class TestSearchInput:
+    """SC 1.3.1 — Search input must have a descriptive label."""
+
+    def test_search_tab_has_labelled_input(self):
+        """Search tab must have at least one labelled interactive input (text or select)."""
+        empty = pd.DataFrame(columns=[
+            "full_name", "catalog_name", "schema_name", "table_name",
+            "table_description", "table_type", "updated_at",
+        ])
+        sql_returns(empty)
+        at = _signed_in_app()
+        at.query_params["tab"] = "search"
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        # The search tab uses text_input or selectbox depending on the implementation
+        all_inputs = list(at.text_input) + list(at.selectbox)
+        assert len(all_inputs) > 0, \
+            "No interactive inputs (text_input or selectbox) found on the search tab"
+        labelled = [
+            i for i in all_inputs
+            if i.label and i.label.strip()
+        ]
+        assert len(labelled) > 0, \
+            "Search tab has no labelled inputs (WCAG SC 1.3.1)"

@@ -1,0 +1,109 @@
+{
+  "nav": {
+    "search": "Search",
+    "catalog": "Catalog",
+    "discovery": "Discovery",
+    "health": "Health",
+    "glossary": "Glossary",
+    "admin": "Admin",
+    "sign_out": "Sign out"
+  },
+  "auth": {
+    "title": "A card catalog for your warehouse.",
+    "subtitle": "Search tables, columns, and business terms across Unity Catalog — filtered to what you have permission to see.",
+    "sign_in_button": "Sign in with Entra ID",
+    "mock_button": "Sign in with Entra ID (mock)",
+    "signed_in_as": "Signed in as"
+  },
+  "search": {
+    "hero_title": "Search the catalog.",
+    "hero_subtitle": "Find data assets across the organization.",
+    "placeholder": "Search tables or columns...",
+    "results_count": "{count} results",
+    "no_results": "No results found for \u2018{query}\u2019",
+    "loading": "Searching..."
+  },
+  "table": {
+    "columns": "Columns",
+    "grants": "Grants",
+    "lineage": "Lineage",
+    "comments": "Comments",
+    "business_name": "Business name",
+    "description": "Description",
+    "type": "Type",
+    "open_in_databricks": "Open in Databricks"
+  },
+  "detail": {
+    "section_columns": "\u00a7 Columns",
+    "section_grants": "\u00a7 Grants",
+    "section_lineage": "\u00a7 Lineage",
+    "section_comments": "\u00a7 Comments",
+    "section_related": "\u00a7 Related tables"
+  },
+  "comment": {
+    "add_comment": "Add a comment",
+    "reply": "Reply",
+    "save": "Save comment",
+    "cancel": "Cancel",
+    "steward": "Steward",
+    "posted_by": "Posted by",
+    "no_comments": "No comments yet."
+  },
+  "editor": {
+    "edit_business_name": "Edit business name",
+    "business_name_label": "Business name",
+    "definition_label": "Definition",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saved_by": "Saved by {user}"
+  },
+  "admin": {
+    "title": "\u00a7 Admin",
+    "stats_tables": "Total tables",
+    "stats_columns": "Total columns",
+    "stats_comments": "Total comments",
+    "stats_overrides": "Business name overrides",
+    "biz_log_title": "Business name change log",
+    "comment_log_title": "Comment log",
+    "no_data": "No audit data available.",
+    "access_denied": "Admin access required."
+  },
+  "health": {
+    "title": "\u00a7 Catalog health",
+    "subtitle": "Coverage and documentation status across the catalog.",
+    "total_tables": "Total tables",
+    "documented": "Documented",
+    "with_grants": "With grants",
+    "last_sync": "Last sync"
+  },
+  "glossary": {
+    "title": "\u00a7 Business glossary",
+    "subtitle": "Define business concepts and map them to technical data assets.",
+    "search_placeholder": "Search for a term...",
+    "no_terms": "No terms found."
+  },
+  "discovery": {
+    "title": "\u00a7 Discovery",
+    "subtitle": "Browse the catalog by catalog, schema, and table."
+  },
+  "footer": {
+    "built_with": "Data Dictionary \u00b7 v0.1.0 \u00b7 synced nightly from Unity Catalog"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred.",
+    "empty": "No data available.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "search": "Search",
+    "back": "Back"
+  },
+  "language": {
+    "en": "EN",
+    "fr": "FR",
+    "switch_to_en": "Switch to English",
+    "switch_to_fr": "Passer en fran\u00e7ais"
+  }
+}

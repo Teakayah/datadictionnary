@@ -16,6 +16,63 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ── Internationalisation (i18n) ───────────────────────────────────────────────
+import json as _json
+
+def _load_locales() -> dict:
+    base = os.path.join(os.path.dirname(__file__), "locale")
+    result = {}
+    for lang in ("en", "fr"):
+        try:
+            with open(os.path.join(base, f"{lang}.json"), encoding="utf-8") as f:
+                result[lang] = _json.load(f)
+        except Exception:
+            result[lang] = {}
+    return result
+
+LOCALES: dict = _load_locales()
+
+def get_locale() -> str:
+    """Detect preferred locale from the browser Accept-Language header."""
+    try:
+        header = st.context.headers.get("Accept-Language", "en")
+        primary = header.split(",")[0].split(";")[0].split("-")[0].strip().lower()
+        return "fr" if primary == "fr" else "en"
+    except Exception:
+        return "en"
+
+def _ensure_locale() -> None:
+    if "locale" not in st.session_state:
+        st.session_state["locale"] = get_locale()
+
+def t(key: str, **kwargs) -> str:
+    """Look up a dotted key (e.g. 'nav.search') in the active locale.
+
+    Falls back to English if the key is missing in the active locale.
+    Supports str.format() style placeholders: t('search.results_count', count=5).
+    """
+    _ensure_locale()
+    lang = st.session_state.get("locale", "en")
+
+    def _lookup(d: dict, parts: list) -> str | None:
+        for p in parts:
+            if not isinstance(d, dict):
+                return None
+            d = d.get(p)
+        return d if isinstance(d, str) else None
+
+    parts = key.split(".")
+    val = _lookup(LOCALES.get(lang, {}), parts) or _lookup(LOCALES.get("en", {}), parts) or key
+    try:
+        return val.format(**kwargs) if kwargs else val
+    except (KeyError, IndexError):
+        return val
+
+def set_locale(lang: str) -> None:
+    """Persist locale choice and trigger a rerun."""
+    st.session_state["locale"] = lang
+    st.rerun()
+
 # ── Demo data (returned in mock/dev mode instead of hitting Databricks) ────────
 _DEMO_TABLES = pd.DataFrame({
     "full_name":         ["main.analytics.customers", "main.analytics.orders",
@@ -795,6 +852,31 @@ button[data-testid="stBaseButton-secondary"]:hover {
     font-weight: 600 !important;
 }
 
+/* ── Language toggle ── */
+.dd-lang-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.dd-lang-opt {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--ink-40);
+    text-decoration: none;
+    transition: color var(--dur-hover) var(--ease);
+}
+.dd-lang-opt:hover { color: var(--ink); }
+.dd-lang-opt.dd-lang-active {
+    color: var(--ink) !important;
+    font-weight: 600;
+}
+.dd-lang-sep {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-20);
+}
+
 /* Hide the zero-height JS bridge iframe */
 iframe[height="0"] { display: none !important; }
 
@@ -943,6 +1025,9 @@ def render_css():
 
 
 def render_header(user_name: str | None = None, active_tab: str = "search", show_admin: bool = False):
+    _ensure_locale()
+    locale = st.session_state.get("locale", "en")
+
     user_section = ""
     if user_name:
         user_section = f'''
@@ -954,23 +1039,35 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
         active = "active" if active_tab == tab_id else ""
         return f'<a href="#" data-tab="{tab_id}" class="dd-nav-tab {active}">{label}</a>'
 
-    admin_link = link("Admin", "admin") if show_admin else ""
+    admin_link = link(t("nav.admin"), "admin") if show_admin else ""
+
+    en_active = "dd-lang-active" if locale == "en" else ""
+    fr_active  = "dd-lang-active" if locale == "fr" else ""
+    lang_toggle = f'''
+        <span class="dd-nav-sep"></span>
+        <span class="dd-lang-toggle" aria-label="Language selector">
+          <a href="#" data-lang="en" class="dd-lang-opt {en_active}" title="{t('language.switch_to_en')}">EN</a>
+          <span class="dd-lang-sep">/</span>
+          <a href="#" data-lang="fr" class="dd-lang-opt {fr_active}" title="{t('language.switch_to_fr')}">FR</a>
+        </span>
+    '''
 
     st.markdown(f'''
-    <div class="dd-header">
+    <div class="dd-header" lang="{locale}">
       <div class="dd-header-inner">
         <a href="#" data-tab="search" class="dd-logo-link">
           {LOGO_MARK_SVG}
           <span class="dd-logo-text">Data Dictionary</span>
           <span class="dd-pill">Beta</span>
         </a>
-        <nav class="dd-nav">
-          {link("Search", "search")}
-          {link("Catalog", "catalog")}
-          {link("Glossary", "glossary")}
-          {link("Discovery", "discovery")}
-          {link("Health", "health")}
+        <nav class="dd-nav" role="navigation" aria-label="Main navigation">
+          {link(t("nav.search"), "search")}
+          {link(t("nav.catalog"), "catalog")}
+          {link(t("nav.glossary"), "glossary")}
+          {link(t("nav.discovery"), "discovery")}
+          {link(t("nav.health"), "health")}
           {admin_link}
+          {lang_toggle}
           {user_section}
         </nav>
       </div>
@@ -982,15 +1079,21 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
     if show_admin:
         _tabs.append("admin")
     for tab_id in _tabs:
-        if st.button(tab_id.capitalize(), key=f"nav_{tab_id}"):
+        if st.button(t(f"nav.{tab_id}"), key=f"nav_{tab_id}"):
             st.query_params["tab"] = tab_id
             st.query_params["mock_login"] = "true"
             st.rerun()
 
+    # Hidden language-switch buttons wired by the JS bridge below
+    if st.button("Lang EN", key="lang_btn_en"):
+        set_locale("en")
+    if st.button("Lang FR", key="lang_btn_fr"):
+        set_locale("fr")
+
     # Zero-height iframe: wires header nav clicks → hidden Streamlit buttons
-    _nav_labels = ["Search", "Catalog", "Glossary", "Discovery", "Health"]
+    _nav_labels = [t("nav.search"), t("nav.catalog"), t("nav.glossary"), t("nav.discovery"), t("nav.health")]
     if show_admin:
-        _nav_labels.append("Admin")
+        _nav_labels.append(t("nav.admin"))
     _nav_labels_js = str(_nav_labels)
     components.html(f"""
     <script>
@@ -1035,7 +1138,38 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
             }});
         }}
         wireNav();
-        const observer = new MutationObserver(() => setTimeout(wireNav, 50));
+
+        // Wire language toggle links → hidden Lang EN / Lang FR buttons
+        function findLangButton(label) {{
+            const all = parentDoc.querySelectorAll('button[data-testid="stBaseButton-secondary"]');
+            return Array.from(all).find(b => b.textContent.trim() === label) || null;
+        }}
+
+        function wireLang() {{
+            const langLinks = parentDoc.querySelectorAll('a.dd-lang-opt[data-lang]');
+            const enBtn = findLangButton('Lang EN');
+            const frBtn = findLangButton('Lang FR');
+            if (langLinks.length === 0 || !enBtn || !frBtn) {{
+                setTimeout(wireLang, 150);
+                return;
+            }}
+            // Hide proxy buttons
+            [enBtn, frBtn].forEach(btn => {{
+                const w = btn.closest('div[data-testid="stButton"]');
+                if (w) w.style.display = 'none';
+            }});
+            langLinks.forEach(link => {{
+                if (link._wired) return;
+                link._wired = true;
+                link.addEventListener('click', function(e) {{
+                    e.preventDefault();
+                    if (this.getAttribute('data-lang') === 'fr') frBtn.click();
+                    else enBtn.click();
+                }});
+            }});
+        }}
+        wireLang();
+        const observer = new MutationObserver(() => {{ setTimeout(wireNav, 50); setTimeout(wireLang, 50); }});
         observer.observe(parentDoc.body, {{childList: true, subtree: true}});
     }})();
     </script>
