@@ -1030,10 +1030,7 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
 
     user_section = ""
     if user_name:
-        user_section = f'''
-        <span class="dd-nav-sep"></span>
-        <span class="dd-nav-user">{_html.escape(user_name)}</span>
-        '''
+        user_section = f'<span class="dd-nav-sep"></span><span class="dd-nav-user">{_html.escape(user_name)}</span>'
 
     def link(label, tab_id):
         active = "active" if active_tab == tab_id else ""
@@ -1043,36 +1040,31 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
 
     en_active = "dd-lang-active" if locale == "en" else ""
     fr_active  = "dd-lang-active" if locale == "fr" else ""
-    lang_toggle = f'''
-        <span class="dd-nav-sep"></span>
-        <span class="dd-lang-toggle" aria-label="Language selector">
-          <a href="#" data-lang="en" class="dd-lang-opt {en_active}" title="{t('language.switch_to_en')}">EN</a>
-          <span class="dd-lang-sep">/</span>
-          <a href="#" data-lang="fr" class="dd-lang-opt {fr_active}" title="{t('language.switch_to_fr')}">FR</a>
-        </span>
-    '''
+    title_en = t("language.switch_to_en")
+    title_fr = t("language.switch_to_fr")
+    lang_toggle = f'<span class="dd-nav-sep"></span><span class="dd-lang-toggle" aria-label="Language selector"><a href="#" data-lang="en" class="dd-lang-opt {en_active}" title="{title_en}">EN</a><span class="dd-lang-sep">/</span><a href="#" data-lang="fr" class="dd-lang-opt {fr_active}" title="{title_fr}">FR</a></span>'
 
     st.markdown(f'''
-    <div class="dd-header" lang="{locale}">
-      <div class="dd-header-inner">
-        <a href="#" data-tab="search" class="dd-logo-link">
-          {LOGO_MARK_SVG}
-          <span class="dd-logo-text">Data Dictionary</span>
-          <span class="dd-pill">Beta</span>
-        </a>
-        <nav class="dd-nav" role="navigation" aria-label="Main navigation">
-          {link(t("nav.search"), "search")}
-          {link(t("nav.catalog"), "catalog")}
-          {link(t("nav.glossary"), "glossary")}
-          {link(t("nav.discovery"), "discovery")}
-          {link(t("nav.health"), "health")}
-          {admin_link}
-          {lang_toggle}
-          {user_section}
-        </nav>
-      </div>
-    </div>
-    ''', unsafe_allow_html=True)
+<div class="dd-header" lang="{locale}">
+  <div class="dd-header-inner">
+    <a href="#" data-tab="search" class="dd-logo-link">
+      {LOGO_MARK_SVG}
+      <span class="dd-logo-text">Data Dictionary</span>
+      <span class="dd-pill">Beta</span>
+    </a>
+    <nav class="dd-nav" role="navigation" aria-label="Main navigation">
+      {link(t("nav.search"), "search")}
+      {link(t("nav.catalog"), "catalog")}
+      {link(t("nav.glossary"), "glossary")}
+      {link(t("nav.discovery"), "discovery")}
+      {link(t("nav.health"), "health")}
+      {admin_link}
+      {lang_toggle}
+      {user_section}
+    </nav>
+  </div>
+</div>
+''', unsafe_allow_html=True)
 
     # Hidden Streamlit buttons — JS in the component iframe clicks these
     _tabs = ["search", "catalog", "glossary", "discovery", "health"]
@@ -1084,95 +1076,73 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
             st.query_params["mock_login"] = "true"
             st.rerun()
 
-    # Hidden language-switch buttons wired by the JS bridge below
-    if st.button("Lang EN", key="lang_btn_en"):
+    # Hidden lang proxy buttons — JS clicks these to trigger locale rerun
+    if st.button("LOCALE_EN", key="lang_btn_en"):
         set_locale("en")
-    if st.button("Lang FR", key="lang_btn_fr"):
+    if st.button("LOCALE_FR", key="lang_btn_fr"):
         set_locale("fr")
 
-    # Zero-height iframe: wires header nav clicks → hidden Streamlit buttons
-    _nav_labels = [t("nav.search"), t("nav.catalog"), t("nav.glossary"), t("nav.discovery"), t("nav.health")]
-    if show_admin:
-        _nav_labels.append(t("nav.admin"))
-    _nav_labels_js = str(_nav_labels)
+    # Zero-height iframe: wires nav clicks → hidden Streamlit buttons,
+    # and wires language toggle clicks → hidden lang proxy buttons.
+    _tab_map = {tid: t(f"nav.{tid}") for tid in _tabs}
+    _tab_map_js = _json.dumps(_tab_map)
+    _nav_labels_js = _json.dumps(list(_tab_map.values()))
+
     components.html(f"""
+    <div style="display:none;">
     <script>
     (function() {{
         const parentDoc = window.parent.document;
         const NAV_LABELS = {_nav_labels_js};
+        const TAB_MAP = {_tab_map_js};
 
-        function findNavButtons() {{
-            const all = parentDoc.querySelectorAll('button[data-testid="stBaseButton-secondary"]');
-            const navBtns = {{}};
-            all.forEach(btn => {{
+        function wire() {{
+            const allBtns = Array.from(parentDoc.querySelectorAll('button'));
+            
+            // 1. Hide proxy buttons
+            allBtns.forEach(btn => {{
                 const label = btn.textContent.trim();
-                if (NAV_LABELS.includes(label)) navBtns[label] = btn;
-            }});
-            return navBtns;
-        }}
-
-        function wireNav() {{
-            const navLinks = parentDoc.querySelectorAll('a.dd-nav-tab[data-tab], a.dd-logo-link[data-tab]');
-            const navBtns = findNavButtons();
-            if (navLinks.length === 0 || Object.keys(navBtns).length === 0) {{
-                setTimeout(wireNav, 150);
-                return;
-            }}
-
-            // Hide the proxy buttons
-            Object.values(navBtns).forEach(btn => {{
-                const wrapper = btn.closest('div[data-testid="stButton"]');
-                if (wrapper) wrapper.style.display = 'none';
+                if (NAV_LABELS.includes(label) || label === 'LOCALE_EN' || label === 'LOCALE_FR') {{
+                    const wrapper = btn.closest('div[data-testid="stButton"]');
+                    if (wrapper) wrapper.style.display = 'none';
+                }}
             }});
 
-            navLinks.forEach(link => {{
+            // 2. Wire Navigation
+            parentDoc.querySelectorAll('a.dd-nav-tab[data-tab], a.dd-logo-link[data-tab]').forEach(link => {{
                 if (link._wired) return;
                 link._wired = true;
                 link.addEventListener('click', function(e) {{
                     e.preventDefault();
                     const tabId = this.getAttribute('data-tab');
-                    const label = tabId.charAt(0).toUpperCase() + tabId.slice(1);
-                    const btns = findNavButtons();
-                    if (btns[label]) btns[label].click();
+                    const localizedLabel = TAB_MAP[tabId];
+                    const btn = allBtns.find(b => b.textContent.trim() === localizedLabel);
+                    if (btn) btn.click();
                 }});
             }});
-        }}
-        wireNav();
 
-        // Wire language toggle links → hidden Lang EN / Lang FR buttons
-        function findLangButton(label) {{
-            const all = parentDoc.querySelectorAll('button[data-testid="stBaseButton-secondary"]');
-            return Array.from(all).find(b => b.textContent.trim() === label) || null;
-        }}
-
-        function wireLang() {{
-            const langLinks = parentDoc.querySelectorAll('a.dd-lang-opt[data-lang]');
-            const enBtn = findLangButton('Lang EN');
-            const frBtn = findLangButton('Lang FR');
-            if (langLinks.length === 0 || !enBtn || !frBtn) {{
-                setTimeout(wireLang, 150);
-                return;
-            }}
-            // Hide proxy buttons
-            [enBtn, frBtn].forEach(btn => {{
-                const w = btn.closest('div[data-testid="stButton"]');
-                if (w) w.style.display = 'none';
-            }});
-            langLinks.forEach(link => {{
+            // 3. Wire Language
+            parentDoc.querySelectorAll('a.dd-lang-opt[data-lang]').forEach(link => {{
                 if (link._wired) return;
                 link._wired = true;
                 link.addEventListener('click', function(e) {{
                     e.preventDefault();
-                    if (this.getAttribute('data-lang') === 'fr') frBtn.click();
-                    else enBtn.click();
+                    const lang = this.getAttribute('data-lang').toUpperCase();
+                    const btn = allBtns.find(b => b.textContent.trim() === 'LOCALE_' + lang);
+                    if (btn) btn.click();
                 }});
             }});
         }}
-        wireLang();
-        const observer = new MutationObserver(() => {{ setTimeout(wireNav, 50); setTimeout(wireLang, 50); }});
+
+        // Initial wire
+        setTimeout(wire, 150);
+
+        // Continuous monitoring for Streamlit rerenders
+        const observer = new MutationObserver(() => {{ wire(); }});
         observer.observe(parentDoc.body, {{childList: true, subtree: true}});
     }})();
     </script>
+    </div>
     """, height=0)
 
 
