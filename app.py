@@ -1825,6 +1825,25 @@ groups = tuple(st.session_state.user_groups) if st.session_state.user_groups els
 active_group = st.session_state.get("group_filter")
 query_groups = (active_group,) if active_group else groups
 
+
+def _clear_transient_edit_state() -> None:
+    """Discard any in-progress column edits or open comment forms.
+
+    Called whenever the user navigates to a different table or a different tab
+    so a half-filled form from one context never bleeds into another.
+    """
+    st.session_state.pop("dd_col_edit_mode", None)
+    stale_keys = [k for k in st.session_state if str(k).startswith("dd_comment_open_")]
+    for k in stale_keys:
+        del st.session_state[k]
+
+
+# Detect tab change — clear transient state so edits don't bleed across tabs
+_prev_tab = st.session_state.get("_dd_current_tab")
+if _prev_tab is not None and _prev_tab != current_tab:
+    _clear_transient_edit_state()
+st.session_state["_dd_current_tab"] = current_tab
+
 if current_tab == "search":
     # --- START SEARCH PAGE ---
     st.markdown('''
@@ -1865,6 +1884,12 @@ if current_tab == "search":
         label_visibility="collapsed",
         key="catalog_search",
     )
+
+    # Detect table change — clear transient state so edits don't bleed across tables
+    _prev_table = st.session_state.get("_dd_current_table")
+    if _prev_table is not None and _prev_table != search_query:
+        _clear_transient_edit_state()
+    st.session_state["_dd_current_table"] = search_query
 
     if search_query and all_results is not None:
         try:
