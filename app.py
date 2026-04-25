@@ -159,10 +159,11 @@ CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 REDIRECT_URI = os.getenv("REDIRECT_URI")
-SCOPE = ["User.Read", "GroupMember.Read.All"]
+SCOPE = ["User.Read", "GroupMember.Read.All", "email"]
 
 CATALOG_CACHE = "data_governance"
 SCHEMA_CACHE = "dictionary_cache"
+MAX_BUSINESS_NAME_LEN = 255
 
 st.set_page_config(
     page_title="Data Dictionary",
@@ -695,35 +696,53 @@ button[data-testid="stBaseButton-secondary"]:hover {
     color: var(--ink-40);
 }
 
-/* ── Columns HTML table ── */
-.dd-columns-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-}
-.dd-col-row { border-top: 1px solid var(--ink-10); }
+/* ── Columns list (Streamlit-column-based rows) ── */
 .dd-col-name {
-    padding: 9px 16px 9px 0;
     font-family: var(--font-mono);
+    font-size: 13px;
     color: var(--ink);
-    white-space: nowrap;
-    vertical-align: top;
+    line-height: 1.5;
 }
 .dd-col-type {
-    padding: 9px 16px 9px 0;
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--ink-40);
-    white-space: nowrap;
-    vertical-align: top;
+    line-height: 1.5;
 }
 .dd-col-desc {
-    padding: 9px 0;
-    color: var(--ink-60);
     font-family: var(--font-sans);
     font-size: 13px;
+    color: var(--ink-60);
     line-height: 1.4;
-    vertical-align: top;
+}
+.dd-col-biz-name {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 500;
+    line-height: 1.4;
+    display: block;
+}
+.dd-col-tech-sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+    display: block;
+    line-height: 1.3;
+    margin-top: 2px;
+}
+.dd-col-desc-faded {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--ink-40);
+    display: block;
+    line-height: 1.3;
+    margin-top: 2px;
+}
+.dd-col-divider {
+    border: none;
+    border-top: 1px solid var(--ink-10);
+    margin: 2px 0;
 }
 
 /* ── Grants list ── */
@@ -775,6 +794,79 @@ button[data-testid="stBaseButton-secondary"]:hover {
 
 /* Hide the zero-height JS bridge iframe */
 iframe[height="0"] { display: none !important; }
+
+/* ── Business name editor ── */
+.dd-edit-banner {
+    background: var(--ochre);
+    color: var(--paper);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px 14px;
+    border-radius: 2px;
+    margin-bottom: 16px;
+    letter-spacing: -0.005em;
+}
+.dd-business-name {
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.1;
+    margin: 4px 0 4px 0;
+}
+.dd-tech-name-sub {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-40);
+    margin-bottom: 12px;
+}
+.dd-biz-audit {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--ink-40);
+    margin-top: -8px;
+    margin-bottom: 12px;
+    letter-spacing: -0.003em;
+}
+
+/* ── Comments ── */
+.dd-comment-row {
+    border-top: 1px solid var(--ink-10);
+    padding: 10px 0;
+}
+.dd-comment-author {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+}
+.dd-comment-date {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+}
+.dd-comment-text {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink-60);
+    line-height: 1.5;
+    margin-top: 4px;
+    white-space: pre-wrap;
+}
+.dd-comment-no-steward {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--ink-40);
+    font-style: italic;
+    margin-top: 4px;
+}
+.dd-comment-reply {
+    border-top: none;
+    padding: 6px 0 6px 12px;
+    border-left: 2px solid var(--ink-10);
+    margin-top: 4px;
+}
 """
 
 # ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
@@ -963,7 +1055,8 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
             if st.button(f"{MS_LOGO_SVG}  Sign in with Entra ID (mock)", use_container_width=True):
                 st.session_state.authenticated = True
                 st.session_state.user_groups = ["finance_dept_id", "all_employees_id"]
-                st.session_state.user_name = "Finance User"
+                st.session_state.user_name  = "Finance User"
+                st.session_state.user_email = "finance.user@example.com"
                 st.rerun()
             st.markdown(
                 '<p class="dd-meta">Mock authentication active — '
@@ -1023,8 +1116,10 @@ def check_auth():
 
             if "access_token" in result:
                 st.session_state.auth_token = result
-                st.session_state.user_groups = result.get("id_token_claims", {}).get("groups", [])
-                st.session_state.user_name = result.get("id_token_claims", {}).get("name")
+                claims = result.get("id_token_claims", {})
+                st.session_state.user_groups = claims.get("groups", [])
+                st.session_state.user_name   = claims.get("name")
+                st.session_state.user_email  = claims.get("email") or claims.get("preferred_username", "")
                 # Clear query params and rerun
                 st.query_params.clear()
                 st.rerun()
@@ -1090,6 +1185,321 @@ def run_query(query, params=None):
         cursor.execute(query, params)
         return cursor.fetchall_as_pandas()
 
+
+
+def is_power_user() -> bool:
+    """True if the current user belongs to at least one EDITOR_GROUPS group."""
+    editor_groups = {g.strip() for g in os.getenv("EDITOR_GROUPS", "").split(",") if g.strip()}
+    if not editor_groups:
+        return False
+    return bool(editor_groups & set(st.session_state.get("user_groups", [])))
+
+
+def get_column_business_names(table_full_name: str) -> dict:
+    """Return all column business name overrides for a table as a dict.
+
+    Returns: {column_name: {"business_name": str, "edited_by": str, "edited_at": str}}
+    One bulk query — not N per-column queries.
+    In demo mode reads from session state instead of Databricks.
+    """
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        return st.session_state.get("demo_business_names", {}).get(table_full_name, {})
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT column_name, business_name, definition, edited_by, edited_at "
+                f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides "
+                f"WHERE table_full_name = %(table_full_name)s",
+                {"table_full_name": table_full_name},
+            )
+            rows = cursor.fetchall_as_pandas()
+            if rows is not None and not rows.empty:
+                return {
+                    str(r["column_name"]): {
+                        "business_name": str(r["business_name"]) if r["business_name"] else "",
+                        "definition":    str(r["definition"])    if r["definition"]    else "",
+                        "edited_by":     str(r["edited_by"]),
+                        "edited_at":     str(r["edited_at"]),
+                    }
+                    for _, r in rows.iterrows()
+                }
+    except Exception as e:
+        logging.warning("Could not fetch column business names for %s: %s", table_full_name, e)
+    return {}
+
+
+def save_business_name(table_full_name: str, column_name: str, business_name: str, definition: str = "") -> None:
+    """Atomically upsert a column override (business name + definition) using MERGE INTO.
+
+    Raises:
+        PermissionError: if the current session user is not a power user.
+        ValueError: if business_name or definition exceeds MAX_BUSINESS_NAME_LEN characters.
+
+    In demo mode writes to session state (ephemeral, lost on browser close).
+    Demo mode structure: {table_full_name: {column_name: {business_name, definition, ...}}}
+    """
+    if not is_power_user():
+        raise PermissionError("Only power users can save business name overrides.")
+    if len(business_name) > MAX_BUSINESS_NAME_LEN:
+        raise ValueError(
+            f"Business name must be {MAX_BUSINESS_NAME_LEN} characters or fewer "
+            f"(got {len(business_name)})."
+        )
+    if len(definition) > MAX_BUSINESS_NAME_LEN:
+        raise ValueError(
+            f"Definition must be {MAX_BUSINESS_NAME_LEN} characters or fewer "
+            f"(got {len(definition)})."
+        )
+    user_name = st.session_state.get("user_name", "unknown")
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        if "demo_business_names" not in st.session_state:
+            st.session_state["demo_business_names"] = {}
+        tbl = st.session_state["demo_business_names"].setdefault(table_full_name, {})
+        tbl[column_name] = {"business_name": business_name, "definition": definition, "edited_by": user_name, "edited_at": "just now"}
+        return
+    conn = get_db_connection()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            f"MERGE INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides AS target "
+            f"USING (SELECT %(table_full_name)s AS table_full_name, %(column_name)s AS column_name, %(business_name)s AS business_name, %(definition)s AS definition, %(edited_by)s AS edited_by) AS source "
+            f"ON target.table_full_name = source.table_full_name AND target.column_name = source.column_name "
+            f"WHEN MATCHED THEN UPDATE SET target.business_name = source.business_name, target.definition = source.definition, target.edited_by = source.edited_by, target.edited_at = current_timestamp() "
+            f"WHEN NOT MATCHED THEN INSERT (table_full_name, column_name, business_name, definition, edited_by, edited_at) VALUES (source.table_full_name, source.column_name, source.business_name, source.definition, source.edited_by, current_timestamp())",
+            {"table_full_name": table_full_name, "column_name": column_name, "business_name": business_name, "definition": definition, "edited_by": user_name},
+        )
+
+
+def get_table_steward(table_full_name: str) -> str:
+    """Return the steward_email for a table, or '' if unset.
+
+    In demo mode returns a fixed placeholder address so email flow can be tested.
+    Not cached — always fresh so steward changes are reflected without restart.
+    """
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        return "steward@example.com"
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT steward_email FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata "
+                f"WHERE full_name = %(full_name)s LIMIT 1",
+                {"full_name": table_full_name},
+            )
+            row = cursor.fetchall_as_pandas()
+            if row is not None and not row.empty:
+                return str(row.iloc[0]["steward_email"] or "")
+    except Exception as e:
+        logging.warning("Could not fetch steward for %s: %s", table_full_name, e)
+    return ""
+
+
+def get_table_comments(object_name: str) -> list:
+    """Fetch all comments for an object, returned as a tree (parent comments
+    with a ``replies`` list each).
+
+    In demo mode reads from st.session_state["demo_comments"].
+    Not cached — always fresh so new comments appear immediately.
+    """
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        flat = st.session_state.get("demo_comments", {}).get(object_name, [])
+        return _build_comment_tree(flat)
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT comment_id, author_name, author_email, comment_text, created_at, parent_comment_id "
+                f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
+                f"WHERE object_name = %(object_name)s ORDER BY created_at ASC",
+                {"object_name": object_name},
+            )
+            rows = cursor.fetchall_as_pandas()
+            if rows is not None and not rows.empty:
+                return _build_comment_tree(rows.to_dict(orient="records"))
+    except Exception as e:
+        logging.warning("Could not fetch comments for %s: %s", object_name, e)
+    return []
+
+
+def _build_comment_tree(flat: list) -> list:
+    """Group a flat list of comment dicts into a parent/replies tree."""
+    by_id = {c["comment_id"]: {**c, "replies": []} for c in flat}
+    roots = []
+    for c in by_id.values():
+        pid = c.get("parent_comment_id")
+        if pid and pid in by_id:
+            by_id[pid]["replies"].append(c)
+        else:
+            roots.append(c)
+    return roots
+
+
+def send_comment_email(to_email: str, author_name: str, object_name: str, comment_text: str) -> None:
+    """Send a comment notification email to the data steward.
+
+    In demo mode logs to console instead of sending. Silently skips if
+    SMTP_HOST or to_email is not configured rather than raising.
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        print(f"[DEMO EMAIL] To: {to_email} | Object: {object_name} | From: {author_name}\n{comment_text}")
+        return
+    smtp_host = os.getenv("SMTP_HOST", "")
+    if not smtp_host or not to_email:
+        logging.warning("Comment saved but email not sent: SMTP_HOST or steward_email not configured.")
+        return
+    msg = MIMEText(f"{author_name} left a comment on {object_name}:\n\n{comment_text}", "plain")
+    msg["Subject"] = f"[Data Dictionary] Comment on {object_name}"
+    msg["From"]    = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
+    msg["To"]      = to_email
+    try:
+        with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587"))) as s:
+            s.starttls()
+            s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASSWORD", ""))
+            s.sendmail(msg["From"], [to_email], msg.as_string())
+        logging.info("Comment email sent to %s", to_email)
+    except Exception as e:
+        logging.error("Failed to send comment email to %s: %s", to_email, e)
+
+
+def send_reply_email(
+    parent_author_email: str,
+    reply_author_name: str,
+    object_name: str,
+    reply_text: str,
+    steward_email: str,
+) -> None:
+    """Notify the original commenter (and the steward if different) of a reply.
+
+    In demo mode logs to console. Silently skips if SMTP_HOST is not configured.
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+
+    recipients = list({e for e in [parent_author_email, steward_email] if e})
+    if not recipients:
+        return
+
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        print(f"[DEMO REPLY] To: {recipients} | Object: {object_name} | From: {reply_author_name}\n{reply_text}")
+        return
+
+    smtp_host = os.getenv("SMTP_HOST", "")
+    if not smtp_host:
+        logging.warning("Reply saved but email not sent: SMTP_HOST not configured.")
+        return
+
+    msg = MIMEText(
+        f"{reply_author_name} replied to a comment on {object_name}:\n\n{reply_text}",
+        "plain",
+    )
+    msg["Subject"] = f"[Data Dictionary] Reply on {object_name}"
+    msg["From"]    = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
+    msg["To"]      = ", ".join(recipients)
+    try:
+        with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587"))) as s:
+            s.starttls()
+            s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASSWORD", ""))
+            s.sendmail(msg["From"], recipients, msg.as_string())
+        logging.info("Reply email sent to %s", recipients)
+    except Exception as e:
+        logging.error("Failed to send reply email to %s: %s", recipients, e)
+
+
+def _fetch_comment_author_email(comment_id: str) -> str:
+    """Look up the author_email of a comment from the DB.
+
+    Used by save_comment to resolve the reply recipient server-side rather
+    than trusting the value passed in from the UI (open-relay mitigation).
+    Returns '' if the comment is not found or on error.
+    """
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT author_email FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
+                f"WHERE comment_id = %(comment_id)s LIMIT 1",
+                {"comment_id": comment_id},
+            )
+            row = cursor.fetchall_as_pandas()
+            if row is not None and not row.empty:
+                return str(row.iloc[0]["author_email"] or "")
+    except Exception as e:
+        logging.warning("Could not fetch author_email for comment %s: %s", comment_id, e)
+    return ""
+
+
+def save_comment(
+    object_type: str,
+    object_name: str,
+    comment_text: str,
+    steward_email: str,
+    parent_comment_id: str = None,
+    parent_author_email: str = "",
+) -> None:
+    """Persist a comment (or reply) and trigger notification emails.
+
+    For a top-level comment, notifies the steward.
+    For a reply (parent_comment_id set), notifies the original commenter and steward.
+
+    The reply recipient email is re-fetched from the database rather than
+    trusting the caller-supplied parent_author_email, preventing an
+    authenticated user from using the SMTP relay to spam arbitrary addresses.
+    parent_author_email is used only in demo mode (no DB available).
+
+    In demo mode writes to st.session_state["demo_comments"] dict.
+    object_name for table comments is the full_name; for column comments
+    it is "{full_name}::{column_name}".
+    """
+    import uuid
+    comment_id   = str(uuid.uuid4())
+    author_name  = st.session_state.get("user_name", "unknown")
+    author_email = (st.session_state.get("user_email", "") or "").lower().strip()
+
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        demo = st.session_state.setdefault("demo_comments", {})
+        demo.setdefault(object_name, []).append({
+            "comment_id":        comment_id,
+            "author_name":       author_name,
+            "author_email":      author_email,
+            "comment_text":      comment_text,
+            "created_at":        "just now",
+            "parent_comment_id": parent_comment_id,
+        })
+        if parent_comment_id:
+            send_reply_email(parent_author_email, author_name, object_name, comment_text, steward_email)
+        else:
+            send_comment_email(steward_email, author_name, object_name, comment_text)
+        return
+
+    conn = get_db_connection()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
+            f"(comment_id, object_type, object_name, comment_text, author_name, author_email, "
+            f"created_at, steward_email, parent_comment_id) "
+            f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
+            f"%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
+            {
+                "comment_id":        comment_id,
+                "object_type":       object_type,
+                "object_name":       object_name,
+                "comment_text":      comment_text,
+                "author_name":       author_name,
+                "author_email":      author_email,
+                "steward_email":     steward_email,
+                "parent_comment_id": parent_comment_id,
+            },
+        )
+    if parent_comment_id:
+        # Re-fetch the parent author's email from the DB — do NOT trust the
+        # UI-supplied parent_author_email to prevent open-relay abuse.
+        verified_parent_email = _fetch_comment_author_email(parent_comment_id)
+        send_reply_email(verified_parent_email, author_name, object_name, comment_text, steward_email)
+    else:
+        send_comment_email(steward_email, author_name, object_name, comment_text)
 
 
 @st.cache_data(ttl="1h")
@@ -1425,7 +1835,8 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
     if st.query_params.get("mock_login") == "true":
         st.session_state.authenticated = True
         st.session_state.user_groups = ["finance_dept_id", "all_employees_id"]
-        st.session_state.user_name = "Finance User"
+        st.session_state.user_name  = "Finance User"
+        st.session_state.user_email = "finance.user@example.com"
     if not st.session_state.authenticated:
         render_header()
         st.markdown('<div class="dd-page">', unsafe_allow_html=True)
@@ -1444,6 +1855,25 @@ st.markdown('<div class="dd-page">', unsafe_allow_html=True)
 groups = tuple(st.session_state.user_groups) if st.session_state.user_groups else ("none",)
 active_group = st.session_state.get("group_filter")
 query_groups = (active_group,) if active_group else groups
+
+
+def _clear_transient_edit_state() -> None:
+    """Discard any in-progress column edits or open comment forms.
+
+    Called whenever the user navigates to a different table or a different tab
+    so a half-filled form from one context never bleeds into another.
+    """
+    st.session_state.pop("dd_col_edit_mode", None)
+    stale_keys = [k for k in st.session_state if str(k).startswith("dd_comment_open_")]
+    for k in stale_keys:
+        del st.session_state[k]
+
+
+# Detect tab change — clear transient state so edits don't bleed across tabs
+_prev_tab = st.session_state.get("_dd_current_tab")
+if _prev_tab is not None and _prev_tab != current_tab:
+    _clear_transient_edit_state()
+st.session_state["_dd_current_tab"] = current_tab
 
 if current_tab == "search":
     # --- START SEARCH PAGE ---
@@ -1486,6 +1916,12 @@ if current_tab == "search":
         key="catalog_search",
     )
 
+    # Detect table change — clear transient state so edits don't bleed across tables
+    _prev_table = st.session_state.get("_dd_current_table")
+    if _prev_table is not None and _prev_table != search_query:
+        _clear_transient_edit_state()
+    st.session_state["_dd_current_table"] = search_query
+
     if search_query and all_results is not None:
         try:
             results = all_results[all_results['table_name'] == search_query]
@@ -1504,25 +1940,192 @@ if current_tab == "search":
                     row = results[results["table_name"] == selected_table].iloc[0]
                     full_name = f"{row['catalog_name']}.{row['schema_name']}.{row['table_name']}"
                     with col_main_detail:
-                        st.markdown('<div class="dd-detail-header" style="margin-top: 0;"><span class="dd-eyebrow" style="margin-bottom:0">§ Table detail</span></div>', unsafe_allow_html=True)
                         _cat, _sch, _tbl = _html.escape(str(row['catalog_name'])), _html.escape(str(row['schema_name'])), _html.escape(str(row['table_name']))
                         _raw_desc = row.get('table_description', '')
                         _desc = _html.escape(str(_raw_desc) if isinstance(_raw_desc, str) else '')
                         _host = os.getenv("DATABRICKS_HOST", "").strip()
                         _ext_link = f'<a href="https://{_host}/explore/data/{_cat}/{_sch}/{_tbl}" target="_blank" class="dd-link-external">Open in Databricks ↗</a>' if _host else ''
-                        st.markdown(f'<div class="dd-eyebrow" style="margin-bottom:4px">{_cat} · {_sch}</div><div class="dd-detail-table-name">{_tbl}</div><p class="dd-detail-desc">{_desc}</p>{_ext_link}', unsafe_allow_html=True)
+
+                        # Section header
+                        st.markdown('<div class="dd-detail-header" style="margin-top: 0;"><span class="dd-eyebrow" style="margin-bottom:0">§ Table detail</span></div>', unsafe_allow_html=True)
+
+                        # Table identity block
+                        st.markdown(
+                            f'<div class="dd-eyebrow" style="margin-bottom:4px">{_cat} · {_sch}</div>'
+                            f'<div class="dd-detail-table-name">{_tbl}</div>'
+                            f'<p class="dd-detail-desc">{_desc}</p>{_ext_link}',
+                            unsafe_allow_html=True,
+                        )
                         st.code(full_name, language=None)
-                        
+
                         # --- § Columns ---
+                        # Bulk-fetch overrides first (one query for all columns)
+                        col_overrides = get_column_business_names(full_name)
+
                         cols_query = ("SELECT column_name, data_type, comment FROM {0}.{1}.columns_metadata WHERE table_full_name = %(table_full_name)s ORDER BY column_name").format(CATALOG_CACHE, SCHEMA_CACHE)
                         cols = run_query(cols_query, {"table_full_name": full_name})
                         n_cols = len(cols) if cols is not None and not cols.empty else 0
                         st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Columns</span><span class="dd-section-count">{n_cols}</span></div>', unsafe_allow_html=True)
+                        _power = is_power_user()
+                        _col_edit = st.session_state.get("dd_col_edit_mode", "")
+
                         if n_cols > 0:
-                            rows_html = "".join(f'<tr class="dd-col-row"><td class="dd-col-name">{_html.escape(str(c.get("column_name", "")))}</td><td class="dd-col-type">{_html.escape(str(c.get("data_type", "")))}</td><td class="dd-col-desc">{_html.escape(str(c.get("comment") or ""))}</td></tr>' for _, c in cols.iterrows())
-                            st.markdown(f'<table class="dd-columns-table"><tbody>{rows_html}</tbody></table>', unsafe_allow_html=True)
+                            for _, c in cols.iterrows():
+                                _cname    = str(c.get("column_name", ""))
+                                _ctype    = str(c.get("data_type", ""))
+                                _ccomment = str(c.get("comment") or "")
+                                _edit_key = f"{full_name}__{_cname}"
+                                _override   = col_overrides.get(_cname, {})
+                                _col_biz    = _override.get("business_name", "")
+                                _col_def    = _override.get("definition", "")
+
+                                st.markdown('<hr class="dd-col-divider">', unsafe_allow_html=True)
+                                _r_name, _r_type, _r_desc, _r_btn = st.columns([3, 2, 5, 1], gap="small")
+
+                                # Name cell: business name above, technical name faded below
+                                if _col_biz:
+                                    _r_name.markdown(
+                                        f'<span class="dd-col-biz-name">{_html.escape(_col_biz)}</span>'
+                                        f'<span class="dd-col-tech-sub">{_html.escape(_cname)}</span>',
+                                        unsafe_allow_html=True,
+                                    )
+                                else:
+                                    _r_name.markdown(f'<span class="dd-col-name">{_html.escape(_cname)}</span>', unsafe_allow_html=True)
+
+                                _r_type.markdown(f'<span class="dd-col-type">{_html.escape(_ctype)}</span>', unsafe_allow_html=True)
+
+                                # Desc cell: business definition above, system comment faded below
+                                if _col_def:
+                                    _r_desc.markdown(
+                                        f'<span class="dd-col-desc">{_html.escape(_col_def)}</span>'
+                                        f'<span class="dd-col-desc-faded">{_html.escape(_ccomment)}</span>',
+                                        unsafe_allow_html=True,
+                                    )
+                                else:
+                                    _r_desc.markdown(f'<span class="dd-col-desc">{_html.escape(_ccomment)}</span>', unsafe_allow_html=True)
+
+                                if _power and _col_edit != _edit_key:
+                                    if _r_btn.button("✎", key=f"col_edit_{_edit_key}", use_container_width=True):
+                                        st.session_state["dd_col_edit_mode"] = _edit_key
+                                        st.rerun()
+
+                                if _col_edit == _edit_key:
+                                    st.markdown('<div class="dd-edit-banner">Edit mode — changes are saved immediately and visible to all users.</div>', unsafe_allow_html=True)
+                                    _inp_name = st.text_input(
+                                        "Business name",
+                                        value=_col_biz,
+                                        placeholder="e.g. Customer ID",
+                                        max_chars=MAX_BUSINESS_NAME_LEN,
+                                        key=f"col_biz_name_{_edit_key}",
+                                    )
+                                    _inp_def = st.text_input(
+                                        "Definition",
+                                        value=_col_def,
+                                        placeholder="e.g. Unique identifier assigned to each customer at registration.",
+                                        max_chars=MAX_BUSINESS_NAME_LEN,
+                                        key=f"col_biz_def_{_edit_key}",
+                                    )
+                                    _sc, _cc, _ = st.columns([2, 2, 4], gap="small")
+                                    with _sc:
+                                        if st.button("Save", key=f"col_biz_save_{_edit_key}", use_container_width=True):
+                                            try:
+                                                save_business_name(full_name, _cname, _inp_name.strip(), _inp_def.strip())
+                                                st.session_state.pop("dd_col_edit_mode", None)
+                                                st.rerun()
+                                            except PermissionError:
+                                                st.error("You do not have permission to edit business names.")
+                                            except ValueError as exc:
+                                                st.error(str(exc))
+                                    with _cc:
+                                        if st.button("Cancel", key=f"col_biz_cancel_{_edit_key}", use_container_width=True):
+                                            st.session_state.pop("dd_col_edit_mode", None)
+                                            st.rerun()
+                                    if _override.get("edited_by"):
+                                        st.markdown(
+                                            f'<div class="dd-biz-audit">Last edited by {_html.escape(_override["edited_by"])} · {_html.escape(str(_override.get("edited_at", "")))}</div>',
+                                            unsafe_allow_html=True,
+                                        )
                         else:
                             st.markdown('<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No columns recorded.</p>', unsafe_allow_html=True)
+
+                        # --- § Comments ---
+                        _steward      = get_table_steward(full_name)
+                        _comments     = get_table_comments(full_name)
+                        _n_comments   = sum(1 + len(_c.get("replies", [])) for _c in _comments)
+                        _comment_open = f"dd_comment_open_{full_name}"
+
+                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Comments</span><span class="dd-section-count">{_n_comments}</span></div>', unsafe_allow_html=True)
+
+                        def _render_comment_form(key_suffix: str, parent_comment_id: str = None, parent_author_email: str = "") -> None:
+                            """Render a text-area + Send/Cancel for a new comment or reply."""
+                            _open_key = f"dd_comment_open_{key_suffix}"
+                            if not st.session_state.get(_open_key):
+                                _label = "Reply" if parent_comment_id else "Leave a comment"
+                                if st.button(_label, key=f"dd_comment_btn_{key_suffix}"):
+                                    st.session_state[_open_key] = True
+                                    st.rerun()
+                            else:
+                                _placeholder = "Write a reply…" if parent_comment_id else "Ask a question or flag an issue about this table."
+                                _inp = st.text_area(
+                                    "Your comment" if not parent_comment_id else "Your reply",
+                                    placeholder=_placeholder,
+                                    max_chars=1000,
+                                    key=f"dd_comment_text_{key_suffix}",
+                                )
+                                _cs, _cc, _ = st.columns([2, 2, 4], gap="small")
+                                with _cs:
+                                    if st.button("Send", key=f"dd_comment_send_{key_suffix}", use_container_width=True):
+                                        if _inp.strip():
+                                            save_comment(
+                                                "TABLE", full_name, _inp.strip(), _steward,
+                                                parent_comment_id=parent_comment_id,
+                                                parent_author_email=parent_author_email,
+                                            )
+                                            st.session_state.pop(_open_key, None)
+                                            st.rerun()
+                                        else:
+                                            st.warning("Comment cannot be empty.")
+                                with _cc:
+                                    if st.button("Cancel", key=f"dd_comment_cancel_{key_suffix}", use_container_width=True):
+                                        st.session_state.pop(_open_key, None)
+                                        st.rerun()
+                                if not _steward and not parent_comment_id:
+                                    st.markdown('<p class="dd-comment-no-steward">No steward configured — comment will be saved but not emailed.</p>', unsafe_allow_html=True)
+
+                        for _c in _comments:
+                            _cid    = str(_c.get("comment_id", ""))
+                            _cemail = str(_c.get("author_email", ""))
+                            st.markdown(
+                                f'<div class="dd-comment-row">'
+                                f'<span class="dd-comment-author">{_html.escape(str(_c.get("author_name", "")))}</span>'
+                                f'<span class="dd-comment-date"> · {_html.escape(str(_c.get("created_at", "")))}</span>'
+                                f'<div class="dd-comment-text">{_html.escape(str(_c.get("comment_text", "")))}</div>'
+                                f'</div>',
+                                unsafe_allow_html=True,
+                            )
+                            # Render replies nested under parent
+                            for _r in _c.get("replies", []):
+                                _, _reply_col = st.columns([1, 11])
+                                with _reply_col:
+                                    st.markdown(
+                                        f'<div class="dd-comment-row dd-comment-reply">'
+                                        f'<span class="dd-comment-author">{_html.escape(str(_r.get("author_name", "")))}</span>'
+                                        f'<span class="dd-comment-date"> · {_html.escape(str(_r.get("created_at", "")))}</span>'
+                                        f'<div class="dd-comment-text">{_html.escape(str(_r.get("comment_text", "")))}</div>'
+                                        f'</div>',
+                                        unsafe_allow_html=True,
+                                    )
+                            # Reply button/form for this parent comment
+                            _, _reply_form_col = st.columns([1, 11])
+                            with _reply_form_col:
+                                _render_comment_form(
+                                    key_suffix=f"{full_name}_{_cid}",
+                                    parent_comment_id=_cid,
+                                    parent_author_email=_cemail,
+                                )
+
+                        # Top-level new comment form
+                        _render_comment_form(key_suffix=full_name)
 
                     with col_side_detail:
                         # --- § Group Permissions ---
