@@ -28,13 +28,14 @@ def setup_cache_tables():
             # Table for structural metadata
             cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata (
-                    full_name STRING,
-                    catalog_name STRING,
-                    schema_name STRING,
-                    table_name STRING,
-                    table_type STRING,
-                    comment STRING,
-                    updated_at TIMESTAMP
+                    full_name      STRING,
+                    catalog_name   STRING,
+                    schema_name    STRING,
+                    table_name     STRING,
+                    table_type     STRING,
+                    comment        STRING,
+                    updated_at     TIMESTAMP,
+                    steward_email  STRING
                 )
             """)
             
@@ -74,6 +75,20 @@ def setup_cache_tables():
                     object_full_name STRING,
                     tag_key          STRING,
                     tag_value        STRING
+                )
+            """)
+
+            # Table for user comments (append-only — never truncated by sync)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.comments (
+                    comment_id    STRING,
+                    object_type   STRING,
+                    object_name   STRING,
+                    comment_text  STRING,
+                    author_name   STRING,
+                    author_email  STRING,
+                    created_at    TIMESTAMP,
+                    steward_email STRING
                 )
             """)
 
@@ -207,12 +222,13 @@ def sync():
 
                     # Store table metadata
                     tables_data.append({
-                        "full_name": full_name,
-                        "catalog_name": catalog.name,
-                        "schema_name": schema.name,
-                        "table_name": table.name,
-                        "table_type": str(table.table_type),
-                        "comment": table.comment or "",
+                        "full_name":     full_name,
+                        "catalog_name":  catalog.name,
+                        "schema_name":   schema.name,
+                        "table_name":    table.name,
+                        "table_type":    str(table.table_type),
+                        "comment":       table.comment or "",
+                        "steward_email": (table.properties or {}).get("steward_email", ""),
                     })
                     
                     # Extract Table Tags
@@ -269,7 +285,7 @@ def sync():
 
             if tables_data:
                 cursor.executemany(
-                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp())",
+                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp(), %(steward_email)s)",
                     tables_data
                 )
             if columns_data:

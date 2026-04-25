@@ -264,15 +264,19 @@ class TestTableDetail:
       1. get_authorized_tables     → tables_df
       2. get_column_business_names → overrides_df (bulk fetch, uncached)
       3. columns_metadata          → columns_df
-      4. permissions_cache         → grants_df
-      5. lineage_cache             → lineage_df
-      6. related tables            → related_df
+      4. get_table_steward         → steward_df (uncached)
+      5. get_table_comments        → comments_df (uncached)
+      6. permissions_cache         → grants_df
+      7. lineage_cache             → lineage_df
+      8. related tables            → related_df
     """
 
     _EMPTY_OVERRIDES = lambda: pd.DataFrame(columns=["column_name", "business_name", "definition", "edited_by", "edited_at"])
+    _EMPTY_STEWARD   = lambda: pd.DataFrame(columns=["steward_email"])
+    _EMPTY_COMMENTS  = lambda: pd.DataFrame(columns=["comment_id", "comment_text", "author_name", "author_email", "created_at"])
 
     def _run_with_table_selected(self, *dataframes) -> AppTest:
-        """Run app with SQL mocks (must include overrides df at position 2),
+        """Run app with SQL mocks (must include all 8 DataFrames in order),
         then select 'orders' in the selectbox."""
         sql_returns(*dataframes)
         at = authenticated_app()
@@ -284,6 +288,7 @@ class TestTableDetail:
         """Selecting a table must render column name spans in the detail pane."""
         at = self._run_with_table_selected(
             make_tables_df(), TestTableDetail._EMPTY_OVERRIDES(), make_columns_df(),
+            TestTableDetail._EMPTY_STEWARD(), TestTableDetail._EMPTY_COMMENTS(),
             make_grants_df(), make_lineage_df(), make_related_df(),
         )
         html = _html(*at.markdown)
@@ -293,6 +298,7 @@ class TestTableDetail:
         """SQL must query the columns_metadata table after table selection."""
         at = self._run_with_table_selected(
             make_tables_df(), TestTableDetail._EMPTY_OVERRIDES(), make_columns_df(),
+            TestTableDetail._EMPTY_STEWARD(), TestTableDetail._EMPTY_COMMENTS(),
             make_grants_df(), make_lineage_df(), make_related_df(),
         )
         cursor = get_db_cursor()
@@ -304,6 +310,7 @@ class TestTableDetail:
         """The columns query param must be the 3-part full_name."""
         at = self._run_with_table_selected(
             make_tables_df(), TestTableDetail._EMPTY_OVERRIDES(), make_columns_df(),
+            TestTableDetail._EMPTY_STEWARD(), TestTableDetail._EMPTY_COMMENTS(),
             make_grants_df(), make_lineage_df(), make_related_df(),
         )
         cursor = get_db_cursor()
@@ -476,15 +483,19 @@ class TestLineageAndRelated:
       1. get_authorized_tables     → tables_metadata JOIN permissions_cache
       2. get_column_business_names → business_name_overrides (bulk fetch, uncached)
       3. columns_metadata
-      4. permissions_cache (grants)
-      5. lineage_cache
-      6. related tables (UNION query)
-    sql_returns() must be called with all 6 DataFrames in that order.
+      4. get_table_steward         → tables_metadata.steward_email (uncached)
+      5. get_table_comments        → comments table (uncached)
+      6. permissions_cache (grants)
+      7. lineage_cache
+      8. related tables (UNION query)
+    sql_returns() must be called with all 8 DataFrames in that order.
     """
 
     _EMPTY_LINEAGE    = lambda: pd.DataFrame(columns=["direction", "entity_full_name", "entity_type"])
     _EMPTY_RELATED    = lambda: pd.DataFrame(columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"])
     _EMPTY_OVERRIDES  = lambda: pd.DataFrame(columns=["column_name", "business_name", "definition", "edited_by", "edited_at"])
+    _EMPTY_STEWARD    = lambda: pd.DataFrame(columns=["steward_email"])
+    _EMPTY_COMMENTS   = lambda: pd.DataFrame(columns=["comment_id", "comment_text", "author_name", "author_email", "created_at"])
 
     def _run_with_detail(
         self,
@@ -501,14 +512,18 @@ class TestLineageAndRelated:
           1. get_authorized_tables     (tables_metadata JOIN permissions_cache)
           2. get_column_business_names (business_name_overrides bulk) — uncached
           3. columns_metadata
-          4. permissions_cache (grants)
-          5. lineage_cache
-          6. related tables UNION query
+          4. get_table_steward         (tables_metadata.steward_email) — uncached
+          5. get_table_comments        (comments table) — uncached
+          6. permissions_cache (grants)
+          7. lineage_cache
+          8. related tables UNION query
         """
         sql_returns(
             tables_df  if tables_df  is not None else make_tables_df(),
             TestLineageAndRelated._EMPTY_OVERRIDES(),
             columns_df if columns_df is not None else make_columns_df(),
+            TestLineageAndRelated._EMPTY_STEWARD(),
+            TestLineageAndRelated._EMPTY_COMMENTS(),
             grants_df  if grants_df  is not None else make_grants_df(),
             lineage_df if lineage_df is not None else TestLineageAndRelated._EMPTY_LINEAGE(),
             related_df if related_df is not None else TestLineageAndRelated._EMPTY_RELATED(),

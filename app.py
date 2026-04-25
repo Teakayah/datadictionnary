@@ -159,7 +159,7 @@ CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 REDIRECT_URI = os.getenv("REDIRECT_URI")
-SCOPE = ["User.Read", "GroupMember.Read.All"]
+SCOPE = ["User.Read", "GroupMember.Read.All", "email"]
 
 CATALOG_CACHE = "data_governance"
 SCHEMA_CACHE = "dictionary_cache"
@@ -829,6 +829,38 @@ iframe[height="0"] { display: none !important; }
     margin-bottom: 12px;
     letter-spacing: -0.003em;
 }
+
+/* ── Comments ── */
+.dd-comment-row {
+    border-top: 1px solid var(--ink-10);
+    padding: 10px 0;
+}
+.dd-comment-author {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+}
+.dd-comment-date {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+}
+.dd-comment-text {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink-60);
+    line-height: 1.5;
+    margin-top: 4px;
+    white-space: pre-wrap;
+}
+.dd-comment-no-steward {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--ink-40);
+    font-style: italic;
+    margin-top: 4px;
+}
 """
 
 # ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
@@ -1017,7 +1049,8 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
             if st.button(f"{MS_LOGO_SVG}  Sign in with Entra ID (mock)", use_container_width=True):
                 st.session_state.authenticated = True
                 st.session_state.user_groups = ["finance_dept_id", "all_employees_id"]
-                st.session_state.user_name = "Finance User"
+                st.session_state.user_name  = "Finance User"
+                st.session_state.user_email = "finance.user@example.com"
                 st.rerun()
             st.markdown(
                 '<p class="dd-meta">Mock authentication active — '
@@ -1077,8 +1110,10 @@ def check_auth():
 
             if "access_token" in result:
                 st.session_state.auth_token = result
-                st.session_state.user_groups = result.get("id_token_claims", {}).get("groups", [])
-                st.session_state.user_name = result.get("id_token_claims", {}).get("name")
+                claims = result.get("id_token_claims", {})
+                st.session_state.user_groups = claims.get("groups", [])
+                st.session_state.user_name   = claims.get("name")
+                st.session_state.user_email  = claims.get("email") or claims.get("preferred_username", "")
                 # Clear query params and rerun
                 st.query_params.clear()
                 st.rerun()
@@ -1227,6 +1262,129 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
             f"WHEN NOT MATCHED THEN INSERT (table_full_name, column_name, business_name, definition, edited_by, edited_at) VALUES (source.table_full_name, source.column_name, source.business_name, source.definition, source.edited_by, current_timestamp())",
             {"table_full_name": table_full_name, "column_name": column_name, "business_name": business_name, "definition": definition, "edited_by": user_name},
         )
+
+
+def get_table_steward(table_full_name: str) -> str:
+    """Return the steward_email for a table, or '' if unset.
+
+    In demo mode returns a fixed placeholder address so email flow can be tested.
+    Not cached — always fresh so steward changes are reflected without restart.
+    """
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        return "steward@example.com"
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT steward_email FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata "
+                f"WHERE full_name = %(full_name)s LIMIT 1",
+                {"full_name": table_full_name},
+            )
+            row = cursor.fetchall_as_pandas()
+            if row is not None and not row.empty:
+                return str(row.iloc[0]["steward_email"] or "")
+    except Exception as e:
+        logging.warning("Could not fetch steward for %s: %s", table_full_name, e)
+    return ""
+
+
+def get_table_comments(object_name: str) -> list:
+    """Fetch all comments for an object (table or column) ordered by created_at.
+
+    In demo mode reads from st.session_state["demo_comments"].
+    Not cached — always fresh so new comments appear immediately.
+    """
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        return st.session_state.get("demo_comments", {}).get(object_name, [])
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT comment_id, author_name, author_email, comment_text, created_at "
+                f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
+                f"WHERE object_name = %(object_name)s ORDER BY created_at",
+                {"object_name": object_name},
+            )
+            rows = cursor.fetchall_as_pandas()
+            if rows is not None and not rows.empty:
+                return rows.to_dict(orient="records")
+    except Exception as e:
+        logging.warning("Could not fetch comments for %s: %s", object_name, e)
+    return []
+
+
+def send_comment_email(to_email: str, author_name: str, object_name: str, comment_text: str) -> None:
+    """Send a comment notification email to the data steward.
+
+    In demo mode logs to console instead of sending. Silently skips if
+    SMTP_HOST or to_email is not configured rather than raising.
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        print(f"[DEMO EMAIL] To: {to_email} | Object: {object_name} | From: {author_name}\n{comment_text}")
+        return
+    smtp_host = os.getenv("SMTP_HOST", "")
+    if not smtp_host or not to_email:
+        logging.warning("Comment saved but email not sent: SMTP_HOST or steward_email not configured.")
+        return
+    msg = MIMEText(f"{author_name} left a comment on {object_name}:\n\n{comment_text}", "plain")
+    msg["Subject"] = f"[Data Dictionary] Comment on {object_name}"
+    msg["From"]    = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
+    msg["To"]      = to_email
+    try:
+        with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587"))) as s:
+            s.starttls()
+            s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASSWORD", ""))
+            s.sendmail(msg["From"], [to_email], msg.as_string())
+        logging.info("Comment email sent to %s", to_email)
+    except Exception as e:
+        logging.error("Failed to send comment email to %s: %s", to_email, e)
+
+
+def save_comment(object_type: str, object_name: str, comment_text: str, steward_email: str) -> None:
+    """Persist a comment and trigger a steward notification email.
+
+    In demo mode writes to st.session_state["demo_comments"] dict.
+    object_name for table comments is the full_name; for column comments
+    it is "{full_name}::{column_name}".
+    """
+    import uuid
+    comment_id   = str(uuid.uuid4())
+    author_name  = st.session_state.get("user_name", "unknown")
+    author_email = st.session_state.get("user_email", "")
+
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        demo = st.session_state.setdefault("demo_comments", {})
+        demo.setdefault(object_name, []).append({
+            "comment_id":   comment_id,
+            "author_name":  author_name,
+            "author_email": author_email,
+            "comment_text": comment_text,
+            "created_at":   "just now",
+        })
+        send_comment_email(steward_email, author_name, object_name, comment_text)
+        return
+
+    conn = get_db_connection()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
+            f"(comment_id, object_type, object_name, comment_text, author_name, author_email, created_at, steward_email) "
+            f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
+            f"%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s)",
+            {
+                "comment_id":   comment_id,
+                "object_type":  object_type,
+                "object_name":  object_name,
+                "comment_text": comment_text,
+                "author_name":  author_name,
+                "author_email": author_email,
+                "steward_email": steward_email,
+            },
+        )
+    send_comment_email(steward_email, author_name, object_name, comment_text)
 
 
 @st.cache_data(ttl="1h")
@@ -1562,7 +1720,8 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
     if st.query_params.get("mock_login") == "true":
         st.session_state.authenticated = True
         st.session_state.user_groups = ["finance_dept_id", "all_employees_id"]
-        st.session_state.user_name = "Finance User"
+        st.session_state.user_name  = "Finance User"
+        st.session_state.user_email = "finance.user@example.com"
     if not st.session_state.authenticated:
         render_header()
         st.markdown('<div class="dd-page">', unsafe_allow_html=True)
@@ -1748,6 +1907,51 @@ if current_tab == "search":
                                         )
                         else:
                             st.markdown('<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No columns recorded.</p>', unsafe_allow_html=True)
+
+                        # --- § Comments ---
+                        _steward      = get_table_steward(full_name)
+                        _comments     = get_table_comments(full_name)
+                        _n_comments   = len(_comments)
+                        _comment_open = f"dd_comment_open_{full_name}"
+
+                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Comments</span><span class="dd-section-count">{_n_comments}</span></div>', unsafe_allow_html=True)
+
+                        for _c in _comments:
+                            st.markdown(
+                                f'<div class="dd-comment-row">'
+                                f'<span class="dd-comment-author">{_html.escape(str(_c.get("author_name", "")))}</span>'
+                                f'<span class="dd-comment-date"> · {_html.escape(str(_c.get("created_at", "")))}</span>'
+                                f'<div class="dd-comment-text">{_html.escape(str(_c.get("comment_text", "")))}</div>'
+                                f'</div>',
+                                unsafe_allow_html=True,
+                            )
+
+                        if not st.session_state.get(_comment_open):
+                            if st.button("Leave a comment", key=f"dd_comment_btn_{full_name}"):
+                                st.session_state[_comment_open] = True
+                                st.rerun()
+                        else:
+                            _inp_comment = st.text_area(
+                                "Your comment",
+                                placeholder="Ask a question or flag an issue about this table.",
+                                max_chars=1000,
+                                key=f"dd_comment_text_{full_name}",
+                            )
+                            _cs, _cc, _ = st.columns([2, 2, 4], gap="small")
+                            with _cs:
+                                if st.button("Send", key=f"dd_comment_send_{full_name}", use_container_width=True):
+                                    if _inp_comment.strip():
+                                        save_comment("TABLE", full_name, _inp_comment.strip(), _steward)
+                                        st.session_state.pop(_comment_open, None)
+                                        st.rerun()
+                                    else:
+                                        st.warning("Comment cannot be empty.")
+                            with _cc:
+                                if st.button("Cancel", key=f"dd_comment_cancel_{full_name}", use_container_width=True):
+                                    st.session_state.pop(_comment_open, None)
+                                    st.rerun()
+                            if not _steward:
+                                st.markdown('<p class="dd-comment-no-steward">No steward configured — comment will be saved but not emailed.</p>', unsafe_allow_html=True)
 
                     with col_side_detail:
                         # --- § Group Permissions ---
