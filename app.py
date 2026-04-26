@@ -1973,6 +1973,8 @@ def save_comment(
 
 @st.cache_data(ttl="1h")
 def get_authorized_tables(groups):
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        return _DEMO_TABLES
     group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
     params: dict = {}
     if groups:
