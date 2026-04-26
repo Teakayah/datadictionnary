@@ -1565,6 +1565,33 @@ def is_admin() -> bool:
     return bool(admin_groups & set(st.session_state.get("user_groups", [])))
 
 
+import csv
+import io
+
+def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
+    """Export table column metadata to a CSV string.
+
+    Includes business name and definition overrides if present.
+    """
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Column Name", "Business Name", "Data Type", "System Description", "Business Definition"])
+
+    if cols is not None and not cols.empty:
+        for _, c in cols.iterrows():
+            cname = str(c.get("column_name", ""))
+            ctype = str(c.get("data_type", ""))
+            ccomment = str(c.get("comment") or "")
+
+            override = col_overrides.get(cname, {})
+            biz_name = override.get("business_name", "")
+            biz_def = override.get("definition", "")
+
+            writer.writerow([cname, biz_name, ctype, ccomment, biz_def])
+
+    return output.getvalue()
+
+
 def get_column_business_names(table_full_name: str) -> dict:
     """Return all column business name overrides for a table as a dict.
 
@@ -2531,7 +2558,10 @@ if current_tab == "search":
 
     try:
         all_results = get_authorized_tables(query_groups)
-        table_options = sorted(all_results['table_name'].unique().tolist())
+        if all_results is not None and not all_results.empty and "table_name" in all_results.columns:
+            table_options = sorted(all_results['table_name'].unique().tolist())
+        else:
+            table_options = []
     except Exception as e:
         logging.error("Error querying data: %s", e, exc_info=True)
         st.error(t("search.load_error"))
@@ -2553,7 +2583,7 @@ if current_tab == "search":
         _clear_transient_edit_state()
     st.session_state["_dd_current_table"] = search_query
 
-    if search_query and all_results is not None:
+    if search_query and all_results is not None and "table_name" in all_results.columns:
         try:
             results = all_results[all_results['table_name'] == search_query]
             if not results.empty:
@@ -2595,6 +2625,16 @@ if current_tab == "search":
 
                         cols_query = ("SELECT column_name, data_type, comment FROM {0}.{1}.columns_metadata WHERE table_full_name = %(table_full_name)s ORDER BY column_name").format(CATALOG_CACHE, SCHEMA_CACHE)
                         cols = run_query(cols_query, {"table_full_name": full_name})
+
+                        if cols is not None and not cols.empty:
+                            csv_data = export_schema_to_csv(cols, col_overrides)
+                            st.download_button(
+                                label="Export Dictionary (CSV)",
+                                data=csv_data,
+                                file_name=f"{row['catalog_name']}_{row['schema_name']}_{row['table_name']}_schema.csv",
+                                mime="text/csv",
+                            )
+
                         n_cols = len(cols) if cols is not None and not cols.empty else 0
                         st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_columns")}</span><span class="dd-section-count">{n_cols}</span></div>', unsafe_allow_html=True)
                         _power = is_power_user()
