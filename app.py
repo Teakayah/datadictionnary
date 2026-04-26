@@ -1608,10 +1608,13 @@ def run_query(query, params=None):
     # ── Demo mode: return hardcoded DataFrames without hitting any DB ──────────
     if os.getenv("DEMO_DATA", "false").lower() == "true":
         p = params or {}
-        if "full_name" in p and "groups" in p:
+        # Detect get_authorized_tables() call: params are now group_0, group_1, ...
+        # (SQL injection fix replaced the old "groups" tuple param)
+        _has_groups = "groups" in p or any(k.startswith("group_") for k in p)
+        if "full_name" in p and _has_groups:
             return _DEMO_RELATED.get(p["full_name"], pd.DataFrame(
                 columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"]))
-        if "groups" in p:
+        if _has_groups:
             return _DEMO_TABLES
         fn = p.get("table_full_name", "")
         if "lineage_cache" in query:
