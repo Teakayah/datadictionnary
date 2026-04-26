@@ -1077,11 +1077,11 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
             st.query_params["mock_login"] = "true"
             st.rerun()
 
-    # Hidden lang proxy buttons — JS clicks these to trigger locale rerun
-    if st.button("LOCALE_EN", key="lang_btn_en"):
-        set_locale("en")
-    if st.button("LOCALE_FR", key="lang_btn_fr"):
-        set_locale("fr")
+    # Hidden lang proxy buttons — JS clicks these to trigger locale rerun.
+    # on_click fires *before* the script reruns, so render_header() picks up
+    # the new locale on that same rerun and builds consistent nav labels + TAB_MAP.
+    st.button("LOCALE_EN", key="lang_btn_en", on_click=set_locale, args=("en",))
+    st.button("LOCALE_FR", key="lang_btn_fr", on_click=set_locale, args=("fr",))
 
     # Zero-height iframe: wires nav clicks → hidden Streamlit buttons,
     # and wires language toggle clicks → hidden lang proxy buttons.
