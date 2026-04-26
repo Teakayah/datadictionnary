@@ -19,7 +19,6 @@ load_dotenv()
 # ── Internationalisation (i18n) ───────────────────────────────────────────────
 import json as _json
 
-@st.cache_data
 def _load_locales() -> dict:
     base = os.path.join(os.path.dirname(__file__), "locale")
     result = {}
@@ -31,6 +30,8 @@ def _load_locales() -> dict:
             result[lang] = {}
     return result
 
+# Loaded once per process start — no caching decorator so restarts always
+# pick up locale file changes without needing a cache-clear.
 LOCALES: dict = _load_locales()
 
 def get_locale() -> str:
@@ -70,9 +71,8 @@ def t(key: str, **kwargs) -> str:
         return val
 
 def set_locale(lang: str) -> None:
-    """Persist locale choice and trigger a rerun."""
+    """Persist locale choice; button click already triggers the rerun."""
     st.session_state["locale"] = lang
-    st.rerun()
 
 # ── Demo data (returned in mock/dev mode instead of hitting Databricks) ────────
 _DEMO_TABLES = pd.DataFrame({
