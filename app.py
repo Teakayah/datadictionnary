@@ -1203,7 +1203,7 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
         """, unsafe_allow_html=True)
 
         if mock:
-            if st.button(f"{MS_LOGO_SVG}  {t('auth.mock_button')}", use_container_width=True):
+            if st.button(t('auth.mock_button'), use_container_width=True):
                 st.session_state.authenticated = True
                 st.session_state.user_groups = ["finance_dept_id", "all_employees_id"]
                 st.session_state.user_name  = "Finance User"
@@ -2732,7 +2732,18 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
         st.session_state.user_name  = "Finance User"
         st.session_state.user_email = "finance.user@example.com"
     if not st.session_state.authenticated:
-        render_header()
+        # Slim logo-only header for the sign-in page — avoids nav JS wiring on unauthenticated renders
+        st.markdown(f'''
+<div class="dd-header">
+  <div class="dd-header-inner">
+    <span class="dd-logo-link">
+      {LOGO_MARK_SVG}
+      <span class="dd-logo-text">Data Dictionary</span>
+      <span class="dd-pill">Beta</span>
+    </span>
+  </div>
+</div>
+''', unsafe_allow_html=True)
         st.markdown('<div class="dd-page" role="main" aria-live="polite">', unsafe_allow_html=True)
         render_signin_page(mock=True)
         st.markdown("</div>", unsafe_allow_html=True)
