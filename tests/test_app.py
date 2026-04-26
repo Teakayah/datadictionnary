@@ -150,11 +150,11 @@ class TestMockAuth:
         assert at.session_state["user_name"]
 
     def test_search_page_not_visible_when_unauthenticated(self):
-        """The '§ Catalog search' section must NOT render before sign-in."""
+        """The 'Search' section must NOT render before sign-in."""
         at = unauthenticated_app()
         at.run()
         html = _html(*at.markdown)
-        assert "Catalog search" not in html
+        assert "§ Catalog search" not in html
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -385,7 +385,7 @@ class TestDesignSystem:
     def test_section_headers_use_section_symbol(self):
         """Section eyebrow labels must use the § prefix."""
         src = _read_app_source()
-        assert "§ Catalog search" in src, "Missing '§ Catalog search' eyebrow"
+        assert "§ Catalog search" in src, "Missing 'Search' eyebrow"
         assert ("§ Table detail" in src or "§ Columns" in src), \
             "Missing § prefix on table detail/columns section header"
 
