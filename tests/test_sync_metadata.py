@@ -80,16 +80,19 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
     mock_catalog_sys.name = 'system'
     mock_catalog_reg = MagicMock()
     mock_catalog_reg.name = 'my_catalog'
+    mock_catalog_reg.properties = {}
     mock_w.catalogs.list.return_value = [mock_catalog_sys, mock_catalog_reg]
 
     mock_schema = MagicMock()
     mock_schema.name = 'my_schema'
+    mock_schema.properties = {}
     mock_w.schemas.list.return_value = [mock_schema]
 
     mock_table = MagicMock()
     mock_table.name = 'my_table'
     mock_table.table_type = 'MANAGED'
     mock_table.comment = 'Table comment'
+    mock_table.properties = {}
 
     mock_col = MagicMock()
     mock_col.name = 'my_col'
@@ -105,14 +108,25 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
     mock_assignment.privileges = ['SELECT', 'MODIFY']
     mock_grant.privilege_assignments = [mock_assignment]
 
+    # Mock ThreadPoolExecutor.submit to execute synchronously
+    def mock_submit(fn, *args, **kwargs):
+        future = MagicMock()
+        future.result.return_value = fn(*args, **kwargs)
+        return future
+
+    def mock_as_completed(futures):
+        return futures
+
     # Mock ThreadPoolExecutor.map to return (full_name, grants) pairs synchronously
     full_name = 'my_catalog.my_schema.my_table'
     mock_executor = MagicMock()
     mock_executor_cls.return_value.__enter__.return_value = mock_executor
+    mock_executor.submit.side_effect = mock_submit
     mock_executor.map.return_value = [(full_name, mock_grant)]
 
     from scripts.sync_metadata import sync, CATALOG_CACHE, SCHEMA_CACHE
-    sync()
+    with patch('scripts.sync_metadata.concurrent.futures.as_completed', side_effect=mock_as_completed):
+        sync()
 
     mock_w.catalogs.list.assert_called_once()
     mock_w.schemas.list.assert_called_once_with(catalog_name='my_catalog')

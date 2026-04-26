@@ -215,8 +215,56 @@ def sync():
     lineage_data = []
     tags_data = []
 
+    def fetch_schema_metadata(catalog_name, schema_name, schema_properties):
+        print(f"  Processing schema: {schema_name}")
+        local_tables = []
+        local_columns = []
+        local_table_names = []
+        local_tags = []
+
+        schema_full_name = f"{catalog_name}.{schema_name}"
+        if schema_properties:
+            for k, v in schema_properties.items():
+                local_tags.append({"object_type": "SCHEMA", "object_full_name": schema_full_name, "tag_key": k, "tag_value": str(v)})
+
+        try:
+            for table in w.tables.list(catalog_name=catalog_name, schema_name=schema_name):
+                full_name = f"{catalog_name}.{schema_name}.{table.name}"
+                local_table_names.append(full_name)
+
+                # Store table metadata
+                local_tables.append({
+                    "full_name":     full_name,
+                    "catalog_name":  catalog_name,
+                    "schema_name":   schema_name,
+                    "table_name":    table.name,
+                    "table_type":    str(table.table_type),
+                    "comment":       table.comment or "",
+                    "steward_email": (table.properties or {}).get("steward_email", ""),
+                })
+
+                # Extract Table Tags
+                if table.properties:
+                    for k, v in table.properties.items():
+                        local_tags.append({"object_type": "TABLE", "object_full_name": full_name, "tag_key": k, "tag_value": str(v)})
+
+                # Store column metadata
+                for col in table.columns:
+                    local_columns.append({
+                        "table_full_name": full_name,
+                        "column_name": col.name,
+                        "data_type": col.type_text,
+                        "comment": col.comment or ""
+                    })
+        except Exception as e:
+            print(f"  Error processing schema {schema_name}: {e}")
+
+        return local_tables, local_columns, local_table_names, local_tags
+
     # 1. Iterate through catalogs (skipping system/internal ones if needed)
     table_full_names = []
+    schema_tasks = []
+
     for catalog in w.catalogs.list():
         if catalog.name in ['system', '__databricks_internal']:
             continue
@@ -229,45 +277,17 @@ def sync():
                 tags_data.append({"object_type": "CATALOG", "object_full_name": catalog.name, "tag_key": k, "tag_value": str(v)})
 
         for schema in w.schemas.list(catalog_name=catalog.name):
-            print(f"  Processing schema: {schema.name}")
-            schema_full_name = f"{catalog.name}.{schema.name}"
-            
-            # Extract Schema Tags
-            if schema.properties:
-                for k, v in schema.properties.items():
-                    tags_data.append({"object_type": "SCHEMA", "object_full_name": schema_full_name, "tag_key": k, "tag_value": str(v)})
+            schema_tasks.append((catalog.name, schema.name, schema.properties))
 
-            try:
-                for table in w.tables.list(catalog_name=catalog.name, schema_name=schema.name):
-                    full_name = f"{catalog.name}.{schema.name}.{table.name}"
-                    table_full_names.append(full_name)
-
-                    # Store table metadata
-                    tables_data.append({
-                        "full_name":     full_name,
-                        "catalog_name":  catalog.name,
-                        "schema_name":   schema.name,
-                        "table_name":    table.name,
-                        "table_type":    str(table.table_type),
-                        "comment":       table.comment or "",
-                        "steward_email": (table.properties or {}).get("steward_email", ""),
-                    })
-                    
-                    # Extract Table Tags
-                    if table.properties:
-                        for k, v in table.properties.items():
-                            tags_data.append({"object_type": "TABLE", "object_full_name": full_name, "tag_key": k, "tag_value": str(v)})
-
-                    # Store column metadata
-                    for col in table.columns:
-                        columns_data.append({
-                            "table_full_name": full_name,
-                            "column_name": col.name,
-                            "data_type": col.type_text,
-                            "comment": col.comment or ""
-                        })
-            except Exception as e:
-                print(f"  Error processing schema {schema.name}: {e}")
+    print(f"📦 Fetching tables for {len(schema_tasks)} schemas concurrently...")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(fetch_schema_metadata, cat_name, sch_name, sch_props) for cat_name, sch_name, sch_props in schema_tasks]
+        for future in concurrent.futures.as_completed(futures):
+            loc_tables, loc_columns, loc_full_names, loc_tags = future.result()
+            tables_data.extend(loc_tables)
+            columns_data.extend(loc_columns)
+            table_full_names.extend(loc_full_names)
+            tags_data.extend(loc_tags)
 
     # 2. Fetch permission grants and lineage concurrently
     print("🔐 Fetching permission grants...")
