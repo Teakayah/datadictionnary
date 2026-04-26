@@ -1271,10 +1271,10 @@ def render_discovery(groups):
                     st.markdown(f'''
                     <div style="background:var(--paper); border:1px solid var(--ink-10); padding:20px; margin-bottom:16px; border-radius:2px;">
                         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
-                            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{row["catalog_name"]} · {row["schema_name"]}</div>
+                            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(row["catalog_name"]))} · {_html.escape(str(row["schema_name"]))}</div>
                             <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">Updated {_time_str}</div>
                         </div>
-                        <div style="font-family:var(--font-mono); font-size:18px; font-weight:600; color:var(--ink); margin-bottom:8px;">{row["table_name"]}</div>
+                        <div style="font-family:var(--font-mono); font-size:18px; font-weight:600; color:var(--ink); margin-bottom:8px;">{_html.escape(str(row["table_name"]))}</div>
                         <p style="font-family:var(--font-sans); font-size:14px; color:var(--ink-60); line-height:1.5; margin-bottom:16px;">{_html.escape(str(row["table_description"]))}</p>
                     </div>
                     ''', unsafe_allow_html=True)
