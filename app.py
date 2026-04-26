@@ -1651,18 +1651,23 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
     """
     if not is_power_user():
         raise PermissionError("Only power users can save business name overrides.")
-    if len(business_name) > MAX_BUSINESS_NAME_LEN:
+    if business_name and len(business_name) > MAX_BUSINESS_NAME_LEN:
         raise ValueError(
             f"Business name must be {MAX_BUSINESS_NAME_LEN} characters or fewer "
             f"(got {len(business_name)})."
         )
-    if len(definition) > MAX_BUSINESS_NAME_LEN:
+    if definition and len(definition) > MAX_BUSINESS_NAME_LEN:
         raise ValueError(
             f"Definition must be {MAX_BUSINESS_NAME_LEN} characters or fewer "
             f"(got {len(definition)})."
         )
     user_name = st.session_state.get("user_name", "unknown")
-    old_override = get_column_business_names(table_full_name).get(column_name, {})
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        old_override = {}
+        if "demo_business_names" in st.session_state and table_full_name in st.session_state["demo_business_names"]:
+            old_override = st.session_state["demo_business_names"][table_full_name].get(column_name, {})
+    else:
+        old_override = get_column_business_names(table_full_name).get(column_name, {})
     old_value = old_override.get("business_name", "")
     if os.getenv("DEMO_DATA", "false").lower() == "true":
         if "demo_business_names" not in st.session_state:
@@ -1973,6 +1978,8 @@ def save_comment(
 
 @st.cache_data(ttl="1h")
 def get_authorized_tables(groups):
+    if os.getenv("DEMO_DATA", "").lower() == "true":
+        return _DEMO_TABLES
     group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
     params: dict = {}
     if groups:
@@ -2051,7 +2058,7 @@ def render_catalog_browser(groups):
 
     try:
         all_data = get_authorized_tables(groups)
-        if all_data.empty:
+        if all_data is None or all_data.empty or 'catalog_name' not in all_data.columns:
             st.info(t("catalog.no_catalogs"))
             return
             
@@ -2540,7 +2547,10 @@ if current_tab == "search":
 
     try:
         all_results = get_authorized_tables(query_groups)
-        table_options = sorted(all_results['table_name'].unique().tolist())
+        if all_results is not None and not all_results.empty and 'table_name' in all_results.columns:
+            table_options = sorted(all_results['table_name'].unique().tolist())
+        else:
+            table_options = []
     except Exception as e:
         logging.error("Error querying data: %s", e, exc_info=True)
         st.error(t("search.load_error"))
@@ -2577,6 +2587,7 @@ if current_tab == "search":
 
                 if _nav_idx is not None:
                     selected_table = _table_names[_nav_idx]
+                    # Make sure we use an exact match
                     row = results[results["table_name"] == selected_table].iloc[0]
                     full_name = f"{row['catalog_name']}.{row['schema_name']}.{row['table_name']}"
                     with col_main_detail:
