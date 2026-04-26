@@ -2103,27 +2103,93 @@ def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
 
 
 @st.cache_data(ttl="1h")
-def global_search_metadata(query: str, groups: tuple):
-    """Search across tables, columns, and descriptions.
-
-    TODO (feature/unified-search): Replace placeholder UNION query with a
-    full multi-table search across tables_metadata, columns_metadata, and
-    glossary, returning ranked results with match_type labels.
-    """
+def search_all_metadata(query: str, groups: tuple):
+    """Search across tables, columns, and descriptions using UNION."""
     import logging
     logging.info("GLOBAL SEARCH query=%s groups=%s", query, groups)
+
     group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
     params: dict = {f"group_{i}": g for i, g in enumerate(groups)} if groups else {}
     params["q"] = f"%{query}%"
+
     sql_query = ("""
-        SELECT DISTINCT m.full_name, m.table_name, 'Table' as match_type
+        SELECT DISTINCT m.full_name, m.table_name AS name, 'Table' AS match_type, m.comment AS description, m.catalog_name, m.schema_name, m.table_name, m.comment AS table_description
         FROM {0}.{1}.tables_metadata m
         JOIN {0}.{1}.permissions_cache p ON m.full_name = p.table_full_name
-        WHERE m.table_name LIKE %(q)s
+        WHERE (m.table_name LIKE %(q)s OR m.comment LIKE %(q)s)
           AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
-        LIMIT 20
+
+        UNION ALL
+
+        SELECT DISTINCT c.table_full_name AS full_name, c.column_name AS name, 'Column' AS match_type, c.comment AS description, t.catalog_name, t.schema_name, t.table_name, t.comment AS table_description
+        FROM {0}.{1}.columns_metadata c
+        JOIN {0}.{1}.permissions_cache p ON c.table_full_name = p.table_full_name
+        JOIN {0}.{1}.tables_metadata t ON c.table_full_name = t.full_name
+        WHERE (c.column_name LIKE %(q)s OR c.comment LIKE %(q)s)
+          AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
+
+        LIMIT 50
     """).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders)  # nosec B608
-    return run_query(sql_query, params)
+
+    sql_results = run_query(sql_query, params)
+
+    # Process glossary terms
+    term_matches = []
+    if _DEMO_GLOSSARY is not None and not _DEMO_GLOSSARY.empty and query:
+        query_lower = query.lower()
+        mask = (
+            _DEMO_GLOSSARY['term'].str.lower().str.contains(query_lower, regex=False, na=False) |
+            _DEMO_GLOSSARY['definition'].str.lower().str.contains(query_lower, regex=False, na=False)
+        )
+        glossary_df = _DEMO_GLOSSARY[mask]
+
+        for row in glossary_df.itertuples(index=False):
+            related_tables = getattr(row, 'related_tables', [])
+            target_table = related_tables[0] if related_tables else ""
+            parts = target_table.split('.')
+            term_matches.append({
+                "full_name": target_table,
+                "name": getattr(row, 'term', ''),
+                "match_type": "Glossary",
+                "description": getattr(row, 'definition', ''),
+                "table_description": "",
+                "catalog_name": parts[0] if len(parts) == 3 else "",
+                "schema_name": parts[1] if len(parts) == 3 else "",
+                "table_name": parts[2] if len(parts) == 3 else "",
+            })
+
+    if term_matches:
+        import pandas as pd
+        glossary_results = pd.DataFrame(term_matches)
+        if sql_results is not None and not sql_results.empty:
+            return pd.concat([sql_results, glossary_results], ignore_index=True)
+        return glossary_results
+
+    return sql_results
+
+
+@st.dialog("Data Sample")
+def render_data_sample(table_full_name: str):
+    import re
+    import logging
+    import pandas as pd
+    st.markdown(f"**{table_full_name}**")
+    try:
+        if not re.match(r"^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$", table_full_name):
+            st.error("Invalid table name format.")
+            return
+        query = f"SELECT * FROM {table_full_name} LIMIT 100"  # nosec B608
+        if os.getenv("DEMO_DATA", "false").lower() == "true":
+            df = pd.DataFrame({"id": [1, 2, 3], "status": ["NEW", "SHIPPED", "CLOSED"]})
+        else:
+            df = run_query(query)
+        if df is not None and not df.empty:
+            st.dataframe(df, use_container_width=True)
+        else:
+            st.info("No data found or table is empty.")
+    except Exception as e:
+        logging.error("Error fetching data sample for %s: %s", table_full_name, e, exc_info=True)
+        st.error("Could not fetch data sample. You may not have permission to view the underlying data.")
 
 
 # ── Page renderers ─────────────────────────────────────────────────────────────
@@ -2728,36 +2794,44 @@ if current_tab == "search":
                 st.session_state.pop("group_filter", None)
                 st.rerun()
 
-    try:
-        all_results = get_authorized_tables(query_groups)
-        table_options = sorted(all_results['table_name'].unique().tolist())
-    except Exception as e:
-        logging.error("Error querying data: %s", e, exc_info=True)
-        st.error(t("search.load_error"))
-        all_results = None
-        table_options = []
-
-    search_query = st.selectbox(
+    search_query = st.text_input(
         t("common.search"),
-        options=table_options,
-        index=table_options.index(st.session_state.get("catalog_search")) if st.session_state.get("catalog_search") in table_options else None,
+        value=st.session_state.get("catalog_search", ""),
         placeholder=t("search.placeholder"),
         label_visibility="collapsed",
         key="catalog_search",
     )
 
-    # Detect table change — clear transient state so edits don't bleed across tables
-    _prev_table = st.session_state.get("_dd_current_table")
-    if _prev_table is not None and _prev_table != search_query:
+    # Detect search query change — clear transient state so edits don't bleed across tables
+    _prev_query = st.session_state.get("_dd_current_search_query")
+    if _prev_query is not None and _prev_query != search_query:
         _clear_transient_edit_state()
-    st.session_state["_dd_current_table"] = search_query
+    st.session_state["_dd_current_search_query"] = search_query
 
-    if search_query and all_results is not None:
+    if search_query:
         try:
-            results = all_results[all_results['table_name'] == search_query]
-            if not results.empty:
+            results = search_all_metadata(search_query, query_groups)
+            if results is not None and not results.empty:
+                st.markdown(f"### {len(results)} matches found")
+                for _, _sr in results.iterrows():
+                    _sr_type = _sr.get("match_type", "Unknown")
+                    _sr_name = _sr.get("name", "")
+                    _sr_full = _sr.get("full_name", "")
+                    _sr_desc = _sr.get("description", "")
+                    st.markdown(f'''
+                    <div style="background:var(--paper); border:1px solid var(--ink-10); padding:16px 20px; margin-bottom:8px; border-radius:4px;">
+                        <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:4px;">{_html.escape(_sr_type)}</div>
+                        <div style="font-family:var(--font-sans); font-size:16px; font-weight:600; color:var(--ink); margin-bottom:4px;">{_html.escape(str(_sr_name))}</div>
+                        <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-bottom:8px;">{_html.escape(str(_sr_full))}</div>
+                        <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:0;">{_html.escape(str(_sr_desc) if isinstance(_sr_desc, str) else '')}</p>
+                    </div>
+                    ''', unsafe_allow_html=True)
+                st.markdown("<hr style='margin-bottom:30px;'/>", unsafe_allow_html=True)
+
+                # Show table detail panel for table-type matches
+                _table_results = results[results["match_type"] == "Table"]
                 col_main_detail, col_side_detail = st.columns([7, 5], gap="large")
-                _table_names = results["table_name"].tolist()
+                _table_names = _table_results["table_name"].tolist()
                 _nav_target  = st.session_state.pop("dd_nav_select", None)
                 _nav_idx = 0 if len(_table_names) > 0 else None
                 if _nav_target:
@@ -2767,7 +2841,7 @@ if current_tab == "search":
 
                 if _nav_idx is not None:
                     selected_table = _table_names[_nav_idx]
-                    row = results[results["table_name"] == selected_table].iloc[0]
+                    row = _table_results[_table_results["table_name"] == selected_table].iloc[0]
                     full_name = f"{row['catalog_name']}.{row['schema_name']}.{row['table_name']}"
                     with col_main_detail:
                         _cat, _sch, _tbl = _html.escape(str(row['catalog_name'])), _html.escape(str(row['schema_name'])), _html.escape(str(row['table_name']))

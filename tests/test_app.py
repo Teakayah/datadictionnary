@@ -38,6 +38,9 @@ def make_tables_df() -> pd.DataFrame:
         "catalog_name":      ["main"],
         "schema_name":       ["sales"],
         "table_name":        ["orders"],
+        "name":              ["orders"],
+        "match_type":        ["Table"],
+        "description":       ["All customer orders"],
         "table_description": ["All customer orders"],
         "table_type":        ["TABLE"],
         "updated_at":        [pd.Timestamp("2026-04-22 10:00")],
@@ -164,9 +167,9 @@ class TestMockAuth:
 class TestSearch:
     """Search input, SQL correctness, results rendering, and empty states.
 
-    The branch uses a selectbox (not text_input) for table selection.
-    On initial load, get_authorized_tables is called and results populate
-    the selectbox. Selecting a table triggers detail rendering.
+    The app uses a text_input for free-text search. Typing triggers
+    search_all_metadata (UNION of tables + columns + glossary), and results
+    are displayed as cards. The first table match also renders a detail panel.
     """
 
     def test_empty_state_prompt_shown(self):
@@ -180,7 +183,9 @@ class TestSearch:
         """Loading the search page must JOIN tables_metadata with permissions_cache."""
         sql_returns(make_tables_df())
         at = authenticated_app()
+        at.query_params["tab"] = "search"
         at.run()
+        at.text_input(key="catalog_search").set_value("test").run()
         cursor = get_db_cursor()
         executed = [call[0][0] for call in cursor.execute.call_args_list]
         assert any("tables_metadata" in q for q in executed), \
@@ -188,22 +193,20 @@ class TestSearch:
         assert any("permissions_cache" in q for q in executed), \
             f"permissions_cache not found in queries: {executed}"
 
-    def test_search_term_not_in_sql(self):
-        """The search term must NOT appear as a SQL parameter.
-
-        Search filtering is now done locally in pandas, not via SQL LIKE,
-        so the search term should never reach the database layer.
-        """
+    def test_search_term_parameterized(self):
+        """The search term MUST appear as a parameterized value in SQL."""
         sql_returns(make_tables_df())
         at = authenticated_app()
+        at.query_params["tab"] = "search"
         at.run()
+        at.text_input(key="catalog_search").set_value("test").run()
         cursor = get_db_cursor()
         all_params = [call[0][1] for call in cursor.execute.call_args_list if len(call[0]) > 1]
+        found = False
         for params in all_params:
-            if isinstance(params, dict):
-                assert "search" not in params, (
-                    "Search term found in SQL params — filtering should be local (pandas)"
-                )
+            if isinstance(params, dict) and "q" in params and params["q"] == "%test%":
+                found = True
+        assert found, "Search term 'test' not found in SQL parameters as '%test%'"
 
     def test_search_passes_user_groups_as_param(self):
         """User groups must be a bound SQL parameter, not interpolated.
@@ -213,7 +216,9 @@ class TestSearch:
         """
         sql_returns(make_tables_df())
         at = authenticated_app()
+        at.query_params["tab"] = "search"
         at.run()
+        at.text_input(key="catalog_search").set_value("test").run()
         cursor = get_db_cursor()
         first_call_params = cursor.execute.call_args_list[0][0][1]
         # SQL injection fix: groups are now bound as individual params (group_0, group_1, ...)
@@ -222,12 +227,13 @@ class TestSearch:
             "finance_dept_id not in group params — permission filter may be bypassable"
         )
 
-    def test_search_results_show_table_selectbox(self):
-        """A selectbox for table selection must appear when results exist."""
+    def test_search_results_show_text_input(self):
+        """A text input for search must appear."""
         sql_returns(make_tables_df())
         at = authenticated_app()
+        at.query_params["tab"] = "search"
         at.run()
-        assert len(at.selectbox) >= 1, "No table-selection selectbox found in results"
+        assert len(at.text_input) >= 1, "No text input found for search"
 
     def test_search_exception_shows_generic_error(self):
         """When an exception occurs during query execution, the UI must show
@@ -237,7 +243,9 @@ class TestSearch:
         cursor.execute.side_effect = Exception("SECRET_DB_ERROR_123")
 
         at = authenticated_app()
+        at.query_params["tab"] = "search"
         at.run()
+        at.text_input(key="catalog_search").set_value("test").run()
 
         assert any("Error loading catalog" in msg.value for msg in at.error)
 
@@ -256,14 +264,14 @@ class TestSearch:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class TestTableDetail:
-    """Column detail view triggered by selecting a table from search results.
+    """Column detail view triggered by typing a table name in search.
 
-    On this branch, selecting a table in the selectbox triggers the detail
-    view with columns, grants, lineage, and related tables rendered in a
-    2-column layout.
+    Typing in the text_input triggers search_all_metadata (UNION query),
+    then the first table match renders the detail view with columns, grants,
+    lineage, and related tables in a 2-column layout.
 
-    Query order after table selection:
-      1. get_authorized_tables     → tables_df
+    Query order after typing a search term:
+      1. search_all_metadata       → tables_df (UNION of tables + columns)
       2. get_column_business_names → overrides_df (bulk fetch, uncached)
       3. columns_metadata          → columns_df
       4. get_table_steward         → steward_df (uncached)
@@ -278,12 +286,12 @@ class TestTableDetail:
     _EMPTY_COMMENTS  = lambda: pd.DataFrame(columns=["comment_id", "comment_text", "author_name", "author_email", "created_at"])
 
     def _run_with_table_selected(self, *dataframes) -> AppTest:
-        """Run app with SQL mocks (must include all 8 DataFrames in order),
-        then select 'orders' in the selectbox."""
+        """Run app with SQL mocks (DataFrames in call order), then type 'orders'."""
         sql_returns(*dataframes)
         at = authenticated_app()
+        at.query_params["tab"] = "search"
         at.run()
-        at.selectbox(key="catalog_search").set_value("orders").run()
+        at.text_input(key="catalog_search").set_value("orders").run()
         return at
 
     def test_columns_rendered(self):
@@ -481,8 +489,8 @@ class TestLineageAndRelated:
     """Tests for § Lineage & Related Tables and § Group Permissions in the
     detail pane (2-column layout).
 
-    The query order when a table is selected via the selectbox is:
-      1. get_authorized_tables     → tables_metadata JOIN permissions_cache
+    The query order when a search term is typed is:
+      1. search_all_metadata       → tables_metadata JOIN permissions_cache (UNION)
       2. get_column_business_names → business_name_overrides (bulk fetch, uncached)
       3. columns_metadata
       4. get_table_steward         → tables_metadata.steward_email (uncached)
@@ -531,8 +539,9 @@ class TestLineageAndRelated:
             related_df if related_df is not None else TestLineageAndRelated._EMPTY_RELATED(),
         )
         at = authenticated_app()
+        at.query_params["tab"] = "search"
         at.run()
-        at.selectbox(key="catalog_search").set_value("orders").run()
+        at.text_input(key="catalog_search").set_value("orders").run()
         return at
 
     # ── § Grants ──────────────────────────────────────────────────────────────
