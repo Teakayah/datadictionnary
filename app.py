@@ -2796,7 +2796,6 @@ if current_tab == "search":
 
     search_query = st.text_input(
         t("common.search"),
-        value=st.session_state.get("catalog_search", ""),
         placeholder=t("search.placeholder"),
         label_visibility="collapsed",
         key="catalog_search",
@@ -2829,7 +2828,7 @@ if current_tab == "search":
                 st.markdown("<hr style='margin-bottom:30px;'/>", unsafe_allow_html=True)
 
                 # Show table detail panel for table-type matches
-                _table_results = results[results["match_type"] == "Table"]
+                _table_results = results[results["match_type"] == "Table"] if "match_type" in results.columns else results
                 col_main_detail, col_side_detail = st.columns([7, 5], gap="large")
                 _table_names = _table_results["table_name"].tolist()
                 _nav_target  = st.session_state.pop("dd_nav_select", None)
