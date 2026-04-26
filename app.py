@@ -1980,7 +1980,13 @@ def save_comment(
 
 @st.cache_data(ttl="1h")
 def get_authorized_tables(groups):
-    sql_query = f"""
+    group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
+    params = {}
+    if groups:
+        for i, group in enumerate(groups):
+            params[f"group_{i}"] = group
+
+    sql_query = ("""
         SELECT DISTINCT
             m.full_name,
             m.catalog_name,
@@ -1989,12 +1995,13 @@ def get_authorized_tables(groups):
             m.comment as table_description,
             m.table_type,
             m.updated_at
-        FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata m
-        JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p
+        FROM {0}.{1}.tables_metadata m
+        JOIN {0}.{1}.permissions_cache p
           ON m.full_name = p.table_full_name
-        WHERE (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS')
-    """
-    return run_query(sql_query, {"groups": groups})
+        WHERE (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
+    """).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders)  # nosec B608
+
+    return run_query(sql_query, params)
 
 
 def render_catalog_browser(groups):
@@ -2752,8 +2759,14 @@ if current_tab == "search":
                         has_lineage = lineage is not None and not lineage.empty
                         
                         # --- § Related tables ---
-                        related_query = ("SELECT t.full_name, t.table_name, t.catalog_name, t.schema_name, 'Same schema' AS relationship FROM {0}.{1}.tables_metadata t JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name WHERE t.catalog_name = %(catalog_name)s AND t.schema_name = %(schema_name)s AND t.full_name != %(full_name)s AND (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS') UNION SELECT DISTINCT t.full_name, t.table_name, t.catalog_name, t.schema_name, 'Shared column' AS relationship FROM {0}.{1}.columns_metadata c1 JOIN {0}.{1}.columns_metadata c2 ON c1.column_name = c2.column_name JOIN {0}.{1}.tables_metadata t ON c2.table_full_name = t.full_name JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name WHERE c1.table_full_name = %(full_name)s AND c2.table_full_name != %(full_name)s AND (p.principal IN %(groups)s OR p.principal = 'SELECT_ALL_USERS') LIMIT 12").format(CATALOG_CACHE, SCHEMA_CACHE)
-                        related = run_query(related_query, {"catalog_name": row["catalog_name"], "schema_name": row["schema_name"], "full_name": full_name, "groups": query_groups})
+                        rel_group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(query_groups))]) if query_groups else "''"
+                        rel_params = {"catalog_name": row["catalog_name"], "schema_name": row["schema_name"], "full_name": full_name}
+                        if query_groups:
+                            for i, group in enumerate(query_groups):
+                                rel_params[f"group_{i}"] = group
+
+                        related_query = ("SELECT t.full_name, t.table_name, t.catalog_name, t.schema_name, 'Same schema' AS relationship FROM {0}.{1}.tables_metadata t JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name WHERE t.catalog_name = %(catalog_name)s AND t.schema_name = %(schema_name)s AND t.full_name != %(full_name)s AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS') UNION SELECT DISTINCT t.full_name, t.table_name, t.catalog_name, t.schema_name, 'Shared column' AS relationship FROM {0}.{1}.columns_metadata c1 JOIN {0}.{1}.columns_metadata c2 ON c1.column_name = c2.column_name JOIN {0}.{1}.tables_metadata t ON c2.table_full_name = t.full_name JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name WHERE c1.table_full_name = %(full_name)s AND c2.table_full_name != %(full_name)s AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS') LIMIT 12").format(CATALOG_CACHE, SCHEMA_CACHE, rel_group_placeholders)  # nosec B608
+                        related = run_query(related_query, rel_params)
                         n_related = len(related) if related is not None and not related.empty else 0
                         
                         st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_lineage")} & {t("detail.section_related")}</span><span class="dd-section-count">{n_related} {t("detail.related_count")}</span></div>', unsafe_allow_html=True)
