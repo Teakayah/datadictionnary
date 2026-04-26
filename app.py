@@ -1005,6 +1005,45 @@ iframe[height="0"] { display: none !important; }
     color: #14110C !important;
     opacity: 1;
 }
+
+/* ── Segmented control styled as a tab bar (used in Discovery) ── */
+[data-testid="stSegmentedControl"] {
+    background: transparent !important;
+    padding: 0 !important;
+}
+[data-testid="stSegmentedControl"] > div {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid var(--ink-10) !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+}
+[data-testid="stSegmentedControl"] label {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    border-bottom: 2px solid transparent !important;
+    margin-bottom: -1px !important;
+    color: #14110C !important;
+    font-family: var(--font-sans) !important;
+    font-size: 14px !important;
+    font-weight: 400 !important;
+    padding: 8px 16px !important;
+    opacity: 0.55;
+    cursor: pointer;
+    transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+[data-testid="stSegmentedControl"] label:hover {
+    opacity: 0.85 !important;
+    background: transparent !important;
+}
+[data-testid="stSegmentedControl"] label:has(input:checked) {
+    border-bottom: 2px solid #B8362A !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
+    background: transparent !important;
+}
 """
 
 # ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
