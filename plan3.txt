@@ -1,0 +1,6 @@
+So it's purely `components.html` and we need to pass a callback back.
+Wait, `streamlit` has `st.components.v1.html` but if we want to pass data back, we need a custom component.
+Streamlit provides `streamlit.components.v1.declare_component`. But to do it simply, we can just use `window.parent.postMessage` to set query params. Does Streamlit intercept `postMessage`?
+Another way: maybe `st.query_params` in modern streamlit can be changed by a link `<a>` with `target="_parent"` and a click on a hidden link?
+Yes! In `vis-network`, on `selectNode`, we can create a hidden anchor tag with `href="?tab=search&expand=NODE_ID"` and `target="_parent"` and click it! This will trigger a page load/rerun with the new query params.
+Let's test this anchor tag click behavior.

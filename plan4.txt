@@ -1,0 +1,31 @@
+We can add an event listener to the vis-network graph like this:
+
+network.on("selectNode", function (params) {
+    if (params.nodes.length > 0) {
+        var nodeId = params.nodes[0];
+        window.parent.postMessage({
+            type: "streamlit:setQueryParams",
+            queryParams: { expand: nodeId }
+        }, "*");
+    }
+});
+
+Wait, Streamlit uses `window.parent.postMessage` for component communication (the `Streamlit.setComponentValue` wraps this). But we are rendering via `st.components.v1.html`, so we don't have the full Streamlit custom component interface automatically loaded, however, sending query params via `window.parent` works? Let's check `st.query_params`. Can you set query params via `<a>` tag with `target="_parent"`?
+Let's just use:
+```javascript
+network.on("selectNode", function (params) {
+    if (params.nodes.length > 0) {
+        var nodeId = params.nodes[0];
+        window.parent.location.assign(window.parent.location.pathname + "?tab=search&expand=" + encodeURIComponent(nodeId));
+    }
+});
+```
+Wait, using `window.parent.location.assign` will completely refresh the Streamlit app. This satisfies "dynamic loading" and "graph persistence" if the state is preserved in session_state, OR we can maintain the graph dynamically by traversing multi hops!
+"Graph Persistence: Maintain a local graph state (nodes and edges) that grows as the user explores."
+Ah! We don't need to refresh the page. We can update the graph in `st.session_state`! Wait, if we use `window.parent.location.assign`, it will refresh the whole page. That's not ideal for Streamlit.
+If we use `st.query_params`, Streamlit automatically reruns the script when query params change WITHOUT refreshing the whole page.
+Is there a way to trigger Streamlit's internal query params update from an iframe?
+Yes, `window.parent.postMessage({type: 'streamlit:setQueryParams', queryParams: {expand: nodeId}}, '*');` is handled by Streamlit! Let's verify this.
+Actually, another option:
+We can change the python side to fetch ALL lineage up to `depth` by implementing `get_multi_hop_lineage` dynamically.
+If we store expanded nodes in `st.session_state['expanded_nodes']`.

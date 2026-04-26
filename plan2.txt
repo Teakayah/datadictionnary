@@ -1,0 +1,7 @@
+Ah, wait. Let's look at `docs/features/enhanced-lineage.md` again.
+"Dynamic Loading: Implement a Streamlit callback (via st.query_params or a custom component event) that triggers a fetch for the next level of lineage when a node is selected."
+If we use `st.query_params`, we can update the query parameters of the parent window from within the iframe using Javascript:
+`window.parent.postMessage({type: 'streamlit:setQueryParams', queryParams: {expand: nodeId}}, '*');` - wait, Streamlit has some built-in postMessage handling for components, but changing URL from the iframe might just be `window.parent.history.pushState(null, '', '?tab=search&expand=' + nodeId);` followed by what? Streamlit doesn't automatically detect history changes if done manually unless a popstate event is triggered.
+
+Is there a `streamlit-vis-network` package or similar?
+Let's check if the python environment has any vis network component.

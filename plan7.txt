@@ -1,0 +1,41 @@
+Let's use the explicit `st.query_params` approach: Streamlit 1.30+ detects `popstate` events on the `window`.
+```javascript
+window.parent.history.pushState(null, '', window.parent.location.pathname + '?tab=search&expand_node=' + encodeURIComponent(nodeId));
+window.parent.dispatchEvent(new Event('popstate'));
+```
+Wait, if it doesn't work, Streamlit has an internal message:
+```javascript
+window.parent.postMessage({
+  type: "streamlit:setQueryParams",
+  queryParams: "expand_node=" + encodeURIComponent(nodeId)
+}, "*");
+```
+I'll use `window.parent.postMessage({type: 'streamlit:setQueryParams', queryString: '?tab=search&expand_node=' + encodeURIComponent(nodeId)}, '*')`
+
+Wait, Streamlit uses an internal communication but usually we don't need this hack.
+Since we want dynamic updates, we can just use Streamlit's `st.session_state` to store `lineage_depth`.
+But how does Streamlit know we clicked?
+We can simply implement a recursive `get_multi_hop_lineage` up to `depth`, and let the user select the depth with a slider!
+Wait! The feature description says:
+"transform the static 1-hop lineage view into an interactive exploration tool, allowing users to trace data dependencies across the entire organization by expanding nodes on click."
+
+And:
+"Implement a Streamlit callback (via st.query_params or a custom component event) that triggers a fetch for the next level of lineage when a node is selected."
+
+So it *must* expand on click!
+To do this reliably in Streamlit using `st.components.v1.html`, we need to pass a message to Streamlit.
+If the `st.components.v1.html` cannot pass a message properly, I can create a minimal custom component.
+BUT Streamlit's `st.components.v1.html` has no builtin way to send values back to Python unless it's a declared component.
+Wait! `st.components.v1.html` is literally just an iframe. We can change the parent URL and force a reload if needed:
+```javascript
+window.parent.location.search = '?tab=search&expand_node=' + encodeURIComponent(nodeId);
+```
+Will this reload the page? Yes. Is it acceptable? Streamlit query params allow state to be preserved if we store it. Wait, `st.session_state` is lost on full page reload unless Streamlit caches it? No, Streamlit preserves session state across query param changes IF it uses `st.query_params` or router, but `location.search = ...` triggers a hard browser reload, losing `st.session_state`!
+
+Actually, Streamlit `st.query_params` from within the app doesn't trigger a hard reload.
+Wait, if we use `window.parent.postMessage({type: "streamlit:setQueryParams", queryString: "expand_node=..."})` will it work? Let's look at Streamlit's iframe source. Streamlit components use `Streamlit.setComponentValue()`.
+Wait, Streamlit component template includes a `streamlit` javascript object.
+If we use `components.declare_component`, we don't need to build it with NPM. We can just pass `html` string to `components.declare_component(name="lineage_graph", html="...")`? No, `declare_component` takes a `url` or `path`.
+Wait! We can create a folder `project_utility/vis_network/`, put `index.html` there, and use `components.declare_component("vis_network", path="project_utility/vis_network")`. That's a true custom component!
+And it can call `Streamlit.setComponentValue(nodeId)`.
+This is exactly what "or a custom component event" in the prompt suggests!

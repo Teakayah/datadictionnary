@@ -1,0 +1,27 @@
+I will create a Streamlit component `vis_network` inside `assets/vis_network`.
+Then update `app.py` to use `st.components.v1.declare_component(name="vis_network", path="assets/vis_network")`.
+
+Wait, the instructions say "via st.query_params or a custom component event". I will use the custom component event!
+Then I will use it for both lineage and glossary, OR just lineage.
+Actually, if I replace `graph_html` with `vis_network(...)` I can pass `nodes` and `edges`, and get the `node_id = vis_network(...)`.
+When `node_id` is selected, `app.py` will:
+1. Trigger `get_multi_hop_lineage` to fetch lineage for `node_id`.
+2. Append new nodes and edges to `st.session_state.lineage_nodes` and `st.session_state.lineage_edges`.
+3. Render the updated graph.
+
+Let's look at `get_multi_hop_lineage`:
+```python
+@st.cache_data(ttl="1h")
+def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
+    return run_query(
+        ("SELECT * FROM {0}.{1}.lineage_cache WHERE table_full_name = %(fn)s").format(
+            CATALOG_CACHE, SCHEMA_CACHE
+        ),
+        {"fn": table_full_name},
+    )
+```
+Wait, the query fetches just 1 hop for `table_full_name`. We can just use it to fetch lineage for the selected node! So `get_multi_hop_lineage` is fine as-is or we can change it to just `get_lineage` for a specific node, which it already does. Wait, the name is `get_multi_hop_lineage` and `depth: int = 1` is unused. I can remove `depth` or implement multi-hop if needed, but since we are doing dynamic loading, we load 1 hop per click! So `get_multi_hop_lineage` might just fetch 1 hop and return it. Wait, the TODO says: "TODO (feature/enhanced-lineage): Implement recursive traversal of lineage_cache to support multi-hop exploration with vis-network node events."
+Wait, if it says "recursive traversal ... to support multi-hop exploration with vis-network node events", maybe it means we should traverse the lineage cache dynamically using recursive calls if `depth > 1`?
+Wait, if the user expands nodes *on click*, we just need 1 hop from the clicked node! We append it to the graph. The traversal is driven by the user.
+
+Let's submit the plan for review.

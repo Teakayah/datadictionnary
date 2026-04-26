@@ -1,0 +1,28 @@
+If we look at `st.query_params` approach:
+`window.parent.document.querySelector` trick?
+Wait, the iframe is on the same origin (in bare run). We can access `window.parent.document` and find a hidden Streamlit text input or button, and trigger it!
+```javascript
+const input = window.parent.document.querySelector('input[aria-label="expand_node_input"]');
+if (input) {
+    // set value and dispatch event
+    let nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+    nativeInputValueSetter.call(input, nodeId);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    // maybe find a submit button and click it
+}
+```
+Wait, using `st.query_params` via `window.parent.postMessage` works for setting query params in modern Streamlit.
+Let's see the message types supported by Streamlit 1.30+.
+Streamlit handles `streamlit:setComponentValue`.
+If we want to pass data back cleanly without dirty hacks, we can use a proper custom component OR we can implement the query param setting:
+`window.parent.postMessage({ type: "SET_PAGE_LINK_QUERY_PARAMS", queryParams: { expand: nodeId } }, "*")` ? No.
+Actually, Streamlit's official way of passing `st.components.v1.html` back to python is not possible without `declare_component`.
+Wait! The feature description says:
+"Implement a Streamlit callback (via `st.query_params` or a custom component event) that triggers a fetch for the next level of lineage when a node is selected."
+
+This implies we can use `st.query_params` FROM the Javascript. How to change `st.query_params` from Javascript without reloading the page?
+`window.parent.history.pushState(null, "", "?tab=search&expand=" + nodeId); window.parent.postMessage({type: 'streamlit:setQueryParams', queryParams: {tab: "search", expand: nodeId}}, "*");`
+Wait, does Streamlit listen to `popstate` on the parent window? If we trigger `popstate`, it reruns.
+`window.parent.history.pushState(null, "", "?tab=search&expand=" + encodeURIComponent(nodeId)); window.parent.dispatchEvent(new PopStateEvent("popstate"));`
+Let's test this exactly!

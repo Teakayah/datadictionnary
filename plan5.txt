@@ -1,0 +1,49 @@
+We will update `app.py` in two sections.
+
+1. Implement `get_multi_hop_lineage` function to traverse multiple hops up to `depth`.
+2. Update the graph generation logic to use `get_multi_hop_lineage` or keep track of expanded nodes in `st.session_state` and expand dynamically.
+
+Wait, the prompt says "maintain a local graph state (nodes and edges) that grows as the user explores."
+And "Dynamic Loading: Implement a Streamlit callback (via st.query_params or a custom component event) that triggers a fetch for the next level of lineage when a node is selected."
+
+So Streamlit should listen to a query param, e.g. `expand_lineage=NODE_ID`, read it, append the nodes to the `st.session_state["lineage_nodes"]`, append the edges to `st.session_state["lineage_edges"]`, and then clear the query param and `st.rerun()`.
+
+Let's modify `app.py`:
+
+```python
+# During lineage rendering
+if "lineage_nodes" not in st.session_state:
+    st.session_state["lineage_nodes"] = {}
+if "lineage_edges" not in st.session_state:
+    st.session_state["lineage_edges"] = []
+
+# When navigating to a new table, reset lineage state
+if st.session_state.get("dd_nav_select") != st.session_state.get("last_nav_select"):
+    st.session_state["lineage_nodes"] = {}
+    st.session_state["lineage_edges"] = []
+    st.session_state["last_nav_select"] = st.session_state.get("dd_nav_select")
+```
+
+When a user clicks on a node in `vis-network`:
+```javascript
+network.on("selectNode", function (params) {
+    if (params.nodes.length > 0) {
+        var nodeId = params.nodes[0];
+        window.parent.postMessage({
+            type: "streamlit:setComponentValue", // Wait, is there a way to pass data without custom component wrapper?
+            // Actually, we can use Streamlit's native `st.components.v1.html` trick
+        }, "*");
+    }
+});
+```
+
+Streamlit allows component to pass messages back if it's `streamlit:setComponentValue`, but for `components.html` it's generally one-way unless you use `window.parent.postMessage({type: 'streamlit:setQueryParams', queryParams: {expand: nodeId}}, '*')`.
+Wait, `streamlit:setQueryParams` doesn't work if the app is not listening. Streamlit does listen to it! Let's check `streamlit` source.
+Streamlit intercepts `streamlit:setQueryParams` from any iframe? Wait, no. Streamlit 1.30+ uses a different protocol, and passing query params might not be allowed.
+What if we use `window.parent.location.assign(window.parent.location.pathname + "?tab=search&expand=" + encodeURIComponent(nodeId))`? It will refresh the Streamlit page. Will `st.session_state` be maintained? NO, session state is cleared on full page reload unless backed by cookies/url.
+
+How to implement the callback without page refresh?
+We can use Streamlit's `st.components.v1.components.declare_component` to create a tiny bridge component, OR use a hidden `st.query_params` update, OR we can just use `window.parent.postMessage({type: 'streamlit:setComponentValue', ...})`. But `declare_component` requires files.
+
+Is there a simpler way?
+`window.parent.postMessage({type: "streamlit:setComponentValue", value: nodeId}, "*")` works IF the iframe is a Streamlit component. `st.components.v1.html` is exactly that, BUT it does not register a component callback.

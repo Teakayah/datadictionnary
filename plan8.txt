@@ -1,0 +1,53 @@
+Yes! The custom component approach is extremely clean and doesn't rely on `window.parent` location hacks.
+But the feature instruction said: "Dynamic Loading: Implement a Streamlit callback (via st.query_params or a custom component event) that triggers a fetch for the next level of lineage when a node is selected."
+So I will do:
+1. `st.query_params` approach: Streamlit 1.30+ introduced native `st.query_params` where setting them updates the query string.
+Wait, if I use `st.query_params` inside the application, it won't be triggered by the JavaScript click UNLESS the javascript sets the query parameters and triggers a `popstate` event on the parent window.
+
+Wait, since it suggested `via st.query_params OR a custom component event`, I can use the simplest:
+Since `st.components.v1.html` is already used throughout `app.py` for vis-network.
+Let's see if Streamlit captures `window.parent.postMessage({type: 'streamlit:setQueryParams', queryString: 'expand=' + nodeId}, '*')` in modern versions.
+Wait, another way to do it is to NOT use `postMessage` directly, but wrap the `vis-network` initialization inside a simple component that just communicates back with `Streamlit.setComponentValue(nodeId)`.
+I'll create `assets/vis_network/` because `assets/` exists and serves static files if needed, but `components.declare_component` doesn't need external serving.
+
+Wait! If we use `components.html` and just add a click handler:
+`window.parent.location.assign(window.parent.location.pathname + '?tab=search&expand_node=' + encodeURIComponent(nodeId));`
+This causes a full reload. But if we preserve `dd_nav_select` in `st.query_params`? Currently, `dd_nav_select` is NOT in `st.query_params`. Only `tab` and `mock_login` are.
+
+Actually, if we look at `app.py`, `st.components.v1.html` is used twice for `vis-network`. Once for glossary and once for lineage.
+Let's look at the `vis-network` usage in `app.py`:
+
+```python
+graph_html = f'''<div id="mynetwork"...>...<script>... network.on("selectNode", function(params) {{
+    window.parent.postMessage({{
+        type: 'streamlit:setQueryParams',
+        queryString: 'tab=search&expand_lineage=' + encodeURIComponent(params.nodes[0])
+    }}, '*');
+}}); ...</script>'''
+```
+Actually, wait, we can just use `window.parent.document.querySelector` hack?
+NO, Streamlit apps can be hosted on multiple domains (iframe).
+
+Let's just use the built-in `declare_component` with a tiny `index.html` inline in python? No, `declare_component` needs a path.
+
+Let's do the simplest standard Streamlit way. We can use Streamlit's `st.components.v1.declare_component` but it requires a static directory.
+Can we use `st.query_params`? Yes, we can try to do:
+```html
+<a id="nav-link" href="?tab=search&expand_lineage=" target="_parent" style="display:none"></a>
+<script>
+network.on("selectNode", function(params) {
+    var link = document.getElementById("nav-link");
+    link.href = "?tab=search&expand_lineage=" + encodeURIComponent(params.nodes[0]);
+    link.click();
+});
+</script>
+```
+Does clicking an `<a>` tag with `target="_parent"` in an iframe trigger a hard reload of the parent page in Streamlit?
+Streamlit intercepts clicks on `<a>` tags IF they are in the parent document and manage routing if using MPA. But since it's `target="_parent"`, the browser navigates the parent window to the new URL. This is a full page reload!
+But because `st.session_state` is lost on full page reload, the user will lose their search query and other state unless it's in query parameters!
+
+Wait, `expand_lineage` is meant to be recursive traversal.
+If we implement `get_multi_hop_lineage`, we don't necessarily need to expand one node at a time via callback. The prompt says: "transform the static 1-hop lineage view into an interactive exploration tool, allowing users to trace data dependencies across the entire organization by expanding nodes on click."
+
+This literally means we NEED the callback to expand nodes on click.
+I will use the `declare_component` approach because it's clean and doesn't reload the page.
