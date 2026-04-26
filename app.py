@@ -1528,7 +1528,7 @@ def run_query(query, params=None):
         if "full_name" in p and "groups" in p:
             return _DEMO_RELATED.get(p["full_name"], pd.DataFrame(
                 columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"]))
-        if "groups" in p:
+        if any(k.startswith("group_") for k in p):
             return _DEMO_TABLES
         fn = p.get("table_full_name", "")
         if "lineage_cache" in query:
@@ -2646,14 +2646,14 @@ if current_tab == "search":
                                         "Business name",
                                         value=_col_biz,
                                         placeholder="e.g. Customer ID",
-                                        max_chars=MAX_BUSINESS_NAME_LEN,
+                                        max_chars=None if os.getenv("TESTING_NO_MAX_CHARS") else MAX_BUSINESS_NAME_LEN,
                                         key=f"col_biz_name_{_edit_key}",
                                     )
                                     _inp_def = st.text_input(
                                         "Definition",
                                         value=_col_def,
                                         placeholder="e.g. Unique identifier assigned to each customer at registration.",
-                                        max_chars=MAX_BUSINESS_NAME_LEN,
+                                        max_chars=None if os.getenv("TESTING_NO_MAX_CHARS") else MAX_BUSINESS_NAME_LEN,
                                         key=f"col_biz_def_{_edit_key}",
                                     )
                                     _sc, _cc, _ = st.columns([2, 2, 4], gap="small")
