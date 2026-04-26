@@ -1997,6 +1997,49 @@ def get_authorized_tables(groups):
     return run_query(sql_query, params)
 
 
+# ── Feature scaffolds (stubs — to be implemented) ─────────────────────────────
+
+@st.cache_data(ttl="1h")
+def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
+    """Fetch lineage edges up to a given depth.
+
+    TODO (feature/enhanced-lineage): Implement recursive traversal of
+    lineage_cache to support multi-hop exploration with vis-network node events.
+    """
+    return run_query(
+        ("SELECT * FROM {0}.{1}.lineage_cache WHERE table_full_name = %(fn)s").format(
+            CATALOG_CACHE, SCHEMA_CACHE
+        ),
+        {"fn": table_full_name},
+    )
+
+
+@st.cache_data(ttl="1h")
+def global_search_metadata(query: str, groups: tuple):
+    """Search across tables, columns, and descriptions.
+
+    TODO (feature/unified-search): Replace placeholder UNION query with a
+    full multi-table search across tables_metadata, columns_metadata, and
+    glossary, returning ranked results with match_type labels.
+    """
+    import logging
+    logging.info("GLOBAL SEARCH query=%s groups=%s", query, groups)
+    group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
+    params: dict = {f"group_{i}": g for i, g in enumerate(groups)} if groups else {}
+    params["q"] = f"%{query}%"
+    sql_query = ("""
+        SELECT DISTINCT m.full_name, m.table_name, 'Table' as match_type
+        FROM {0}.{1}.tables_metadata m
+        JOIN {0}.{1}.permissions_cache p ON m.full_name = p.table_full_name
+        WHERE m.table_name LIKE %(q)s
+          AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
+        LIMIT 20
+    """).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders)  # nosec B608
+    return run_query(sql_query, params)
+
+
+# ── Page renderers ─────────────────────────────────────────────────────────────
+
 def render_catalog_browser(groups):
     st.markdown(f'''
     <div class="dd-search-hero">
@@ -2420,6 +2463,11 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
 if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
+    # Personalization state (feature/personalization)
+    if "bookmarks" not in st.session_state:
+        st.session_state.bookmarks = set()
+    if "recent_views" not in st.session_state:
+        st.session_state.recent_views = []
     
     # Auto-login if returning from a nav link
     if st.query_params.get("mock_login") == "true":
