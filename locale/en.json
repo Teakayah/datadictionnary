@@ -165,6 +165,8 @@
     "add_bookmark": "Bookmark",
     "remove_bookmark": "Bookmarked",
     "no_bookmarks": "No bookmarks yet. Star a table to save it here.",
-    "no_recent": "No recently viewed tables yet."
+    "no_recent": "No recently viewed tables yet.",
+    "bookmarked_columns": "Bookmarked columns",
+    "no_col_bookmarks": "No column bookmarks yet. Star a column to save it here."
   }
 }
