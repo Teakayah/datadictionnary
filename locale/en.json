@@ -106,6 +106,7 @@
   },
   "glossary": {
     "title": "\u00a7 Business glossary",
+    "hero_title": "Speak the same language.",
     "subtitle": "Define business concepts and map them to technical data assets.",
     "search_placeholder": "Search for a term...",
     "no_terms": "No terms found.",
@@ -116,6 +117,8 @@
     "stewardship": "\u00a7 Stewardship",
     "domain": "Domain",
     "steward": "Steward",
+    "business_domain": "Business domain",
+    "data_steward": "Data steward",
     "concept_map": "\u00a7 Concept Map"
   },
   "discovery": {

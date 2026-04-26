@@ -106,6 +106,7 @@
   },
   "glossary": {
     "title": "\u00a7 Glossaire m\u00e9tier",
+    "hero_title": "Parlez le m\u00eame langage.",
     "subtitle": "D\u00e9finissez les concepts m\u00e9tier et liez-les aux donn\u00e9es techniques.",
     "search_placeholder": "Rechercher un terme\u2026",
     "no_terms": "Aucun terme trouv\u00e9.",
@@ -116,6 +117,8 @@
     "stewardship": "\u00a7 Intendance",
     "domain": "Domaine",
     "steward": "Responsable",
+    "business_domain": "Domaine m\u00e9tier",
+    "data_steward": "Responsable des donn\u00e9es",
     "concept_map": "\u00a7 Carte des concepts"
   },
   "discovery": {

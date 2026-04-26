@@ -1,0 +1,41 @@
+# Version control
+.git
+.gitignore
+
+# Python bytecode
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# DuckDB data files (mounted via PVC at runtime)
+*.duckdb
+*.duckdb.wal
+
+# Test suite
+tests/
+
+# Node / frontend tooling
+node_modules/
+package-lock.json
+
+# Logs
+streamlit.log
+new_streamlit.log
+*.log
+
+# CI/dev artefacts
+.digest/
+.pytest_cache/
+.claude/
+
+# macOS
+.DS_Store
+
+# Screenshots / docs assets not needed in image
+screenshots/
