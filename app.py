@@ -1132,11 +1132,9 @@ def render_catalog_browser(groups):
         for cat in catalogs:
             with st.expander(f"📁 {cat}", expanded=False):
                 cat_data = all_data[all_data['catalog_name'] == cat]
-                schemas = sorted(cat_data['schema_name'].unique().tolist())
-                
-                for sch in schemas:
+                # Group by schema_name to avoid O(N^2) dataframe filtering
+                for sch, sch_data in cat_data.groupby('schema_name'):
                     st.markdown(f'<div style="margin-left: 20px; font-weight: 500; color: var(--ink-60); margin-top: 10px; margin-bottom: 5px;">📂 {sch}</div>', unsafe_allow_html=True)
-                    sch_data = cat_data[cat_data['schema_name'] == sch]
                     tables = sorted(sch_data['table_name'].unique().tolist())
                     
                     # Columns for tables to make it more compact
