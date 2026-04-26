@@ -25,7 +25,9 @@
     "eyebrow": "§ Catalog search",
     "load_error": "Error loading catalog.",
     "public_tables_filter": "Showing publicly accessible tables",
-    "group_filter_active": "Filtered by group: {group}"
+    "group_filter_active": "Filtered by group: {group}",
+    "view_details": "View details",
+    "back_to_results": "Back to results"
   },
   "catalog": {
     "eyebrow": "§ Catalog browser",

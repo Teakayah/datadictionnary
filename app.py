@@ -2206,6 +2206,16 @@ def search_all_metadata(query: str, groups: tuple):
 
     sql_results = run_query(sql_query, params)
 
+    # Normalize columns — demo mode returns _DEMO_TABLES which lacks match_type/name/description
+    if sql_results is not None and not sql_results.empty:
+        if "match_type" not in sql_results.columns:
+            sql_results = sql_results.assign(match_type="Table")
+        if "name" not in sql_results.columns:
+            sql_results = sql_results.assign(name=sql_results.get("table_name", ""))
+        if "description" not in sql_results.columns:
+            _desc_src = sql_results["table_description"] if "table_description" in sql_results.columns else sql_results.get("comment", "")
+            sql_results = sql_results.assign(description=_desc_src)
+
     # Process glossary terms
     term_matches = []
     if _DEMO_GLOSSARY is not None and not _DEMO_GLOSSARY.empty and query:
@@ -2932,38 +2942,54 @@ if current_tab == "search":
         try:
             results = search_all_metadata(search_query, query_groups)
             if results is not None and not results.empty:
-                st.markdown(f"### {len(results)} matches found")
-                for _, _sr in results.iterrows():
-                    _sr_type = _sr.get("match_type", "Unknown")
-                    _sr_name = _sr.get("name", "")
-                    _sr_full = _sr.get("full_name", "")
-                    _sr_desc = _sr.get("description", "")
-                    st.markdown(f'''
-                    <div style="background:var(--paper); border:1px solid var(--ink-10); padding:16px 20px; margin-bottom:8px; border-radius:4px;">
-                        <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:4px;">{_html.escape(_sr_type)}</div>
-                        <div style="font-family:var(--font-sans); font-size:16px; font-weight:600; color:var(--ink); margin-bottom:4px;">{_html.escape(str(_sr_name))}</div>
-                        <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-bottom:8px;">{_html.escape(str(_sr_full))}</div>
-                        <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:0;">{_html.escape(str(_sr_desc) if isinstance(_sr_desc, str) else '')}</p>
-                    </div>
-                    ''', unsafe_allow_html=True)
-                st.markdown("<hr style='margin-bottom:30px;'/>", unsafe_allow_html=True)
-
                 # Show table detail panel for table-type matches
                 _table_results = results[results["match_type"] == "Table"] if "match_type" in results.columns else results
-                col_main_detail, col_side_detail = st.columns([7, 5], gap="large")
                 _table_names = _table_results["table_name"].tolist()
                 # Use sticky nav (persists across locale/star reruns); cleared on manual search change
                 _nav_target  = st.session_state.get("_dd_sticky_nav")
-                _nav_idx = 0 if len(_table_names) > 0 else None
+                _nav_idx = None
                 if _nav_target:
                     _nav_name = _nav_target.split(".")[-1]
                     if _nav_name in _table_names:
                         _nav_idx = _table_names.index(_nav_name)
 
+                if _nav_idx is None:
+                    import pandas as _pd
+                    def _s(v):
+                        return "" if _pd.isna(v) else str(v)
+                    # No selection yet — show clickable result cards
+                    st.markdown(f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);margin-bottom:12px">{len(results)} matches</p>', unsafe_allow_html=True)
+                    for _sr_i, (_, _sr) in enumerate(results.iterrows()):
+                        _sr_type = _s(_sr.get("match_type"))
+                        _sr_name = _s(_sr.get("name"))
+                        _sr_full = _s(_sr.get("full_name"))
+                        _sr_desc = _s(_sr.get("description"))
+                        if not _sr_full:
+                            continue
+                        _card_col, _btn_col = st.columns([5, 1], gap="small")
+                        with _card_col:
+                            st.markdown(f'''
+                            <div style="background:var(--paper); border:1px solid var(--ink-10); border-radius:4px; padding:14px 18px; height:100%;">
+                                <div style="font-family:var(--font-mono); font-size:11px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">{_html.escape(_sr_type)}</div>
+                                <div style="font-family:var(--font-sans); font-size:15px; font-weight:600; color:var(--ink); margin-bottom:2px;">{_html.escape(_sr_name)}</div>
+                                <div style="font-family:var(--font-mono); font-size:11px; color:var(--ink-60); margin-bottom:6px;">{_html.escape(_sr_full)}</div>
+                                <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:0;">{_html.escape(_sr_desc)}</p>
+                            </div>
+                            ''', unsafe_allow_html=True)
+                        with _btn_col:
+                            if st.button(f"{t('search.view_details')} →", key=f"view_{_sr_full}_{_sr_i}", use_container_width=True):
+                                st.session_state["_dd_sticky_nav"] = _sr_full
+                                st.rerun()
+                        st.markdown('<div style="margin-bottom:8px;"></div>', unsafe_allow_html=True)
+
                 if _nav_idx is not None:
                     selected_table = _table_names[_nav_idx]
                     row = _table_results[_table_results["table_name"] == selected_table].iloc[0]
                     full_name = f"{row['catalog_name']}.{row['schema_name']}.{row['table_name']}"
+                    if st.button(f"← {t('search.back_to_results')}", key="search_back"):
+                        st.session_state.pop("_dd_sticky_nav", None)
+                        st.rerun()
+                    col_main_detail, col_side_detail = st.columns([7, 5], gap="large")
                     with col_main_detail:
                         _cat, _sch, _tbl = _html.escape(str(row['catalog_name'])), _html.escape(str(row['schema_name'])), _html.escape(str(row['table_name']))
                         _raw_desc = row.get('table_description', '')
