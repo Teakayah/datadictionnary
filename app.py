@@ -989,60 +989,75 @@ iframe[height="0"] { display: none !important; }
 
 /* ── Streamlit tab labels — force full-ink color in all states ── */
 [data-testid="stTabs"] button[data-baseweb="tab"] {
-    color: #14110C !important;
+    color: var(--ink) !important;
     font-family: var(--font-sans) !important;
     font-size: 13px !important;
     font-weight: 500 !important;
 }
 [data-testid="stTabs"] button[data-baseweb="tab"]:hover {
-    color: #14110C !important;
+    color: var(--ink) !important;
 }
 [data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="false"] {
-    color: #14110C !important;
+    color: var(--ink) !important;
     opacity: 0.55;
 }
 [data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
-    color: #14110C !important;
+    color: var(--ink) !important;
     opacity: 1;
 }
 
-/* ── Segmented control styled as a tab bar (used in Discovery) ── */
-[data-testid="stSegmentedControl"] {
+/* ── Segmented control themed pills ── */
+.stApp [data-testid="stButtonGroup"],
+.stApp [data-testid="stButtonGroup"] > div,
+.stApp [data-testid="stButtonGroup"] [role="radiogroup"] {
     background: transparent !important;
-    padding: 0 !important;
-}
-[data-testid="stSegmentedControl"] > div {
-    background: transparent !important;
+    background-color: transparent !important;
     border: none !important;
-    border-bottom: 1px solid var(--ink-10) !important;
-    border-radius: 0 !important;
-    padding: 0 !important;
-    gap: 0 !important;
 }
-[data-testid="stSegmentedControl"] label {
-    background: transparent !important;
-    border: none !important;
-    border-radius: 0 !important;
-    border-bottom: 2px solid transparent !important;
-    margin-bottom: -1px !important;
-    color: #14110C !important;
-    font-family: var(--font-sans) !important;
-    font-size: 14px !important;
-    font-weight: 400 !important;
-    padding: 8px 16px !important;
-    opacity: 0.55;
-    cursor: pointer;
-    transition: opacity 0.15s ease, border-color 0.15s ease;
+
+.stApp [data-testid="stButtonGroup"] [role="radiogroup"] {
+    gap: 8px !important;
+    padding: 4px 0 !important;
 }
-[data-testid="stSegmentedControl"] label:hover {
-    opacity: 0.85 !important;
-    background: transparent !important;
+
+.stApp [data-testid="stButtonGroup"] button,
+.stApp [data-testid="stButtonGroup"] [role="radiogroup"] button {
+    border-radius: 999px !important;
+    background-color: var(--paper) !important;
+    color: var(--ink-60) !important;
+    border: 1px solid var(--ink-20) !important;
+    padding: 4px 16px !important;
+    height: 32px !important;
+    transition: all 0.1s ease !important;
+    box-shadow: none !important;
 }
-[data-testid="stSegmentedControl"] label:has(input:checked) {
-    border-bottom: 2px solid #B8362A !important;
+
+.stApp [data-testid="stButtonGroup"] button[kind="segmented_controlActive"],
+.stApp [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] {
+    background-color: var(--accent) !important;
+    color: var(--paper) !important;
+    border: 1px solid var(--accent) !important;
+}
+
+.stApp [data-testid="stButtonGroup"] button[kind="segmented_controlActive"] *,
+.stApp [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] * {
+    color: var(--paper) !important;
     font-weight: 600 !important;
-    opacity: 1 !important;
-    background: transparent !important;
+    pointer-events: none !important;
+}
+
+.stApp [data-testid="stButtonGroup"] button[kind="segmented_control"] *,
+.stApp [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_control"] * {
+    color: var(--ink-60) !important;
+    pointer-events: none !important;
+}
+
+.stApp [data-testid="stButtonGroup"] button:hover {
+    background-color: var(--paper-deep) !important;
+    border-color: var(--ink-40) !important;
+}
+.stApp [data-testid="stButtonGroup"] button:hover * {
+    color: var(--ink) !important;
 }
 """
 
@@ -2373,16 +2388,26 @@ def render_discovery(groups):
         t("personalization.tab_bookmarks"),
         t("personalization.tab_recent"),
     ]
-    # Persist active tab by index so locale switches (which change label strings) don't reset it
-    _disc_idx = st.session_state.get("_disc_tab_idx", 0)
-    _disc_default = _disc_tab_labels[_disc_idx] if 0 <= _disc_idx < len(_disc_tab_labels) else _disc_tab_labels[0]
+    
+    # Initialize the key in session state to avoid changing 'default' parameter
+    if "discovery_active_tab" not in st.session_state:
+        _disc_idx = st.session_state.get("_disc_tab_idx", 0)
+        st.session_state["discovery_active_tab"] = _disc_tab_labels[_disc_idx] if 0 <= _disc_idx < len(_disc_tab_labels) else _disc_tab_labels[0]
+
     _disc_active = st.segmented_control(
         "discovery_tabs",
         options=_disc_tab_labels,
-        default=_disc_default,
         key="discovery_active_tab",
         label_visibility="collapsed",
+        selection_mode="single",
     )
+    
+    # Prevent deselecting all tabs (forces at least one to be active)
+    if _disc_active is None:
+        _disc_active = _disc_tab_labels[st.session_state.get("_disc_tab_idx", 0)]
+        st.session_state["discovery_active_tab"] = _disc_active
+        st.rerun()
+
     # Keep index in sync so the next rerun (e.g. locale switch) restores correctly
     if _disc_active in _disc_tab_labels:
         st.session_state["_disc_tab_idx"] = _disc_tab_labels.index(_disc_active)
