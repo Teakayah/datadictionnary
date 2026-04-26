@@ -23,7 +23,9 @@
     "no_results": "No results found for \u2018{query}\u2019",
     "loading": "Searching...",
     "eyebrow": "\u00a7 Catalog search",
-    "load_error": "Error loading catalog."
+    "load_error": "Error loading catalog.",
+    "public_tables_filter": "Showing publicly accessible tables",
+    "group_filter_active": "Filtered by group: {group}"
   },
   "catalog": {
     "eyebrow": "\u00a7 Catalog browser",
@@ -54,6 +56,7 @@
     "shared_column": "Shared column",
     "open_related": "Open \u2192",
     "search_tables_accessible": "Search tables accessible to: {principal} ({privilege})",
+    "browse_public_tables": "Browse tables accessible to all users ({privilege})",
     "load_error": "Error displaying details."
   },
   "comment": {
