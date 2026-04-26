@@ -386,6 +386,28 @@ class TestHealthDashboard:
         html = _html(*at.markdown)
         assert "Priority Actions" in html
 
+    def test_health_click_priority_action_reruns(self):
+        """Clicking a priority action must set overrides and switch to search tab."""
+        sql_returns(make_tables_df_with_missing_desc(), make_health_col_stats())
+        at = authenticated_app(tab="health")
+        at.run()
+
+        # Click the first undocumented table button (customers)
+        at.button(key="health_fix_main.sales.customers").click().run()
+
+        # Verify navigation to the search tab
+        assert at.query_params["tab"] == "search" or at.query_params["tab"] == ["search"]
+
+    def test_health_exception_shows_generic_error(self):
+        """When an exception occurs during query execution in render_health,
+        the UI must show a generic message."""
+        # Return empty DataFrame for columns to trigger IndexError in stats.iloc[0]
+        sql_returns(make_tables_df_with_missing_desc(), pd.DataFrame())
+        at = authenticated_app(tab="health")
+        at.run()
+
+        assert any("Could not load health metrics." in msg.value for msg in at.error)
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 4. Backend Sync — object_tags
