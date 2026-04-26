@@ -2545,7 +2545,13 @@ if current_tab == "search":
 
     try:
         all_results = get_authorized_tables(query_groups)
-        table_options = sorted(all_results['table_name'].unique().tolist())
+        table_options = []
+        if all_results is not None:
+            if hasattr(all_results, 'empty') and not all_results.empty:
+                if hasattr(all_results, 'columns') and 'table_name' in all_results.columns:
+                    table_options = sorted(all_results['table_name'].unique().tolist())
+            elif not hasattr(all_results, 'empty') and 'table_name' in all_results:
+                table_options = sorted(all_results['table_name'].unique().tolist())
     except Exception as e:
         logging.error("Error querying data: %s", e, exc_info=True)
         st.error(t("search.load_error"))
