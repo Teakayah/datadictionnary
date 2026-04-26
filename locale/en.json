@@ -116,6 +116,8 @@
     "stewardship": "\u00a7 Stewardship",
     "domain": "Domain",
     "steward": "Steward",
+    "business_domain": "Business domain",
+    "data_steward": "Data steward",
     "concept_map": "\u00a7 Concept Map"
   },
   "discovery": {
