@@ -1528,7 +1528,8 @@ def run_query(query, params=None):
         if "full_name" in p and "groups" in p:
             return _DEMO_RELATED.get(p["full_name"], pd.DataFrame(
                 columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"]))
-        if "groups" in p:
+        is_groups_query = "groups" in p or any(k.startswith("group_") for k in p.keys())
+        if is_groups_query:
             return _DEMO_TABLES
         fn = p.get("table_full_name", "")
         if "lineage_cache" in query:
