@@ -2318,7 +2318,7 @@ def render_discovery(groups):
 
     # ── New & Notable ────────────────────────────────────────────────────────────
     with tab_notable:
-        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("personalization.tab_notable")}</span></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:var(--ink)">{t("personalization.tab_notable")}</span></div>', unsafe_allow_html=True)
         primary_group = st.session_state.get("group_filter")
         if not primary_group and groups:
             primary_group = groups[0]
@@ -2341,7 +2341,7 @@ def render_discovery(groups):
 
     # ── My Bookmarks ─────────────────────────────────────────────────────────────
     with tab_bookmarks:
-        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("personalization.tab_bookmarks")}</span></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:var(--ink)">{t("personalization.tab_bookmarks")}</span></div>', unsafe_allow_html=True)
         bookmarks = st.session_state.get("bookmarks", set())
         if not bookmarks:
             st.info(t("personalization.no_bookmarks"))
@@ -2360,7 +2360,7 @@ def render_discovery(groups):
 
     # ── Recently Viewed ──────────────────────────────────────────────────────────
     with tab_recent:
-        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("personalization.tab_recent")}</span></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:var(--ink)">{t("personalization.tab_recent")}</span></div>', unsafe_allow_html=True)
         recent_views = st.session_state.get("recent_views", [])
         if not recent_views:
             st.info(t("personalization.no_recent"))
