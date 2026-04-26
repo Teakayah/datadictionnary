@@ -1600,6 +1600,8 @@ def _sync_prefs_to_session() -> None:
     """Populate in-memory sets from DuckDB on first load (or after rerun)."""
     bookmarks = _pref_load("bookmark")
     st.session_state.bookmarks = set(bookmarks)
+    col_bookmarks = _pref_load("col_bookmark")
+    st.session_state.col_bookmarks = set(col_bookmarks)
     recent = _pref_load("recent", limit=50)
     st.session_state.recent_views = recent
 
@@ -2178,7 +2180,7 @@ def render_glossary():
     # Term Selection (Autocomplete)
     all_terms = _DEMO_GLOSSARY["term"].tolist()
     selected_term = st.selectbox(
-        "Search for a term",
+        t("glossary.search_placeholder"),
         options=all_terms,
         placeholder="Select or type a business term...",
         label_visibility="collapsed",
@@ -2208,11 +2210,23 @@ def render_glossary():
             ''', unsafe_allow_html=True)
             
             for table_fn in term_row["related_tables"]:
-                if st.button(f"📄 {table_fn}", key=f"gloss_link_{table_fn}", use_container_width=True):
-                    st.query_params["tab"] = "search"
-                    st.session_state["dd_search_override"] = table_fn.split(".")[-1]
-                    st.session_state["dd_nav_select"] = table_fn
-                    st.rerun()
+                _gloss_bk = table_fn in st.session_state.get("bookmarks", set())
+                _c_tbl, _c_star = st.columns([11, 1], gap="small")
+                with _c_tbl:
+                    if st.button(f"→ {table_fn.split('.')[-1]}", key=f"gloss_link_{table_fn}", use_container_width=True, type="secondary"):
+                        st.query_params["tab"] = "search"
+                        st.session_state["dd_search_override"] = table_fn.split(".")[-1]
+                        st.session_state["dd_nav_select"] = table_fn
+                        st.rerun()
+                with _c_star:
+                    if st.button("★" if _gloss_bk else "☆", key=f"gloss_bk_{table_fn}", use_container_width=True):
+                        if _gloss_bk:
+                            st.session_state.bookmarks.discard(table_fn)
+                            _pref_delete(table_fn, "bookmark")
+                        else:
+                            st.session_state.bookmarks.add(table_fn)
+                            _pref_upsert(table_fn, "bookmark")
+                        st.rerun()
 
         with col_side:
             # Stewardship Section
@@ -2250,38 +2264,33 @@ def render_glossary():
             components.html(graph_html, height=330)
 
 def _render_table_card(row: "pd.Series", key_prefix: str) -> None:
-    """Shared card layout used in New & Notable and My Bookmarks."""
+    """Discovery card: table name is clickable, star toggles bookmark."""
     _ts = row.get("updated_at")
-    if isinstance(_ts, pd.Timestamp):
-        _time_str = _ts.strftime(t("discovery.date_format"))
-    else:
-        _time_str = str(_ts) if _ts else ""
-
-    _full = str(row.get("full_name", ""))
-    _is_bk = _full in st.session_state.get("bookmarks", set())
-    _bk_icon = "★" if _is_bk else "☆"
+    _time_str = _ts.strftime(t("discovery.date_format")) if isinstance(_ts, pd.Timestamp) else (str(_ts) if _ts else "")
+    _full      = str(row.get("full_name", ""))
+    _tname     = str(row.get("table_name", ""))
+    _is_bk     = _full in st.session_state.get("bookmarks", set())
 
     st.markdown(f'''
-    <div style="background:var(--paper); border:1px solid var(--ink-10); padding:20px; margin-bottom:16px; border-radius:2px;">
-        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+    <div style="background:var(--paper); border:1px solid var(--ink-10); padding:16px 20px 4px; margin-bottom:4px; border-radius:2px;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
             <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(row.get("catalog_name","")))} · {_html.escape(str(row.get("schema_name","")))}</div>
             <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{t("discovery.updated")} {_time_str}</div>
         </div>
-        <div style="font-family:var(--font-mono); font-size:18px; font-weight:600; color:var(--ink); margin-bottom:8px;">{_html.escape(str(row.get("table_name","")))}</div>
-        <p style="font-family:var(--font-sans); font-size:14px; color:var(--ink-60); line-height:1.5; margin-bottom:16px;">{_html.escape(str(row.get("table_description","")))}</p>
+        <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:4px 0 8px;">{_html.escape(str(row.get("table_description","")))}</p>
     </div>
     ''', unsafe_allow_html=True)
 
-    c1, c2 = st.columns([3, 1])
-    with c1:
-        if st.button(t("discovery.explore_button", name=row.get("table_name", "")), key=f"{key_prefix}_exp_{_full}", type="secondary"):
+    # Table name button (navigates to detail) + star bookmark — flush below the card
+    _c_name, _c_star = st.columns([11, 1], gap="small")
+    with _c_name:
+        if st.button(f"→ {_tname}", key=f"{key_prefix}_open_{_full}", use_container_width=True, type="secondary"):
             st.query_params["tab"] = "search"
-            st.session_state["dd_search_override"] = row.get("table_name", "")
+            st.session_state["dd_search_override"] = _tname
             st.session_state["dd_nav_select"] = _full
             st.rerun()
-    with c2:
-        _bk_label = t("personalization.remove_bookmark") if _is_bk else t("personalization.add_bookmark")
-        if st.button(f"{_bk_icon} {_bk_label}", key=f"{key_prefix}_bk_{_full}"):
+    with _c_star:
+        if st.button("★" if _is_bk else "☆", key=f"{key_prefix}_bk_{_full}", use_container_width=True):
             if _is_bk:
                 st.session_state.bookmarks.discard(_full)
                 _pref_delete(_full, "bookmark")
@@ -2289,6 +2298,7 @@ def _render_table_card(row: "pd.Series", key_prefix: str) -> None:
                 st.session_state.bookmarks.add(_full)
                 _pref_upsert(_full, "bookmark")
             st.rerun()
+    st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
 
 
 def render_discovery(groups):
@@ -2308,6 +2318,7 @@ def render_discovery(groups):
 
     # ── New & Notable ────────────────────────────────────────────────────────────
     with tab_notable:
+        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("personalization.tab_notable")}</span></div>', unsafe_allow_html=True)
         primary_group = st.session_state.get("group_filter")
         if not primary_group and groups:
             primary_group = groups[0]
@@ -2330,6 +2341,7 @@ def render_discovery(groups):
 
     # ── My Bookmarks ─────────────────────────────────────────────────────────────
     with tab_bookmarks:
+        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("personalization.tab_bookmarks")}</span></div>', unsafe_allow_html=True)
         bookmarks = st.session_state.get("bookmarks", set())
         if not bookmarks:
             st.info(t("personalization.no_bookmarks"))
@@ -2348,6 +2360,7 @@ def render_discovery(groups):
 
     # ── Recently Viewed ──────────────────────────────────────────────────────────
     with tab_recent:
+        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("personalization.tab_recent")}</span></div>', unsafe_allow_html=True)
         recent_views = st.session_state.get("recent_views", [])
         if not recent_views:
             st.info(t("personalization.no_recent"))
@@ -2605,6 +2618,8 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
     # Personalization state — seed from DuckDB, fall back to empty
     if "bookmarks" not in st.session_state:
         st.session_state.bookmarks = set()
+    if "col_bookmarks" not in st.session_state:
+        st.session_state.col_bookmarks = set()
     if "recent_views" not in st.session_state:
         st.session_state.recent_views = []
     if not st.session_state.get("_prefs_loaded"):
@@ -2738,19 +2753,20 @@ if current_tab == "search":
                             f'<p class="dd-detail-desc">{_desc}</p>{_ext_link}',
                             unsafe_allow_html=True,
                         )
-                        st.code(full_name, language=None)
-
-                        # --- § Bookmark + recent-view tracking ---
+                        # --- § Bookmark (star) + full_name — side by side ---
                         _is_bookmarked = full_name in st.session_state.get("bookmarks", set())
-                        _bk_label = t("personalization.remove_bookmark") if _is_bookmarked else t("personalization.add_bookmark")
-                        if st.button(_bk_label, key=f"bk_{full_name}", type="secondary"):
-                            if _is_bookmarked:
-                                st.session_state.bookmarks.discard(full_name)
-                                _pref_delete(full_name, "bookmark")
-                            else:
-                                st.session_state.bookmarks.add(full_name)
-                                _pref_upsert(full_name, "bookmark")
-                            st.rerun()
+                        _c_code, _c_bk = st.columns([11, 1], gap="small")
+                        with _c_code:
+                            st.code(full_name, language=None)
+                        with _c_bk:
+                            if st.button("★" if _is_bookmarked else "☆", key=f"bk_{full_name}", use_container_width=True):
+                                if _is_bookmarked:
+                                    st.session_state.bookmarks.discard(full_name)
+                                    _pref_delete(full_name, "bookmark")
+                                else:
+                                    st.session_state.bookmarks.add(full_name)
+                                    _pref_upsert(full_name, "bookmark")
+                                st.rerun()
 
                         # Record this table as recently viewed
                         _rv = st.session_state.get("recent_views", [])
@@ -2781,7 +2797,7 @@ if current_tab == "search":
                                 _col_def    = _override.get("definition", "")
 
                                 st.markdown('<hr class="dd-col-divider">', unsafe_allow_html=True)
-                                _r_name, _r_type, _r_desc, _r_btn = st.columns([3, 2, 5, 1], gap="small")
+                                _r_name, _r_type, _r_desc, _r_btn, _r_star = st.columns([3, 2, 4, 1, 1], gap="small")
 
                                 # Name cell: business name above, technical name faded below
                                 if _col_biz:
@@ -2809,6 +2825,18 @@ if current_tab == "search":
                                     if _r_btn.button("✎", key=f"col_edit_{_edit_key}", use_container_width=True):
                                         st.session_state["dd_col_edit_mode"] = _edit_key
                                         st.rerun()
+
+                                # Column bookmark star
+                                _col_bk_id = f"{full_name}::{_cname}"
+                                _is_col_bk = _col_bk_id in st.session_state.get("col_bookmarks", set())
+                                if _r_star.button("★" if _is_col_bk else "☆", key=f"colbk_{_edit_key}", use_container_width=True):
+                                    if _is_col_bk:
+                                        st.session_state.col_bookmarks.discard(_col_bk_id)
+                                        _pref_delete(_col_bk_id, "col_bookmark")
+                                    else:
+                                        st.session_state.col_bookmarks.add(_col_bk_id)
+                                        _pref_upsert(_col_bk_id, "col_bookmark")
+                                    st.rerun()
 
                                 if _col_edit == _edit_key:
                                     st.markdown('<div class="dd-edit-banner">Edit mode — changes are saved immediately and visible to all users.</div>', unsafe_allow_html=True)
