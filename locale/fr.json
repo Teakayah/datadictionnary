@@ -25,7 +25,9 @@
     "eyebrow": "§ Recherche au catalogue",
     "load_error": "Erreur lors du chargement du catalogue.",
     "public_tables_filter": "Affichage des tables accessibles à tous",
-    "group_filter_active": "Filtré par groupe : {group}"
+    "group_filter_active": "Filtré par groupe : {group}",
+    "view_details": "Voir les détails",
+    "back_to_results": "Retour aux résultats"
   },
   "catalog": {
     "eyebrow": "§ Navigateur de catalogue",
