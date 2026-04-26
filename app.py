@@ -2358,6 +2358,39 @@ def render_discovery(groups):
                 logging.error("Error loading bookmarks: %s", e)
                 st.error(t("discovery.load_error"))
 
+        # ── Bookmarked columns ────────────────────────────────────────────────
+        col_bookmarks = st.session_state.get("col_bookmarks", set())
+        st.markdown(f'<div class="dd-section-header" style="margin-top:32px"><span class="dd-eyebrow" style="margin-bottom:0;color:var(--ink)">{t("personalization.bookmarked_columns")}</span></div>', unsafe_allow_html=True)
+        if not col_bookmarks:
+            st.info(t("personalization.no_col_bookmarks"))
+        else:
+            for _bk_id in sorted(col_bookmarks):
+                if "::" not in _bk_id:
+                    continue
+                _bk_table, _bk_col = _bk_id.split("::", 1)
+                _bk_tbl_parts = _bk_table.split(".")
+                _bk_tbl_label = _bk_tbl_parts[-1] if _bk_tbl_parts else _bk_table
+                _bk_path = " · ".join(_bk_tbl_parts[:-1]) if len(_bk_tbl_parts) > 1 else ""
+                _c_col, _c_star = st.columns([11, 1], gap="small")
+                with _c_col:
+                    st.markdown(
+                        f'<div style="background:var(--paper);border:1px solid var(--ink-10);padding:10px 16px;border-radius:2px;margin-bottom:4px;">'
+                        f'<div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);margin-bottom:4px;">{_html.escape(_bk_path)} · {_html.escape(_bk_tbl_label)}</div>'
+                        f'<div style="font-family:var(--font-mono);font-size:14px;color:var(--ink);">{_html.escape(_bk_col)}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+                    if st.button(f"→ {_bk_tbl_label}", key=f"colbk_open_{_bk_id}", use_container_width=True, type="secondary"):
+                        st.query_params["tab"] = "search"
+                        st.session_state["dd_search_override"] = _bk_tbl_label
+                        st.session_state["dd_nav_select"] = _bk_table
+                        st.rerun()
+                with _c_star:
+                    if st.button("★", key=f"colbk_rm_{_bk_id}", use_container_width=True):
+                        st.session_state.col_bookmarks.discard(_bk_id)
+                        _pref_delete(_bk_id, "col_bookmark")
+                        st.rerun()
+
     # ── Recently Viewed ──────────────────────────────────────────────────────────
     with tab_recent:
         st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:var(--ink)">{t("personalization.tab_recent")}</span></div>', unsafe_allow_html=True)

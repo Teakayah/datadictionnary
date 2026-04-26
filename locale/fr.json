@@ -165,6 +165,8 @@
     "add_bookmark": "Ajouter aux favoris",
     "remove_bookmark": "Favori enregistré",
     "no_bookmarks": "Aucun favori pour l'instant. Marquez une table pour la retrouver ici.",
-    "no_recent": "Aucune table consultée récemment."
+    "no_recent": "Aucune table consultée récemment.",
+    "bookmarked_columns": "Colonnes favorites",
+    "no_col_bookmarks": "Aucune colonne favorite. Marquez une colonne pour la retrouver ici."
   }
 }
