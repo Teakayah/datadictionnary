@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+import uuid
+import threading
+import time
 import streamlit as st
 import streamlit.components.v1 as components
 from databricks import sql
@@ -12,6 +15,64 @@ import pandas as pd
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ── Internationalisation (i18n) ───────────────────────────────────────────────
+import json as _json
+
+def _load_locales() -> dict:
+    base = os.path.join(os.path.dirname(__file__), "locale")
+    result = {}
+    for lang in ("en", "fr"):
+        try:
+            with open(os.path.join(base, f"{lang}.json"), encoding="utf-8") as f:
+                result[lang] = _json.load(f)
+        except Exception:
+            result[lang] = {}
+    return result
+
+# Loaded once per process start — no caching decorator so restarts always
+# pick up locale file changes without needing a cache-clear.
+LOCALES: dict = _load_locales()
+
+def get_locale() -> str:
+    """Detect preferred locale from the browser Accept-Language header."""
+    try:
+        header = st.context.headers.get("Accept-Language", "en")
+        primary = header.split(",")[0].split(";")[0].split("-")[0].strip().lower()
+        return "fr" if primary == "fr" else "en"
+    except Exception:
+        return "en"
+
+def _ensure_locale() -> None:
+    if "locale" not in st.session_state:
+        st.session_state["locale"] = get_locale()
+
+def t(key: str, **kwargs) -> str:
+    """Look up a dotted key (e.g. 'nav.search') in the active locale.
+
+    Falls back to English if the key is missing in the active locale.
+    Supports str.format() style placeholders: t('search.results_count', count=5).
+    """
+    _ensure_locale()
+    lang = st.session_state.get("locale", "en")
+
+    def _lookup(d: dict, parts: list) -> str | None:
+        for p in parts:
+            if not isinstance(d, dict):
+                return None
+            d = d.get(p)
+        return d if isinstance(d, str) else None
+
+    parts = key.split(".")
+    val = _lookup(LOCALES.get(lang, {}), parts) or _lookup(LOCALES.get("en", {}), parts) or key
+    try:
+        return val.format(**kwargs) if kwargs else val
+    except (KeyError, IndexError):
+        return val
+
+def set_locale(lang: str) -> None:
+    """Persist locale choice; button click already triggers the rerun."""
+    st.session_state["locale"] = lang
 
 # ── Demo data (returned in mock/dev mode instead of hitting Databricks) ────────
 _DEMO_TABLES = pd.DataFrame({
@@ -159,10 +220,11 @@ CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 REDIRECT_URI = os.getenv("REDIRECT_URI")
-SCOPE = ["User.Read", "GroupMember.Read.All"]
+SCOPE = ["User.Read", "GroupMember.Read.All", "email"]
 
 CATALOG_CACHE = "data_governance"
 SCHEMA_CACHE = "dictionary_cache"
+MAX_BUSINESS_NAME_LEN = 255
 
 st.set_page_config(
     page_title="Data Dictionary",
@@ -695,35 +757,53 @@ button[data-testid="stBaseButton-secondary"]:hover {
     color: var(--ink-40);
 }
 
-/* ── Columns HTML table ── */
-.dd-columns-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-}
-.dd-col-row { border-top: 1px solid var(--ink-10); }
+/* ── Columns list (Streamlit-column-based rows) ── */
 .dd-col-name {
-    padding: 9px 16px 9px 0;
     font-family: var(--font-mono);
+    font-size: 13px;
     color: var(--ink);
-    white-space: nowrap;
-    vertical-align: top;
+    line-height: 1.5;
 }
 .dd-col-type {
-    padding: 9px 16px 9px 0;
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--ink-40);
-    white-space: nowrap;
-    vertical-align: top;
+    line-height: 1.5;
 }
 .dd-col-desc {
-    padding: 9px 0;
-    color: var(--ink-60);
     font-family: var(--font-sans);
     font-size: 13px;
+    color: var(--ink-60);
     line-height: 1.4;
-    vertical-align: top;
+}
+.dd-col-biz-name {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 500;
+    line-height: 1.4;
+    display: block;
+}
+.dd-col-tech-sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+    display: block;
+    line-height: 1.3;
+    margin-top: 2px;
+}
+.dd-col-desc-faded {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--ink-40);
+    display: block;
+    line-height: 1.3;
+    margin-top: 2px;
+}
+.dd-col-divider {
+    border: none;
+    border-top: 1px solid var(--ink-10);
+    margin: 2px 0;
 }
 
 /* ── Grants list ── */
@@ -773,8 +853,146 @@ button[data-testid="stBaseButton-secondary"]:hover {
     font-weight: 600 !important;
 }
 
+/* ── Language toggle ── */
+.dd-lang-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.dd-lang-opt {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--ink-40);
+    text-decoration: none;
+    transition: color var(--dur-hover) var(--ease);
+}
+.dd-lang-opt:hover { color: var(--ink); }
+.dd-lang-opt.dd-lang-active {
+    color: var(--ink) !important;
+    font-weight: 600;
+}
+.dd-lang-sep {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-20);
+}
+
 /* Hide the zero-height JS bridge iframe */
 iframe[height="0"] { display: none !important; }
+
+/* ── Business name editor ── */
+.dd-edit-banner {
+    background: var(--ochre);
+    color: var(--paper);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px 14px;
+    border-radius: 2px;
+    margin-bottom: 16px;
+    letter-spacing: -0.005em;
+}
+.dd-business-name {
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.1;
+    margin: 4px 0 4px 0;
+}
+.dd-tech-name-sub {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-40);
+    margin-bottom: 12px;
+}
+.dd-biz-audit {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--ink-40);
+    margin-top: -8px;
+    margin-bottom: 12px;
+    letter-spacing: -0.003em;
+}
+
+/* ── Comments ── */
+.dd-comment-row {
+    border-top: 1px solid var(--ink-10);
+    padding: 10px 0;
+}
+.dd-comment-author {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+}
+.dd-comment-date {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+}
+.dd-comment-text {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink-60);
+    line-height: 1.5;
+    margin-top: 4px;
+    white-space: pre-wrap;
+}
+.dd-comment-no-steward {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--ink-40);
+    font-style: italic;
+    margin-top: 4px;
+}
+.dd-comment-reply {
+    border-top: none;
+    padding: 6px 0 6px 12px;
+    border-left: 2px solid var(--ink-10);
+    margin-top: 4px;
+}
+
+/* ── Expanders ── */
+[data-testid="stExpander"] {
+    border: 1px solid var(--ink-20) !important;
+    border-radius: 2px !important;
+    background: var(--paper) !important;
+}
+[data-testid="stExpander"] details {
+    background: var(--paper) !important;
+}
+[data-testid="stExpander"] details summary {
+    background: var(--paper-deep) !important;
+    color: var(--ink) !important;
+}
+[data-testid="stExpander"] details summary:hover {
+    background: var(--paper-ink) !important;
+    color: var(--ink) !important;
+}
+/* Target only the label paragraph — NOT span, which carries the Material Icons glyph */
+[data-testid="stExpander"] details summary p {
+    color: var(--ink) !important;
+    font-family: var(--font-sans) !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+}
+
+/* ── Dataframe (glide-data-grid) ── */
+[data-testid="stDataFrame"] {
+    --gdg-bg-cell:        var(--paper) !important;
+    --gdg-bg-cell-medium: var(--paper-deep) !important;
+    --gdg-bg-header:      var(--paper-deep) !important;
+    --gdg-bg-header-has-focus: var(--paper-ink) !important;
+    --gdg-text-dark:      var(--ink) !important;
+    --gdg-text-medium:    var(--ink-60) !important;
+    --gdg-text-light:     var(--ink-40) !important;
+    --gdg-border-color:   var(--ink-10) !important;
+}
+[data-testid="stDataFrame"] > div {
+    background: var(--paper) !important;
+}
 """
 
 # ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
@@ -807,103 +1025,136 @@ def render_css():
 
 
 
-def render_header(user_name: str | None = None, active_tab: str = "search"):
+def render_header(user_name: str | None = None, active_tab: str = "search", show_admin: bool = False):
+    _ensure_locale()
+    locale = st.session_state.get("locale", "en")
+
     user_section = ""
     if user_name:
-        user_section = f'''
-        <span class="dd-nav-sep"></span>
-        <span class="dd-nav-user">{user_name}</span>
-        '''
+        user_section = f'<span class="dd-nav-sep"></span><span class="dd-nav-user">{_html.escape(user_name)}</span>'
 
     def link(label, tab_id):
         active = "active" if active_tab == tab_id else ""
         return f'<a href="#" data-tab="{tab_id}" class="dd-nav-tab {active}">{label}</a>'
 
+    admin_link = link(t("nav.admin"), "admin") if show_admin else ""
+
+    en_active = "dd-lang-active" if locale == "en" else ""
+    fr_active  = "dd-lang-active" if locale == "fr" else ""
+    title_en = t("language.switch_to_en")
+    title_fr = t("language.switch_to_fr")
+    lang_toggle = f'<span class="dd-nav-sep"></span><span class="dd-lang-toggle" aria-label="Language selector"><a href="#" data-lang="en" class="dd-lang-opt {en_active}" title="{title_en}">EN</a><span class="dd-lang-sep">/</span><a href="#" data-lang="fr" class="dd-lang-opt {fr_active}" title="{title_fr}">FR</a></span>'
+
     st.markdown(f'''
-    <div class="dd-header">
-      <div class="dd-header-inner">
-        <a href="#" data-tab="search" class="dd-logo-link">
-          {LOGO_MARK_SVG}
-          <span class="dd-logo-text">Data Dictionary</span>
-          <span class="dd-pill">Beta</span>
-        </a>
-        <nav class="dd-nav">
-          {link("Search", "search")}
-          {link("Catalog", "catalog")}
-          {link("Glossary", "glossary")}
-          {link("Discovery", "discovery")}
-          {link("Health", "health")}
-          {user_section}
-        </nav>
-      </div>
-    </div>
-    ''', unsafe_allow_html=True)
+<div class="dd-header" lang="{locale}">
+  <div class="dd-header-inner">
+    <a href="#" data-tab="search" class="dd-logo-link">
+      {LOGO_MARK_SVG}
+      <span class="dd-logo-text">Data Dictionary</span>
+      <span class="dd-pill">Beta</span>
+    </a>
+    <nav class="dd-nav" role="navigation" aria-label="Main navigation">
+      {link(t("nav.search"), "search")}
+      {link(t("nav.catalog"), "catalog")}
+      {link(t("nav.glossary"), "glossary")}
+      {link(t("nav.discovery"), "discovery")}
+      {link(t("nav.health"), "health")}
+      {admin_link}
+      {lang_toggle}
+      {user_section}
+    </nav>
+  </div>
+</div>
+''', unsafe_allow_html=True)
 
     # Hidden Streamlit buttons — JS in the component iframe clicks these
     _tabs = ["search", "catalog", "glossary", "discovery", "health"]
+    if show_admin:
+        _tabs.append("admin")
     for tab_id in _tabs:
-        if st.button(tab_id.capitalize(), key=f"nav_{tab_id}"):
+        if st.button(t(f"nav.{tab_id}"), key=f"nav_{tab_id}"):
             st.query_params["tab"] = tab_id
             st.query_params["mock_login"] = "true"
             st.rerun()
 
-    # Zero-height iframe: wires header nav clicks → hidden Streamlit buttons
-    _nav_labels_js = str(["Search", "Catalog", "Glossary", "Discovery", "Health"])
+    # Hidden lang proxy buttons — JS clicks these to trigger locale rerun.
+    # on_click fires *before* the script reruns, so render_header() picks up
+    # the new locale on that same rerun and builds consistent nav labels + TAB_MAP.
+    st.button("LOCALE_EN", key="lang_btn_en", on_click=set_locale, args=("en",))
+    st.button("LOCALE_FR", key="lang_btn_fr", on_click=set_locale, args=("fr",))
+
+    # Zero-height iframe: wires nav clicks → hidden Streamlit buttons,
+    # and wires language toggle clicks → hidden lang proxy buttons.
+    _tab_map = {tid: t(f"nav.{tid}") for tid in _tabs}
+    _tab_map_js = _json.dumps(_tab_map)
+    _nav_labels_js = _json.dumps(list(_tab_map.values()))
+
     components.html(f"""
+    <div style="display:none;">
     <script>
     (function() {{
         const parentDoc = window.parent.document;
         const NAV_LABELS = {_nav_labels_js};
+        const TAB_MAP = {_tab_map_js};
+        const iframeId = Math.random().toString(36);
 
-        function findNavButtons() {{
-            const all = parentDoc.querySelectorAll('button[data-testid="stBaseButton-secondary"]');
-            const navBtns = {{}};
-            all.forEach(btn => {{
+        function wire() {{
+            const allBtns = Array.from(parentDoc.querySelectorAll('button'));
+            
+            // 1. Hide proxy buttons
+            allBtns.forEach(btn => {{
                 const label = btn.textContent.trim();
-                if (NAV_LABELS.includes(label)) navBtns[label] = btn;
-            }});
-            return navBtns;
-        }}
-
-        function wireNav() {{
-            const navLinks = parentDoc.querySelectorAll('a.dd-nav-tab[data-tab], a.dd-logo-link[data-tab]');
-            const navBtns = findNavButtons();
-            if (navLinks.length === 0 || Object.keys(navBtns).length === 0) {{
-                setTimeout(wireNav, 150);
-                return;
-            }}
-
-            // Hide the proxy buttons
-            Object.values(navBtns).forEach(btn => {{
-                const wrapper = btn.closest('div[data-testid="stButton"]');
-                if (wrapper) wrapper.style.display = 'none';
+                if (NAV_LABELS.includes(label) || label === 'LOCALE_EN' || label === 'LOCALE_FR') {{
+                    const wrapper = btn.closest('div[data-testid="stButton"]');
+                    if (wrapper) wrapper.style.display = 'none';
+                }}
             }});
 
-            navLinks.forEach(link => {{
-                if (link._wired) return;
-                link._wired = true;
+            // 2. Wire Navigation
+            parentDoc.querySelectorAll('a.dd-nav-tab[data-tab], a.dd-logo-link[data-tab]').forEach(link => {{
+                if (link._wired === iframeId) return;
+                link._wired = iframeId;
                 link.addEventListener('click', function(e) {{
                     e.preventDefault();
                     const tabId = this.getAttribute('data-tab');
-                    const label = tabId.charAt(0).toUpperCase() + tabId.slice(1);
-                    const btns = findNavButtons();
-                    if (btns[label]) btns[label].click();
+                    const localizedLabel = TAB_MAP[tabId];
+                    const currentBtns = Array.from(parentDoc.querySelectorAll('button'));
+                    const btn = currentBtns.find(b => b.textContent.trim() === localizedLabel);
+                    if (btn) btn.click();
+                }});
+            }});
+
+            // 3. Wire Language
+            parentDoc.querySelectorAll('a.dd-lang-opt[data-lang]').forEach(link => {{
+                if (link._wired === iframeId) return;
+                link._wired = iframeId;
+                link.addEventListener('click', function(e) {{
+                    e.preventDefault();
+                    const lang = this.getAttribute('data-lang').toUpperCase();
+                    const currentBtns = Array.from(parentDoc.querySelectorAll('button'));
+                    const btn = currentBtns.find(b => b.textContent.trim() === 'LOCALE_' + lang);
+                    if (btn) btn.click();
                 }});
             }});
         }}
-        wireNav();
-        const observer = new MutationObserver(() => setTimeout(wireNav, 50));
+
+        // Initial wire
+        setTimeout(wire, 150);
+
+        // Continuous monitoring for Streamlit rerenders
+        const observer = new MutationObserver(() => {{ wire(); }});
         observer.observe(parentDoc.body, {{childList: true, subtree: true}});
     }})();
     </script>
+    </div>
     """, height=0)
 
 
 def render_footer():
-    st.markdown("""
+    st.markdown(f"""
     <div class="dd-footer">
       <div class="dd-footer-inner">
-        <span>Data Dictionary · v0.1.0 · synced nightly from Unity Catalog</span>
+        <span>{t('footer.built_with')}</span>
         <span>main.data_governance.dictionary_cache</span>
       </div>
     </div>
@@ -923,12 +1174,11 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
     col_hero, col_card = st.columns([1.1, 0.9], gap="large")
 
     with col_hero:
-        st.markdown("""
+        st.markdown(f"""
         <div class="dd-signin-hero">
           <div class="dd-eyebrow">§ Business Data Dictionary</div>
-          <h1>A card catalog<br>for your warehouse.</h1>
-          <p class="lead">Search tables, columns, and business terms across Unity Catalog —
-          filtered to what you have permission to see.</p>
+          <h1>{t('auth.title')}</h1>
+          <p class="lead">{t('auth.subtitle')}</p>
         </div>
         """, unsafe_allow_html=True)
         st.markdown('<hr class="dd-rule"/>', unsafe_allow_html=True)
@@ -960,10 +1210,11 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
         """, unsafe_allow_html=True)
 
         if mock:
-            if st.button(f"{MS_LOGO_SVG}  Sign in with Entra ID (mock)", use_container_width=True):
+            if st.button(f"{MS_LOGO_SVG}  {t('auth.mock_button')}", use_container_width=True):
                 st.session_state.authenticated = True
                 st.session_state.user_groups = ["finance_dept_id", "all_employees_id"]
-                st.session_state.user_name = "Finance User"
+                st.session_state.user_name  = "Finance User"
+                st.session_state.user_email = "finance.user@example.com"
                 st.rerun()
             st.markdown(
                 '<p class="dd-meta">Mock authentication active — '
@@ -980,7 +1231,7 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
               font-family:var(--font-sans);font-weight:500;
               text-decoration:none;box-sizing:border-box;
               transition:background 120ms var(--ease);
-            ">{MS_LOGO_SVG} Sign in with Entra ID</a>
+            ">{MS_LOGO_SVG} {t('auth.sign_in_button')}</a>
             <p class="dd-meta" style="margin-top:12px">By signing in you agree to the data access policy.</p>
             """, unsafe_allow_html=True)
 
@@ -1023,8 +1274,10 @@ def check_auth():
 
             if "access_token" in result:
                 st.session_state.auth_token = result
-                st.session_state.user_groups = result.get("id_token_claims", {}).get("groups", [])
-                st.session_state.user_name = result.get("id_token_claims", {}).get("name")
+                claims = result.get("id_token_claims", {})
+                st.session_state.user_groups = claims.get("groups", [])
+                st.session_state.user_name   = claims.get("name")
+                st.session_state.user_email  = claims.get("email") or claims.get("preferred_username", "")
                 # Clear query params and rerun
                 st.query_params.clear()
                 st.rerun()
@@ -1052,28 +1305,238 @@ def check_auth():
         st.stop()
 
 # ── Databricks query helper ────────────────────────────────────────────────────
+# ── DuckDB local-cache adapter ────────────────────────────────────────────────
+# When DUCKDB_PATH points to an existing file (written by the sync job), all
+# read queries and app writes are served locally — no network round-trip.
+# The adapter translates the existing %(name)s pyformat SQL into DuckDB's
+# $name named-parameter style so no query code needs to change.
+
+DUCKDB_PATH = os.getenv("DUCKDB_PATH", "")
+# User data (comments, overrides, audit) lives in a separate persistent file
+# that is never swapped by the nightly sync job.
+USER_DATA_PATH = (
+    DUCKDB_PATH.replace(".duckdb", "_user_data.duckdb")
+    if ".duckdb" in DUCKDB_PATH
+    else DUCKDB_PATH + "_user_data.duckdb"
+) if DUCKDB_PATH else ""
+
+_db_write_lock = threading.Lock()
+
+
+def _duckdb_available() -> bool:
+    return bool(DUCKDB_PATH and os.path.exists(DUCKDB_PATH))
+
+
+def _to_duckdb_sql(sql: str, params: dict) -> tuple:
+    """Convert %(name)s pyformat SQL + dict params to DuckDB $name style.
+
+    Special case: ``IN %(name)s`` where the value is a list/tuple is rewritten
+    to ``= ANY($name)`` so the DuckDB array-contains operator is used.
+    Returns (converted_sql, converted_params_dict).
+    """
+    import re
+    if not params:
+        return sql, {}
+    converted = {}
+    result = sql
+    for name, value in params.items():
+        if isinstance(value, (list, tuple)):
+            # IN %(name)s  →  = ANY($name)
+            result = re.sub(
+                rf"\bIN\s+%\({re.escape(name)}\)s",
+                f"= ANY(${name})",
+                result,
+                flags=re.IGNORECASE,
+            )
+            converted[name] = list(value)
+        else:
+            converted[name] = value
+    # Remaining %(name)s → $name
+    result = re.sub(r"%\((\w+)\)s", r"$\1", result)
+    return result, converted
+
+
+@st.cache_resource(validate=lambda c: c is not None)
+def _get_shared_duckdb_connection():
+    """Singleton connection shared across all Streamlit sessions/threads."""
+    if not _duckdb_available():
+        return None
+
+    import duckdb
+    con = duckdb.connect(DUCKDB_PATH)
+
+    # Attach the persistent user data database
+    con.execute(f"ATTACH IF NOT EXISTS '{USER_DATA_PATH}' AS user_data")
+
+    # Initialize user data tables with primary keys (if they don't exist)
+    with _db_write_lock:
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS user_data.comments (
+                comment_id        VARCHAR PRIMARY KEY,
+                object_type       VARCHAR,
+                object_name       VARCHAR,
+                comment_text      VARCHAR,
+                author_name       VARCHAR,
+                author_email      VARCHAR,
+                created_at        TIMESTAMP,
+                steward_email     VARCHAR,
+                parent_comment_id VARCHAR
+            )
+        """)
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS user_data.business_name_overrides (
+                table_full_name VARCHAR,
+                column_name     VARCHAR,
+                business_name   VARCHAR,
+                definition      VARCHAR,
+                edited_by       VARCHAR,
+                edited_at       TIMESTAMP,
+                PRIMARY KEY (table_full_name, column_name)
+            )
+        """)
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS user_data.audit_log (
+                event_id        VARCHAR PRIMARY KEY,
+                event_type      VARCHAR,
+                object_type     VARCHAR,
+                object_name     VARCHAR,
+                actor_email     VARCHAR,
+                old_value       VARCHAR,
+                new_value       VARCHAR,
+                created_at      TIMESTAMP
+            )
+        """)
+    return con
+
+
+class _DuckDBCursor:
+    """Cursor-like wrapper around a shared DuckDB connection."""
+
+    def __init__(self, con):
+        self._con = con
+        self._rel = None
+
+    def execute(self, sql: str, params=None):
+        if params is None:
+            self._rel = self._con.execute(sql)
+        elif isinstance(params, dict):
+            converted_sql, converted_params = _to_duckdb_sql(sql, params)
+            self._rel = self._con.execute(converted_sql, converted_params)
+        else:
+            self._rel = self._con.execute(sql, params)
+
+    def execute_write(self, sql: str, params=None):
+        """Thread-safe write execution wrapped in a lock."""
+        with _db_write_lock:
+            self.execute(sql, params)
+
+    def fetchall_as_pandas(self):
+        if self._rel is None:
+            return pd.DataFrame()
+        return self._rel.df()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        # We do NOT close the shared connection!
+        pass
+
+
+class _DuckDBConn:
+    """Connection-like wrapper that uses the shared singleton connection."""
+
+    def __init__(self, path: str):
+        self._con = _get_shared_duckdb_connection()
+
+    def cursor(self):
+        return _DuckDBCursor(self._con)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        pass
+
+    @property
+    def open(self):
+        return self._con is not None
+
+
 @st.cache_resource(ttl="2h", validate=lambda conn: conn.open)
-def get_db_connection():
+def _get_databricks_connection():
     return sql.connect(
         server_hostname=os.getenv("DATABRICKS_HOST"),
         http_path=os.getenv("DATABRICKS_HTTP_PATH"),
         access_token=os.getenv("DATABRICKS_TOKEN"),
     )
 
+
+def _get_write_connection():
+    """Return a DB connection for write operations (DuckDB primary)."""
+    if _duckdb_available():
+        return _DuckDBConn(DUCKDB_PATH)
+    return _get_databricks_write_connection()
+
+
+def _get_databricks_write_connection():
+    """Return a fresh (uncached) Databricks connection for write operations.
+
+    Write operations (INSERT, MERGE INTO) must always target the Databricks SQL
+    Warehouse — never the local DuckDB file, which is a read-only cache that is
+    rebuilt from Databricks on each sync and would silently discard any local
+    writes.  This function bypasses the read-path DuckDB check intentionally.
+    """
+    return sql.connect(
+        server_hostname=os.getenv("DATABRICKS_HOST"),
+        http_path=os.getenv("DATABRICKS_HTTP_PATH"),
+        access_token=os.getenv("DATABRICKS_TOKEN"),
+    )
+
+
+def get_db_connection():
+    """Return a DB connection for read queries.
+
+    Returns a DuckDB-backed connection when DUCKDB_PATH points to an existing
+    file (fast, local, no network).  Falls back to the cached Databricks SQL
+    Warehouse connection otherwise.
+
+    Do NOT use this for write operations — use _get_databricks_write_connection()
+    instead so writes always reach Databricks regardless of cache state.
+    """
+    if _duckdb_available():
+        return _DuckDBConn(DUCKDB_PATH)
+    return _get_databricks_connection()
+
+
 @st.cache_data(ttl="1h")
+def _run_databricks_query(query, params=None):
+    """Cached Databricks query — 1 h TTL to amortise network latency."""
+    conn = _get_databricks_connection()
+    with conn.cursor() as cursor:
+        cursor.execute(query, params)
+        return cursor.fetchall_as_pandas()
+
+
+def _run_duckdb_query(query, params=None):
+    """Uncached DuckDB query — local file is fast enough that caching adds
+    overhead rather than benefit, and skipping the cache means the app
+    always sees the freshest file after the nightly sync."""
+    conn = _DuckDBConn(DUCKDB_PATH)
+    with conn.cursor() as cursor:
+        cursor.execute(query, params)
+        return cursor.fetchall_as_pandas()
+
+
 def run_query(query, params=None):
-    # ── Demo mode: return hardcoded DataFrames without hitting Databricks ──────
-    # Activated by setting DEMO_DATA=true in .env (independent of mock auth).
+    # ── Demo mode: return hardcoded DataFrames without hitting any DB ──────────
     if os.getenv("DEMO_DATA", "false").lower() == "true":
         p = params or {}
-        # Related tables: has both "full_name" and "groups" params
         if "full_name" in p and "groups" in p:
             return _DEMO_RELATED.get(p["full_name"], pd.DataFrame(
                 columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"]))
-        # Authorized tables: only "groups" param
         if "groups" in p:
             return _DEMO_TABLES
-        # Detail-pane queries keyed by table_full_name
         fn = p.get("table_full_name", "")
         if "lineage_cache" in query:
             return _DEMO_LINEAGE.get(fn, pd.DataFrame(
@@ -1081,15 +1544,438 @@ def run_query(query, params=None):
         if "columns_metadata" in query:
             return _DEMO_COLUMNS.get(fn, pd.DataFrame(
                 columns=["column_name", "data_type", "comment"]))
-        # permissions_cache (grants)
         return _DEMO_GRANTS.get(fn, pd.DataFrame(columns=["principal", "privilege"]))
 
-    # ── Production: hit Databricks SQL Warehouse ───────────────────────────────
-    conn = get_db_connection()
-    with conn.cursor() as cursor:
-        cursor.execute(query, params)
-        return cursor.fetchall_as_pandas()
+    if _duckdb_available():
+        return _run_duckdb_query(query, params)
+    return _run_databricks_query(query, params)
 
+
+
+def is_power_user() -> bool:
+    """True if the current user belongs to at least one EDITOR_GROUPS group."""
+    editor_groups = {g.strip() for g in os.getenv("EDITOR_GROUPS", "").split(",") if g.strip()}
+    if not editor_groups:
+        return False
+    return bool(editor_groups & set(st.session_state.get("user_groups", [])))
+
+
+def is_admin() -> bool:
+    """True if the current user belongs to at least one ADMIN_GROUPS group.
+
+    No demo-mode bypass — admins must be in the real Entra group even in
+    demo/development mode, unlike is_power_user() which has a mock shortcut.
+    """
+    admin_groups = {g.strip() for g in os.getenv("ADMIN_GROUPS", "").split(",") if g.strip()}
+    if not admin_groups:
+        return False
+    return bool(admin_groups & set(st.session_state.get("user_groups", [])))
+
+
+def get_column_business_names(table_full_name: str) -> dict:
+    """Return all column business name overrides for a table as a dict.
+
+    Returns: {column_name: {"business_name": str, "edited_by": str, "edited_at": str}}
+    One bulk query — not N per-column queries.
+    In demo mode reads from session state instead of Databricks.
+    """
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        return st.session_state.get("demo_business_names", {}).get(table_full_name, {})
+    try:
+        conn = get_db_connection()
+        tbl = "user_data.business_name_overrides" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT column_name, business_name, definition, edited_by, edited_at "
+                f"FROM {tbl} "
+                f"WHERE table_full_name = %(table_full_name)s",
+                {"table_full_name": table_full_name},
+            )
+            rows = cursor.fetchall_as_pandas()
+            if rows is not None and not rows.empty:
+                return {
+                    str(r["column_name"]): {
+                        "business_name": str(r["business_name"]) if r["business_name"] else "",
+                        "definition":    str(r["definition"])    if r["definition"]    else "",
+                        "edited_by":     str(r["edited_by"]),
+                        "edited_at":     str(r["edited_at"]),
+                    }
+                    for _, r in rows.iterrows()
+                }
+    except Exception as e:
+        logging.warning("Could not fetch column business names for %s: %s", table_full_name, e)
+    return {}
+
+
+def log_audit_event(event_type: str, object_type: str, object_name: str, old_value: str, new_value: str) -> None:
+    """Record an audit event for admin review.  Never raises — failures are logged and swallowed."""
+    actor_email = st.session_state.get("user_email", "")
+    event_id = str(uuid.uuid4())
+    try:
+        if os.getenv("DEMO_DATA", "false").lower() == "true":
+            st.session_state.setdefault("demo_audit_log", []).append({
+                "event_id":    event_id,
+                "event_type":  event_type,
+                "object_type": object_type,
+                "object_name": object_name,
+                "actor_email": actor_email,
+                "old_value":   old_value,
+                "new_value":   new_value,
+                "created_at":  pd.Timestamp.now(),
+            })
+        else:
+            conn = _get_write_connection()
+            with conn.cursor() as cursor:
+                table_name = "user_data.audit_log" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log"
+                cursor.execute_write(
+                    f"INSERT INTO {table_name} "
+                    f"(event_id, event_type, object_type, object_name, actor_email, old_value, new_value, created_at) "
+                    f"VALUES (%(event_id)s, %(event_type)s, %(object_type)s, %(object_name)s, "
+                    f"%(actor_email)s, %(old_value)s, %(new_value)s, current_timestamp())",
+                    {
+                        "event_id":    event_id,
+                        "event_type":  event_type,
+                        "object_type": object_type,
+                        "object_name": object_name,
+                        "actor_email": actor_email,
+                        "old_value":   old_value,
+                        "new_value":   new_value,
+                    },
+                )
+    except Exception as e:
+        logging.warning("Audit logging failed for %s: %s", event_id, e)
+
+
+def save_business_name(table_full_name: str, column_name: str, business_name: str, definition: str = "") -> None:
+    """Atomically upsert a column override (business name + definition) using MERGE INTO.
+
+    Raises:
+        PermissionError: if the current session user is not a power user.
+        ValueError: if business_name or definition exceeds MAX_BUSINESS_NAME_LEN characters.
+
+    In demo mode writes to session state (ephemeral, lost on browser close).
+    Demo mode structure: {table_full_name: {column_name: {business_name, definition, ...}}}
+    """
+    if not is_power_user():
+        raise PermissionError("Only power users can save business name overrides.")
+    if len(business_name) > MAX_BUSINESS_NAME_LEN:
+        raise ValueError(
+            f"Business name must be {MAX_BUSINESS_NAME_LEN} characters or fewer "
+            f"(got {len(business_name)})."
+        )
+    if len(definition) > MAX_BUSINESS_NAME_LEN:
+        raise ValueError(
+            f"Definition must be {MAX_BUSINESS_NAME_LEN} characters or fewer "
+            f"(got {len(definition)})."
+        )
+    user_name = st.session_state.get("user_name", "unknown")
+    old_override = get_column_business_names(table_full_name).get(column_name, {})
+    old_value = old_override.get("business_name", "")
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        if "demo_business_names" not in st.session_state:
+            st.session_state["demo_business_names"] = {}
+        tbl = st.session_state["demo_business_names"].setdefault(table_full_name, {})
+        tbl[column_name] = {"business_name": business_name, "definition": definition, "edited_by": user_name, "edited_at": "just now"}
+        log_audit_event("business_name_change", "COLUMN", f"{table_full_name}.{column_name}", old_value, business_name)
+        return
+    # Use DuckDB if available, otherwise Databricks
+    conn = _get_write_connection()
+    with conn.cursor() as cursor:
+        if _duckdb_available():
+            cursor.execute_write(
+                """
+                INSERT INTO user_data.business_name_overrides (
+                    table_full_name, column_name, business_name, definition, edited_by, edited_at
+                ) VALUES (
+                    %(table_full_name)s, %(column_name)s, %(business_name)s, %(definition)s, %(edited_by)s, current_timestamp()
+                )
+                ON CONFLICT (table_full_name, column_name) DO UPDATE SET
+                    business_name = excluded.business_name,
+                    definition = excluded.definition,
+                    edited_by = excluded.edited_by,
+                    edited_at = excluded.edited_at
+                """,
+                {
+                    "table_full_name": table_full_name,
+                    "column_name": column_name,
+                    "business_name": business_name,
+                    "definition": definition,
+                    "edited_by": user_name,
+                },
+            )
+        else:
+            cursor.execute(
+                f"MERGE INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides AS target "
+                f"USING (SELECT %(table_full_name)s AS table_full_name, %(column_name)s AS column_name, %(business_name)s AS business_name, %(definition)s AS definition, %(edited_by)s AS edited_by) AS source "
+                f"ON target.table_full_name = source.table_full_name AND target.column_name = source.column_name "
+                f"WHEN MATCHED THEN UPDATE SET target.business_name = source.business_name, target.definition = source.definition, target.edited_by = source.edited_by, target.edited_at = current_timestamp() "
+                f"WHEN NOT MATCHED THEN INSERT (table_full_name, column_name, business_name, definition, edited_by, edited_at) VALUES (source.table_full_name, source.column_name, source.business_name, source.definition, source.edited_by, current_timestamp())",
+                {"table_full_name": table_full_name, "column_name": column_name, "business_name": business_name, "definition": definition, "edited_by": user_name},
+            )
+    log_audit_event("business_name_change", "COLUMN", f"{table_full_name}.{column_name}", old_value, business_name)
+
+
+def get_table_steward(table_full_name: str) -> str:
+    """Return the steward_email for a table, or '' if unset.
+
+    In demo mode returns a fixed placeholder address so email flow can be tested.
+    Not cached — always fresh so steward changes are reflected without restart.
+    """
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        return "steward@example.com"
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT steward_email FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata "
+                f"WHERE full_name = %(full_name)s LIMIT 1",
+                {"full_name": table_full_name},
+            )
+            row = cursor.fetchall_as_pandas()
+            if row is not None and not row.empty:
+                return str(row.iloc[0]["steward_email"] or "")
+    except Exception as e:
+        logging.warning("Could not fetch steward for %s: %s", table_full_name, e)
+    return ""
+
+
+def get_table_comments(object_name: str) -> list:
+    """Fetch all comments for an object, returned as a tree (parent comments
+    with a ``replies`` list each).
+
+    In demo mode reads from st.session_state["demo_comments"].
+    Not cached — always fresh so new comments appear immediately.
+    """
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        flat = st.session_state.get("demo_comments", {}).get(object_name, [])
+        return _build_comment_tree(flat)
+    try:
+        conn = get_db_connection()
+        tbl = "user_data.comments" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT comment_id, author_name, author_email, comment_text, created_at, parent_comment_id "
+                f"FROM {tbl} "
+                f"WHERE object_name = %(object_name)s ORDER BY created_at ASC",
+                {"object_name": object_name},
+            )
+            rows = cursor.fetchall_as_pandas()
+            if rows is not None and not rows.empty:
+                return _build_comment_tree(rows.to_dict(orient="records"))
+    except Exception as e:
+        logging.warning("Could not fetch comments for %s: %s", object_name, e)
+    return []
+
+
+def _build_comment_tree(flat: list) -> list:
+    """Group a flat list of comment dicts into a parent/replies tree."""
+    by_id = {c["comment_id"]: {**c, "replies": []} for c in flat}
+    roots = []
+    for c in by_id.values():
+        pid = c.get("parent_comment_id")
+        if pid and pid in by_id:
+            by_id[pid]["replies"].append(c)
+        else:
+            roots.append(c)
+    return roots
+
+
+def send_comment_email(to_email: str, author_name: str, object_name: str, comment_text: str) -> None:
+    """Send a comment notification email to the data steward.
+
+    In demo mode logs to console instead of sending. Silently skips if
+    SMTP_HOST or to_email is not configured rather than raising.
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        print(f"[DEMO EMAIL] To: {to_email} | Object: {object_name} | From: {author_name}\n{comment_text}")
+        return
+    smtp_host = os.getenv("SMTP_HOST", "")
+    if not smtp_host or not to_email:
+        logging.warning("Comment saved but email not sent: SMTP_HOST or steward_email not configured.")
+        return
+    # Strip newlines from header fields to prevent SMTP header injection.
+    safe_object_name = object_name.replace("\r", "").replace("\n", "")
+    safe_author_name = author_name.replace("\r", "").replace("\n", "")
+    msg = MIMEText(f"{safe_author_name} left a comment on {safe_object_name}:\n\n{comment_text}", "plain")
+    msg["Subject"] = f"[Data Dictionary] Comment on {safe_object_name}"
+    msg["From"]    = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
+    msg["To"]      = to_email
+    try:
+        with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587"))) as s:
+            s.starttls()
+            s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASSWORD", ""))
+            s.sendmail(msg["From"], [to_email], msg.as_string())
+        logging.info("Comment email sent to %s", to_email)
+    except Exception as e:
+        logging.error("Failed to send comment email to %s: %s", to_email, e)
+
+
+def send_reply_email(
+    parent_author_email: str,
+    reply_author_name: str,
+    object_name: str,
+    reply_text: str,
+    steward_email: str,
+) -> None:
+    """Notify the original commenter (and the steward if different) of a reply.
+
+    In demo mode logs to console. Silently skips if SMTP_HOST is not configured.
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+
+    recipients = list({e for e in [parent_author_email, steward_email] if e})
+    if not recipients:
+        return
+
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        print(f"[DEMO REPLY] To: {recipients} | Object: {object_name} | From: {reply_author_name}\n{reply_text}")
+        return
+
+    smtp_host = os.getenv("SMTP_HOST", "")
+    if not smtp_host:
+        logging.warning("Reply saved but email not sent: SMTP_HOST not configured.")
+        return
+
+    # Strip newlines from header fields to prevent SMTP header injection.
+    safe_object_name  = object_name.replace("\r", "").replace("\n", "")
+    safe_reply_author = reply_author_name.replace("\r", "").replace("\n", "")
+    msg = MIMEText(
+        f"{safe_reply_author} replied to a comment on {safe_object_name}:\n\n{reply_text}",
+        "plain",
+    )
+    msg["Subject"] = f"[Data Dictionary] Reply on {safe_object_name}"
+    msg["From"]    = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
+    msg["To"]      = ", ".join(recipients)
+    try:
+        with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587"))) as s:
+            s.starttls()
+            s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASSWORD", ""))
+            s.sendmail(msg["From"], recipients, msg.as_string())
+        logging.info("Reply email sent to %s", recipients)
+    except Exception as e:
+        logging.error("Failed to send reply email to %s: %s", recipients, e)
+
+
+def _fetch_comment_author_email(comment_id: str) -> str:
+    """Look up the author_email of a comment from the DB.
+
+    Used by save_comment to resolve the reply recipient server-side rather
+    than trusting the value passed in from the UI (open-relay mitigation).
+    Returns '' if the comment is not found or on error.
+    """
+    try:
+        conn = get_db_connection()
+        tbl = "user_data.comments" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT author_email FROM {tbl} "
+                f"WHERE comment_id = %(comment_id)s LIMIT 1",
+                {"comment_id": comment_id},
+            )
+            row = cursor.fetchall_as_pandas()
+            if row is not None and not row.empty:
+                return str(row.iloc[0]["author_email"] or "")
+    except Exception as e:
+        logging.warning("Could not fetch author_email for comment %s: %s", comment_id, e)
+    return ""
+
+
+def save_comment(
+    object_type: str,
+    object_name: str,
+    comment_text: str,
+    steward_email: str,
+    parent_comment_id: str = None,
+    parent_author_email: str = "",
+) -> None:
+    """Persist a comment (or reply) and trigger notification emails.
+
+    For a top-level comment, notifies the steward.
+    For a reply (parent_comment_id set), notifies the original commenter and steward.
+
+    The reply recipient email is re-fetched from the database rather than
+    trusting the caller-supplied parent_author_email, preventing an
+    authenticated user from using the SMTP relay to spam arbitrary addresses.
+    parent_author_email is used only in demo mode (no DB available).
+
+    In demo mode writes to st.session_state["demo_comments"] dict.
+    object_name for table comments is the full_name; for column comments
+    it is "{full_name}::{column_name}".
+    """
+    import uuid
+    comment_id   = str(uuid.uuid4())
+    author_name  = st.session_state.get("user_name", "unknown")
+    author_email = (st.session_state.get("user_email", "") or "").lower().strip()
+
+    _event_type = "comment_reply" if parent_comment_id else "comment_added"
+
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        demo = st.session_state.setdefault("demo_comments", {})
+        demo.setdefault(object_name, []).append({
+            "comment_id":        comment_id,
+            "author_name":       author_name,
+            "author_email":      author_email,
+            "comment_text":      comment_text,
+            "created_at":        "just now",
+            "parent_comment_id": parent_comment_id,
+        })
+        if parent_comment_id:
+            send_reply_email(parent_author_email, author_name, object_name, comment_text, steward_email)
+        else:
+            send_comment_email(steward_email, author_name, object_name, comment_text)
+        log_audit_event(_event_type, object_type, object_name, "", comment_text)
+        return
+
+    conn = _get_write_connection()
+    with conn.cursor() as cursor:
+        if _duckdb_available():
+            cursor.execute_write(
+                "INSERT INTO user_data.comments "
+                "(comment_id, object_type, object_name, comment_text, author_name, author_email, "
+                "created_at, steward_email, parent_comment_id) "
+                "VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
+                "%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
+                {
+                    "comment_id":        comment_id,
+                    "object_type":       object_type,
+                    "object_name":       object_name,
+                    "comment_text":      comment_text,
+                    "author_name":       author_name,
+                    "author_email":      author_email,
+                    "steward_email":     steward_email,
+                    "parent_comment_id": parent_comment_id,
+                },
+            )
+        else:
+            cursor.execute(
+                f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
+                f"(comment_id, object_type, object_name, comment_text, author_name, author_email, "
+                f"created_at, steward_email, parent_comment_id) "
+                f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
+                f"%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
+                {
+                    "comment_id":        comment_id,
+                    "object_type":       object_type,
+                    "object_name":       object_name,
+                    "comment_text":      comment_text,
+                    "author_name":       author_name,
+                    "author_email":      author_email,
+                    "steward_email":     steward_email,
+                    "parent_comment_id": parent_comment_id,
+                },
+            )
+    if parent_comment_id:
+        # Re-fetch the parent author's email from the DB — do NOT trust the
+        # UI-supplied parent_author_email to prevent open-relay abuse.
+        verified_parent_email = _fetch_comment_author_email(parent_comment_id)
+        send_reply_email(verified_parent_email, author_name, object_name, comment_text, steward_email)
+    else:
+        send_comment_email(steward_email, author_name, object_name, comment_text)
+    log_audit_event(_event_type, object_type, object_name, "", comment_text)
 
 
 @st.cache_data(ttl="1h")
@@ -1112,18 +1998,18 @@ def get_authorized_tables(groups):
 
 
 def render_catalog_browser(groups):
-    st.markdown('''
+    st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ Catalog browser</div>
-      <h1>Explore the hierarchy.</h1>
-      <p class="lead">Drill down from catalogs to schemas and tables.</p>
+      <div class="dd-eyebrow">{t("catalog.eyebrow")}</div>
+      <h1>{t("catalog.hero_title")}</h1>
+      <p class="lead">{t("catalog.hero_subtitle")}</p>
     </div>
     ''', unsafe_allow_html=True)
-    
+
     try:
         all_data = get_authorized_tables(groups)
         if all_data.empty:
-            st.info("No catalogs accessible.")
+            st.info(t("catalog.no_catalogs"))
             return
             
         catalogs = sorted(all_data['catalog_name'].unique().tolist())
@@ -1151,14 +2037,14 @@ def render_catalog_browser(groups):
                                 st.rerun()
     except Exception as e:
         logging.error("Error in catalog browser: %s", e)
-        st.error("Could not load catalog hierarchy.")
+        st.error(t("catalog.load_error"))
 
 def render_glossary():
-    st.markdown('''
+    st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ Business Glossary</div>
-      <h1>Speak the same language.</h1>
-      <p class="lead">Define business concepts and map them to technical data assets.</p>
+      <div class="dd-eyebrow">{t("glossary.title")}</div>
+      <h1>{t("glossary.hero_title")}</h1>
+      <p class="lead">{t("glossary.subtitle")}</p>
     </div>
     ''', unsafe_allow_html=True)
     
@@ -1180,18 +2066,18 @@ def render_glossary():
         with col_main:
             st.markdown(f'''
             <div class="dd-detail-header" style="margin-top: 0;">
-              <span class="dd-eyebrow" style="margin-bottom:0">§ Term Details</span>
+              <span class="dd-eyebrow" style="margin-bottom:0">{t("glossary.term_details")}</span>
             </div>
             <div class="dd-detail-table-name">{term_row["term"]}</div>
-            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">Definition</div>
+            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.definition")}</div>
             <p class="dd-detail-desc" style="font-size:18px;">{term_row["definition"]}</p>
             
-            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:24px; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">Logic / Calculation</div>
+            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:24px; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.logic_calculation")}</div>
             <div style="background:var(--paper-deep); padding:16px; border-radius:2px; font-family:var(--font-mono); font-size:14px; color:var(--ink); border-left:3px solid var(--accent); line-height:1.5;">
               {term_row["calculation"]}
             </div>
             
-            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:32px; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em;">Linked Tables</div>
+            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:32px; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.linked_tables")}</div>
             ''', unsafe_allow_html=True)
             
             for table_fn in term_row["related_tables"]:
@@ -1205,14 +2091,14 @@ def render_glossary():
             # Stewardship Section
             st.markdown(f'''
             <div class="dd-section-header">
-              <span class="dd-eyebrow" style="margin-bottom:0">§ Stewardship</span>
+              <span class="dd-eyebrow" style="margin-bottom:0">{t("glossary.stewardship")}</span>
             </div>
             <div style="margin-top:16px;">
-              <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">Business Domain</div>
+              <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{t("glossary.business_domain")}</div>
               <div style="font-family:var(--font-sans); font-size:16px; font-weight:600; color:var(--ink); margin-top:4px;">{term_row["domain"]}</div>
             </div>
             <div style="margin-top:20px;">
-              <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">Data Steward</div>
+              <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{t("glossary.data_steward")}</div>
               <div style="font-family:var(--font-sans); font-size:16px; font-weight:600; color:var(--ink); margin-top:4px;">{term_row["steward"]}</div>
             </div>
             ''', unsafe_allow_html=True)
@@ -1220,7 +2106,7 @@ def render_glossary():
             # Concept Map (Graph)
             st.markdown(f'''
             <div class="dd-section-header" style="margin-top:32px;">
-              <span class="dd-eyebrow" style="margin-bottom:0">§ Concept Map</span>
+              <span class="dd-eyebrow" style="margin-bottom:0">{t("glossary.concept_map")}</span>
             </div>
             ''', unsafe_allow_html=True)
             
@@ -1237,11 +2123,11 @@ def render_glossary():
             components.html(graph_html, height=330)
 
 def render_discovery(groups):
-    st.markdown('''
+    st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ Data Discovery</div>
-      <h1>New & Notable.</h1>
-      <p class="lead">Recently updated data assets across your primary domains.</p>
+      <div class="dd-eyebrow">{t("discovery.title")}</div>
+      <h1>{t("discovery.hero_title")}</h1>
+      <p class="lead">{t("discovery.hero_subtitle")}</p>
     </div>
     ''', unsafe_allow_html=True)
 
@@ -1251,7 +2137,7 @@ def render_discovery(groups):
         primary_group = groups[0]
 
     if primary_group:
-        st.info(f"✨ Highlights for your primary group: **{primary_group}**", icon="🏢")
+        st.info(t("discovery.group_highlights", group=primary_group))
         
         try:
             # Re-use the authorized table fetch logic but sort by updated_at
@@ -1264,7 +2150,7 @@ def render_discovery(groups):
                     _ts = row["updated_at"]
                     # Format timestamp
                     if isinstance(_ts, pd.Timestamp):
-                        _time_str = _ts.strftime("%b %d, %H:%M UTC")
+                        _time_str = _ts.strftime(t("discovery.date_format"))
                     else:
                         _time_str = str(_ts)
                         
@@ -1272,39 +2158,39 @@ def render_discovery(groups):
                     <div style="background:var(--paper); border:1px solid var(--ink-10); padding:20px; margin-bottom:16px; border-radius:2px;">
                         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
                             <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{row["catalog_name"]} · {row["schema_name"]}</div>
-                            <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">Updated {_time_str}</div>
+                            <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{t("discovery.updated")} {_time_str}</div>
                         </div>
                         <div style="font-family:var(--font-mono); font-size:18px; font-weight:600; color:var(--ink); margin-bottom:8px;">{row["table_name"]}</div>
                         <p style="font-family:var(--font-sans); font-size:14px; color:var(--ink-60); line-height:1.5; margin-bottom:16px;">{_html.escape(str(row["table_description"]))}</p>
                     </div>
                     ''', unsafe_allow_html=True)
                     
-                    if st.button(f"Explore {row['table_name']} →", key=f"disc_{row['full_name']}", type="secondary"):
+                    if st.button(t("discovery.explore_button", name=row["table_name"]), key=f"disc_{row['full_name']}", type="secondary"):
                         st.query_params["tab"] = "search"
                         st.session_state["dd_search_override"] = row["table_name"]
                         st.session_state["dd_nav_select"] = row["full_name"]
                         st.rerun()
             else:
-                st.info("No recent updates found for this group.")
+                st.info(t("discovery.no_updates"))
         except Exception as e:
             logging.error("Error in discovery tab: %s", e)
-            st.error("Could not load discovery feed.")
+            st.error(t("discovery.load_error"))
     else:
-        st.warning("Please sign in or select a group to view discovery highlights.")
+        st.warning(t("discovery.sign_in_prompt"))
 
 def render_health(groups):
-    st.markdown('''
+    st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ Metadata Health</div>
-      <h1>Documentation Scorecard.</h1>
-      <p class="lead">Audit the completeness and quality of your catalog metadata.</p>
+      <div class="dd-eyebrow">{t("health.title")}</div>
+      <h1>{t("health.hero_title")}</h1>
+      <p class="lead">{t("health.hero_subtitle")}</p>
     </div>
     ''', unsafe_allow_html=True)
-    
+
     try:
         all_data = get_authorized_tables(groups)
         if all_data.empty:
-            st.info("No data accessible to audit.")
+            st.info(t("health.no_data"))
             return
 
         # 1. Calculation Logic
@@ -1334,25 +2220,25 @@ def render_health(groups):
         with c1:
             st.markdown(f'''
             <div style="background:var(--paper); border-top:3px solid var(--accent); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-                <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">Table Coverage</div>
+                <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.table_coverage")}</div>
                 <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{table_coverage:.0f}%</div>
-                <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{n_desc} of {n_tables} described</div>
+                <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.tables_described", n_desc=n_desc, n_tables=n_tables)}</div>
             </div>
             ''', unsafe_allow_html=True)
         with c2:
             st.markdown(f'''
             <div style="background:var(--paper); border-top:3px solid var(--deepblue); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-                <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">Column Coverage</div>
+                <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.column_coverage")}</div>
                 <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{col_coverage:.0f}%</div>
-                <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{n_col_desc} of {n_cols} defined</div>
+                <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.columns_defined", n_col_desc=n_col_desc, n_cols=n_cols)}</div>
             </div>
             ''', unsafe_allow_html=True)
         with c3:
             st.markdown(f'''
             <div style="background:var(--paper); border-top:3px solid var(--ochre); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-                <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">Freshness Index</div>
+                <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.freshness_index")}</div>
                 <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">A</div>
-                <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">Last sync 04:12 UTC</div>
+                <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.last_sync")}</div>
             </div>
             ''', unsafe_allow_html=True)
 
@@ -1386,7 +2272,7 @@ def render_health(groups):
             undocumented = all_data[all_data['table_description'].apply(lambda x: len(str(x).strip()) == 0)].head(5)
             
             if not undocumented.empty:
-                st.warning("The following tables are missing descriptions. Documentation is recommended.")
+                st.warning(t("health.missing_descriptions"))
                 for _, row in undocumented.iterrows():
                     if st.button(f"📄 {row['table_name']}", key=f"health_fix_{row['full_name']}", use_container_width=True):
                         st.query_params["tab"] = "search"
@@ -1394,11 +2280,11 @@ def render_health(groups):
                         st.session_state["dd_nav_select"] = row["full_name"]
                         st.rerun()
             else:
-                st.success("All visible tables are documented. Great work!")
+                st.success(t("health.all_documented"))
 
     except Exception as e:
         logging.error("Error in health dashboard: %s", e)
-        st.error("Could not load health metrics.")
+        st.error(t("health.load_error"))
 
 def render_placeholder_page(title, subtitle):
     st.markdown(f'''
@@ -1408,7 +2294,123 @@ def render_placeholder_page(title, subtitle):
       <p class="lead">This feature is currently in development.</p>
     </div>
     ''', unsafe_allow_html=True)
-    st.info("Coming soon in v0.4.0")
+    st.info(t("common.coming_soon"))
+
+
+# ── Admin page ─────────────────────────────────────────────────────────────────
+
+def get_admin_stats() -> dict:
+    """Return four catalog-wide counts for the admin dashboard."""
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        return {
+            "tables":    len(_DEMO_TABLES),
+            "columns":   sum(len(df) for df in _DEMO_COLUMNS.values()),
+            "comments":  sum(len(v) for v in st.session_state.get("demo_comments", {}).values()),
+            "overrides": sum(len(v) for v in st.session_state.get("demo_business_names", {}).values()),
+        }
+    try:
+        _ud = _duckdb_available()
+        comments_tbl  = "user_data.comments"                if _ud else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
+        overrides_tbl = "user_data.business_name_overrides" if _ud else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
+        tables_tbl    = "tables_metadata"                   if _ud else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata"
+        columns_tbl   = "columns_metadata"                  if _ud else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata"
+        tables_cnt    = run_query(f"SELECT COUNT(*) AS c FROM {tables_tbl}").iloc[0]["c"]
+        columns_cnt   = run_query(f"SELECT COUNT(*) AS c FROM {columns_tbl}").iloc[0]["c"]
+        comments_cnt  = run_query(f"SELECT COUNT(*) AS c FROM {comments_tbl}").iloc[0]["c"]
+        overrides_cnt = run_query(f"SELECT COUNT(*) AS c FROM {overrides_tbl}").iloc[0]["c"]
+        return {"tables": tables_cnt, "columns": columns_cnt, "comments": comments_cnt, "overrides": overrides_cnt}
+    except Exception as e:
+        logging.warning("Failed to fetch admin stats: %s", e)
+        return {"tables": 0, "columns": 0, "comments": 0, "overrides": 0}
+
+
+def get_business_name_change_log() -> pd.DataFrame:
+    """Return the last 200 business name change events for the admin log."""
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        logs = [l for l in st.session_state.get("demo_audit_log", []) if l["event_type"] == "business_name_change"]
+        if not logs:
+            return pd.DataFrame(columns=["event_id", "object_name", "old_value", "new_value", "actor_email", "created_at"])
+        return pd.DataFrame(logs).sort_values("created_at", ascending=False).head(200)
+    audit_tbl = "user_data.audit_log" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log"
+    return run_query(
+        f"SELECT event_id, object_name, old_value, new_value, actor_email, created_at "
+        f"FROM {audit_tbl} "
+        f"WHERE event_type = 'business_name_change' "
+        f"ORDER BY created_at DESC LIMIT 200"
+    )
+
+
+def get_comment_log() -> pd.DataFrame:
+    """Return the last 200 comment/reply events for the admin log."""
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        logs = [l for l in st.session_state.get("demo_audit_log", [])
+                if l["event_type"] in ("comment_added", "comment_reply")]
+        if not logs:
+            return pd.DataFrame(columns=["event_id", "object_name", "comment_preview", "actor_email", "created_at"])
+        df = pd.DataFrame(logs).rename(columns={"new_value": "comment_preview"})
+        return df.sort_values("created_at", ascending=False).head(200)
+    audit_tbl = "user_data.audit_log" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log"
+    return run_query(
+        f"SELECT event_id, object_name, new_value AS comment_preview, actor_email, created_at "
+        f"FROM {audit_tbl} "
+        f"WHERE event_type IN ('comment_added', 'comment_reply') "
+        f"ORDER BY created_at DESC LIMIT 200"
+    )
+
+
+def render_admin_page():
+    if not is_admin():
+        st.error(t("admin.access_denied"))
+        st.stop()
+
+    st.markdown(f'''
+    <div class="dd-search-hero">
+      <div class="dd-eyebrow">{t("admin.title")}</div>
+      <h1>Administration.</h1>
+      <p class="lead">{t("health.subtitle")}</p>
+    </div>
+    ''', unsafe_allow_html=True)
+
+    stats = get_admin_stats()
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric(t("admin.stats_tables"), f"{stats.get('tables', 0):,}")
+    with c2:
+        st.metric(t("admin.stats_columns"), f"{stats.get('columns', 0):,}")
+    with c3:
+        st.metric(t("admin.stats_comments"), f"{stats.get('comments', 0):,}")
+    with c4:
+        st.metric(t("admin.stats_overrides"), f"{stats.get('overrides', 0):,}")
+
+    with st.expander(t("admin.biz_log_title"), expanded=True):
+        biz_log = get_business_name_change_log()
+        st.dataframe(
+            biz_log,
+            column_config={
+                "object_name": st.column_config.TextColumn("Object"),
+                "old_value":   st.column_config.TextColumn("Old name"),
+                "new_value":   st.column_config.TextColumn("New name"),
+                "actor_email": st.column_config.TextColumn("Changed by"),
+                "created_at":  st.column_config.TextColumn("Changed at"),
+            },
+            hide_index=True,
+            use_container_width=True,
+        )
+
+    with st.expander(t("admin.comment_log_title"), expanded=True):
+        comment_log = get_comment_log()
+        st.dataframe(
+            comment_log,
+            column_config={
+                "object_name":      st.column_config.TextColumn("Object"),
+                "comment_preview":  st.column_config.TextColumn("Comment preview"),
+                "actor_email":      st.column_config.TextColumn("Author"),
+                "created_at":       st.column_config.TextColumn("Posted at"),
+            },
+            hide_index=True,
+            use_container_width=True,
+        )
+
 
 # ── App entry point ────────────────────────────────────────────────────────────
 render_css()
@@ -1425,10 +2427,11 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
     if st.query_params.get("mock_login") == "true":
         st.session_state.authenticated = True
         st.session_state.user_groups = ["finance_dept_id", "all_employees_id"]
-        st.session_state.user_name = "Finance User"
+        st.session_state.user_name  = "Finance User"
+        st.session_state.user_email = "finance.user@example.com"
     if not st.session_state.authenticated:
         render_header()
-        st.markdown('<div class="dd-page">', unsafe_allow_html=True)
+        st.markdown('<div class="dd-page" role="main" aria-live="polite">', unsafe_allow_html=True)
         render_signin_page(mock=True)
         st.markdown("</div>", unsafe_allow_html=True)
         render_footer()
@@ -1438,21 +2441,39 @@ else:
 
 # ── Authenticated: header with user ───────────────────────────────────────────
 current_tab = st.query_params.get("tab", "search")
-render_header(user_name=st.session_state.get("user_name", ""), active_tab=current_tab)
-st.markdown('<div class="dd-page">', unsafe_allow_html=True)
+render_header(user_name=st.session_state.get("user_name", ""), active_tab=current_tab, show_admin=is_admin())
+st.markdown('<div class="dd-page" role="main" aria-live="polite">', unsafe_allow_html=True)
 
 groups = tuple(st.session_state.user_groups) if st.session_state.user_groups else ("none",)
 active_group = st.session_state.get("group_filter")
 query_groups = (active_group,) if active_group else groups
 
+
+def _clear_transient_edit_state() -> None:
+    """Discard any in-progress column edits or open comment forms.
+
+    Called whenever the user navigates to a different table or a different tab
+    so a half-filled form from one context never bleeds into another.
+    """
+    st.session_state.pop("dd_col_edit_mode", None)
+    stale_keys = [k for k in st.session_state if str(k).startswith("dd_comment_open_")]
+    for k in stale_keys:
+        del st.session_state[k]
+
+
+# Detect tab change — clear transient state so edits don't bleed across tabs
+_prev_tab = st.session_state.get("_dd_current_tab")
+if _prev_tab is not None and _prev_tab != current_tab:
+    _clear_transient_edit_state()
+st.session_state["_dd_current_tab"] = current_tab
+
 if current_tab == "search":
-    # --- START SEARCH PAGE ---
-    st.markdown('''
+    # --- START SEARCH PAGE --- eyebrow: § Catalog search
+    st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ Catalog search</div>
-      <h1>Find your data.</h1>
-      <p class="lead">Search tables, columns, and business terms across Unity Catalog —
-      filtered to what you can access.</p>
+      <div class="dd-eyebrow">{t('search.eyebrow')}</div>
+      <h1>{t('search.hero_title')}</h1>
+      <p class="lead">{t('search.hero_subtitle')}</p>
     </div>
     ''', unsafe_allow_html=True)
 
@@ -1462,9 +2483,12 @@ if current_tab == "search":
     if active_group:
         c1, c2 = st.columns([8, 2], gap="small", vertical_alignment="center")
         with c1:
-            st.info(f"**Filtered by AD Group:** {active_group}", icon="🔒")
+            if active_group == "SELECT_ALL_USERS":
+                st.info(t("search.public_tables_filter"))
+            else:
+                st.info(t("search.group_filter_active", group=active_group))
         with c2:
-            if st.button("Clear Filter", use_container_width=True):
+            if st.button(t("common.back"), use_container_width=True):
                 st.session_state.pop("group_filter", None)
                 st.rerun()
 
@@ -1473,18 +2497,24 @@ if current_tab == "search":
         table_options = sorted(all_results['table_name'].unique().tolist())
     except Exception as e:
         logging.error("Error querying data: %s", e, exc_info=True)
-        st.error("Error loading catalog.")
+        st.error(t("search.load_error"))
         all_results = None
         table_options = []
 
     search_query = st.selectbox(
-        "Search the catalog",
+        t("common.search"),
         options=table_options,
         index=table_options.index(st.session_state.get("catalog_search")) if st.session_state.get("catalog_search") in table_options else None,
-        placeholder="Select or type a table name...",
+        placeholder=t("search.placeholder"),
         label_visibility="collapsed",
         key="catalog_search",
     )
+
+    # Detect table change — clear transient state so edits don't bleed across tables
+    _prev_table = st.session_state.get("_dd_current_table")
+    if _prev_table is not None and _prev_table != search_query:
+        _clear_transient_edit_state()
+    st.session_state["_dd_current_table"] = search_query
 
     if search_query and all_results is not None:
         try:
@@ -1504,39 +2534,211 @@ if current_tab == "search":
                     row = results[results["table_name"] == selected_table].iloc[0]
                     full_name = f"{row['catalog_name']}.{row['schema_name']}.{row['table_name']}"
                     with col_main_detail:
-                        st.markdown('<div class="dd-detail-header" style="margin-top: 0;"><span class="dd-eyebrow" style="margin-bottom:0">§ Table detail</span></div>', unsafe_allow_html=True)
                         _cat, _sch, _tbl = _html.escape(str(row['catalog_name'])), _html.escape(str(row['schema_name'])), _html.escape(str(row['table_name']))
                         _raw_desc = row.get('table_description', '')
                         _desc = _html.escape(str(_raw_desc) if isinstance(_raw_desc, str) else '')
                         _host = os.getenv("DATABRICKS_HOST", "").strip()
-                        _ext_link = f'<a href="https://{_host}/explore/data/{_cat}/{_sch}/{_tbl}" target="_blank" class="dd-link-external">Open in Databricks ↗</a>' if _host else ''
-                        st.markdown(f'<div class="dd-eyebrow" style="margin-bottom:4px">{_cat} · {_sch}</div><div class="dd-detail-table-name">{_tbl}</div><p class="dd-detail-desc">{_desc}</p>{_ext_link}', unsafe_allow_html=True)
+                        _ext_link = f'<a href="https://{_host}/explore/data/{_cat}/{_sch}/{_tbl}" target="_blank" class="dd-link-external">{t("table.open_in_databricks")} ↗</a>' if _host else ''
+
+                        # Section header
+                        st.markdown(f'<div class="dd-detail-header" style="margin-top: 0;"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.title")}</span></div>', unsafe_allow_html=True)
+
+                        # Table identity block
+                        st.markdown(
+                            f'<div class="dd-eyebrow" style="margin-bottom:4px">{_cat} · {_sch}</div>'
+                            f'<div class="dd-detail-table-name">{_tbl}</div>'
+                            f'<p class="dd-detail-desc">{_desc}</p>{_ext_link}',
+                            unsafe_allow_html=True,
+                        )
                         st.code(full_name, language=None)
-                        
+
                         # --- § Columns ---
+                        # Bulk-fetch overrides first (one query for all columns)
+                        col_overrides = get_column_business_names(full_name)
+
                         cols_query = ("SELECT column_name, data_type, comment FROM {0}.{1}.columns_metadata WHERE table_full_name = %(table_full_name)s ORDER BY column_name").format(CATALOG_CACHE, SCHEMA_CACHE)
                         cols = run_query(cols_query, {"table_full_name": full_name})
                         n_cols = len(cols) if cols is not None and not cols.empty else 0
-                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Columns</span><span class="dd-section-count">{n_cols}</span></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_columns")}</span><span class="dd-section-count">{n_cols}</span></div>', unsafe_allow_html=True)
+                        _power = is_power_user()
+                        _col_edit = st.session_state.get("dd_col_edit_mode", "")
+
                         if n_cols > 0:
-                            rows_html = "".join(f'<tr class="dd-col-row"><td class="dd-col-name">{_html.escape(str(c.get("column_name", "")))}</td><td class="dd-col-type">{_html.escape(str(c.get("data_type", "")))}</td><td class="dd-col-desc">{_html.escape(str(c.get("comment") or ""))}</td></tr>' for _, c in cols.iterrows())
-                            st.markdown(f'<table class="dd-columns-table"><tbody>{rows_html}</tbody></table>', unsafe_allow_html=True)
+                            for _, c in cols.iterrows():
+                                _cname    = str(c.get("column_name", ""))
+                                _ctype    = str(c.get("data_type", ""))
+                                _ccomment = str(c.get("comment") or "")
+                                _edit_key = f"{full_name}__{_cname}"
+                                _override   = col_overrides.get(_cname, {})
+                                _col_biz    = _override.get("business_name", "")
+                                _col_def    = _override.get("definition", "")
+
+                                st.markdown('<hr class="dd-col-divider">', unsafe_allow_html=True)
+                                _r_name, _r_type, _r_desc, _r_btn = st.columns([3, 2, 5, 1], gap="small")
+
+                                # Name cell: business name above, technical name faded below
+                                if _col_biz:
+                                    _r_name.markdown(
+                                        f'<span class="dd-col-biz-name">{_html.escape(_col_biz)}</span>'
+                                        f'<span class="dd-col-tech-sub">{_html.escape(_cname)}</span>',
+                                        unsafe_allow_html=True,
+                                    )
+                                else:
+                                    _r_name.markdown(f'<span class="dd-col-name">{_html.escape(_cname)}</span>', unsafe_allow_html=True)
+
+                                _r_type.markdown(f'<span class="dd-col-type">{_html.escape(_ctype)}</span>', unsafe_allow_html=True)
+
+                                # Desc cell: business definition above, system comment faded below
+                                if _col_def:
+                                    _r_desc.markdown(
+                                        f'<span class="dd-col-desc">{_html.escape(_col_def)}</span>'
+                                        f'<span class="dd-col-desc-faded">{_html.escape(_ccomment)}</span>',
+                                        unsafe_allow_html=True,
+                                    )
+                                else:
+                                    _r_desc.markdown(f'<span class="dd-col-desc">{_html.escape(_ccomment)}</span>', unsafe_allow_html=True)
+
+                                if _power and _col_edit != _edit_key:
+                                    if _r_btn.button("✎", key=f"col_edit_{_edit_key}", use_container_width=True):
+                                        st.session_state["dd_col_edit_mode"] = _edit_key
+                                        st.rerun()
+
+                                if _col_edit == _edit_key:
+                                    st.markdown('<div class="dd-edit-banner">Edit mode — changes are saved immediately and visible to all users.</div>', unsafe_allow_html=True)
+                                    _inp_name = st.text_input(
+                                        "Business name",
+                                        value=_col_biz,
+                                        placeholder="e.g. Customer ID",
+                                        max_chars=MAX_BUSINESS_NAME_LEN,
+                                        key=f"col_biz_name_{_edit_key}",
+                                    )
+                                    _inp_def = st.text_input(
+                                        "Definition",
+                                        value=_col_def,
+                                        placeholder="e.g. Unique identifier assigned to each customer at registration.",
+                                        max_chars=MAX_BUSINESS_NAME_LEN,
+                                        key=f"col_biz_def_{_edit_key}",
+                                    )
+                                    _sc, _cc, _ = st.columns([2, 2, 4], gap="small")
+                                    with _sc:
+                                        if st.button("Save", key=f"col_biz_save_{_edit_key}", use_container_width=True):
+                                            try:
+                                                save_business_name(full_name, _cname, _inp_name.strip(), _inp_def.strip())
+                                                st.session_state.pop("dd_col_edit_mode", None)
+                                                st.rerun()
+                                            except PermissionError:
+                                                st.error("You do not have permission to edit business names.")
+                                            except ValueError as exc:
+                                                st.error(str(exc))
+                                    with _cc:
+                                        if st.button("Cancel", key=f"col_biz_cancel_{_edit_key}", use_container_width=True):
+                                            st.session_state.pop("dd_col_edit_mode", None)
+                                            st.rerun()
+                                    if _override.get("edited_by"):
+                                        st.markdown(
+                                            f'<div class="dd-biz-audit">Last edited by {_html.escape(_override["edited_by"])} · {_html.escape(str(_override.get("edited_at", "")))}</div>',
+                                            unsafe_allow_html=True,
+                                        )
                         else:
                             st.markdown('<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No columns recorded.</p>', unsafe_allow_html=True)
+
+                        # --- § Comments ---
+                        _steward      = get_table_steward(full_name)
+                        _comments     = get_table_comments(full_name)
+                        _n_comments   = sum(1 + len(_c.get("replies", [])) for _c in _comments)
+                        _comment_open = f"dd_comment_open_{full_name}"
+                        # --- § Comments ---
+                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_comments")}</span><span class="dd-section-count">{_n_comments}</span></div>', unsafe_allow_html=True)
+
+                        def _render_comment_form(key_suffix: str, parent_comment_id: str = None, parent_author_email: str = "") -> None:
+                            """Render a text-area + Send/Cancel for a new comment or reply."""
+                            _open_key = f"dd_comment_open_{key_suffix}"
+                            if not st.session_state.get(_open_key):
+                                _label = t("comment.reply") if parent_comment_id else t("comment.leave_a_comment")
+                                if st.button(_label, key=f"dd_comment_btn_{key_suffix}"):
+                                    st.session_state[_open_key] = True
+                                    st.rerun()
+                            else:
+                                _placeholder = "Write a reply…" if parent_comment_id else "Ask a question or flag an issue about this table."
+                                _inp = st.text_area(
+                                    "Your comment" if not parent_comment_id else "Your reply",
+                                    placeholder=_placeholder,
+                                    max_chars=1000,
+                                    key=f"dd_comment_text_{key_suffix}",
+                                )
+                                _cs, _cc, _ = st.columns([2, 2, 4], gap="small")
+                                with _cs:
+                                    if st.button("Send", key=f"dd_comment_send_{key_suffix}", use_container_width=True):
+                                        if _inp.strip():
+                                            save_comment(
+                                                "TABLE", full_name, _inp.strip(), _steward,
+                                                parent_comment_id=parent_comment_id,
+                                                parent_author_email=parent_author_email,
+                                            )
+                                            st.session_state.pop(_open_key, None)
+                                            st.rerun()
+                                        else:
+                                            st.warning("Comment cannot be empty.")
+                                with _cc:
+                                    if st.button("Cancel", key=f"dd_comment_cancel_{key_suffix}", use_container_width=True):
+                                        st.session_state.pop(_open_key, None)
+                                        st.rerun()
+                                if not _steward and not parent_comment_id:
+                                    st.markdown('<p class="dd-comment-no-steward">No steward configured — comment will be saved but not emailed.</p>', unsafe_allow_html=True)
+
+                        for _c in _comments:
+                            _cid    = str(_c.get("comment_id", ""))
+                            _cemail = str(_c.get("author_email", ""))
+                            st.markdown(
+                                f'<div class="dd-comment-row">'
+                                f'<span class="dd-comment-author">{_html.escape(str(_c.get("author_name", "")))}</span>'
+                                f'<span class="dd-comment-date"> · {_html.escape(str(_c.get("created_at", "")))}</span>'
+                                f'<div class="dd-comment-text">{_html.escape(str(_c.get("comment_text", "")))}</div>'
+                                f'</div>',
+                                unsafe_allow_html=True,
+                            )
+                            # Render replies nested under parent
+                            for _r in _c.get("replies", []):
+                                _, _reply_col = st.columns([1, 11])
+                                with _reply_col:
+                                    st.markdown(
+                                        f'<div class="dd-comment-row dd-comment-reply">'
+                                        f'<span class="dd-comment-author">{_html.escape(str(_r.get("author_name", "")))}</span>'
+                                        f'<span class="dd-comment-date"> · {_html.escape(str(_r.get("created_at", "")))}</span>'
+                                        f'<div class="dd-comment-text">{_html.escape(str(_r.get("comment_text", "")))}</div>'
+                                        f'</div>',
+                                        unsafe_allow_html=True,
+                                    )
+                            # Reply button/form for this parent comment
+                            _, _reply_form_col = st.columns([1, 11])
+                            with _reply_form_col:
+                                _render_comment_form(
+                                    key_suffix=f"{full_name}_{_cid}",
+                                    parent_comment_id=_cid,
+                                    parent_author_email=_cemail,
+                                )
+
+                        # Top-level new comment form
+                        _render_comment_form(key_suffix=full_name)
 
                     with col_side_detail:
                         # --- § Group Permissions ---
                         grants_query = ("SELECT DISTINCT principal, privilege FROM {0}.{1}.permissions_cache WHERE table_full_name = %(table_full_name)s ORDER BY principal").format(CATALOG_CACHE, SCHEMA_CACHE)
                         grants = run_query(grants_query, {"table_full_name": full_name})
                         n_grants = len(grants) if grants is not None and not grants.empty else 0
-                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Group Permissions</span><span class="dd-section-count">{n_grants}</span></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_grants")}</span><span class="dd-section-count">{n_grants}</span></div>', unsafe_allow_html=True)
                         if n_grants > 0:
                             for _, g in grants.iterrows():
                                 principal, privilege = str(g.get("principal", "")), str(g.get("privilege", ""))
-                                if principal == "SELECT_ALL_USERS": st.markdown(f'<div class="dd-grant-row"><span class="dd-grant-who">all users</span><span class="dd-grant-what">{_html.escape(privilege)}</span></div>', unsafe_allow_html=True)
+                                st.markdown('<div style="border-top: 1px solid var(--ink-10); margin: 8px 0 4px 0;"></div>', unsafe_allow_html=True)
+                                if principal == "SELECT_ALL_USERS":
+                                    if st.button(t("detail.browse_public_tables", privilege=privilege), key=f"grant_{full_name}_public_{privilege}", use_container_width=True):
+                                        st.session_state["group_filter"] = "SELECT_ALL_USERS"
+                                        st.session_state.pop("catalog_search", None)
+                                        st.session_state.pop("dd_nav_select", None)
+                                        st.rerun()
                                 else:
-                                    st.markdown('<div style="border-top: 1px solid var(--ink-10); margin: 8px 0 4px 0;"></div>', unsafe_allow_html=True)
-                                    if st.button(f"🔍 Search tables accessible to: {principal} ({privilege})", key=f"grant_{full_name}_{principal}_{privilege}", use_container_width=True):
+                                    if st.button(t("detail.search_tables_accessible", principal=principal, privilege=privilege), key=f"grant_{full_name}_{principal}_{privilege}", use_container_width=True):
                                         st.session_state["group_filter"] = principal
                                         st.session_state.pop("catalog_search", None)
                                         st.session_state.pop("dd_nav_select", None)
@@ -1554,7 +2756,7 @@ if current_tab == "search":
                         related = run_query(related_query, {"catalog_name": row["catalog_name"], "schema_name": row["schema_name"], "full_name": full_name, "groups": query_groups})
                         n_related = len(related) if related is not None and not related.empty else 0
                         
-                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Lineage & Related Tables</span><span class="dd-section-count">{n_related} related</span></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_lineage")} & {t("detail.section_related")}</span><span class="dd-section-count">{n_related} {t("detail.related_count")}</span></div>', unsafe_allow_html=True)
                         
                         graph_nodes = [{"id": full_name, "label": _tbl, "current": True, "relationship": "Current"}]
                         graph_links = []
@@ -1569,7 +2771,8 @@ if current_tab == "search":
                                 graph_links.append({"from": full_name, "to": efn})
                         if n_related > 0:
                             for _, rel in related.iterrows():
-                                _rel_full, _rel_name, _rel_badge = str(rel.get("full_name", "")), _html.escape(str(rel.get("table_name", ""))), str(rel.get("relationship", ""))
+                                _rel_full, _rel_name, _rel_raw_badge = str(rel.get("full_name", "")), _html.escape(str(rel.get("table_name", ""))), str(rel.get("relationship", ""))
+                                _rel_badge = t("detail.same_schema") if _rel_raw_badge == "Same schema" else (t("detail.shared_column") if _rel_raw_badge == "Shared column" else _html.escape(_rel_raw_badge))
                                 if not any(n["id"] == _rel_full for n in graph_nodes): graph_nodes.append({"id": _rel_full, "label": _rel_name, "current": False, "relationship": _rel_badge})
                                 if not any((l["from"] == full_name and l["to"] == _rel_full) or (l["from"] == _rel_full and l["to"] == full_name) for l in graph_links): graph_links.append({"from": full_name, "to": _rel_full})
                         
@@ -1582,16 +2785,17 @@ if current_tab == "search":
                             _cols = st.columns(min(3, n_related), gap="small")
                             for i, (_, rel) in enumerate(related.iterrows()):
                                 with _cols[i % 3]:
-                                    _rel_full, _rel_name, _rel_sch, _rel_badge = str(rel.get("full_name", "")), _html.escape(str(rel.get("table_name", ""))), _html.escape(f"{rel.get('catalog_name','')}.{rel.get('schema_name','')}"), _html.escape(str(rel.get("relationship", "")))
+                                    _rel_full, _rel_name, _rel_sch, _rel_raw_badge = str(rel.get("full_name", "")), _html.escape(str(rel.get("table_name", ""))), _html.escape(f"{rel.get('catalog_name','')}.{rel.get('schema_name','')}"), str(rel.get("relationship", ""))
+                                    _rel_badge = t("detail.same_schema") if _rel_raw_badge == "Same schema" else (t("detail.shared_column") if _rel_raw_badge == "Shared column" else _html.escape(_rel_raw_badge))
                                     st.markdown(f'<div class="dd-related-card"><div class="dd-related-badge">{_rel_badge}</div><div class="dd-related-name">{_rel_name}</div><div class="dd-related-schema">{_rel_sch}</div></div>', unsafe_allow_html=True)
-                                    if st.button("Open →", key=f"rel_{_rel_full}", type="secondary", use_container_width=True):
+                                    if st.button(t("detail.open_related"), key=f"rel_{_rel_full}", type="secondary", use_container_width=True):
                                         st.session_state["dd_search_override"] = str(rel.get("table_name", ""))
                                         st.session_state["dd_nav_select"] = _rel_full
                                         st.rerun()
 
         except Exception as e:
             logging.error("Error displaying search results: %s", e, exc_info=True)
-            st.error("Error displaying details.")
+            st.error(t("detail.load_error"))
     else:
         st.markdown('<p style="font-family:var(--font-sans);font-size:15px;color:var(--ink-60);margin-top:8px">Start typing to search the catalog.</p>', unsafe_allow_html=True)
     # --- END SEARCH PAGE ---
@@ -1604,6 +2808,8 @@ elif current_tab == "discovery":
     render_discovery(query_groups)
 elif current_tab == "health":
     render_health(query_groups)
+elif current_tab == "admin":
+    render_admin_page()
 
 st.markdown("</div>", unsafe_allow_html=True)
 render_footer()

@@ -1,0 +1,161 @@
+{
+  "nav": {
+    "search": "Search",
+    "catalog": "Catalog",
+    "discovery": "Discovery",
+    "health": "Health",
+    "glossary": "Glossary",
+    "admin": "Admin",
+    "sign_out": "Sign out"
+  },
+  "auth": {
+    "title": "A card catalog for your warehouse.",
+    "subtitle": "Search tables, columns, and business terms across Unity Catalog \u2014 filtered to what you have permission to see.",
+    "sign_in_button": "Sign in with Entra ID",
+    "mock_button": "Sign in with Entra ID (mock)",
+    "signed_in_as": "Signed in as"
+  },
+  "search": {
+    "hero_title": "Search the catalog.",
+    "hero_subtitle": "Find data assets across the organization.",
+    "placeholder": "Search tables or columns...",
+    "results_count": "{count} results",
+    "no_results": "No results found for \u2018{query}\u2019",
+    "loading": "Searching...",
+    "eyebrow": "\u00a7 Catalog search",
+    "load_error": "Error loading catalog.",
+    "public_tables_filter": "Showing publicly accessible tables",
+    "group_filter_active": "Filtered by group: {group}"
+  },
+  "catalog": {
+    "eyebrow": "\u00a7 Catalog browser",
+    "hero_title": "Explore the hierarchy.",
+    "hero_subtitle": "Drill down from catalogs to schemas and tables.",
+    "no_catalogs": "No catalogs accessible.",
+    "load_error": "Could not load catalog hierarchy."
+  },
+  "table": {
+    "columns": "Columns",
+    "grants": "Grants",
+    "lineage": "Lineage",
+    "comments": "Comments",
+    "business_name": "Business name",
+    "description": "Description",
+    "type": "Type",
+    "open_in_databricks": "Open in Databricks"
+  },
+  "detail": {
+    "section_columns": "\u00a7 Columns",
+    "section_grants": "\u00a7 Group permissions",
+    "section_lineage": "\u00a7 Lineage",
+    "section_comments": "\u00a7 Comments",
+    "section_related": "\u00a7 Related tables",
+    "title": "\u00a7 Table detail",
+    "related_count": "related",
+    "same_schema": "Same schema",
+    "shared_column": "Shared column",
+    "open_related": "Open \u2192",
+    "search_tables_accessible": "Search tables accessible to: {principal} ({privilege})",
+    "browse_public_tables": "Browse tables accessible to all users ({privilege})",
+    "load_error": "Error displaying details."
+  },
+  "comment": {
+    "add_comment": "Add a comment",
+    "reply": "Reply",
+    "save": "Save comment",
+    "cancel": "Cancel",
+    "steward": "Steward",
+    "posted_by": "Posted by",
+    "no_comments": "No comments yet.",
+    "leave_a_comment": "Leave a comment"
+  },
+  "editor": {
+    "edit_business_name": "Edit business name",
+    "business_name_label": "Business name",
+    "definition_label": "Definition",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saved_by": "Saved by {user}"
+  },
+  "admin": {
+    "title": "\u00a7 Admin",
+    "stats_tables": "Total tables",
+    "stats_columns": "Total columns",
+    "stats_comments": "Total comments",
+    "stats_overrides": "Business name overrides",
+    "biz_log_title": "Business name change log",
+    "comment_log_title": "Comment log",
+    "no_data": "No audit data available.",
+    "access_denied": "Admin access required."
+  },
+  "health": {
+    "title": "\u00a7 Catalog health",
+    "subtitle": "Coverage and documentation status across the catalog.",
+    "hero_title": "Documentation scorecard.",
+    "hero_subtitle": "Audit the completeness and quality of your catalog metadata.",
+    "total_tables": "Total tables",
+    "documented": "Documented",
+    "with_grants": "With grants",
+    "last_sync": "Last sync 04:12 UTC",
+    "table_coverage": "Table Coverage",
+    "column_coverage": "Column Coverage",
+    "freshness_index": "Freshness Index",
+    "tables_described": "{n_desc} of {n_tables} described",
+    "columns_defined": "{n_col_desc} of {n_cols} defined",
+    "no_data": "No data accessible to audit.",
+    "missing_descriptions": "The following tables are missing descriptions. Documentation is recommended.",
+    "all_documented": "All visible tables are documented. Great work!",
+    "load_error": "Could not load health metrics."
+  },
+  "glossary": {
+    "title": "\u00a7 Business glossary",
+    "hero_title": "Speak the same language.",
+    "subtitle": "Define business concepts and map them to technical data assets.",
+    "search_placeholder": "Search for a term...",
+    "no_terms": "No terms found.",
+    "term_details": "\u00a7 Term Details",
+    "definition": "Definition",
+    "logic_calculation": "Logic / Calculation",
+    "linked_tables": "Linked Tables",
+    "stewardship": "\u00a7 Stewardship",
+    "domain": "Domain",
+    "steward": "Steward",
+    "business_domain": "Business domain",
+    "data_steward": "Data steward",
+    "concept_map": "\u00a7 Concept Map"
+  },
+  "discovery": {
+    "title": "\u00a7 Discovery",
+    "subtitle": "Browse the catalog by catalog, schema, and table.",
+    "hero_title": "New & Notable.",
+    "hero_subtitle": "Recently updated data assets across your primary domains.",
+    "group_highlights": "Highlights for your primary group: {group}",
+    "no_updates": "No recent updates found for this group.",
+    "load_error": "Could not load discovery feed.",
+    "sign_in_prompt": "Please sign in or select a group to view discovery highlights.",
+    "date_format": "%b %d, %H:%M UTC",
+    "explore_button": "Explore {name} \u2192",
+    "updated": "Updated"
+  },
+  "footer": {
+    "built_with": "Data Dictionary \u00b7 v0.1.0 \u00b7 synced nightly from Unity Catalog"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred.",
+    "empty": "No data available.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "search": "Search",
+    "back": "Back",
+    "coming_soon": "Coming soon in v0.4.0"
+  },
+  "language": {
+    "en": "EN",
+    "fr": "FR",
+    "switch_to_en": "Switch to English",
+    "switch_to_fr": "Passer en fran\u00e7ais"
+  }
+}

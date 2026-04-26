@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data-dictionary
+  labels:
+    app.kubernetes.io/name: data-dictionary
+    app.kubernetes.io/managed-by: kubectl
