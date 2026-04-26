@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: dd-sync
+  namespace: data-dictionary
+  labels:
+    app.kubernetes.io/name: data-dictionary
+    app.kubernetes.io/component: sync-job
+spec:
+  # Run every day at 03:00 UTC
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: dd-sync
+            app.kubernetes.io/name: data-dictionary
+            app.kubernetes.io/component: sync-job
+        spec:
+          restartPolicy: OnFailure
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            fsGroup: 1000
+
+          containers:
+            - name: sync
+              image: ghcr.io/org/data-dictionary:latest
+              imagePullPolicy: Always
+              command: ["python", "scripts/sync_metadata.py"]
+
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 1000
+                readOnlyRootFilesystem: false
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+
+              resources:
+                requests:
+                  cpu: "250m"
+                  memory: "512Mi"
+                limits:
+                  cpu: "1000m"
+                  memory: "1Gi"
+
+              envFrom:
+                - configMapRef:
+                    name: dd-config
+                - secretRef:
+                    name: dd-secrets
+
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: dd-data

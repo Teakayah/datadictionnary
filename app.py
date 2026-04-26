@@ -2043,7 +2043,7 @@ def render_glossary():
     st.markdown(f'''
     <div class="dd-search-hero">
       <div class="dd-eyebrow">{t("glossary.title")}</div>
-      <h1>Speak the same language.</h1>
+      <h1>{t("glossary.hero_title")}</h1>
       <p class="lead">{t("glossary.subtitle")}</p>
     </div>
     ''', unsafe_allow_html=True)
@@ -2094,11 +2094,11 @@ def render_glossary():
               <span class="dd-eyebrow" style="margin-bottom:0">{t("glossary.stewardship")}</span>
             </div>
             <div style="margin-top:16px;">
-              <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">Business Domain</div>
+              <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{t("glossary.business_domain")}</div>
               <div style="font-family:var(--font-sans); font-size:16px; font-weight:600; color:var(--ink); margin-top:4px;">{term_row["domain"]}</div>
             </div>
             <div style="margin-top:20px;">
-              <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">Data Steward</div>
+              <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{t("glossary.data_steward")}</div>
               <div style="font-family:var(--font-sans); font-size:16px; font-weight:600; color:var(--ink); margin-top:4px;">{term_row["steward"]}</div>
             </div>
             ''', unsafe_allow_html=True)
@@ -2382,7 +2382,7 @@ def render_admin_page():
     with c4:
         st.metric(t("admin.stats_overrides"), f"{stats.get('overrides', 0):,}")
 
-    with st.expander("Business name change log", expanded=True):
+    with st.expander(t("admin.biz_log_title"), expanded=True):
         biz_log = get_business_name_change_log()
         st.dataframe(
             biz_log,
@@ -2397,7 +2397,7 @@ def render_admin_page():
             use_container_width=True,
         )
 
-    with st.expander("Comment log", expanded=True):
+    with st.expander(t("admin.comment_log_title"), expanded=True):
         comment_log = get_comment_log()
         st.dataframe(
             comment_log,
