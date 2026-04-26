@@ -2043,7 +2043,7 @@ def render_glossary():
     st.markdown(f'''
     <div class="dd-search-hero">
       <div class="dd-eyebrow">{t("glossary.title")}</div>
-      <h1>Speak the same language.</h1>
+      <h1>{t("glossary.hero_title")}</h1>
       <p class="lead">{t("glossary.subtitle")}</p>
     </div>
     ''', unsafe_allow_html=True)
@@ -2382,7 +2382,7 @@ def render_admin_page():
     with c4:
         st.metric(t("admin.stats_overrides"), f"{stats.get('overrides', 0):,}")
 
-    with st.expander("Business name change log", expanded=True):
+    with st.expander(t("admin.biz_log_title"), expanded=True):
         biz_log = get_business_name_change_log()
         st.dataframe(
             biz_log,
@@ -2397,7 +2397,7 @@ def render_admin_page():
             use_container_width=True,
         )
 
-    with st.expander("Comment log", expanded=True):
+    with st.expander(t("admin.comment_log_title"), expanded=True):
         comment_log = get_comment_log()
         st.dataframe(
             comment_log,
