@@ -986,6 +986,25 @@ iframe[height="0"] { display: none !important; }
 [data-testid="stDataFrame"] > div {
     background: var(--paper) !important;
 }
+
+/* ── Streamlit tab labels — force full-ink color in all states ── */
+[data-testid="stTabs"] button[data-baseweb="tab"] {
+    color: #14110C !important;
+    font-family: var(--font-sans) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+}
+[data-testid="stTabs"] button[data-baseweb="tab"]:hover {
+    color: #14110C !important;
+}
+[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="false"] {
+    color: #14110C !important;
+    opacity: 0.55;
+}
+[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
+    color: #14110C !important;
+    opacity: 1;
+}
 """
 
 # ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
@@ -2715,6 +2734,9 @@ if current_tab == "search":
 
     if "dd_search_override" in st.session_state:
         st.session_state["catalog_search"] = st.session_state.pop("dd_search_override")
+    if "dd_nav_select" in st.session_state:
+        # Promote to sticky so locale changes and star clicks don't lose the full-name anchor
+        st.session_state["_dd_sticky_nav"] = st.session_state.pop("dd_nav_select")
 
     if active_group:
         c1, c2 = st.columns([8, 2], gap="small", vertical_alignment="center")
@@ -2749,6 +2771,8 @@ if current_tab == "search":
     _prev_table = st.session_state.get("_dd_current_table")
     if _prev_table is not None and _prev_table != search_query:
         _clear_transient_edit_state()
+        # User manually changed the search selection — discard any sticky nav anchor
+        st.session_state.pop("_dd_sticky_nav", None)
     st.session_state["_dd_current_table"] = search_query
 
     if search_query and all_results is not None:
@@ -2757,7 +2781,8 @@ if current_tab == "search":
             if not results.empty:
                 col_main_detail, col_side_detail = st.columns([7, 5], gap="large")
                 _table_names = results["table_name"].tolist()
-                _nav_target  = st.session_state.pop("dd_nav_select", None)
+                # Use sticky nav (persists across locale/star reruns); cleared on manual search change
+                _nav_target  = st.session_state.get("_dd_sticky_nav")
                 _nav_idx = 0 if len(_table_names) > 0 else None
                 if _nav_target:
                     _nav_name = _nav_target.split(".")[-1]
