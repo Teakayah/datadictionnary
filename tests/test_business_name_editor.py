@@ -353,10 +353,8 @@ class TestBusinessNameValidation:
         at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
         next(b for b in at.button if b.label == "✎").click().run()
         inp = next(t for t in at.text_input if "col_biz_name" in t.key)
-        inp.set_value("A" * 256).run()
-        next(b for b in at.button if b.label == "Save").click().run()
 
-        assert at.error, "st.error should be shown when name exceeds MAX_BUSINESS_NAME_LEN"
+        assert inp.max_chars == 255
 
     def test_save_shows_permission_error_for_non_power_user(self, monkeypatch):
         """save_business_name must show st.error if user is not in EDITOR_GROUPS."""

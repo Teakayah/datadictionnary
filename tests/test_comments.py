@@ -64,7 +64,7 @@ def _at_detail(monkeypatch) -> AppTest:
     monkeypatch.setenv("DEMO_DATA", "true")
     at = authenticated_app()
     at.run()
-    at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+    at.selectbox(key="catalog_search").select(TABLE_NAME).run()
     return at
 
 
@@ -109,7 +109,7 @@ class TestGetTableSteward:
         at = authenticated_app()
         at.session_state[f"dd_comment_open_{FULL_NAME}"] = True
         at.run()
-        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
 
         # warning() widgets would appear if steward is empty
         # demo always returns "steward@example.com" so no warning expected
@@ -129,7 +129,7 @@ class TestGetTableSteward:
         )
         at = authenticated_app()
         at.run()
-        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
 
         cursor = get_db_cursor()
         executed = [str(c) for c in cursor.execute.call_args_list]
@@ -148,7 +148,7 @@ class TestGetTableSteward:
         )
         at = authenticated_app()
         at.run()
-        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
 
         cursor = get_db_cursor()
         # Find the parameterised execute call that queries for steward_email
@@ -192,7 +192,7 @@ class TestGetTableComments:
             }]
         }
         at.run()
-        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
 
         html = _html(*at.markdown)
         assert "Great table!" in html, "Pre-seeded comment text not rendered"
@@ -209,7 +209,7 @@ class TestGetTableComments:
         )
         at = authenticated_app()
         at.run()
-        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
 
         cursor = get_db_cursor()
         executed = [str(c) for c in cursor.execute.call_args_list]
@@ -230,7 +230,7 @@ class TestGetTableComments:
             ]
         }
         at.run()
-        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
 
         html = _html(*at.markdown)
         # Both authors must appear
@@ -554,7 +554,7 @@ class TestCommentUI:
             }]
         }
         at.run()
-        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
 
         html = _html(*at.markdown)
         assert "Pre-existing note." in html, "Pre-existing comment not rendered in panel"
@@ -575,7 +575,7 @@ class TestCommentUI:
         at = authenticated_app()
         at.session_state[f"dd_comment_open_{FULL_NAME}"] = True
         at.run()
-        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
 
         area_keys = [a.key for a in at.text_area]
         assert any(f"dd_comment_text_{FULL_NAME}" == k for k in area_keys), (
