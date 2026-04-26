@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dd-config
+  namespace: data-dictionary
+  labels:
+    app.kubernetes.io/name: data-dictionary
+    app.kubernetes.io/component: config
+data:
+  ENVIRONMENT: "production"
+  ENABLE_MOCK_AUTH: "false"
+  DEMO_DATA: "false"
+  REDIRECT_URI: "https://datadictionary.internal/"
+  DUCKDB_PATH: "/data/dictionary_cache.duckdb"

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dd-data
+  namespace: data-dictionary
+  labels:
+    app.kubernetes.io/name: data-dictionary
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  # Change storageClassName to match your cloud provider:
+  #   AWS EFS CSI:   efs-sc
+  #   Azure Files:   azurefile-csi
+  #   GCP Filestore: standard-rwx
+  #   On-prem NFS:   nfs-client
+  storageClassName: standard
