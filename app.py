@@ -2483,9 +2483,12 @@ if current_tab == "search":
     if active_group:
         c1, c2 = st.columns([8, 2], gap="small", vertical_alignment="center")
         with c1:
-            st.info(f"**Filtered by AD Group:** {active_group}", icon="🔒")
+            if active_group == "SELECT_ALL_USERS":
+                st.info(t("search.public_tables_filter"))
+            else:
+                st.info(t("search.group_filter_active", group=active_group))
         with c2:
-            if st.button("Clear Filter", use_container_width=True):
+            if st.button(t("common.back"), use_container_width=True):
                 st.session_state.pop("group_filter", None)
                 st.rerun()
 
@@ -2727,10 +2730,15 @@ if current_tab == "search":
                         if n_grants > 0:
                             for _, g in grants.iterrows():
                                 principal, privilege = str(g.get("principal", "")), str(g.get("privilege", ""))
-                                if principal == "SELECT_ALL_USERS": st.markdown(f'<div class="dd-grant-row"><span class="dd-grant-who">all users</span><span class="dd-grant-what">{_html.escape(privilege)}</span></div>', unsafe_allow_html=True)
+                                st.markdown('<div style="border-top: 1px solid var(--ink-10); margin: 8px 0 4px 0;"></div>', unsafe_allow_html=True)
+                                if principal == "SELECT_ALL_USERS":
+                                    if st.button(t("detail.browse_public_tables", privilege=privilege), key=f"grant_{full_name}_public_{privilege}", use_container_width=True):
+                                        st.session_state["group_filter"] = "SELECT_ALL_USERS"
+                                        st.session_state.pop("catalog_search", None)
+                                        st.session_state.pop("dd_nav_select", None)
+                                        st.rerun()
                                 else:
-                                    st.markdown('<div style="border-top: 1px solid var(--ink-10); margin: 8px 0 4px 0;"></div>', unsafe_allow_html=True)
-                                    if st.button(f"🔍 {t('detail.search_tables_accessible', principal=principal, privilege=privilege)}", key=f"grant_{full_name}_{principal}_{privilege}", use_container_width=True):
+                                    if st.button(t("detail.search_tables_accessible", principal=principal, privilege=privilege), key=f"grant_{full_name}_{principal}_{privilege}", use_container_width=True):
                                         st.session_state["group_filter"] = principal
                                         st.session_state.pop("catalog_search", None)
                                         st.session_state.pop("dd_nav_select", None)

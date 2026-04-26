@@ -23,7 +23,9 @@
     "no_results": "Aucun r\u00e9sultat pour \u00ab\u202f{query}\u202f\u00bb",
     "loading": "Recherche en cours\u2026",
     "eyebrow": "\u00a7 Recherche au catalogue",
-    "load_error": "Erreur lors du chargement du catalogue."
+    "load_error": "Erreur lors du chargement du catalogue.",
+    "public_tables_filter": "Affichage des tables accessibles \u00e0 tous",
+    "group_filter_active": "Filtr\u00e9 par groupe\u00a0: {group}"
   },
   "catalog": {
     "eyebrow": "\u00a7 Navigateur de catalogue",
@@ -54,6 +56,7 @@
     "shared_column": "Colonne partag\u00e9e",
     "open_related": "Ouvrir \u2192",
     "search_tables_accessible": "Rechercher les tables accessibles \u00e0: {principal} ({privilege})",
+    "browse_public_tables": "Parcourir les tables accessibles \u00e0 tous ({privilege})",
     "load_error": "Erreur lors de l\u2019affichage des d\u00e9tails."
   },
   "comment": {

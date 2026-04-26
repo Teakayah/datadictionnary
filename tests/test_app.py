@@ -542,12 +542,16 @@ class TestLineageAndRelated:
         assert "dd-grant-row" in html
 
     def test_grants_select_all_users_shown_as_all_users(self):
-        """The sentinel value SELECT_ALL_USERS must render as 'all users'."""
+        """SELECT_ALL_USERS must never appear raw; a browse button must be present."""
         grants = pd.DataFrame({"principal": ["SELECT_ALL_USERS"], "privilege": ["SELECT"]})
         at = self._run_with_detail(grants_df=grants)
         html = _html(*at.markdown)
-        assert "all users" in html
+        # Sentinel must not leak into the UI
         assert "SELECT_ALL_USERS" not in html
+        # A clickable button for public tables must be rendered
+        btn_labels = [b.label for b in at.button]
+        assert any("all users" in lbl.lower() for lbl in btn_labels), \
+            f"Expected a 'Browse tables accessible to all users' button, got: {btn_labels}"
 
     def test_grants_empty_state(self):
         """§ Group Permissions must show fallback when no grants exist."""
