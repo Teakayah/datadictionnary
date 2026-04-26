@@ -119,6 +119,16 @@ def setup_cache_tables():
                 )
             """)
 
+            # Table for data quality scorecard cache
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache (
+                    table_full_name STRING,
+                    dq_score        STRING,
+                    last_run_status STRING,
+                    freshness       STRING
+                )
+            """)
+
 def push_business_name_overrides():
     """Write column business name overrides back to Unity Catalog as column comments.
 
@@ -214,6 +224,7 @@ def sync():
     permissions_data = []
     lineage_data = []
     tags_data = []
+    data_quality_data = []
 
     # 1. Iterate through catalogs (skipping system/internal ones if needed)
     table_full_names = []
@@ -253,10 +264,25 @@ def sync():
                         "steward_email": (table.properties or {}).get("steward_email", ""),
                     })
                     
-                    # Extract Table Tags
+                    # Extract Table Tags and DQ properties
                     if table.properties:
+                        dq_score, dq_last_run_status, dq_freshness = None, None, None
                         for k, v in table.properties.items():
                             tags_data.append({"object_type": "TABLE", "object_full_name": full_name, "tag_key": k, "tag_value": str(v)})
+                            if k.lower() == "dq_score":
+                                dq_score = str(v)
+                            elif k.lower() in ("last_run_status", "dq_last_run_status"):
+                                dq_last_run_status = str(v)
+                            elif k.lower() in ("freshness", "dq_freshness"):
+                                dq_freshness = str(v)
+
+                        if dq_score or dq_last_run_status or dq_freshness:
+                            data_quality_data.append({
+                                "table_full_name": full_name,
+                                "dq_score": dq_score or "",
+                                "last_run_status": dq_last_run_status or "",
+                                "freshness": dq_freshness or "",
+                            })
 
                     # Store column metadata
                     for col in table.columns:
@@ -304,6 +330,7 @@ def sync():
             cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache")
             cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache")
             cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags")
+            cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache")
 
             if tables_data:
                 cursor.executemany(
@@ -330,6 +357,11 @@ def sync():
                     f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags VALUES (%(object_type)s, %(object_full_name)s, %(tag_key)s, %(tag_value)s)",
                     tags_data
                 )
+            if data_quality_data:
+                cursor.executemany(
+                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache VALUES (%(table_full_name)s, %(dq_score)s, %(last_run_status)s, %(freshness)s)",
+                    data_quality_data
+                )
 
     # Fetch audit_log for DuckDB export (rebuild from Databricks each sync)
     audit_log_data = []
@@ -345,7 +377,7 @@ def sync():
 
     print("✅ Sync completed successfully.")
     push_business_name_overrides()
-    write_duckdb(tables_data, columns_data, permissions_data, lineage_data, tags_data, audit_log_data)
+    write_duckdb(tables_data, columns_data, permissions_data, lineage_data, tags_data, data_quality_data, audit_log_data)
 
 
 def write_duckdb(
@@ -354,6 +386,7 @@ def write_duckdb(
     permissions_data: list,
     lineage_data: list,
     tags_data: list,
+    data_quality_data: list = None,
     audit_log_data: list = None,
 ) -> None:
     """Export sync data to a local DuckDB file for fast local queries.
@@ -402,6 +435,8 @@ def write_duckdb(
             ["table_full_name", "direction", "entity_full_name", "entity_type"]),
         "object_tags": pd.DataFrame(tags_data) if tags_data else _empty(
             ["object_type", "object_full_name", "tag_key", "tag_value"]),
+        "data_quality_cache": pd.DataFrame(data_quality_data) if data_quality_data else _empty(
+            ["table_full_name", "dq_score", "last_run_status", "freshness"]),
         "audit_log": pd.DataFrame(audit_log_data) if audit_log_data else _empty(
             ["event_id", "event_type", "object_type", "object_name",
              "actor_email", "old_value", "new_value", "created_at"]),
