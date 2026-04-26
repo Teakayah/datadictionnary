@@ -116,6 +116,8 @@
     "stewardship": "\u00a7 Intendance",
     "domain": "Domaine",
     "steward": "Responsable",
+    "business_domain": "Domaine m\u00e9tier",
+    "data_steward": "Responsable des donn\u00e9es",
     "concept_map": "\u00a7 Carte des concepts"
   },
   "discovery": {
