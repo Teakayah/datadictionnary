@@ -19,6 +19,7 @@ load_dotenv()
 # ── Internationalisation (i18n) ───────────────────────────────────────────────
 import json as _json
 
+@st.cache_data
 def _load_locales() -> dict:
     base = os.path.join(os.path.dirname(__file__), "locale")
     result = {}
@@ -1095,6 +1096,7 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
         const parentDoc = window.parent.document;
         const NAV_LABELS = {_nav_labels_js};
         const TAB_MAP = {_tab_map_js};
+        const iframeId = Math.random().toString(36);
 
         function wire() {{
             const allBtns = Array.from(parentDoc.querySelectorAll('button'));
@@ -1110,25 +1112,27 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
 
             // 2. Wire Navigation
             parentDoc.querySelectorAll('a.dd-nav-tab[data-tab], a.dd-logo-link[data-tab]').forEach(link => {{
-                if (link._wired) return;
-                link._wired = true;
+                if (link._wired === iframeId) return;
+                link._wired = iframeId;
                 link.addEventListener('click', function(e) {{
                     e.preventDefault();
                     const tabId = this.getAttribute('data-tab');
                     const localizedLabel = TAB_MAP[tabId];
-                    const btn = allBtns.find(b => b.textContent.trim() === localizedLabel);
+                    const currentBtns = Array.from(parentDoc.querySelectorAll('button'));
+                    const btn = currentBtns.find(b => b.textContent.trim() === localizedLabel);
                     if (btn) btn.click();
                 }});
             }});
 
             // 3. Wire Language
             parentDoc.querySelectorAll('a.dd-lang-opt[data-lang]').forEach(link => {{
-                if (link._wired) return;
-                link._wired = true;
+                if (link._wired === iframeId) return;
+                link._wired = iframeId;
                 link.addEventListener('click', function(e) {{
                     e.preventDefault();
                     const lang = this.getAttribute('data-lang').toUpperCase();
-                    const btn = allBtns.find(b => b.textContent.trim() === 'LOCALE_' + lang);
+                    const currentBtns = Array.from(parentDoc.querySelectorAll('button'));
+                    const btn = currentBtns.find(b => b.textContent.trim() === 'LOCALE_' + lang);
                     if (btn) btn.click();
                 }});
             }});
@@ -1147,10 +1151,10 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
 
 
 def render_footer():
-    st.markdown("""
+    st.markdown(f"""
     <div class="dd-footer">
       <div class="dd-footer-inner">
-        <span>Data Dictionary · v0.1.0 · synced nightly from Unity Catalog</span>
+        <span>{t('footer.built_with')}</span>
         <span>main.data_governance.dictionary_cache</span>
       </div>
     </div>
@@ -1170,12 +1174,11 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
     col_hero, col_card = st.columns([1.1, 0.9], gap="large")
 
     with col_hero:
-        st.markdown("""
+        st.markdown(f"""
         <div class="dd-signin-hero">
           <div class="dd-eyebrow">§ Business Data Dictionary</div>
-          <h1>A card catalog<br>for your warehouse.</h1>
-          <p class="lead">Search tables, columns, and business terms across Unity Catalog —
-          filtered to what you have permission to see.</p>
+          <h1>{t('auth.title')}</h1>
+          <p class="lead">{t('auth.subtitle')}</p>
         </div>
         """, unsafe_allow_html=True)
         st.markdown('<hr class="dd-rule"/>', unsafe_allow_html=True)
@@ -1207,7 +1210,7 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
         """, unsafe_allow_html=True)
 
         if mock:
-            if st.button(f"{MS_LOGO_SVG}  Sign in with Entra ID (mock)", use_container_width=True):
+            if st.button(f"{MS_LOGO_SVG}  {t('auth.mock_button')}", use_container_width=True):
                 st.session_state.authenticated = True
                 st.session_state.user_groups = ["finance_dept_id", "all_employees_id"]
                 st.session_state.user_name  = "Finance User"
@@ -1228,7 +1231,7 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
               font-family:var(--font-sans);font-weight:500;
               text-decoration:none;box-sizing:border-box;
               transition:background 120ms var(--ease);
-            ">{MS_LOGO_SVG} Sign in with Entra ID</a>
+            ">{MS_LOGO_SVG} {t('auth.sign_in_button')}</a>
             <p class="dd-meta" style="margin-top:12px">By signing in you agree to the data access policy.</p>
             """, unsafe_allow_html=True)
 
@@ -1995,18 +1998,18 @@ def get_authorized_tables(groups):
 
 
 def render_catalog_browser(groups):
-    st.markdown('''
+    st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ Catalog browser</div>
-      <h1>Explore the hierarchy.</h1>
-      <p class="lead">Drill down from catalogs to schemas and tables.</p>
+      <div class="dd-eyebrow">{t("catalog.eyebrow")}</div>
+      <h1>{t("catalog.hero_title")}</h1>
+      <p class="lead">{t("catalog.hero_subtitle")}</p>
     </div>
     ''', unsafe_allow_html=True)
-    
+
     try:
         all_data = get_authorized_tables(groups)
         if all_data.empty:
-            st.info("No catalogs accessible.")
+            st.info(t("catalog.no_catalogs"))
             return
             
         catalogs = sorted(all_data['catalog_name'].unique().tolist())
@@ -2034,14 +2037,14 @@ def render_catalog_browser(groups):
                                 st.rerun()
     except Exception as e:
         logging.error("Error in catalog browser: %s", e)
-        st.error("Could not load catalog hierarchy.")
+        st.error(t("catalog.load_error"))
 
 def render_glossary():
-    st.markdown('''
+    st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ Business Glossary</div>
+      <div class="dd-eyebrow">{t("glossary.title")}</div>
       <h1>Speak the same language.</h1>
-      <p class="lead">Define business concepts and map them to technical data assets.</p>
+      <p class="lead">{t("glossary.subtitle")}</p>
     </div>
     ''', unsafe_allow_html=True)
     
@@ -2063,18 +2066,18 @@ def render_glossary():
         with col_main:
             st.markdown(f'''
             <div class="dd-detail-header" style="margin-top: 0;">
-              <span class="dd-eyebrow" style="margin-bottom:0">§ Term Details</span>
+              <span class="dd-eyebrow" style="margin-bottom:0">{t("glossary.term_details")}</span>
             </div>
             <div class="dd-detail-table-name">{term_row["term"]}</div>
-            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">Definition</div>
+            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.definition")}</div>
             <p class="dd-detail-desc" style="font-size:18px;">{term_row["definition"]}</p>
             
-            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:24px; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">Logic / Calculation</div>
+            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:24px; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.logic_calculation")}</div>
             <div style="background:var(--paper-deep); padding:16px; border-radius:2px; font-family:var(--font-mono); font-size:14px; color:var(--ink); border-left:3px solid var(--accent); line-height:1.5;">
               {term_row["calculation"]}
             </div>
             
-            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:32px; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em;">Linked Tables</div>
+            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:32px; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.linked_tables")}</div>
             ''', unsafe_allow_html=True)
             
             for table_fn in term_row["related_tables"]:
@@ -2088,7 +2091,7 @@ def render_glossary():
             # Stewardship Section
             st.markdown(f'''
             <div class="dd-section-header">
-              <span class="dd-eyebrow" style="margin-bottom:0">§ Stewardship</span>
+              <span class="dd-eyebrow" style="margin-bottom:0">{t("glossary.stewardship")}</span>
             </div>
             <div style="margin-top:16px;">
               <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">Business Domain</div>
@@ -2103,7 +2106,7 @@ def render_glossary():
             # Concept Map (Graph)
             st.markdown(f'''
             <div class="dd-section-header" style="margin-top:32px;">
-              <span class="dd-eyebrow" style="margin-bottom:0">§ Concept Map</span>
+              <span class="dd-eyebrow" style="margin-bottom:0">{t("glossary.concept_map")}</span>
             </div>
             ''', unsafe_allow_html=True)
             
@@ -2120,11 +2123,11 @@ def render_glossary():
             components.html(graph_html, height=330)
 
 def render_discovery(groups):
-    st.markdown('''
+    st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ Data Discovery</div>
-      <h1>New & Notable.</h1>
-      <p class="lead">Recently updated data assets across your primary domains.</p>
+      <div class="dd-eyebrow">{t("discovery.title")}</div>
+      <h1>{t("discovery.hero_title")}</h1>
+      <p class="lead">{t("discovery.hero_subtitle")}</p>
     </div>
     ''', unsafe_allow_html=True)
 
@@ -2134,7 +2137,7 @@ def render_discovery(groups):
         primary_group = groups[0]
 
     if primary_group:
-        st.info(f"✨ Highlights for your primary group: **{primary_group}**", icon="🏢")
+        st.info(t("discovery.group_highlights", group=primary_group))
         
         try:
             # Re-use the authorized table fetch logic but sort by updated_at
@@ -2147,7 +2150,7 @@ def render_discovery(groups):
                     _ts = row["updated_at"]
                     # Format timestamp
                     if isinstance(_ts, pd.Timestamp):
-                        _time_str = _ts.strftime("%b %d, %H:%M UTC")
+                        _time_str = _ts.strftime(t("discovery.date_format"))
                     else:
                         _time_str = str(_ts)
                         
@@ -2155,39 +2158,39 @@ def render_discovery(groups):
                     <div style="background:var(--paper); border:1px solid var(--ink-10); padding:20px; margin-bottom:16px; border-radius:2px;">
                         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
                             <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{row["catalog_name"]} · {row["schema_name"]}</div>
-                            <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">Updated {_time_str}</div>
+                            <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{t("discovery.updated")} {_time_str}</div>
                         </div>
                         <div style="font-family:var(--font-mono); font-size:18px; font-weight:600; color:var(--ink); margin-bottom:8px;">{row["table_name"]}</div>
                         <p style="font-family:var(--font-sans); font-size:14px; color:var(--ink-60); line-height:1.5; margin-bottom:16px;">{_html.escape(str(row["table_description"]))}</p>
                     </div>
                     ''', unsafe_allow_html=True)
                     
-                    if st.button(f"Explore {row['table_name']} →", key=f"disc_{row['full_name']}", type="secondary"):
+                    if st.button(t("discovery.explore_button", name=row["table_name"]), key=f"disc_{row['full_name']}", type="secondary"):
                         st.query_params["tab"] = "search"
                         st.session_state["dd_search_override"] = row["table_name"]
                         st.session_state["dd_nav_select"] = row["full_name"]
                         st.rerun()
             else:
-                st.info("No recent updates found for this group.")
+                st.info(t("discovery.no_updates"))
         except Exception as e:
             logging.error("Error in discovery tab: %s", e)
-            st.error("Could not load discovery feed.")
+            st.error(t("discovery.load_error"))
     else:
-        st.warning("Please sign in or select a group to view discovery highlights.")
+        st.warning(t("discovery.sign_in_prompt"))
 
 def render_health(groups):
-    st.markdown('''
+    st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ Metadata Health</div>
-      <h1>Documentation Scorecard.</h1>
-      <p class="lead">Audit the completeness and quality of your catalog metadata.</p>
+      <div class="dd-eyebrow">{t("health.title")}</div>
+      <h1>{t("health.hero_title")}</h1>
+      <p class="lead">{t("health.hero_subtitle")}</p>
     </div>
     ''', unsafe_allow_html=True)
-    
+
     try:
         all_data = get_authorized_tables(groups)
         if all_data.empty:
-            st.info("No data accessible to audit.")
+            st.info(t("health.no_data"))
             return
 
         # 1. Calculation Logic
@@ -2217,25 +2220,25 @@ def render_health(groups):
         with c1:
             st.markdown(f'''
             <div style="background:var(--paper); border-top:3px solid var(--accent); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-                <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">Table Coverage</div>
+                <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.table_coverage")}</div>
                 <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{table_coverage:.0f}%</div>
-                <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{n_desc} of {n_tables} described</div>
+                <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.tables_described", n_desc=n_desc, n_tables=n_tables)}</div>
             </div>
             ''', unsafe_allow_html=True)
         with c2:
             st.markdown(f'''
             <div style="background:var(--paper); border-top:3px solid var(--deepblue); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-                <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">Column Coverage</div>
+                <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.column_coverage")}</div>
                 <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{col_coverage:.0f}%</div>
-                <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{n_col_desc} of {n_cols} defined</div>
+                <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.columns_defined", n_col_desc=n_col_desc, n_cols=n_cols)}</div>
             </div>
             ''', unsafe_allow_html=True)
         with c3:
             st.markdown(f'''
             <div style="background:var(--paper); border-top:3px solid var(--ochre); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-                <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">Freshness Index</div>
+                <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.freshness_index")}</div>
                 <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">A</div>
-                <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">Last sync 04:12 UTC</div>
+                <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.last_sync")}</div>
             </div>
             ''', unsafe_allow_html=True)
 
@@ -2269,7 +2272,7 @@ def render_health(groups):
             undocumented = all_data[all_data['table_description'].apply(lambda x: len(str(x).strip()) == 0)].head(5)
             
             if not undocumented.empty:
-                st.warning("The following tables are missing descriptions. Documentation is recommended.")
+                st.warning(t("health.missing_descriptions"))
                 for _, row in undocumented.iterrows():
                     if st.button(f"📄 {row['table_name']}", key=f"health_fix_{row['full_name']}", use_container_width=True):
                         st.query_params["tab"] = "search"
@@ -2277,11 +2280,11 @@ def render_health(groups):
                         st.session_state["dd_nav_select"] = row["full_name"]
                         st.rerun()
             else:
-                st.success("All visible tables are documented. Great work!")
+                st.success(t("health.all_documented"))
 
     except Exception as e:
         logging.error("Error in health dashboard: %s", e)
-        st.error("Could not load health metrics.")
+        st.error(t("health.load_error"))
 
 def render_placeholder_page(title, subtitle):
     st.markdown(f'''
@@ -2291,7 +2294,7 @@ def render_placeholder_page(title, subtitle):
       <p class="lead">This feature is currently in development.</p>
     </div>
     ''', unsafe_allow_html=True)
-    st.info("Coming soon in v0.4.0")
+    st.info(t("common.coming_soon"))
 
 
 # ── Admin page ─────────────────────────────────────────────────────────────────
@@ -2357,27 +2360,27 @@ def get_comment_log() -> pd.DataFrame:
 
 def render_admin_page():
     if not is_admin():
-        st.error("Admin access required.")
+        st.error(t("admin.access_denied"))
         st.stop()
 
-    st.markdown('''
+    st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ Admin</div>
+      <div class="dd-eyebrow">{t("admin.title")}</div>
       <h1>Administration.</h1>
-      <p class="lead">Catalog health, audit trail, and change history.</p>
+      <p class="lead">{t("health.subtitle")}</p>
     </div>
     ''', unsafe_allow_html=True)
 
     stats = get_admin_stats()
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.metric("Total tables", f"{stats.get('tables', 0):,}")
+        st.metric(t("admin.stats_tables"), f"{stats.get('tables', 0):,}")
     with c2:
-        st.metric("Total columns", f"{stats.get('columns', 0):,}")
+        st.metric(t("admin.stats_columns"), f"{stats.get('columns', 0):,}")
     with c3:
-        st.metric("Total comments", f"{stats.get('comments', 0):,}")
+        st.metric(t("admin.stats_comments"), f"{stats.get('comments', 0):,}")
     with c4:
-        st.metric("Business name overrides", f"{stats.get('overrides', 0):,}")
+        st.metric(t("admin.stats_overrides"), f"{stats.get('overrides', 0):,}")
 
     with st.expander("Business name change log", expanded=True):
         biz_log = get_business_name_change_log()
@@ -2428,7 +2431,7 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
         st.session_state.user_email = "finance.user@example.com"
     if not st.session_state.authenticated:
         render_header()
-        st.markdown('<div class="dd-page">', unsafe_allow_html=True)
+        st.markdown('<div class="dd-page" role="main" aria-live="polite">', unsafe_allow_html=True)
         render_signin_page(mock=True)
         st.markdown("</div>", unsafe_allow_html=True)
         render_footer()
@@ -2439,7 +2442,7 @@ else:
 # ── Authenticated: header with user ───────────────────────────────────────────
 current_tab = st.query_params.get("tab", "search")
 render_header(user_name=st.session_state.get("user_name", ""), active_tab=current_tab, show_admin=is_admin())
-st.markdown('<div class="dd-page">', unsafe_allow_html=True)
+st.markdown('<div class="dd-page" role="main" aria-live="polite">', unsafe_allow_html=True)
 
 groups = tuple(st.session_state.user_groups) if st.session_state.user_groups else ("none",)
 active_group = st.session_state.get("group_filter")
@@ -2465,13 +2468,12 @@ if _prev_tab is not None and _prev_tab != current_tab:
 st.session_state["_dd_current_tab"] = current_tab
 
 if current_tab == "search":
-    # --- START SEARCH PAGE ---
-    st.markdown('''
+    # --- START SEARCH PAGE --- eyebrow: § Catalog search
+    st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ Catalog search</div>
-      <h1>Find your data.</h1>
-      <p class="lead">Search tables, columns, and business terms across Unity Catalog —
-      filtered to what you can access.</p>
+      <div class="dd-eyebrow">{t('search.eyebrow')}</div>
+      <h1>{t('search.hero_title')}</h1>
+      <p class="lead">{t('search.hero_subtitle')}</p>
     </div>
     ''', unsafe_allow_html=True)
 
@@ -2492,15 +2494,15 @@ if current_tab == "search":
         table_options = sorted(all_results['table_name'].unique().tolist())
     except Exception as e:
         logging.error("Error querying data: %s", e, exc_info=True)
-        st.error("Error loading catalog.")
+        st.error(t("search.load_error"))
         all_results = None
         table_options = []
 
     search_query = st.selectbox(
-        "Search the catalog",
+        t("common.search"),
         options=table_options,
         index=table_options.index(st.session_state.get("catalog_search")) if st.session_state.get("catalog_search") in table_options else None,
-        placeholder="Select or type a table name...",
+        placeholder=t("search.placeholder"),
         label_visibility="collapsed",
         key="catalog_search",
     )
@@ -2533,10 +2535,10 @@ if current_tab == "search":
                         _raw_desc = row.get('table_description', '')
                         _desc = _html.escape(str(_raw_desc) if isinstance(_raw_desc, str) else '')
                         _host = os.getenv("DATABRICKS_HOST", "").strip()
-                        _ext_link = f'<a href="https://{_host}/explore/data/{_cat}/{_sch}/{_tbl}" target="_blank" class="dd-link-external">Open in Databricks ↗</a>' if _host else ''
+                        _ext_link = f'<a href="https://{_host}/explore/data/{_cat}/{_sch}/{_tbl}" target="_blank" class="dd-link-external">{t("table.open_in_databricks")} ↗</a>' if _host else ''
 
                         # Section header
-                        st.markdown('<div class="dd-detail-header" style="margin-top: 0;"><span class="dd-eyebrow" style="margin-bottom:0">§ Table detail</span></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="dd-detail-header" style="margin-top: 0;"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.title")}</span></div>', unsafe_allow_html=True)
 
                         # Table identity block
                         st.markdown(
@@ -2554,7 +2556,7 @@ if current_tab == "search":
                         cols_query = ("SELECT column_name, data_type, comment FROM {0}.{1}.columns_metadata WHERE table_full_name = %(table_full_name)s ORDER BY column_name").format(CATALOG_CACHE, SCHEMA_CACHE)
                         cols = run_query(cols_query, {"table_full_name": full_name})
                         n_cols = len(cols) if cols is not None and not cols.empty else 0
-                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Columns</span><span class="dd-section-count">{n_cols}</span></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_columns")}</span><span class="dd-section-count">{n_cols}</span></div>', unsafe_allow_html=True)
                         _power = is_power_user()
                         _col_edit = st.session_state.get("dd_col_edit_mode", "")
 
@@ -2642,14 +2644,14 @@ if current_tab == "search":
                         _comments     = get_table_comments(full_name)
                         _n_comments   = sum(1 + len(_c.get("replies", [])) for _c in _comments)
                         _comment_open = f"dd_comment_open_{full_name}"
-
-                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Comments</span><span class="dd-section-count">{_n_comments}</span></div>', unsafe_allow_html=True)
+                        # --- § Comments ---
+                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_comments")}</span><span class="dd-section-count">{_n_comments}</span></div>', unsafe_allow_html=True)
 
                         def _render_comment_form(key_suffix: str, parent_comment_id: str = None, parent_author_email: str = "") -> None:
                             """Render a text-area + Send/Cancel for a new comment or reply."""
                             _open_key = f"dd_comment_open_{key_suffix}"
                             if not st.session_state.get(_open_key):
-                                _label = "Reply" if parent_comment_id else "Leave a comment"
+                                _label = t("comment.reply") if parent_comment_id else t("comment.leave_a_comment")
                                 if st.button(_label, key=f"dd_comment_btn_{key_suffix}"):
                                     st.session_state[_open_key] = True
                                     st.rerun()
@@ -2721,14 +2723,14 @@ if current_tab == "search":
                         grants_query = ("SELECT DISTINCT principal, privilege FROM {0}.{1}.permissions_cache WHERE table_full_name = %(table_full_name)s ORDER BY principal").format(CATALOG_CACHE, SCHEMA_CACHE)
                         grants = run_query(grants_query, {"table_full_name": full_name})
                         n_grants = len(grants) if grants is not None and not grants.empty else 0
-                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Group Permissions</span><span class="dd-section-count">{n_grants}</span></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_grants")}</span><span class="dd-section-count">{n_grants}</span></div>', unsafe_allow_html=True)
                         if n_grants > 0:
                             for _, g in grants.iterrows():
                                 principal, privilege = str(g.get("principal", "")), str(g.get("privilege", ""))
                                 if principal == "SELECT_ALL_USERS": st.markdown(f'<div class="dd-grant-row"><span class="dd-grant-who">all users</span><span class="dd-grant-what">{_html.escape(privilege)}</span></div>', unsafe_allow_html=True)
                                 else:
                                     st.markdown('<div style="border-top: 1px solid var(--ink-10); margin: 8px 0 4px 0;"></div>', unsafe_allow_html=True)
-                                    if st.button(f"🔍 Search tables accessible to: {principal} ({privilege})", key=f"grant_{full_name}_{principal}_{privilege}", use_container_width=True):
+                                    if st.button(f"🔍 {t('detail.search_tables_accessible', principal=principal, privilege=privilege)}", key=f"grant_{full_name}_{principal}_{privilege}", use_container_width=True):
                                         st.session_state["group_filter"] = principal
                                         st.session_state.pop("catalog_search", None)
                                         st.session_state.pop("dd_nav_select", None)
@@ -2746,7 +2748,7 @@ if current_tab == "search":
                         related = run_query(related_query, {"catalog_name": row["catalog_name"], "schema_name": row["schema_name"], "full_name": full_name, "groups": query_groups})
                         n_related = len(related) if related is not None and not related.empty else 0
                         
-                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Lineage & Related Tables</span><span class="dd-section-count">{n_related} related</span></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_lineage")} & {t("detail.section_related")}</span><span class="dd-section-count">{n_related} {t("detail.related_count")}</span></div>', unsafe_allow_html=True)
                         
                         graph_nodes = [{"id": full_name, "label": _tbl, "current": True, "relationship": "Current"}]
                         graph_links = []
@@ -2761,7 +2763,8 @@ if current_tab == "search":
                                 graph_links.append({"from": full_name, "to": efn})
                         if n_related > 0:
                             for _, rel in related.iterrows():
-                                _rel_full, _rel_name, _rel_badge = str(rel.get("full_name", "")), _html.escape(str(rel.get("table_name", ""))), str(rel.get("relationship", ""))
+                                _rel_full, _rel_name, _rel_raw_badge = str(rel.get("full_name", "")), _html.escape(str(rel.get("table_name", ""))), str(rel.get("relationship", ""))
+                                _rel_badge = t("detail.same_schema") if _rel_raw_badge == "Same schema" else (t("detail.shared_column") if _rel_raw_badge == "Shared column" else _html.escape(_rel_raw_badge))
                                 if not any(n["id"] == _rel_full for n in graph_nodes): graph_nodes.append({"id": _rel_full, "label": _rel_name, "current": False, "relationship": _rel_badge})
                                 if not any((l["from"] == full_name and l["to"] == _rel_full) or (l["from"] == _rel_full and l["to"] == full_name) for l in graph_links): graph_links.append({"from": full_name, "to": _rel_full})
                         
@@ -2774,16 +2777,17 @@ if current_tab == "search":
                             _cols = st.columns(min(3, n_related), gap="small")
                             for i, (_, rel) in enumerate(related.iterrows()):
                                 with _cols[i % 3]:
-                                    _rel_full, _rel_name, _rel_sch, _rel_badge = str(rel.get("full_name", "")), _html.escape(str(rel.get("table_name", ""))), _html.escape(f"{rel.get('catalog_name','')}.{rel.get('schema_name','')}"), _html.escape(str(rel.get("relationship", "")))
+                                    _rel_full, _rel_name, _rel_sch, _rel_raw_badge = str(rel.get("full_name", "")), _html.escape(str(rel.get("table_name", ""))), _html.escape(f"{rel.get('catalog_name','')}.{rel.get('schema_name','')}"), str(rel.get("relationship", ""))
+                                    _rel_badge = t("detail.same_schema") if _rel_raw_badge == "Same schema" else (t("detail.shared_column") if _rel_raw_badge == "Shared column" else _html.escape(_rel_raw_badge))
                                     st.markdown(f'<div class="dd-related-card"><div class="dd-related-badge">{_rel_badge}</div><div class="dd-related-name">{_rel_name}</div><div class="dd-related-schema">{_rel_sch}</div></div>', unsafe_allow_html=True)
-                                    if st.button("Open →", key=f"rel_{_rel_full}", type="secondary", use_container_width=True):
+                                    if st.button(t("detail.open_related"), key=f"rel_{_rel_full}", type="secondary", use_container_width=True):
                                         st.session_state["dd_search_override"] = str(rel.get("table_name", ""))
                                         st.session_state["dd_nav_select"] = _rel_full
                                         st.rerun()
 
         except Exception as e:
             logging.error("Error displaying search results: %s", e, exc_info=True)
-            st.error("Error displaying details.")
+            st.error(t("detail.load_error"))
     else:
         st.markdown('<p style="font-family:var(--font-sans);font-size:15px;color:var(--ink-60);margin-top:8px">Start typing to search the catalog.</p>', unsafe_allow_html=True)
     # --- END SEARCH PAGE ---

@@ -12,9 +12,12 @@ Scope (testable without a real browser or axe-core):
   1.8 — Color is not sole means of conveying state (SC 1.4.1)
   1.9 — Admin access denial expressed with st.error (SC 4.1.3)
   1.10 — Search input has a descriptive label or placeholder (SC 1.3.1)
+  1.11 — Locale files have identical key sets (no silent fallback to key name)
+  1.12 — Main content region has aria-live for dynamic updates (SC 4.1.3)
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import pandas as pd
@@ -248,3 +251,77 @@ class TestSearchInput:
         ]
         assert len(labelled) > 0, \
             "Search tab has no labelled inputs (WCAG SC 1.3.1)"
+
+
+# ── 1.11  Locale key parity ───────────────────────────────────────────────────
+
+LOCALE_DIR = os.path.join(os.path.dirname(__file__), "..", "locale")
+
+
+def _flatten_keys(d: dict, prefix: str = "") -> set[str]:
+    """Recursively collect all dotted key paths from a nested dict."""
+    keys: set[str] = set()
+    for k, v in d.items():
+        full = f"{prefix}.{k}" if prefix else k
+        if isinstance(v, dict):
+            keys |= _flatten_keys(v, full)
+        else:
+            keys.add(full)
+    return keys
+
+
+class TestLocaleParity:
+    """Every key in en.json must exist in fr.json and vice versa.
+
+    Missing keys cause silent fallback to the raw key name in the UI, which
+    breaks the non-English locale.  SC 3.1.2 — Language of Parts.
+    """
+
+    def _load(self, lang: str) -> dict:
+        path = os.path.join(LOCALE_DIR, f"{lang}.json")
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+
+    def test_fr_has_all_en_keys(self):
+        en_keys = _flatten_keys(self._load("en"))
+        fr_keys = _flatten_keys(self._load("fr"))
+        missing = en_keys - fr_keys
+        assert not missing, (
+            f"Keys present in en.json but missing from fr.json:\n"
+            + "\n".join(f"  {k}" for k in sorted(missing))
+        )
+
+    def test_en_has_all_fr_keys(self):
+        en_keys = _flatten_keys(self._load("en"))
+        fr_keys = _flatten_keys(self._load("fr"))
+        extra = fr_keys - en_keys
+        assert not extra, (
+            f"Keys present in fr.json but missing from en.json:\n"
+            + "\n".join(f"  {k}" for k in sorted(extra))
+        )
+
+
+# ── 1.12  Aria-live on main content ──────────────────────────────────────────
+
+class TestAriaLive:
+    """SC 4.1.3 — Status messages must be programmatically determinable.
+
+    The main page container must carry aria-live so that dynamic content
+    changes (search results, save confirmations) are announced to screen readers.
+    """
+
+    def test_main_content_has_aria_live(self):
+        at = _signed_in_app()
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        html = _html(*at.markdown)
+        assert 'aria-live' in html, \
+            "Main content wrapper missing aria-live attribute (WCAG SC 4.1.3)"
+
+    def test_main_content_has_role_main(self):
+        at = _signed_in_app()
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        html = _html(*at.markdown)
+        assert 'role="main"' in html, \
+            "Main content wrapper missing role='main' landmark (WCAG SC 1.3.6)"
