@@ -1271,6 +1271,10 @@ def check_auth():
                 st.session_state.user_groups = claims.get("groups", [])
                 st.session_state.user_name   = claims.get("name")
                 st.session_state.user_email  = claims.get("email") or claims.get("preferred_username", "")
+                st.session_state.user_oid    = claims.get("oid", "")
+                # Seed personalization from DuckDB on first real login
+                _sync_prefs_to_session()
+                st.session_state["_prefs_loaded"] = True
                 # Clear query params and rerun
                 st.query_params.clear()
                 st.rerun()
@@ -1399,6 +1403,15 @@ def _get_shared_duckdb_connection():
                 created_at      TIMESTAMP
             )
         """)
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS user_data.user_preferences (
+                user_oid        VARCHAR NOT NULL,
+                table_full_name VARCHAR NOT NULL,
+                pref_type       VARCHAR NOT NULL,
+                last_interacted TIMESTAMP NOT NULL,
+                PRIMARY KEY (user_oid, table_full_name, pref_type)
+            )
+        """)
     return con
 
 
@@ -1519,6 +1532,76 @@ def _run_duckdb_query(query, params=None):
     with conn.cursor() as cursor:
         cursor.execute(query, params)
         return cursor.fetchall_as_pandas()
+
+
+# ── Personalization persistence helpers ───────────────────────────────────────
+
+def _user_oid() -> str:
+    """Return a stable identifier for the current user (OID or email fallback)."""
+    return st.session_state.get("user_oid") or st.session_state.get("user_email") or "anonymous"
+
+
+def _pref_upsert(table_full_name: str, pref_type: str) -> None:
+    """Write or refresh a bookmark/recent entry in user_data.user_preferences."""
+    if not _duckdb_available():
+        return
+    try:
+        con = get_db_connection()
+        with _db_write_lock:
+            con.execute(
+                """
+                INSERT INTO user_data.user_preferences (user_oid, table_full_name, pref_type, last_interacted)
+                VALUES (?, ?, ?, now())
+                ON CONFLICT (user_oid, table_full_name, pref_type) DO UPDATE
+                    SET last_interacted = excluded.last_interacted
+                """,
+                [_user_oid(), table_full_name, pref_type],
+            )
+    except Exception as _e:
+        logging.warning("Could not write user preference: %s", _e)
+
+
+def _pref_delete(table_full_name: str, pref_type: str) -> None:
+    """Remove a bookmark entry from user_data.user_preferences."""
+    if not _duckdb_available():
+        return
+    try:
+        con = get_db_connection()
+        with _db_write_lock:
+            con.execute(
+                "DELETE FROM user_data.user_preferences WHERE user_oid=? AND table_full_name=? AND pref_type=?",
+                [_user_oid(), table_full_name, pref_type],
+            )
+    except Exception as _e:
+        logging.warning("Could not delete user preference: %s", _e)
+
+
+def _pref_load(pref_type: str, limit: int = 20) -> list[str]:
+    """Return table_full_name list for the given pref_type, newest first."""
+    if not _duckdb_available():
+        return []
+    try:
+        con = get_db_connection()
+        rows = con.execute(
+            """
+            SELECT table_full_name FROM user_data.user_preferences
+            WHERE user_oid=? AND pref_type=?
+            ORDER BY last_interacted DESC LIMIT ?
+            """,
+            [_user_oid(), pref_type, limit],
+        ).fetchall()
+        return [r[0] for r in rows]
+    except Exception as _e:
+        logging.warning("Could not load user preferences: %s", _e)
+        return []
+
+
+def _sync_prefs_to_session() -> None:
+    """Populate in-memory sets from DuckDB on first load (or after rerun)."""
+    bookmarks = _pref_load("bookmark")
+    st.session_state.bookmarks = set(bookmarks)
+    recent = _pref_load("recent", limit=50)
+    st.session_state.recent_views = recent
 
 
 def run_query(query, params=None):
@@ -2163,6 +2246,48 @@ def render_glossary():
             graph_html = f'''<div id="mynetwork_glossary" style="width: 100%; height: 300px; background: #F2EDE1; border-radius: 4px; border: 1px solid #C9C2B4; overflow: hidden; margin-top: 16px;"></div><script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script><script type="text/javascript">var nodes = new vis.DataSet({json.dumps(graph_nodes)}); var edges = new vis.DataSet({json.dumps(graph_links)}); var container = document.getElementById('mynetwork_glossary'); var data = {{ nodes: nodes, edges: edges }}; var options = {{ nodes: {{ shape: 'box', margin: 10, font: {{ size: 14, face: 'sans-serif' }}, borderWidth: 1, shadow: true }}, edges: {{ arrows: 'to', color: '#C9C2B4', smooth: {{ type: 'cubicBezier', forceDirection: 'horizontal' }} }}, physics: {{ barnesHut: {{ springLength: 100, springConstant: 0.04 }}, minVelocity: 0.75 }}, interaction: {{ hover: false, dragNodes: true, dragView: true, zoomView: true }} }}; var updatedNodes = []; nodes.forEach(function(node) {{ var isCurrent = node.current; var bg = isCurrent ? '#B8362A' : '#FAF7F0'; var border = isCurrent ? '#8C271E' : '#C9C2B4'; var text = isCurrent ? '#FAF7F0' : '#14110C'; updatedNodes.push({{ id: node.id, color: {{ background: bg, border: border, highlight: {{ background: bg, border: border }} }}, font: {{ color: text }} }}); }}); nodes.update(updatedNodes); var network = new vis.Network(container, data, options); network.once("stabilizationIterationsDone", function() {{ network.fit(); }});</script>'''
             components.html(graph_html, height=330)
 
+def _render_table_card(row: "pd.Series", key_prefix: str) -> None:
+    """Shared card layout used in New & Notable and My Bookmarks."""
+    _ts = row.get("updated_at")
+    if isinstance(_ts, pd.Timestamp):
+        _time_str = _ts.strftime(t("discovery.date_format"))
+    else:
+        _time_str = str(_ts) if _ts else ""
+
+    _full = str(row.get("full_name", ""))
+    _is_bk = _full in st.session_state.get("bookmarks", set())
+    _bk_icon = "★" if _is_bk else "☆"
+
+    st.markdown(f'''
+    <div style="background:var(--paper); border:1px solid var(--ink-10); padding:20px; margin-bottom:16px; border-radius:2px;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(row.get("catalog_name","")))} · {_html.escape(str(row.get("schema_name","")))}</div>
+            <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{t("discovery.updated")} {_time_str}</div>
+        </div>
+        <div style="font-family:var(--font-mono); font-size:18px; font-weight:600; color:var(--ink); margin-bottom:8px;">{_html.escape(str(row.get("table_name","")))}</div>
+        <p style="font-family:var(--font-sans); font-size:14px; color:var(--ink-60); line-height:1.5; margin-bottom:16px;">{_html.escape(str(row.get("table_description","")))}</p>
+    </div>
+    ''', unsafe_allow_html=True)
+
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        if st.button(t("discovery.explore_button", name=row.get("table_name", "")), key=f"{key_prefix}_exp_{_full}", type="secondary"):
+            st.query_params["tab"] = "search"
+            st.session_state["dd_search_override"] = row.get("table_name", "")
+            st.session_state["dd_nav_select"] = _full
+            st.rerun()
+    with c2:
+        _bk_label = t("personalization.remove_bookmark") if _is_bk else t("personalization.add_bookmark")
+        if st.button(f"{_bk_icon} {_bk_label}", key=f"{key_prefix}_bk_{_full}"):
+            if _is_bk:
+                st.session_state.bookmarks.discard(_full)
+                _pref_delete(_full, "bookmark")
+            else:
+                st.session_state.bookmarks.add(_full)
+                _pref_upsert(_full, "bookmark")
+            st.rerun()
+
+
 def render_discovery(groups):
     st.markdown(f'''
     <div class="dd-search-hero">
@@ -2172,52 +2297,72 @@ def render_discovery(groups):
     </div>
     ''', unsafe_allow_html=True)
 
-    # Use the first group in the list as the "primary" if no filter is active
-    primary_group = st.session_state.get("group_filter")
-    if not primary_group and groups:
-        primary_group = groups[0]
+    tab_notable, tab_bookmarks, tab_recent = st.tabs([
+        t("personalization.tab_notable"),
+        t("personalization.tab_bookmarks"),
+        t("personalization.tab_recent"),
+    ])
 
-    if primary_group:
-        st.info(t("discovery.group_highlights", group=primary_group))
-        
-        try:
-            # Re-use the authorized table fetch logic but sort by updated_at
-            all_authorized = get_authorized_tables((primary_group,))
-            
-            if not all_authorized.empty and "updated_at" in all_authorized.columns:
-                recent_tables = all_authorized.sort_values(by="updated_at", ascending=False).head(10)
-                
-                for _, row in recent_tables.iterrows():
-                    _ts = row["updated_at"]
-                    # Format timestamp
-                    if isinstance(_ts, pd.Timestamp):
-                        _time_str = _ts.strftime(t("discovery.date_format"))
-                    else:
-                        _time_str = str(_ts)
-                        
-                    st.markdown(f'''
-                    <div style="background:var(--paper); border:1px solid var(--ink-10); padding:20px; margin-bottom:16px; border-radius:2px;">
-                        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
-                            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(row["catalog_name"]))} · {_html.escape(str(row["schema_name"]))}</div>
-                            <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{t("discovery.updated")} {_time_str}</div>
-                        </div>
-                        <div style="font-family:var(--font-mono); font-size:18px; font-weight:600; color:var(--ink); margin-bottom:8px;">{_html.escape(str(row["table_name"]))}</div>
-                        <p style="font-family:var(--font-sans); font-size:14px; color:var(--ink-60); line-height:1.5; margin-bottom:16px;">{_html.escape(str(row["table_description"]))}</p>
-                    </div>
-                    ''', unsafe_allow_html=True)
-                    
-                    if st.button(t("discovery.explore_button", name=row["table_name"]), key=f"disc_{row['full_name']}", type="secondary"):
-                        st.query_params["tab"] = "search"
-                        st.session_state["dd_search_override"] = row["table_name"]
-                        st.session_state["dd_nav_select"] = row["full_name"]
-                        st.rerun()
-            else:
-                st.info(t("discovery.no_updates"))
-        except Exception as e:
-            logging.error("Error in discovery tab: %s", e)
-            st.error(t("discovery.load_error"))
-    else:
-        st.warning(t("discovery.sign_in_prompt"))
+    # ── New & Notable ────────────────────────────────────────────────────────────
+    with tab_notable:
+        primary_group = st.session_state.get("group_filter")
+        if not primary_group and groups:
+            primary_group = groups[0]
+
+        if primary_group:
+            st.info(t("discovery.group_highlights", group=primary_group))
+            try:
+                all_authorized = get_authorized_tables((primary_group,))
+                if not all_authorized.empty and "updated_at" in all_authorized.columns:
+                    recent_tables = all_authorized.sort_values(by="updated_at", ascending=False).head(10)
+                    for _, row in recent_tables.iterrows():
+                        _render_table_card(row, "notable")
+                else:
+                    st.info(t("discovery.no_updates"))
+            except Exception as e:
+                logging.error("Error in discovery tab: %s", e)
+                st.error(t("discovery.load_error"))
+        else:
+            st.warning(t("discovery.sign_in_prompt"))
+
+    # ── My Bookmarks ─────────────────────────────────────────────────────────────
+    with tab_bookmarks:
+        bookmarks = st.session_state.get("bookmarks", set())
+        if not bookmarks:
+            st.info(t("personalization.no_bookmarks"))
+        else:
+            try:
+                all_tables = get_authorized_tables(groups)
+                bk_df = all_tables[all_tables["full_name"].isin(bookmarks)]
+                if bk_df.empty:
+                    st.info(t("personalization.no_bookmarks"))
+                else:
+                    for _, row in bk_df.iterrows():
+                        _render_table_card(row, "bk")
+            except Exception as e:
+                logging.error("Error loading bookmarks: %s", e)
+                st.error(t("discovery.load_error"))
+
+    # ── Recently Viewed ──────────────────────────────────────────────────────────
+    with tab_recent:
+        recent_views = st.session_state.get("recent_views", [])
+        if not recent_views:
+            st.info(t("personalization.no_recent"))
+        else:
+            try:
+                all_tables = get_authorized_tables(groups)
+                # Preserve recency order
+                rv_df = all_tables[all_tables["full_name"].isin(recent_views)].copy()
+                rv_df["_order"] = rv_df["full_name"].map({fn: i for i, fn in enumerate(recent_views)})
+                rv_df = rv_df.sort_values("_order").drop(columns=["_order"])
+                if rv_df.empty:
+                    st.info(t("personalization.no_recent"))
+                else:
+                    for _, row in rv_df.iterrows():
+                        _render_table_card(row, "rv")
+            except Exception as e:
+                logging.error("Error loading recent views: %s", e)
+                st.error(t("discovery.load_error"))
 
 def render_health(groups):
     st.markdown(f'''
@@ -2454,11 +2599,14 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
 if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
-    # Personalization state (feature/personalization)
+    # Personalization state — seed from DuckDB, fall back to empty
     if "bookmarks" not in st.session_state:
         st.session_state.bookmarks = set()
     if "recent_views" not in st.session_state:
         st.session_state.recent_views = []
+    if not st.session_state.get("_prefs_loaded"):
+        _sync_prefs_to_session()
+        st.session_state["_prefs_loaded"] = True
     
     # Auto-login if returning from a nav link
     if st.query_params.get("mock_login") == "true":
@@ -2588,6 +2736,25 @@ if current_tab == "search":
                             unsafe_allow_html=True,
                         )
                         st.code(full_name, language=None)
+
+                        # --- § Bookmark + recent-view tracking ---
+                        _is_bookmarked = full_name in st.session_state.get("bookmarks", set())
+                        _bk_label = t("personalization.remove_bookmark") if _is_bookmarked else t("personalization.add_bookmark")
+                        if st.button(_bk_label, key=f"bk_{full_name}", type="secondary"):
+                            if _is_bookmarked:
+                                st.session_state.bookmarks.discard(full_name)
+                                _pref_delete(full_name, "bookmark")
+                            else:
+                                st.session_state.bookmarks.add(full_name)
+                                _pref_upsert(full_name, "bookmark")
+                            st.rerun()
+
+                        # Record this table as recently viewed
+                        _rv = st.session_state.get("recent_views", [])
+                        if not _rv or _rv[0] != full_name:
+                            _rv = [full_name] + [x for x in _rv if x != full_name][:49]
+                            st.session_state.recent_views = _rv
+                            _pref_upsert(full_name, "recent")
 
                         # --- § Columns ---
                         # Bulk-fetch overrides first (one query for all columns)
