@@ -320,7 +320,8 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
     outline: 2px solid var(--accent) !important;
     outline-offset: 3px !important;
 }
-.stTextInput label {
+.stTextInput label,
+[data-testid="stSelectbox"] label {
     font-family: var(--font-sans) !important;
     font-size: 12px !important;
     font-weight: 600 !important;
@@ -350,14 +351,6 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
 }
 
 /* Selectbox */
-[data-testid="stSelectbox"] label {
-    font-family: var(--font-sans) !important;
-    font-size: 12px !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.14em !important;
-    text-transform: uppercase !important;
-    color: var(--ink-60) !important;
-}
 [data-testid="stSelectbox"] > div > div {
     border: 1px solid var(--ink-20) !important;
     border-radius: 2px !important;
@@ -1981,7 +1974,7 @@ def save_comment(
 @st.cache_data(ttl="1h")
 def get_authorized_tables(groups):
     group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
-    params = {}
+    params: dict = {}
     if groups:
         for i, group in enumerate(groups):
             params[f"group_{i}"] = group
@@ -2025,11 +2018,9 @@ def render_catalog_browser(groups):
         for cat in catalogs:
             with st.expander(f"📁 {cat}", expanded=False):
                 cat_data = all_data[all_data['catalog_name'] == cat]
-                schemas = sorted(cat_data['schema_name'].unique().tolist())
-                
-                for sch in schemas:
+                # Group by schema_name to avoid O(N^2) dataframe filtering
+                for sch, sch_data in cat_data.groupby('schema_name'):
                     st.markdown(f'<div style="margin-left: 20px; font-weight: 500; color: var(--ink-60); margin-top: 10px; margin-bottom: 5px;">📂 {sch}</div>', unsafe_allow_html=True)
-                    sch_data = cat_data[cat_data['schema_name'] == sch]
                     tables = sorted(sch_data['table_name'].unique().tolist())
                     
                     # Columns for tables to make it more compact
@@ -2164,10 +2155,10 @@ def render_discovery(groups):
                     st.markdown(f'''
                     <div style="background:var(--paper); border:1px solid var(--ink-10); padding:20px; margin-bottom:16px; border-radius:2px;">
                         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
-                            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{row["catalog_name"]} · {row["schema_name"]}</div>
+                            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(row["catalog_name"]))} · {_html.escape(str(row["schema_name"]))}</div>
                             <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{t("discovery.updated")} {_time_str}</div>
                         </div>
-                        <div style="font-family:var(--font-mono); font-size:18px; font-weight:600; color:var(--ink); margin-bottom:8px;">{row["table_name"]}</div>
+                        <div style="font-family:var(--font-mono); font-size:18px; font-weight:600; color:var(--ink); margin-bottom:8px;">{_html.escape(str(row["table_name"]))}</div>
                         <p style="font-family:var(--font-sans); font-size:14px; color:var(--ink-60); line-height:1.5; margin-bottom:16px;">{_html.escape(str(row["table_description"]))}</p>
                     </div>
                     ''', unsafe_allow_html=True)
@@ -2202,7 +2193,7 @@ def render_health(groups):
 
         # 1. Calculation Logic
         n_tables = len(all_data)
-        n_desc = all_data['table_description'].apply(lambda x: len(str(x).strip()) > 0).sum()
+        n_desc = (all_data['table_description'].str.strip().str.len() > 0).sum()
         table_coverage = (n_desc / n_tables * 100) if n_tables > 0 else 0
 
         # For columns, we need to query the cache (or use mock)
