@@ -216,11 +216,10 @@ class TestSearch:
         at.run()
         cursor = get_db_cursor()
         first_call_params = cursor.execute.call_args_list[0][0][1]
-
-        # Check that 'finance_dept_id' is present as a value in any of the bound parameters
-        found = any(v == "finance_dept_id" for k, v in first_call_params.items() if k.startswith("group_"))
-        assert found, (
-            "finance_dept_id not found in any group_X param — permission filter may be bypassable"
+        # SQL injection fix: groups are now bound as individual params (group_0, group_1, ...)
+        group_values = [v for k, v in first_call_params.items() if k.startswith("group_")]
+        assert "finance_dept_id" in group_values, (
+            "finance_dept_id not in group params — permission filter may be bypassable"
         )
 
     def test_search_results_show_table_selectbox(self):
@@ -604,3 +603,29 @@ class TestLineageAndRelated:
         at = self._run_with_detail(related_df=related)
         open_buttons = [b for b in at.button if b.label == "Open \u2192"]
         assert len(open_buttons) >= 1, "Expected 'Open \u2192' button for related table card"
+
+
+class TestDiscovery:
+    """Tests for the Discovery tab."""
+
+    def test_discovery_exception_shows_generic_error(self):
+        """When an exception occurs during query execution in the discovery tab,
+        the UI must show a generic message, not the raw exception."""
+        cursor = get_db_cursor()
+        cursor.reset_mock()
+        cursor.execute.side_effect = Exception("SECRET_DB_ERROR_DISCOVERY")
+
+        at = authenticated_app()
+        at.query_params["tab"] = "discovery"
+        at.run()
+
+        assert any("Could not load discovery feed" in msg.value for msg in at.error)
+
+        for e in at.error:
+            assert "SECRET_DB_ERROR_DISCOVERY" not in e.value, "Exception details leaked in st.error"
+        for w in at.warning:
+            assert "SECRET_DB_ERROR_DISCOVERY" not in w.value, "Exception details leaked in st.warning"
+        for i in at.info:
+            assert "SECRET_DB_ERROR_DISCOVERY" not in i.value, "Exception details leaked in st.info"
+        html = _html(*at.markdown)
+        assert "SECRET_DB_ERROR_DISCOVERY" not in html, "Exception details leaked in st.markdown"
