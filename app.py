@@ -910,6 +910,16 @@ def render_footer():
     """, unsafe_allow_html=True)
 
 
+def render_hero(eyebrow: str, title: str, lead: str):
+    st.markdown(f'''
+    <div class="dd-search-hero">
+      <div class="dd-eyebrow">§ {eyebrow}</div>
+      <h1>{title}</h1>
+      <p class="lead">{lead}</p>
+    </div>
+    ''', unsafe_allow_html=True)
+
+
 # ── Authentication helpers ─────────────────────────────────────────────────────
 @st.cache_resource
 def get_msal_app():
@@ -1112,13 +1122,11 @@ def get_authorized_tables(groups):
 
 
 def render_catalog_browser(groups):
-    st.markdown('''
-    <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ Catalog browser</div>
-      <h1>Explore the hierarchy.</h1>
-      <p class="lead">Drill down from catalogs to schemas and tables.</p>
-    </div>
-    ''', unsafe_allow_html=True)
+    render_hero(
+        eyebrow="Catalog browser",
+        title="Explore the hierarchy.",
+        lead="Drill down from catalogs to schemas and tables."
+    )
     
     try:
         all_data = get_authorized_tables(groups)
@@ -1154,13 +1162,11 @@ def render_catalog_browser(groups):
         st.error("Could not load catalog hierarchy.")
 
 def render_glossary():
-    st.markdown('''
-    <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ Business Glossary</div>
-      <h1>Speak the same language.</h1>
-      <p class="lead">Define business concepts and map them to technical data assets.</p>
-    </div>
-    ''', unsafe_allow_html=True)
+    render_hero(
+        eyebrow="Business Glossary",
+        title="Speak the same language.",
+        lead="Define business concepts and map them to technical data assets."
+    )
     
     # Term Selection (Autocomplete)
     all_terms = _DEMO_GLOSSARY["term"].tolist()
@@ -1237,13 +1243,11 @@ def render_glossary():
             components.html(graph_html, height=330)
 
 def render_discovery(groups):
-    st.markdown('''
-    <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ Data Discovery</div>
-      <h1>New & Notable.</h1>
-      <p class="lead">Recently updated data assets across your primary domains.</p>
-    </div>
-    ''', unsafe_allow_html=True)
+    render_hero(
+        eyebrow="Data Discovery",
+        title="New & Notable.",
+        lead="Recently updated data assets across your primary domains."
+    )
 
     # Use the first group in the list as the "primary" if no filter is active
     primary_group = st.session_state.get("group_filter")
@@ -1293,13 +1297,11 @@ def render_discovery(groups):
         st.warning("Please sign in or select a group to view discovery highlights.")
 
 def render_health(groups):
-    st.markdown('''
-    <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ Metadata Health</div>
-      <h1>Documentation Scorecard.</h1>
-      <p class="lead">Audit the completeness and quality of your catalog metadata.</p>
-    </div>
-    ''', unsafe_allow_html=True)
+    render_hero(
+        eyebrow="Metadata Health",
+        title="Documentation Scorecard.",
+        lead="Audit the completeness and quality of your catalog metadata."
+    )
     
     try:
         all_data = get_authorized_tables(groups)
@@ -1401,13 +1403,11 @@ def render_health(groups):
         st.error("Could not load health metrics.")
 
 def render_placeholder_page(title, subtitle):
-    st.markdown(f'''
-    <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ {title}</div>
-      <h1>{subtitle}</h1>
-      <p class="lead">This feature is currently in development.</p>
-    </div>
-    ''', unsafe_allow_html=True)
+    render_hero(
+        eyebrow=title,
+        title=subtitle,
+        lead="This feature is currently in development."
+    )
     st.info("Coming soon in v0.4.0")
 
 # ── App entry point ────────────────────────────────────────────────────────────
@@ -1447,14 +1447,11 @@ query_groups = (active_group,) if active_group else groups
 
 if current_tab == "search":
     # --- START SEARCH PAGE ---
-    st.markdown('''
-    <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ Catalog search</div>
-      <h1>Find your data.</h1>
-      <p class="lead">Search tables, columns, and business terms across Unity Catalog —
-      filtered to what you can access.</p>
-    </div>
-    ''', unsafe_allow_html=True)
+    render_hero(
+        eyebrow="Catalog search",
+        title="Find your data.",
+        lead="Search tables, columns, and business terms across Unity Catalog —\n      filtered to what you can access."
+    )
 
     if "dd_search_override" in st.session_state:
         st.session_state["catalog_search"] = st.session_state.pop("dd_search_override")

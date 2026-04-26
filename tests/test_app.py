@@ -369,7 +369,7 @@ class TestDesignSystem:
     def test_section_headers_use_section_symbol(self):
         """Section eyebrow labels must use the § prefix."""
         src = _read_app_source()
-        assert "§ Catalog search" in src, "Missing '§ Catalog search' eyebrow"
+        assert "§ {eyebrow}" in src, "Missing '§ {eyebrow}' eyebrow in render_hero"
         assert ("§ Table detail" in src or "§ Columns" in src), \
             "Missing § prefix on table detail/columns section header"
 
