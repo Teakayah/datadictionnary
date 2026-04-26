@@ -1519,7 +1519,7 @@ if current_tab == "search":
                         n_cols = len(cols) if cols is not None and not cols.empty else 0
                         st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Columns</span><span class="dd-section-count">{n_cols}</span></div>', unsafe_allow_html=True)
                         if n_cols > 0:
-                            rows_html = "".join(f'<tr class="dd-col-row"><td class="dd-col-name">{_html.escape(str(c.get("column_name", "")))}</td><td class="dd-col-type">{_html.escape(str(c.get("data_type", "")))}</td><td class="dd-col-desc">{_html.escape(str(c.get("comment") or ""))}</td></tr>' for _, c in cols.iterrows())
+                            rows_html = "".join(f'<tr class="dd-col-row"><td class="dd-col-name">{_html.escape(str(getattr(c, "column_name", "")))}</td><td class="dd-col-type">{_html.escape(str(getattr(c, "data_type", "")))}</td><td class="dd-col-desc">{_html.escape(str(getattr(c, "comment", None) or ""))}</td></tr>' for c in cols.itertuples(index=False))
                             st.markdown(f'<table class="dd-columns-table"><tbody>{rows_html}</tbody></table>', unsafe_allow_html=True)
                         else:
                             st.markdown('<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No columns recorded.</p>', unsafe_allow_html=True)
