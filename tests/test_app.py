@@ -605,6 +605,58 @@ class TestLineageAndRelated:
         assert len(open_buttons) >= 1, "Expected 'Open \u2192' button for related table card"
 
 
+class TestGlossary:
+    """Tests for the Glossary tab."""
+
+    def test_glossary_hero_renders(self):
+        """When the Glossary tab is selected, the hero section should render with correct title and subtitle."""
+        at = authenticated_app()
+        at.query_params["tab"] = "glossary"
+        at.run()
+
+        html = _html(*at.markdown)
+        assert "Define business concepts and map them to technical data assets." in html
+        assert "Speak the same language." in html
+
+    def test_glossary_search_term_selection(self):
+        """When a term is selected from the glossary selectbox, it should render details."""
+        at = authenticated_app()
+        at.query_params["tab"] = "glossary"
+        at.run()
+
+        at.selectbox[0].select("Churn Rate").run()
+
+        html = _html(*at.markdown)
+        assert "The percentage of customers who stop using your product" in html
+        assert "Sales & Marketing" in html or "Sales &amp; Marketing" in html
+        assert "Jane Doe (Marketing)" in html
+
+        buttons = [b.label for b in at.button]
+        assert "📄 main.analytics.customers" in buttons
+        assert "📄 main.analytics.orders" in buttons
+
+    def test_glossary_linked_table_button_click(self):
+        """Clicking a linked table button should navigate to the search tab for that table."""
+        cursor = get_db_cursor()
+        cursor.reset_mock()
+
+        df = pd.DataFrame([{"full_name": "main.analytics.customers", "table_name": "customers", "schema_name": "analytics", "catalog_name": "main", "comment": "test"}])
+        sql_returns(df, pd.DataFrame(columns=["column_name"]))
+
+        at = authenticated_app()
+        at.query_params["tab"] = "glossary"
+        at.run()
+
+        at.selectbox[0].select("Churn Rate").run()
+
+        for i, b in enumerate(at.button):
+            if b.label == "📄 main.analytics.customers":
+                at.button[i].click().run()
+                break
+
+        assert at.query_params["tab"] == "search" or "search" in at.query_params["tab"]
+
+
 class TestDiscovery:
     """Tests for the Discovery tab."""
 
