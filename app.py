@@ -986,6 +986,79 @@ iframe[height="0"] { display: none !important; }
 [data-testid="stDataFrame"] > div {
     background: var(--paper) !important;
 }
+
+/* ── Streamlit tab labels — force full-ink color in all states ── */
+[data-testid="stTabs"] button[data-baseweb="tab"] {
+    color: var(--ink) !important;
+    font-family: var(--font-sans) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+}
+[data-testid="stTabs"] button[data-baseweb="tab"]:hover {
+    color: var(--ink) !important;
+}
+[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="false"] {
+    color: var(--ink) !important;
+    opacity: 0.55;
+}
+[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
+    color: var(--ink) !important;
+    opacity: 1;
+}
+
+/* ── Segmented control themed pills ── */
+.stApp [data-testid="stButtonGroup"],
+.stApp [data-testid="stButtonGroup"] > div,
+.stApp [data-testid="stButtonGroup"] [role="radiogroup"] {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+}
+
+.stApp [data-testid="stButtonGroup"] [role="radiogroup"] {
+    gap: 8px !important;
+    padding: 4px 0 !important;
+}
+
+.stApp [data-testid="stButtonGroup"] button,
+.stApp [data-testid="stButtonGroup"] [role="radiogroup"] button {
+    border-radius: 999px !important;
+    background-color: var(--paper) !important;
+    color: var(--ink-60) !important;
+    border: 1px solid var(--ink-20) !important;
+    padding: 4px 16px !important;
+    height: 32px !important;
+    transition: all 0.1s ease !important;
+    box-shadow: none !important;
+}
+
+.stApp [data-testid="stButtonGroup"] button[kind="segmented_controlActive"],
+.stApp [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] {
+    background-color: var(--accent) !important;
+    color: var(--paper) !important;
+    border: 1px solid var(--accent) !important;
+}
+
+.stApp [data-testid="stButtonGroup"] button[kind="segmented_controlActive"] *,
+.stApp [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] * {
+    color: var(--paper) !important;
+    font-weight: 600 !important;
+    pointer-events: none !important;
+}
+
+.stApp [data-testid="stButtonGroup"] button[kind="segmented_control"] *,
+.stApp [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_control"] * {
+    color: var(--ink-60) !important;
+    pointer-events: none !important;
+}
+
+.stApp [data-testid="stButtonGroup"] button:hover {
+    background-color: var(--paper-deep) !important;
+    border-color: var(--ink-40) !important;
+}
+.stApp [data-testid="stButtonGroup"] button:hover * {
+    color: var(--ink) !important;
+}
 """
 
 # ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
@@ -2376,15 +2449,38 @@ def render_discovery(groups):
     </div>
     ''', unsafe_allow_html=True)
 
-    tab_notable, tab_bookmarks, tab_recent = st.tabs([
+    _disc_tab_labels = [
         t("personalization.tab_notable"),
         t("personalization.tab_bookmarks"),
         t("personalization.tab_recent"),
-    ])
+    ]
+    
+    # Initialize the key in session state to avoid changing 'default' parameter
+    if "discovery_active_tab" not in st.session_state:
+        _disc_idx = st.session_state.get("_disc_tab_idx", 0)
+        st.session_state["discovery_active_tab"] = _disc_tab_labels[_disc_idx] if 0 <= _disc_idx < len(_disc_tab_labels) else _disc_tab_labels[0]
+
+    _disc_active = st.segmented_control(
+        "discovery_tabs",
+        options=_disc_tab_labels,
+        key="discovery_active_tab",
+        label_visibility="collapsed",
+        selection_mode="single",
+    )
+    
+    # Prevent deselecting all tabs (forces at least one to be active)
+    if _disc_active is None:
+        _disc_active = _disc_tab_labels[st.session_state.get("_disc_tab_idx", 0)]
+        st.session_state["discovery_active_tab"] = _disc_active
+        st.rerun()
+
+    # Keep index in sync so the next rerun (e.g. locale switch) restores correctly
+    if _disc_active in _disc_tab_labels:
+        st.session_state["_disc_tab_idx"] = _disc_tab_labels.index(_disc_active)
 
     # ── New & Notable ────────────────────────────────────────────────────────────
-    with tab_notable:
-        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:var(--ink)">{t("personalization.tab_notable")}</span></div>', unsafe_allow_html=True)
+    if _disc_active == _disc_tab_labels[0]:
+        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">{t("personalization.tab_notable")}</span></div>', unsafe_allow_html=True)
         primary_group = st.session_state.get("group_filter")
         if not primary_group and groups:
             primary_group = groups[0]
@@ -2406,8 +2502,8 @@ def render_discovery(groups):
             st.warning(t("discovery.sign_in_prompt"))
 
     # ── My Bookmarks ─────────────────────────────────────────────────────────────
-    with tab_bookmarks:
-        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:var(--ink)">{t("personalization.tab_bookmarks")}</span></div>', unsafe_allow_html=True)
+    elif _disc_active == _disc_tab_labels[1]:
+        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">{t("personalization.tab_bookmarks")}</span></div>', unsafe_allow_html=True)
         bookmarks = st.session_state.get("bookmarks", set())
         if not bookmarks:
             st.info(t("personalization.no_bookmarks"))
@@ -2426,7 +2522,7 @@ def render_discovery(groups):
 
         # ── Bookmarked columns ────────────────────────────────────────────────
         col_bookmarks = st.session_state.get("col_bookmarks", set())
-        st.markdown(f'<div class="dd-section-header" style="margin-top:32px"><span class="dd-eyebrow" style="margin-bottom:0;color:var(--ink)">{t("personalization.bookmarked_columns")}</span></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="dd-section-header" style="margin-top:32px"><span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">{t("personalization.bookmarked_columns")}</span></div>', unsafe_allow_html=True)
         if not col_bookmarks:
             st.info(t("personalization.no_col_bookmarks"))
         else:
@@ -2458,8 +2554,8 @@ def render_discovery(groups):
                         st.rerun()
 
     # ── Recently Viewed ──────────────────────────────────────────────────────────
-    with tab_recent:
-        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:var(--ink)">{t("personalization.tab_recent")}</span></div>', unsafe_allow_html=True)
+    elif _disc_active == _disc_tab_labels[2]:
+        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">{t("personalization.tab_recent")}</span></div>', unsafe_allow_html=True)
         recent_views = st.session_state.get("recent_views", [])
         if not recent_views:
             st.info(t("personalization.no_recent"))
@@ -2781,6 +2877,9 @@ if current_tab == "search":
 
     if "dd_search_override" in st.session_state:
         st.session_state["catalog_search"] = st.session_state.pop("dd_search_override")
+    if "dd_nav_select" in st.session_state:
+        # Promote to sticky so locale changes and star clicks don't lose the full-name anchor
+        st.session_state["_dd_sticky_nav"] = st.session_state.pop("dd_nav_select")
 
     if active_group:
         c1, c2 = st.columns([8, 2], gap="small", vertical_alignment="center")
@@ -2805,6 +2904,8 @@ if current_tab == "search":
     _prev_query = st.session_state.get("_dd_current_search_query")
     if _prev_query is not None and _prev_query != search_query:
         _clear_transient_edit_state()
+        # User manually changed the search term — discard sticky nav anchor
+        st.session_state.pop("_dd_sticky_nav", None)
     st.session_state["_dd_current_search_query"] = search_query
 
     if search_query:
@@ -2831,7 +2932,8 @@ if current_tab == "search":
                 _table_results = results[results["match_type"] == "Table"] if "match_type" in results.columns else results
                 col_main_detail, col_side_detail = st.columns([7, 5], gap="large")
                 _table_names = _table_results["table_name"].tolist()
-                _nav_target  = st.session_state.pop("dd_nav_select", None)
+                # Use sticky nav (persists across locale/star reruns); cleared on manual search change
+                _nav_target  = st.session_state.get("_dd_sticky_nav")
                 _nav_idx = 0 if len(_table_names) > 0 else None
                 if _nav_target:
                     _nav_name = _nav_target.split(".")[-1]
