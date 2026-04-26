@@ -2329,14 +2329,27 @@ def render_discovery(groups):
     </div>
     ''', unsafe_allow_html=True)
 
-    tab_notable, tab_bookmarks, tab_recent = st.tabs([
+    _disc_tab_labels = [
         t("personalization.tab_notable"),
         t("personalization.tab_bookmarks"),
         t("personalization.tab_recent"),
-    ])
+    ]
+    # Persist active tab by index so locale switches (which change label strings) don't reset it
+    _disc_idx = st.session_state.get("_disc_tab_idx", 0)
+    _disc_default = _disc_tab_labels[_disc_idx] if 0 <= _disc_idx < len(_disc_tab_labels) else _disc_tab_labels[0]
+    _disc_active = st.segmented_control(
+        "discovery_tabs",
+        options=_disc_tab_labels,
+        default=_disc_default,
+        key="discovery_active_tab",
+        label_visibility="collapsed",
+    )
+    # Keep index in sync so the next rerun (e.g. locale switch) restores correctly
+    if _disc_active in _disc_tab_labels:
+        st.session_state["_disc_tab_idx"] = _disc_tab_labels.index(_disc_active)
 
     # ── New & Notable ────────────────────────────────────────────────────────────
-    with tab_notable:
+    if _disc_active == _disc_tab_labels[0]:
         st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">{t("personalization.tab_notable")}</span></div>', unsafe_allow_html=True)
         primary_group = st.session_state.get("group_filter")
         if not primary_group and groups:
@@ -2359,7 +2372,7 @@ def render_discovery(groups):
             st.warning(t("discovery.sign_in_prompt"))
 
     # ── My Bookmarks ─────────────────────────────────────────────────────────────
-    with tab_bookmarks:
+    elif _disc_active == _disc_tab_labels[1]:
         st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">{t("personalization.tab_bookmarks")}</span></div>', unsafe_allow_html=True)
         bookmarks = st.session_state.get("bookmarks", set())
         if not bookmarks:
@@ -2411,7 +2424,7 @@ def render_discovery(groups):
                         st.rerun()
 
     # ── Recently Viewed ──────────────────────────────────────────────────────────
-    with tab_recent:
+    elif _disc_active == _disc_tab_labels[2]:
         st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">{t("personalization.tab_recent")}</span></div>', unsafe_allow_html=True)
         recent_views = st.session_state.get("recent_views", [])
         if not recent_views:
