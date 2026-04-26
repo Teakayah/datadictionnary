@@ -1309,7 +1309,7 @@ def render_health(groups):
 
         # 1. Calculation Logic
         n_tables = len(all_data)
-        n_desc = all_data['table_description'].apply(lambda x: len(str(x).strip()) > 0).sum()
+        n_desc = (all_data['table_description'].str.strip().str.len() > 0).sum()
         table_coverage = (n_desc / n_tables * 100) if n_tables > 0 else 0
 
         # For columns, we need to query the cache (or use mock)
