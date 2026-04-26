@@ -2904,18 +2904,27 @@ if current_tab == "search":
                 st.session_state.pop("group_filter", None)
                 st.rerun()
 
-    search_query = st.text_input(
+    try:
+        _all_tables = get_authorized_tables(query_groups)
+        _table_options = sorted(_all_tables['table_name'].unique().tolist()) if _all_tables is not None and not _all_tables.empty else []
+    except Exception:
+        _table_options = []
+
+    _current = st.session_state.get("catalog_search")
+    _idx = _table_options.index(_current) if _current in _table_options else None
+    search_query = st.selectbox(
         t("common.search"),
+        options=_table_options,
+        index=_idx,
         placeholder=t("search.placeholder"),
         label_visibility="collapsed",
         key="catalog_search",
     )
 
-    # Detect search query change — clear transient state so edits don't bleed across tables
+    # Detect selection change — clear transient state and sticky nav anchor
     _prev_query = st.session_state.get("_dd_current_search_query")
     if _prev_query is not None and _prev_query != search_query:
         _clear_transient_edit_state()
-        # User manually changed the search term — discard sticky nav anchor
         st.session_state.pop("_dd_sticky_nav", None)
     st.session_state["_dd_current_search_query"] = search_query
 
