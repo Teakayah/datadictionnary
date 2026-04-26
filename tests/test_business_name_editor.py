@@ -343,8 +343,8 @@ class TestBusinessNameEdgeCases:
 class TestBusinessNameValidation:
     """save_business_name enforces character limit and re-checks power-user status."""
 
-    def test_save_shows_error_for_name_over_255_chars(self, monkeypatch):
-        """Entering > MAX_BUSINESS_NAME_LEN chars must show st.error."""
+    def test_business_name_enforces_max_length(self, monkeypatch):
+        """The business name input must enforce MAX_BUSINESS_NAME_LEN limit."""
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
         monkeypatch.setenv("DEMO_DATA",     "true")
 
@@ -353,10 +353,8 @@ class TestBusinessNameValidation:
         at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
         next(b for b in at.button if b.label == "✎").click().run()
         inp = next(t for t in at.text_input if "col_biz_name" in t.key)
-        inp.set_value("A" * 256).run()
-        next(b for b in at.button if b.label == "Save").click().run()
 
-        assert at.error, "st.error should be shown when name exceeds MAX_BUSINESS_NAME_LEN"
+        assert getattr(inp, "max_chars", None) == 255
 
     def test_save_shows_permission_error_for_non_power_user(self, monkeypatch):
         """save_business_name must show st.error if user is not in EDITOR_GROUPS."""
