@@ -216,8 +216,11 @@ class TestSearch:
         at.run()
         cursor = get_db_cursor()
         first_call_params = cursor.execute.call_args_list[0][0][1]
-        assert "finance_dept_id" in first_call_params["groups"], (
-            "finance_dept_id not in groups param — permission filter may be bypassable"
+
+        # Check that 'finance_dept_id' is present as a value in any of the bound parameters
+        found = any(v == "finance_dept_id" for k, v in first_call_params.items() if k.startswith("group_"))
+        assert found, (
+            "finance_dept_id not found in any group_X param — permission filter may be bypassable"
         )
 
     def test_search_results_show_table_selectbox(self):
