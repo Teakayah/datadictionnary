@@ -1234,68 +1234,73 @@ def check_auth():
         st.session_state.auth_token = None
 
     if st.session_state.auth_token is None:
-        msal_app = get_msal_app()
-        query_params = st.query_params
+        try:
+            msal_app = get_msal_app()
+            query_params = st.query_params
 
-        # If a code is present, handle the callback logic first
-        if "code" in query_params:
-            # Verify the state matches what we expect
-            state = query_params.get("state")
-            expected_state = st.session_state.get("oauth_state")
+            # If a code is present, handle the callback logic first
+            if "code" in query_params:
+                # Verify the state matches what we expect
+                state = query_params.get("state")
+                expected_state = st.session_state.get("oauth_state")
 
-            if not state or not expected_state or state != expected_state:
-                logging.error("OAuth state mismatch or missing.")
-                st.error("Authentication failed: Security verification (state mismatch). Please try again.")
-                # Clear the potentially compromised state
+                if not state or not expected_state or state != expected_state:
+                    logging.error("OAuth state mismatch or missing.")
+                    st.error("Authentication failed: Security verification (state mismatch). Please try again.")
+                    # Clear the potentially compromised state
+                    if "oauth_state" in st.session_state:
+                        del st.session_state["oauth_state"]
+                    if "oauth_nonce" in st.session_state:
+                        del st.session_state["oauth_nonce"]
+                    st.stop()
+
+                # The state is valid; proceed with exchanging the code
+                expected_nonce = st.session_state.get("oauth_nonce")
+                result = msal_app.acquire_token_by_authorization_code(
+                    query_params["code"], scopes=SCOPE, redirect_uri=REDIRECT_URI, nonce=expected_nonce
+                )
+
+                # Clear the state and nonce once it's used
                 if "oauth_state" in st.session_state:
                     del st.session_state["oauth_state"]
                 if "oauth_nonce" in st.session_state:
                     del st.session_state["oauth_nonce"]
-                st.stop()
 
-            # The state is valid; proceed with exchanging the code
-            expected_nonce = st.session_state.get("oauth_nonce")
-            result = msal_app.acquire_token_by_authorization_code(
-                query_params["code"], scopes=SCOPE, redirect_uri=REDIRECT_URI, nonce=expected_nonce
+                if "access_token" in result:
+                    st.session_state.auth_token = result
+                    claims = result.get("id_token_claims", {})
+                    st.session_state.user_groups = claims.get("groups", [])
+                    st.session_state.user_name   = claims.get("name")
+                    st.session_state.user_email  = claims.get("email") or claims.get("preferred_username", "")
+                    # Clear query params and rerun
+                    st.query_params.clear()
+                    st.rerun()
+                else:
+                    logging.error(f"Failed to acquire token: {result.get('error_description', 'Unknown error')}")
+                    st.error("Authentication failed. Please try again.")
+                    st.stop()
+
+            # If no code is present, we need to generate auth URL and render the signin page
+            # Generate a new state and nonce and save them in session
+            if "oauth_state" not in st.session_state:
+                st.session_state.oauth_state = secrets.token_urlsafe(16)
+            if "oauth_nonce" not in st.session_state:
+                st.session_state.oauth_nonce = secrets.token_urlsafe(16)
+
+            auth_url = msal_app.get_authorization_request_url(
+                SCOPE,
+                redirect_uri=REDIRECT_URI,
+                state=st.session_state.oauth_state,
+                nonce=st.session_state.oauth_nonce
             )
 
-            # Clear the state and nonce once it's used
-            if "oauth_state" in st.session_state:
-                del st.session_state["oauth_state"]
-            if "oauth_nonce" in st.session_state:
-                del st.session_state["oauth_nonce"]
-
-            if "access_token" in result:
-                st.session_state.auth_token = result
-                claims = result.get("id_token_claims", {})
-                st.session_state.user_groups = claims.get("groups", [])
-                st.session_state.user_name   = claims.get("name")
-                st.session_state.user_email  = claims.get("email") or claims.get("preferred_username", "")
-                # Clear query params and rerun
-                st.query_params.clear()
-                st.rerun()
-            else:
-                logging.error(f"Failed to acquire token: {result.get('error_description', 'Unknown error')}")
-                st.error("Authentication failed. Please try again.")
-                st.stop()
-
-        # If no code is present, we need to generate auth URL and render the signin page
-        # Generate a new state and nonce and save them in session
-        if "oauth_state" not in st.session_state:
-            st.session_state.oauth_state = secrets.token_urlsafe(16)
-        if "oauth_nonce" not in st.session_state:
-            st.session_state.oauth_nonce = secrets.token_urlsafe(16)
-
-        auth_url = msal_app.get_authorization_request_url(
-            SCOPE,
-            redirect_uri=REDIRECT_URI,
-            state=st.session_state.oauth_state,
-            nonce=st.session_state.oauth_nonce
-        )
-
-        render_signin_page(auth_url=auth_url, mock=False)
-        render_footer()
-        st.stop()
+            render_signin_page(auth_url=auth_url, mock=False)
+            render_footer()
+            st.stop()
+        except Exception as e:
+            logging.error("Authentication failed due to an exception", exc_info=True)
+            st.error("Authentication failed due to a system error. Please try again later.")
+            st.stop()
 
 # ── Databricks query helper ────────────────────────────────────────────────────
 # ── DuckDB local-cache adapter ────────────────────────────────────────────────

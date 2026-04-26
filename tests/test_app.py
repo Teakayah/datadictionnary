@@ -472,6 +472,30 @@ class TestRealAuth:
 
         assert "auth_token" not in at.session_state or at.session_state["auth_token"] is None
 
+    def test_real_auth_flow_exception(self, monkeypatch):
+        monkeypatch.setenv("ENABLE_MOCK_AUTH", "false")
+        monkeypatch.setenv("CLIENT_ID", "test_client")
+        monkeypatch.setenv("TENANT_ID", "test_tenant")
+
+        msal_mock = sys.modules["msal"]
+        msal_app_instance = msal_mock.ConfidentialClientApplication.return_value
+        original_side_effect = msal_app_instance.acquire_token_by_authorization_code.side_effect
+        msal_app_instance.acquire_token_by_authorization_code.side_effect = Exception("Simulated failure")
+
+        try:
+            at = AppTest.from_file(APP_PATH)
+            at.session_state["oauth_state"] = "test_state"
+            at.session_state["oauth_nonce"] = "test_nonce"
+            at.query_params["code"] = "test_auth_code"
+            at.query_params["state"] = "test_state"
+            at.run()
+
+            assert "auth_token" not in at.session_state or at.session_state["auth_token"] is None
+            assert at.error
+            assert at.error[0].value == "Authentication failed due to a system error. Please try again later."
+        finally:
+            msal_app_instance.acquire_token_by_authorization_code.side_effect = original_side_effect
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Lineage, grants, and related tables tests
