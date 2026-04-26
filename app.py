@@ -1400,16 +1400,6 @@ def render_health(groups):
         logging.error("Error in health dashboard: %s", e)
         st.error("Could not load health metrics.")
 
-def render_placeholder_page(title, subtitle):
-    st.markdown(f'''
-    <div class="dd-search-hero">
-      <div class="dd-eyebrow">§ {title}</div>
-      <h1>{subtitle}</h1>
-      <p class="lead">This feature is currently in development.</p>
-    </div>
-    ''', unsafe_allow_html=True)
-    st.info("Coming soon in v0.4.0")
-
 # ── App entry point ────────────────────────────────────────────────────────────
 render_css()
 
