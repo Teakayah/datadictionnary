@@ -28,13 +28,14 @@ def setup_cache_tables():
             # Table for structural metadata
             cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata (
-                    full_name STRING,
-                    catalog_name STRING,
-                    schema_name STRING,
-                    table_name STRING,
-                    table_type STRING,
-                    comment STRING,
-                    updated_at TIMESTAMP
+                    full_name      STRING,
+                    catalog_name   STRING,
+                    schema_name    STRING,
+                    table_name     STRING,
+                    table_type     STRING,
+                    comment        STRING,
+                    updated_at     TIMESTAMP,
+                    steward_email  STRING
                 )
             """)
             
@@ -76,6 +77,94 @@ def setup_cache_tables():
                     tag_value        STRING
                 )
             """)
+
+            # Table for user comments (append-only — never truncated by sync)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.comments (
+                    comment_id        STRING,
+                    object_type       STRING,
+                    object_name       STRING,
+                    comment_text      STRING,
+                    author_name       STRING,
+                    author_email      STRING,
+                    created_at        TIMESTAMP,
+                    steward_email     STRING,
+                    parent_comment_id STRING
+                )
+            """)
+
+            # Table for human-friendly business name overrides (power-user edits)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides (
+                    table_full_name STRING,
+                    column_name     STRING,
+                    business_name   STRING,
+                    definition      STRING,
+                    edited_by       STRING,
+                    edited_at       TIMESTAMP
+                )
+            """)
+
+            # Table for audit events (business name changes, comments)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log (
+                    event_id        STRING,
+                    event_type      STRING,
+                    object_type     STRING,
+                    object_name     STRING,
+                    actor_email     STRING,
+                    old_value       STRING,
+                    new_value       STRING,
+                    created_at      TIMESTAMP
+                )
+            """)
+
+def push_business_name_overrides():
+    """Write column business name overrides back to Unity Catalog as column comments.
+
+    Reads every row from business_name_overrides and executes
+    ALTER TABLE ... ALTER COLUMN ... COMMENT '...'
+    so the override is visible in Unity Catalog alongside the cache.
+
+    Note: business_name_overrides is the authoritative source for the app display.
+    Writing back to Unity Catalog is best-effort; the app does NOT read from UC comments.
+    """
+    print("📝 Pushing business name overrides to Unity Catalog...")
+    with get_sql_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT table_full_name, column_name, business_name, definition "
+                f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
+            )
+            overrides = cursor.fetchall_as_pandas()
+
+    if overrides is None or overrides.empty:
+        print("  No overrides to push.")
+        return
+
+    with get_sql_connection() as conn:
+        with conn.cursor() as cursor:
+            for _, row in overrides.iterrows():
+                raw_full_name = str(row["table_full_name"])
+                raw_col_name  = str(row["column_name"])
+                raw_biz_name  = str(row["business_name"])
+                # Backtick-quote identifiers (escape embedded backticks) and
+                # use '' to escape single-quotes in the comment string.
+                # \' is NOT correct Spark SQL — use the ANSI '' form.
+                full_name_q = ".".join(
+                    f"`{p.replace('`', '``')}`" for p in raw_full_name.split(".")
+                )
+                col_name_q  = f"`{raw_col_name.replace('`', '``')}`"
+                biz_name_q  = raw_biz_name.replace("'", "''")
+                try:
+                    cursor.execute(
+                        f"ALTER TABLE {full_name_q} "
+                        f"ALTER COLUMN {col_name_q} COMMENT '{biz_name_q}'"
+                    )
+                    print(f"  ✓ {raw_full_name}.{raw_col_name}")
+                except Exception as e:
+                    print(f"  ✗ {raw_full_name}.{raw_col_name}: {e}")
+
 
 def fetch_lineage(w, full_name):
     """Returns 1-hop upstream/downstream lineage edges for *full_name*.
@@ -155,12 +244,13 @@ def sync():
 
                     # Store table metadata
                     tables_data.append({
-                        "full_name": full_name,
-                        "catalog_name": catalog.name,
-                        "schema_name": schema.name,
-                        "table_name": table.name,
-                        "table_type": str(table.table_type),
-                        "comment": table.comment or "",
+                        "full_name":     full_name,
+                        "catalog_name":  catalog.name,
+                        "schema_name":   schema.name,
+                        "table_name":    table.name,
+                        "table_type":    str(table.table_type),
+                        "comment":       table.comment or "",
+                        "steward_email": (table.properties or {}).get("steward_email", ""),
                     })
                     
                     # Extract Table Tags
@@ -217,7 +307,7 @@ def sync():
 
             if tables_data:
                 cursor.executemany(
-                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp())",
+                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp(), %(steward_email)s)",
                     tables_data
                 )
             if columns_data:
@@ -241,7 +331,105 @@ def sync():
                     tags_data
                 )
 
+    # Fetch audit_log for DuckDB export (rebuild from Databricks each sync)
+    audit_log_data = []
+    try:
+        with get_sql_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(f"SELECT * FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log")
+                audit_df = cursor.fetchall_as_pandas()
+                if audit_df is not None and not audit_df.empty:
+                    audit_log_data = audit_df.to_dict(orient="records")
+    except Exception as e:
+        print(f"  ⚠  Could not fetch audit_log for DuckDB: {e}")
+
     print("✅ Sync completed successfully.")
+    push_business_name_overrides()
+    write_duckdb(tables_data, columns_data, permissions_data, lineage_data, tags_data, audit_log_data)
+
+
+def write_duckdb(
+    tables_data: list,
+    columns_data: list,
+    permissions_data: list,
+    lineage_data: list,
+    tags_data: list,
+    audit_log_data: list = None,
+) -> None:
+    """Export sync data to a local DuckDB file for fast local queries.
+
+    Writes to ``<path>.tmp`` then does an atomic ``os.replace()`` so the app
+    never serves a half-written file.  Append-only tables (comments,
+    business_name_overrides) are carried forward from the existing file so
+    no user data is lost across syncs.
+
+    Skipped entirely if DUCKDB_PATH is not set or if ``duckdb`` is not
+    installed — the app falls back to Databricks SQL automatically.
+    """
+    duckdb_path = os.getenv("DUCKDB_PATH", "")
+    if not duckdb_path:
+        return
+
+    try:
+        import duckdb
+        import pandas as pd
+    except ImportError:
+        print("  ⚠  duckdb not installed — skipping local cache export.")
+        return
+
+    tmp_path = duckdb_path + ".tmp"
+    print(f"📦 Exporting to DuckDB: {duckdb_path} ...")
+
+    def _empty(cols):
+        """Return an empty DataFrame with explicit string dtypes for all columns.
+
+        pandas defaults empty columns to object dtype, but DuckDB can infer
+        those as INT32 when there are no rows.  Explicit str dtype ensures
+        VARCHAR in the resulting DuckDB table.
+        """
+        return pd.DataFrame({c: pd.Series(dtype=str) for c in cols})
+
+    # --- Truncate-reload tables (rebuilt entirely on each sync) ---
+    reload_frames = {
+        "tables_metadata": pd.DataFrame(tables_data) if tables_data else _empty(
+            ["full_name", "catalog_name", "schema_name", "table_name",
+             "table_type", "comment", "updated_at", "steward_email"]),
+        "columns_metadata": pd.DataFrame(columns_data) if columns_data else _empty(
+            ["table_full_name", "column_name", "data_type", "comment"]),
+        "permissions_cache": pd.DataFrame(permissions_data) if permissions_data else _empty(
+            ["table_full_name", "principal", "privilege"]),
+        "lineage_cache": pd.DataFrame(lineage_data) if lineage_data else _empty(
+            ["table_full_name", "direction", "entity_full_name", "entity_type"]),
+        "object_tags": pd.DataFrame(tags_data) if tags_data else _empty(
+            ["object_type", "object_full_name", "tag_key", "tag_value"]),
+        "audit_log": pd.DataFrame(audit_log_data) if audit_log_data else _empty(
+            ["event_id", "event_type", "object_type", "object_name",
+             "actor_email", "old_value", "new_value", "created_at"]),
+    }
+
+    # --- Write to tmp, then atomic swap ---
+    try:
+        con = duckdb.connect(tmp_path)
+        for tbl, df in reload_frames.items():
+            if df.empty:
+                # Use explicit VARCHAR DDL — DuckDB can't infer types from empty DataFrames
+                # and may default non-object columns to INT32.
+                col_defs = ", ".join(f'"{c}" VARCHAR' for c in df.columns)
+                con.execute(f"CREATE OR REPLACE TABLE {tbl} ({col_defs})")
+            else:
+                con.execute(f"CREATE OR REPLACE TABLE {tbl} AS SELECT * FROM df")
+        # Useful indexes for the permission JOIN and detail lookups
+        con.execute("CREATE INDEX IF NOT EXISTS idx_perm_principal ON permissions_cache (principal)")
+        con.execute("CREATE INDEX IF NOT EXISTS idx_perm_table ON permissions_cache (table_full_name)")
+        con.execute("CREATE INDEX IF NOT EXISTS idx_cols_table ON columns_metadata (table_full_name)")
+        con.close()
+        os.replace(tmp_path, duckdb_path)
+        print(f"  ✓ DuckDB written ({duckdb_path})")
+    except Exception as e:
+        print(f"  ✗ DuckDB export failed: {e}")
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
 
 if __name__ == "__main__":
     setup_cache_tables()

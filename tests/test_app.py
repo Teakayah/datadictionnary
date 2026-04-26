@@ -150,11 +150,11 @@ class TestMockAuth:
         assert at.session_state["user_name"]
 
     def test_search_page_not_visible_when_unauthenticated(self):
-        """The '§ Catalog search' section must NOT render before sign-in."""
+        """The 'Search' section must NOT render before sign-in."""
         at = unauthenticated_app()
         at.run()
         html = _html(*at.markdown)
-        assert "Catalog search" not in html
+        assert "§ Catalog search" not in html
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -259,31 +259,47 @@ class TestTableDetail:
     On this branch, selecting a table in the selectbox triggers the detail
     view with columns, grants, lineage, and related tables rendered in a
     2-column layout.
+
+    Query order after table selection:
+      1. get_authorized_tables     → tables_df
+      2. get_column_business_names → overrides_df (bulk fetch, uncached)
+      3. columns_metadata          → columns_df
+      4. get_table_steward         → steward_df (uncached)
+      5. get_table_comments        → comments_df (uncached)
+      6. permissions_cache         → grants_df
+      7. lineage_cache             → lineage_df
+      8. related tables            → related_df
     """
 
+    _EMPTY_OVERRIDES = lambda: pd.DataFrame(columns=["column_name", "business_name", "definition", "edited_by", "edited_at"])
+    _EMPTY_STEWARD   = lambda: pd.DataFrame(columns=["steward_email"])
+    _EMPTY_COMMENTS  = lambda: pd.DataFrame(columns=["comment_id", "comment_text", "author_name", "author_email", "created_at"])
+
     def _run_with_table_selected(self, *dataframes) -> AppTest:
-        """Run app with SQL mocks, then select 'orders' in the selectbox."""
+        """Run app with SQL mocks (must include all 8 DataFrames in order),
+        then select 'orders' in the selectbox."""
         sql_returns(*dataframes)
         at = authenticated_app()
         at.run()
-        # Select the table via the selectbox
         at.selectbox(key="catalog_search").set_value("orders").run()
         return at
 
     def test_columns_rendered(self):
-        """Selecting a table must render the columns HTML table."""
+        """Selecting a table must render column name spans in the detail pane."""
         at = self._run_with_table_selected(
-            make_tables_df(), make_columns_df(), make_grants_df(),
-            make_lineage_df(), make_related_df(),
+            make_tables_df(), TestTableDetail._EMPTY_OVERRIDES(), make_columns_df(),
+            TestTableDetail._EMPTY_STEWARD(), TestTableDetail._EMPTY_COMMENTS(),
+            make_grants_df(), make_lineage_df(), make_related_df(),
         )
         html = _html(*at.markdown)
-        assert "dd-columns-table" in html, "Expected column HTML table in detail pane"
+        assert "dd-col-name" in html, "Expected dd-col-name spans in detail pane"
 
     def test_column_query_targets_columns_metadata(self):
         """SQL must query the columns_metadata table after table selection."""
         at = self._run_with_table_selected(
-            make_tables_df(), make_columns_df(), make_grants_df(),
-            make_lineage_df(), make_related_df(),
+            make_tables_df(), TestTableDetail._EMPTY_OVERRIDES(), make_columns_df(),
+            TestTableDetail._EMPTY_STEWARD(), TestTableDetail._EMPTY_COMMENTS(),
+            make_grants_df(), make_lineage_df(), make_related_df(),
         )
         cursor = get_db_cursor()
         executed = [call[0][0] for call in cursor.execute.call_args_list]
@@ -293,11 +309,11 @@ class TestTableDetail:
     def test_column_query_uses_three_part_full_name(self):
         """The columns query param must be the 3-part full_name."""
         at = self._run_with_table_selected(
-            make_tables_df(), make_columns_df(), make_grants_df(),
-            make_lineage_df(), make_related_df(),
+            make_tables_df(), TestTableDetail._EMPTY_OVERRIDES(), make_columns_df(),
+            TestTableDetail._EMPTY_STEWARD(), TestTableDetail._EMPTY_COMMENTS(),
+            make_grants_df(), make_lineage_df(), make_related_df(),
         )
         cursor = get_db_cursor()
-        # Find the columns_metadata query
         for call_args in cursor.execute.call_args_list:
             sql = call_args[0][0]
             if "columns_metadata" in sql and len(call_args[0]) > 1:
@@ -369,7 +385,7 @@ class TestDesignSystem:
     def test_section_headers_use_section_symbol(self):
         """Section eyebrow labels must use the § prefix."""
         src = _read_app_source()
-        assert "§ Catalog search" in src, "Missing '§ Catalog search' eyebrow"
+        assert "§ Catalog search" in src, "Missing 'Search' eyebrow"
         assert ("§ Table detail" in src or "§ Columns" in src), \
             "Missing § prefix on table detail/columns section header"
 
@@ -464,16 +480,22 @@ class TestLineageAndRelated:
     detail pane (2-column layout).
 
     The query order when a table is selected via the selectbox is:
-      1. get_authorized_tables  → tables_metadata JOIN permissions_cache
-      2. columns_metadata
-      3. permissions_cache (grants)
-      4. lineage_cache
-      5. related tables (UNION query)
-    sql_returns() must be called with all 5 DataFrames in that order.
+      1. get_authorized_tables     → tables_metadata JOIN permissions_cache
+      2. get_column_business_names → business_name_overrides (bulk fetch, uncached)
+      3. columns_metadata
+      4. get_table_steward         → tables_metadata.steward_email (uncached)
+      5. get_table_comments        → comments table (uncached)
+      6. permissions_cache (grants)
+      7. lineage_cache
+      8. related tables (UNION query)
+    sql_returns() must be called with all 8 DataFrames in that order.
     """
 
-    _EMPTY_LINEAGE = lambda: pd.DataFrame(columns=["direction", "entity_full_name", "entity_type"])
-    _EMPTY_RELATED = lambda: pd.DataFrame(columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"])
+    _EMPTY_LINEAGE    = lambda: pd.DataFrame(columns=["direction", "entity_full_name", "entity_type"])
+    _EMPTY_RELATED    = lambda: pd.DataFrame(columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"])
+    _EMPTY_OVERRIDES  = lambda: pd.DataFrame(columns=["column_name", "business_name", "definition", "edited_by", "edited_at"])
+    _EMPTY_STEWARD    = lambda: pd.DataFrame(columns=["steward_email"])
+    _EMPTY_COMMENTS   = lambda: pd.DataFrame(columns=["comment_id", "comment_text", "author_name", "author_email", "created_at"])
 
     def _run_with_detail(
         self,
@@ -484,10 +506,24 @@ class TestLineageAndRelated:
         related_df=None,
     ) -> AppTest:
         """Configure SQL mocks for the full detail-pane query sequence,
-        select 'orders' in the selectbox, and return the AppTest."""
+        select 'orders' in the selectbox, and return the AppTest.
+
+        Query order after table selection:
+          1. get_authorized_tables     (tables_metadata JOIN permissions_cache)
+          2. get_column_business_names (business_name_overrides bulk) — uncached
+          3. columns_metadata
+          4. get_table_steward         (tables_metadata.steward_email) — uncached
+          5. get_table_comments        (comments table) — uncached
+          6. permissions_cache (grants)
+          7. lineage_cache
+          8. related tables UNION query
+        """
         sql_returns(
             tables_df  if tables_df  is not None else make_tables_df(),
+            TestLineageAndRelated._EMPTY_OVERRIDES(),
             columns_df if columns_df is not None else make_columns_df(),
+            TestLineageAndRelated._EMPTY_STEWARD(),
+            TestLineageAndRelated._EMPTY_COMMENTS(),
             grants_df  if grants_df  is not None else make_grants_df(),
             lineage_df if lineage_df is not None else TestLineageAndRelated._EMPTY_LINEAGE(),
             related_df if related_df is not None else TestLineageAndRelated._EMPTY_RELATED(),
@@ -506,12 +542,16 @@ class TestLineageAndRelated:
         assert "dd-grant-row" in html
 
     def test_grants_select_all_users_shown_as_all_users(self):
-        """The sentinel value SELECT_ALL_USERS must render as 'all users'."""
+        """SELECT_ALL_USERS must never appear raw; a browse button must be present."""
         grants = pd.DataFrame({"principal": ["SELECT_ALL_USERS"], "privilege": ["SELECT"]})
         at = self._run_with_detail(grants_df=grants)
         html = _html(*at.markdown)
-        assert "all users" in html
+        # Sentinel must not leak into the UI
         assert "SELECT_ALL_USERS" not in html
+        # A clickable button for public tables must be rendered
+        btn_labels = [b.label for b in at.button]
+        assert any("all users" in lbl.lower() for lbl in btn_labels), \
+            f"Expected a 'Browse tables accessible to all users' button, got: {btn_labels}"
 
     def test_grants_empty_state(self):
         """§ Group Permissions must show fallback when no grants exist."""

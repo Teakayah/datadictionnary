@@ -4,3 +4,4 @@ msal
 pandas
 python-dotenv
 databricks-sdk
+duckdb

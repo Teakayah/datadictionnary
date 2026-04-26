@@ -101,7 +101,7 @@ class TestNavigation:
         at = authenticated_app()
         at.run()
         html = _html(*at.markdown)
-        assert "Catalog search" in html
+        assert "§ Catalog search" in html
 
     def test_tab_catalog_renders_catalog_browser(self):
         """?tab=catalog must render the catalog browser page."""
@@ -109,14 +109,14 @@ class TestNavigation:
         at = authenticated_app(tab="catalog")
         at.run()
         html = _html(*at.markdown)
-        assert "Catalog browser" in html
+        assert "Catalog" in html
 
     def test_tab_glossary_renders_glossary(self):
         """?tab=glossary must render the glossary page."""
         at = authenticated_app(tab="glossary")
         at.run()
         html = _html(*at.markdown)
-        assert "Business Glossary" in html
+        assert "§ Business glossary" in html
 
     def test_tab_discovery_renders_discovery(self):
         """?tab=discovery must render the discovery page."""
@@ -124,7 +124,7 @@ class TestNavigation:
         at = authenticated_app(tab="discovery")
         at.run()
         html = _html(*at.markdown)
-        assert "Data Discovery" in html
+        assert "Discovery" in html
 
     def test_tab_health_renders_health(self):
         """?tab=health must render the health dashboard page."""
@@ -132,7 +132,7 @@ class TestNavigation:
         at = authenticated_app(tab="health")
         at.run()
         html = _html(*at.markdown)
-        assert "Metadata Health" in html
+        assert "Health" in html
 
     def test_active_tab_highlighted_in_header(self):
         """The active tab link must have the 'active' CSS class."""
@@ -148,7 +148,7 @@ class TestNavigation:
         at = authenticated_app(tab="catalog")
         at.run()
         html = _html(*at.markdown)
-        assert "Find your data." not in html
+        assert "Search the catalog." not in html
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -218,7 +218,7 @@ class TestAuthSecurity:
         # Must still be authenticated and rendering catalog content
         assert at.session_state["authenticated"] is True
         html = _html(*at.markdown)
-        assert "Catalog browser" in html
+        assert "Catalog" in html
 
     def test_permission_filtering_catalog_tab(self):
         """Catalog browser must pass user groups to get_authorized_tables."""
@@ -300,7 +300,7 @@ class TestGlossary:
         at.run()
         html = _html(*at.markdown)
         # The glossary has a selectbox with terms, and the first term should render
-        assert "Business Glossary" in html
+        assert "§ Business glossary" in html
 
     def test_glossary_shows_selectbox(self):
         """Glossary must show a term selection selectbox."""
@@ -313,7 +313,7 @@ class TestGlossary:
         at = authenticated_app(tab="glossary")
         at.run()
         html = _html(*at.markdown)
-        assert "Stewardship" in html
+        assert "§ Stewardship" in html
 
 
 class TestDiscovery:
@@ -384,7 +384,7 @@ class TestHealthDashboard:
         at = authenticated_app(tab="health")
         at.run()
         html = _html(*at.markdown)
-        assert "Priority Actions" in html
+        assert "§ Priority Actions" in html
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
