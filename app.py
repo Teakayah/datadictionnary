@@ -258,7 +258,8 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
     outline: 2px solid var(--accent) !important;
     outline-offset: 3px !important;
 }
-.stTextInput label {
+.stTextInput label,
+[data-testid="stSelectbox"] label {
     font-family: var(--font-sans) !important;
     font-size: 12px !important;
     font-weight: 600 !important;
@@ -288,14 +289,6 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
 }
 
 /* Selectbox */
-[data-testid="stSelectbox"] label {
-    font-family: var(--font-sans) !important;
-    font-size: 12px !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.14em !important;
-    text-transform: uppercase !important;
-    color: var(--ink-60) !important;
-}
 [data-testid="stSelectbox"] > div > div {
     border: 1px solid var(--ink-20) !important;
     border-radius: 2px !important;
