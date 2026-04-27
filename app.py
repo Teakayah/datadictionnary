@@ -1726,6 +1726,33 @@ def is_admin() -> bool:
     return bool(admin_groups & set(st.session_state.get("user_groups", [])))
 
 
+import csv
+import io
+
+def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
+    """Export table column metadata to a CSV string.
+
+    Includes business name and definition overrides if present.
+    """
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Column Name", "Business Name", "Data Type", "System Description", "Business Definition"])
+
+    if cols is not None and not cols.empty:
+        for _, c in cols.iterrows():
+            cname = str(c.get("column_name", ""))
+            ctype = str(c.get("data_type", ""))
+            ccomment = str(c.get("comment") or "")
+
+            override = col_overrides.get(cname, {})
+            biz_name = override.get("business_name", "")
+            biz_def = override.get("definition", "")
+
+            writer.writerow([cname, biz_name, ctype, ccomment, biz_def])
+
+    return output.getvalue()
+
+
 def get_column_business_names(table_full_name: str) -> dict:
     """Return all column business name overrides for a table as a dict.
 
@@ -3082,6 +3109,17 @@ if current_tab == "search":
                         cols = run_query(cols_query, {"table_full_name": full_name})
                         n_cols = len(cols) if cols is not None and not cols.empty else 0
                         st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_columns")}</span><span class="dd-section-count">{n_cols}</span></div>', unsafe_allow_html=True)
+
+                        if n_cols > 0:
+                            csv_data = export_schema_to_csv(cols, col_overrides)
+                            st.download_button(
+                                label="Export Dictionary (CSV)",
+                                data=csv_data,
+                                file_name=f"{row['catalog_name']}_{row['schema_name']}_{row['table_name']}_schema.csv",
+                                mime="text/csv",
+                                key=f"export_{full_name}",
+                            )
+
                         _power = is_power_user()
                         _col_edit = st.session_state.get("dd_col_edit_mode", "")
 
@@ -3300,9 +3338,9 @@ if current_tab == "search":
                         
                         graph_nodes = [{"id": full_name, "label": _tbl, "current": True, "relationship": "Current"}]
                         graph_links = []
-                        if has_lineage:
-                            upstreams = lineage[lineage["direction"] == "UPSTREAM"]["entity_full_name"].tolist()
-                            downstreams = lineage[lineage["direction"] == "DOWNSTREAM"]["entity_full_name"].tolist()
+                        if lineage is not None and not lineage.empty and "direction" in lineage.columns:
+                            upstreams = lineage[lineage["direction"] == "UPSTREAM"]["entity_full_name"].tolist() if "entity_full_name" in lineage.columns else []
+                            downstreams = lineage[lineage["direction"] == "DOWNSTREAM"]["entity_full_name"].tolist() if "entity_full_name" in lineage.columns else []
                             for efn in upstreams:
                                 graph_nodes.append({"id": efn, "label": efn.split(".")[-1], "current": False, "relationship": "Upstream"})
                                 graph_links.append({"from": efn, "to": full_name})

@@ -74,6 +74,10 @@ def authenticated_app(tab: str | None = None, mock_login: bool = False) -> AppTe
     at.session_state["authenticated"] = True
     at.session_state["user_groups"] = ["finance_dept_id", "all_employees_id"]
     at.session_state["user_name"] = "Finance User"
+    at.session_state["bookmarks"] = set()
+    at.session_state["col_bookmarks"] = set()
+    at.session_state["recent_views"] = []
+    at.session_state["_prefs_loaded"] = True
     if tab:
         at.query_params["tab"] = tab
     if mock_login:

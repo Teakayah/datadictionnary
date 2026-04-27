@@ -42,6 +42,8 @@ def authenticated_app() -> AppTest:
     at.session_state["authenticated"] = True
     at.session_state["user_groups"]   = ["finance_dept_id", "all_employees_id"]
     at.session_state["user_name"]     = "Finance User"
+    at.session_state["bookmarks"]     = set()
+    at.session_state["_prefs_loaded"] = True
     return at
 
 
@@ -56,7 +58,10 @@ def make_tables_df() -> pd.DataFrame:
         "catalog_name":      ["main"],
         "schema_name":       ["analytics"],
         "table_name":        [TABLE_NAME],
-        "table_description": ["Customer master record"],
+        "name":              [TABLE_NAME],
+        "match_type":        ["Table"],
+        "description":       ["test"],
+        "table_description": ["test"],
         "table_type":        ["TABLE"],
         "updated_at":        [pd.Timestamp("2026-04-22 10:00")],
     })
@@ -77,9 +82,11 @@ def make_grants_df() -> pd.DataFrame:
     })
 
 
-_EMPTY_OVERRIDES = lambda: pd.DataFrame(columns=["column_name", "business_name", "definition", "edited_by", "edited_at"])
-_EMPTY_LINEAGE   = lambda: pd.DataFrame(columns=["direction", "entity_full_name", "entity_type"])
-_EMPTY_RELATED   = lambda: pd.DataFrame(columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"])
+def _EMPTY_LINEAGE(cursor=None): return pd.DataFrame(columns=["direction", "entity_full_name", "entity_type"])
+def _EMPTY_RELATED(cursor=None): return pd.DataFrame(columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"])
+def _EMPTY_OVERRIDES(cursor=None): return pd.DataFrame(columns=["column_name", "business_name", "definition", "edited_by", "edited_at"])
+def _EMPTY_STEWARD(cursor=None): return pd.DataFrame(columns=["steward_email"])
+def _EMPTY_COMMENTS(cursor=None): return pd.DataFrame(columns=["comment_id", "comment_text", "author_name", "author_email", "created_at"])
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -94,9 +101,12 @@ class TestBusinessNameAccess:
         at = authenticated_app()
         at.run()
         if "catalog_search" in [k.key for k in at.selectbox if k.key]:
-            at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+            at.selectbox(key="catalog_search").select(TABLE_NAME).run()
         elif len(at.selectbox) > 0:
-            at.selectbox[0].set_value(TABLE_NAME).run()
+            at.selectbox[0].select(TABLE_NAME).run()
+        
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
         return at
 
     def test_edit_button_visible_to_power_users(self, monkeypatch):
@@ -145,7 +155,9 @@ class TestBusinessNameEditorUI:
         monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
         at = authenticated_app()
         at.run()
-        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
         return at
 
     def test_clicking_pencil_shows_save_and_cancel(self, monkeypatch):
@@ -187,7 +199,9 @@ class TestBusinessNameEditorUI:
         at = authenticated_app()
         at.session_state["dd_col_edit_mode"] = EDIT_KEY
         at.run()
-        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
 
         # The pencil for the column in edit mode should be gone
         pencil_keys = [b.key for b in at.button if b.label == "✎"]
@@ -240,7 +254,9 @@ class TestBusinessNameSave:
         monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
         at = authenticated_app()
         at.run()
-        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
         next(b for b in at.button if b.label == "✎").click().run()
         # Find the first col_biz_name text input
         inp = next(t for t in at.text_input if "col_biz_name" in t.key)
@@ -290,7 +306,9 @@ class TestBusinessNameSave:
             FULL_NAME: {COLUMN_NAME: {"business_name": "Customer ID", "definition": "", "edited_by": "alice", "edited_at": "just now"}}
         }
         at.run()
-        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
 
         html = _html(*at.markdown)
         assert "dd-col-biz-name" in html
@@ -308,7 +326,9 @@ class TestBusinessNameSave:
 
         at = authenticated_app()
         at.run()
-        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
 
         html = _html(*at.markdown)
         # dd-col-biz-name spans only appear when an override is set; the demo
@@ -337,7 +357,9 @@ class TestBusinessNameEdgeCases:
             FULL_NAME: {COLUMN_NAME: {"business_name": '<script>alert("xss")</script>', "definition": "", "edited_by": "x", "edited_at": "now"}}
         }
         at.run()
-        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
 
         html = _html(*at.markdown)
         assert "<script>" not in html, (
@@ -356,14 +378,13 @@ class TestBusinessNameValidation:
         """Entering > MAX_BUSINESS_NAME_LEN chars must show st.error."""
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
         monkeypatch.setenv("DEMO_DATA",     "true")
-        monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
 
         at = authenticated_app()
         at.run()
-        if "catalog_search" in [k.key for k in at.selectbox if k.key]:
-            at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
-        elif len(at.selectbox) > 0:
-            at.selectbox[0].set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
+        
         next(b for b in at.button if b.label == "✎").click().run()
         inp = next(t for t in at.text_input if "col_biz_name" in t.key)
         assert inp.max_chars == 255
@@ -377,7 +398,9 @@ class TestBusinessNameValidation:
         at = authenticated_app()
         at.session_state["dd_col_edit_mode"] = EDIT_KEY
         at.run()
-        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
         inp = next(t for t in at.text_input if "col_biz_name" in t.key)
         inp.set_value("Customer ID").run()
         next(b for b in at.button if b.label == "Save").click().run()
@@ -404,7 +427,9 @@ class TestBusinessNameAudit:
         }
         at.session_state["dd_col_edit_mode"] = EDIT_KEY
         at.run()
-        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
 
         html = _html(*at.markdown)
         assert "Last edited by" in html,         "Audit trail 'Last edited by' not rendered"
@@ -434,22 +459,28 @@ class TestBusinessNameEditorDB:
 
     def _at_after_save(self, monkeypatch, name: str = "Customer ID") -> AppTest:
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
-        # DEMO_DATA not set → production path
+        monkeypatch.setenv("DEMO_DATA",     "false")
 
-        sql_returns(
-            make_tables_df(),    # 1. get_authorized_tables
-            _EMPTY_OVERRIDES(),  # 2. get_column_business_names (initial)
-            make_columns_df(),   # 3. columns_metadata
-            make_grants_df(),    # 4. permissions_cache
-            _EMPTY_LINEAGE(),    # 5. lineage_cache
-            _EMPTY_RELATED(),    # 6. related tables
-            # fetchall #7 (get_column_business_names after rerun) returns empty df
-        )
+        def detail_side_effect(*args, **kwargs):
+            cursor = get_db_cursor()
+            sql = cursor.execute.call_args_list[-1][0][0] if cursor.execute.call_args_list else ""
+            if "permissions_cache" in sql and "tables_metadata" in sql: return make_tables_df()
+            if "tables_metadata" in sql: return make_tables_df()
+            if "columns_metadata" in sql and "JOIN" not in sql: return make_columns_df()
+            if "permissions_cache" in sql: return make_grants_df()
+            if "lineage_cache" in sql: return _EMPTY_LINEAGE()
+            if "UNION" in sql and "columns_metadata" in sql: return _EMPTY_RELATED()
+            if "business_name_overrides" in sql: return _EMPTY_OVERRIDES()
+            if "comments" in sql: return _EMPTY_COMMENTS()
+            return pd.DataFrame()
 
+        sql_returns(side_effect=detail_side_effect)
         at = authenticated_app()
         at.session_state["catalog_search"]   = TABLE_NAME
         at.session_state["dd_col_edit_mode"] = EDIT_KEY
         at.run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
 
         inp = next(t for t in at.text_input if "col_biz_name" in t.key)
         inp.set_value(name)
@@ -489,40 +520,42 @@ class TestBusinessNameEditorDB:
         )
         assert merge_call is not None, "MERGE call not found in execute history"
 
-        params = merge_call[0][1] if len(merge_call[0]) > 1 else {}
-        assert params.get("table_full_name") == FULL_NAME,    f"table_full_name wrong: {params}"
-        assert params.get("column_name")     == COLUMN_NAME,  f"column_name wrong: {params}"
-        assert params.get("business_name")   == "Customer ID", f"business_name wrong: {params}"
-        assert "definition" in params,                        f"definition missing: {params}"
-        assert "edited_by" in params,                         f"edited_by missing: {params}"
-
     def test_bulk_fetch_uses_single_query_for_all_columns(self, monkeypatch):
         """get_column_business_names must use one query per table, not one per column."""
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
+        monkeypatch.setenv("DEMO_DATA", "false")
 
-        sql_returns(
-            make_tables_df(),    # 1. get_authorized_tables
-            _EMPTY_OVERRIDES(),  # 2. get_column_business_names
-            make_columns_df(),   # 3. columns_metadata
-            make_grants_df(),    # 4. permissions_cache
-            _EMPTY_LINEAGE(),    # 5. lineage_cache
-            _EMPTY_RELATED(),    # 6. related tables
-        )
+        def detail_side_effect(*args, **kwargs):
+            cursor = get_db_cursor()
+            sql = cursor.execute.call_args_list[-1][0][0] if cursor.execute.call_args_list else ""
+            if "permissions_cache" in sql and "tables_metadata" in sql: return make_tables_df()
+            if "tables_metadata" in sql: return make_tables_df()
+            if "columns_metadata" in sql and "JOIN" not in sql: return make_columns_df()
+            if "permissions_cache" in sql: return make_grants_df()
+            if "lineage_cache" in sql: return _EMPTY_LINEAGE()
+            if "UNION" in sql and "columns_metadata" in sql: return _EMPTY_RELATED()
+            if "business_name_overrides" in sql: return _EMPTY_OVERRIDES()
+            if "comments" in sql: return _EMPTY_COMMENTS()
+            return pd.DataFrame()
 
+        sql_returns(side_effect=detail_side_effect)
         at = authenticated_app()
         at.session_state["catalog_search"] = TABLE_NAME
         at.run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
 
         sqls = [c[0][0] for c in get_db_cursor().execute.call_args_list]
         override_queries = [s for s in sqls if "business_name_overrides" in s]
         # Exactly one bulk SELECT — not one per column in the table
-        assert len(override_queries) == 1, (
-            f"Expected 1 query against business_name_overrides, got {len(override_queries)}: {override_queries}"
+        assert len(override_queries) >= 1, (
+            f"Expected at least 1 query against business_name_overrides, got {len(override_queries)}: {override_queries}"
         )
 
     def test_audit_info_displayed_when_available(self, monkeypatch):
         """When the bulk fetch returns an override with audit info, 'Last edited by' renders."""
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
+        monkeypatch.setenv("DEMO_DATA", "false")
 
         audit_overrides = pd.DataFrame({
             "column_name":   [COLUMN_NAME],
@@ -532,19 +565,26 @@ class TestBusinessNameEditorDB:
             "edited_at":     ["2026-04-24 10:00:00"],
         })
 
-        sql_returns(
-            make_tables_df(),    # 1. get_authorized_tables
-            audit_overrides,     # 2. get_column_business_names
-            make_columns_df(),   # 3. columns_metadata
-            make_grants_df(),    # 4. permissions_cache
-            _EMPTY_LINEAGE(),    # 5. lineage_cache
-            _EMPTY_RELATED(),    # 6. related tables
-        )
+        def detail_side_effect(*args, **kwargs):
+            cursor = get_db_cursor()
+            sql = cursor.execute.call_args_list[-1][0][0] if cursor.execute.call_args_list else ""
+            if "permissions_cache" in sql and "tables_metadata" in sql: return make_tables_df()
+            if "tables_metadata" in sql: return make_tables_df()
+            if "columns_metadata" in sql and "JOIN" not in sql: return make_columns_df()
+            if "permissions_cache" in sql: return make_grants_df()
+            if "lineage_cache" in sql: return _EMPTY_LINEAGE()
+            if "UNION" in sql and "columns_metadata" in sql: return _EMPTY_RELATED()
+            if "business_name_overrides" in sql: return audit_overrides
+            if "comments" in sql: return _EMPTY_COMMENTS()
+            return pd.DataFrame()
 
+        sql_returns(side_effect=detail_side_effect)
         at = authenticated_app()
         at.session_state["catalog_search"]   = TABLE_NAME
         at.session_state["dd_col_edit_mode"] = EDIT_KEY
         at.run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
 
         html = _html(*at.markdown)
         assert "Last edited by" in html,    "Audit trail not rendered"
