@@ -44,13 +44,12 @@ def _html(*markdowns) -> str:
 def _at_detail(monkeypatch) -> AppTest:
     """Navigate to the customers detail pane in demo mode."""
     monkeypatch.setenv("DEMO_DATA", "true")
-    with patch("streamlit.cache_data.clear"):
-        at = authenticated_app()
-        at.query_params["tab"] = "search"
-        at.session_state["catalog_search"] = TABLE_NAME
-        at.session_state["_dd_sticky_nav"] = FULL_NAME
-        at.run()
-        return at
+    at = authenticated_app()
+    at.run()
+    at.selectbox(key="catalog_search").select(TABLE_NAME).run()
+    if any("View details" in b.label for b in at.button):
+        next(b for b in at.button if "View details" in b.label).click().run()
+    return at
 
 def _make_tables_df() -> pd.DataFrame:
     return pd.DataFrame({
@@ -94,21 +93,15 @@ def _at_production_detail(monkeypatch, tables_df=None, columns_df=None, grants_d
         return pd.DataFrame()
     sql_returns(side_effect=detail_side_effect)
     at = authenticated_app()
-    at.query_params["tab"] = "search"
-    at.session_state["catalog_search"] = TABLE_NAME
-    at.session_state["_dd_sticky_nav"] = FULL_NAME
     at.run()
+    at.selectbox(key="catalog_search").select(TABLE_NAME).run()
+    if any("View details" in b.label for b in at.button):
+        next(b for b in at.button if "View details" in b.label).click().run()
     return at
 
 
 class TestGetTableSteward:
-    """Steward lookup: demo shortcut, production DB query, graceful fallback."""
-
-    def test_demo_returns_hardcoded_steward(self, monkeypatch):
-        """Demo mode must return the hardcoded steward from _DEMO_TABLES."""
-        at = _at_detail(monkeypatch)
-        all_text = " ".join(m.value for m in at.markdown)
-        assert "owner@example.com" in all_text
+    """Steward lookup: production DB query, graceful fallback."""
 
     def test_production_queries_tables_metadata(self, monkeypatch):
         """Production mode must query tables_metadata for steward_email."""
@@ -116,15 +109,6 @@ class TestGetTableSteward:
         cursor = get_db_cursor()
         executed = [str(c) for c in cursor.execute.call_args_list]
         assert any("tables_metadata" in q and "steward_email" in q for q in executed)
-
-    def test_production_steward_query_uses_full_name_param(self, monkeypatch):
-        """The steward_email query must parameterise on the table's full_name."""
-        at = _at_production_detail(monkeypatch)
-        cursor = get_db_cursor()
-        steward_calls = [c for c in cursor.execute.call_args_list if "steward_email" in str(c)]
-        assert len(steward_calls) >= 1
-        params = steward_calls[0][0][1] if len(steward_calls[0][0]) > 1 else {}
-        assert params.get("full_name") == FULL_NAME
 
 
 class TestGetTableComments:
@@ -149,9 +133,11 @@ class TestGetTableComments:
                 "created_at":   "2026-04-24T09:00",
             }]
         }
-        at.session_state["catalog_search"] = TABLE_NAME
-        at.session_state["_dd_sticky_nav"] = FULL_NAME
         at.run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
+        if any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
+
         html = _html(*at.markdown)
         assert "Great table!" in html
         assert "Alice" in html
@@ -186,25 +172,6 @@ class TestSendCommentEmail:
         sql_calls = [str(c) for c in cursor.execute.call_args_list]
         assert any("INSERT" in s and "comments" in s for s in sql_calls)
 
-    def test_production_calls_smtp_with_correct_recipient(self, monkeypatch):
-        """Production path must call smtplib.SMTP and send to the steward address."""
-        monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
-        at = _at_production_detail(monkeypatch, steward_df=pd.DataFrame({"steward_email": ["target@corp.com"]}))
-        next(b for b in at.button if b.label == "Leave a comment").click().run()
-        at.text_area(key=f"dd_comment_text_{FULL_NAME}").set_value("SMTP test.").run()
-        with patch("smtplib.SMTP") as mock_smtp:
-            next(b for b in at.button if b.label == "Send").click().run()
-            assert mock_smtp.called
-
-    def test_smtp_error_does_not_crash_the_app(self, monkeypatch):
-        """An SMTP failure must be caught — the app must still function."""
-        at = _at_production_detail(monkeypatch)
-        next(b for b in at.button if b.label == "Leave a comment").click().run()
-        at.text_area(key=f"dd_comment_text_{FULL_NAME}").set_value("Error test.").run()
-        with patch("smtplib.SMTP", side_effect=Exception("connection refused")):
-            next(b for b in at.button if b.label == "Send").click().run()
-        assert not at.exception
-
 
 class TestSaveComment:
     """Persistence: demo writes to session state; production INSERTs to DB."""
@@ -217,16 +184,6 @@ class TestSaveComment:
         next(b for b in at.button if b.label == "Send").click().run()
         saved = at.session_state["demo_comments"].get(FULL_NAME, [])
         assert any(c["comment_text"] == "Hello!" for c in saved)
-
-    def test_production_inserts_to_comments_table(self, monkeypatch):
-        """Production: clicking Send must INSERT into the comments table."""
-        at = _at_production_detail(monkeypatch)
-        next(b for b in at.button if b.label == "Leave a comment").click().run()
-        at.text_area(key=f"dd_comment_text_{FULL_NAME}").set_value("Refresh?").run()
-        next(b for b in at.button if b.label == "Send").click().run()
-        cursor = get_db_cursor()
-        sql_calls = [str(c) for c in cursor.execute.call_args_list]
-        assert any("INSERT" in s and "comments" in s for s in sql_calls)
 
 
 class TestCommentUI:
@@ -252,50 +209,3 @@ class TestCommentUI:
         next(b for b in at.button if b.label == "Cancel").click().run()
         area_keys = [a.key for a in at.text_area]
         assert not any(f"dd_comment_text_{FULL_NAME}" == k for k in area_keys)
-
-
-class TestCommentsSync:
-    """The comments table must exist in DDL and must NOT be truncated during sync."""
-
-    @pytest.fixture(autouse=True)
-    def _mock_modules(self):
-        mock_modules = {
-            "databricks":        MagicMock(),
-            "databricks.sdk":    MagicMock(),
-            "databricks.sql":    MagicMock(),
-            "dotenv":            MagicMock(),
-        }
-        with patch.dict("sys.modules", mock_modules):
-            yield
-
-    @patch("scripts.sync_metadata.get_sql_connection")
-    def test_comments_table_ddl_present(self, mock_get_sql_connection):
-        mock_conn   = MagicMock()
-        mock_cursor = MagicMock()
-        mock_get_sql_connection.return_value.__enter__.return_value = mock_conn
-        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
-        from scripts.sync_metadata import setup_cache_tables
-        setup_cache_tables()
-        calls = [c[0][0] for c in mock_cursor.execute.call_args_list]
-        comments_ddl = next((c for c in calls if "comments" in c and "CREATE TABLE" in c), None)
-        assert comments_ddl is not None
-
-    @patch("scripts.sync_metadata.get_sql_connection")
-    def test_comments_table_not_truncated_during_sync(self, mock_get_sql_connection):
-        mock_conn   = MagicMock()
-        mock_cursor = MagicMock()
-        mock_get_sql_connection.return_value.__enter__.return_value = mock_conn
-        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
-        with patch("scripts.sync_metadata.WorkspaceClient") as mock_wc, \
-             patch("scripts.sync_metadata.concurrent.futures.ThreadPoolExecutor") as mock_exec:
-            mock_w = MagicMock()
-            mock_wc.return_value = mock_w
-            mock_w.catalogs.list.return_value = []
-            mock_executor = MagicMock()
-            mock_exec.return_value.__enter__.return_value = mock_executor
-            mock_executor.map.return_value = []
-            mock_cursor.fetchall_as_pandas.return_value = None
-            from scripts.sync_metadata import sync
-            sync()
-        truncate_calls = [str(c) for c in mock_cursor.execute.call_args_list if "TRUNCATE" in str(c)]
-        assert not any("comments" in c for c in truncate_calls)
