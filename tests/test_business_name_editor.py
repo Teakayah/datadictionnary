@@ -387,7 +387,7 @@ class TestBusinessNameValidation:
         
         next(b for b in at.button if b.label == "✎").click().run()
         inp = next(t for t in at.text_input if "col_biz_name" in t.key)
-        assert inp.max_chars == 255
+        assert inp.max_chars == 255, f"Expected text_input max_chars to be 255, got {inp.max_chars}"
 
     def test_save_shows_permission_error_for_non_power_user(self, monkeypatch):
         """save_business_name must show st.error if user is not in EDITOR_GROUPS."""
