@@ -224,8 +224,9 @@ class TestAuthSecurity:
         html = _html(*at.markdown)
         assert "Catalog" in html
 
-    def test_permission_filtering_catalog_tab(self):
+    def test_permission_filtering_catalog_tab(self, monkeypatch):
         """Catalog browser must pass user groups to get_authorized_tables."""
+        monkeypatch.setenv("DEMO_DATA", "false")
         sql_returns(make_tables_df())
         at = authenticated_app(tab="catalog")
         at.run()
@@ -234,8 +235,9 @@ class TestAuthSecurity:
         assert any("permissions_cache" in q for q in executed), \
             "Catalog tab must query with permission filtering"
 
-    def test_permission_filtering_health_tab(self):
+    def test_permission_filtering_health_tab(self, monkeypatch):
         """Health tab must pass user groups to get_authorized_tables."""
+        monkeypatch.setenv("DEMO_DATA", "false")
         sql_returns(make_tables_df(), make_health_col_stats())
         at = authenticated_app(tab="health")
         at.run()
@@ -244,8 +246,9 @@ class TestAuthSecurity:
         assert any("permissions_cache" in q for q in executed), \
             "Health tab must query with permission filtering"
 
-    def test_catalog_error_shows_generic_message(self):
+    def test_catalog_error_shows_generic_message(self, monkeypatch):
         """DB errors in catalog tab must show generic message, not raw exception."""
+        monkeypatch.setenv("DEMO_DATA", "false")
         cursor = get_db_cursor()
         cursor.reset_mock()
         cursor.execute.side_effect = Exception("SECRET_INTERNAL_ERROR")
@@ -273,22 +276,25 @@ class TestAuthSecurity:
 
 class TestCatalogBrowser:
 
-    def test_catalog_renders_tree_structure(self):
+    def test_catalog_renders_tree_structure(self, monkeypatch):
         """Catalog browser must render expanders for catalog hierarchy."""
+        monkeypatch.setenv("DEMO_DATA", "false")
         sql_returns(make_tables_df())
         at = authenticated_app(tab="catalog")
         at.run()
         assert len(at.expander) >= 1, "Expected at least one catalog expander"
 
-    def test_catalog_empty_state(self):
+    def test_catalog_empty_state(self, monkeypatch):
         """Catalog browser must handle empty results gracefully."""
+        monkeypatch.setenv("DEMO_DATA", "false")
         sql_returns(empty_tables_df())
         at = authenticated_app(tab="catalog")
         at.run()
         assert any("No catalogs" in i.value for i in at.info)
 
-    def test_catalog_shows_table_buttons(self):
+    def test_catalog_shows_table_buttons(self, monkeypatch):
         """Each table in the catalog tree must have a clickable button."""
+        monkeypatch.setenv("DEMO_DATA", "false")
         sql_returns(make_tables_df())
         at = authenticated_app(tab="catalog")
         at.run()
@@ -322,8 +328,9 @@ class TestGlossary:
 
 class TestDiscovery:
 
-    def test_discovery_shows_recent_tables(self):
+    def test_discovery_shows_recent_tables(self, monkeypatch):
         """Discovery tab must show recently updated tables."""
+        monkeypatch.setenv("DEMO_DATA", "false")
         sql_returns(make_tables_df())
         at = authenticated_app(tab="discovery")
         at.run()
@@ -331,8 +338,9 @@ class TestDiscovery:
         # The tables should be rendered with their names
         assert "orders" in html or "customers" in html
 
-    def test_discovery_sorts_by_updated_at(self):
+    def test_discovery_sorts_by_updated_at(self, monkeypatch):
         """Discovery tab must show most recently updated tables first."""
+        monkeypatch.setenv("DEMO_DATA", "false")
         sql_returns(make_tables_df())
         at = authenticated_app(tab="discovery")
         at.run()
@@ -345,8 +353,9 @@ class TestDiscovery:
             assert orders_pos < customers_pos, \
                 "Orders (more recent) must appear before customers in discovery feed"
 
-    def test_discovery_empty_state(self):
+    def test_discovery_empty_state(self, monkeypatch):
         """Discovery must handle empty results gracefully."""
+        monkeypatch.setenv("DEMO_DATA", "false")
         sql_returns(empty_tables_df())
         at = authenticated_app(tab="discovery")
         at.run()
@@ -356,42 +365,47 @@ class TestDiscovery:
 
 class TestHealthDashboard:
 
-    def test_health_renders_coverage_metrics(self):
+    def test_health_renders_coverage_metrics(self, monkeypatch):
         """Health dashboard must show table coverage percentage."""
+        monkeypatch.setenv("DEMO_DATA", "false")
         sql_returns(make_tables_df_with_missing_desc(), make_health_col_stats())
         at = authenticated_app(tab="health")
         at.run()
         html = _html(*at.markdown)
         assert "Table Coverage" in html
 
-    def test_health_coverage_calculation(self):
+    def test_health_coverage_calculation(self, monkeypatch):
         """Health dashboard must correctly calculate coverage %.
 
         make_tables_df_with_missing_desc has 3 tables, 1 with description = 33%.
         """
+        monkeypatch.setenv("DEMO_DATA", "false")
         sql_returns(make_tables_df_with_missing_desc(), make_health_col_stats())
         at = authenticated_app(tab="health")
         at.run()
         html = _html(*at.markdown)
         assert "33%" in html, "Expected 33% table coverage (1 of 3 described)"
 
-    def test_health_empty_state(self):
+    def test_health_empty_state(self, monkeypatch):
         """Health dashboard must handle empty data gracefully."""
+        monkeypatch.setenv("DEMO_DATA", "false")
         sql_returns(empty_tables_df())
         at = authenticated_app(tab="health")
         at.run()
         assert any("No data" in i.value for i in at.info)
 
-    def test_health_shows_priority_actions(self):
+    def test_health_shows_priority_actions(self, monkeypatch):
         """Health dashboard must list undocumented tables as priority actions."""
+        monkeypatch.setenv("DEMO_DATA", "false")
         sql_returns(make_tables_df_with_missing_desc(), make_health_col_stats())
         at = authenticated_app(tab="health")
         at.run()
         html = _html(*at.markdown)
         assert "§ Priority Actions" in html
 
-    def test_health_click_priority_action_reruns(self):
+    def test_health_click_priority_action_reruns(self, monkeypatch):
         """Clicking a priority action must set overrides and switch to search tab."""
+        monkeypatch.setenv("DEMO_DATA", "false")
         sql_returns(make_tables_df_with_missing_desc(), make_health_col_stats())
         at = authenticated_app(tab="health")
         at.run()
@@ -402,9 +416,10 @@ class TestHealthDashboard:
         # Verify navigation to the search tab
         assert at.query_params["tab"] == "search" or at.query_params["tab"] == ["search"]
 
-    def test_health_exception_shows_generic_error(self):
+    def test_health_exception_shows_generic_error(self, monkeypatch):
         """When an exception occurs during query execution in render_health,
         the UI must show a generic message."""
+        monkeypatch.setenv("DEMO_DATA", "false")
         # Return empty DataFrame for columns to trigger IndexError in stats.iloc[0]
         sql_returns(make_tables_df_with_missing_desc(), pd.DataFrame())
         at = authenticated_app(tab="health")
@@ -451,8 +466,7 @@ class TestSyncObjectTags:
         from unittest.mock import MagicMock
 
         with patch("scripts.sync_metadata.WorkspaceClient") as mock_wc, \
-             patch("scripts.sync_metadata.get_sql_connection") as mock_get_conn, \
-             patch("scripts.sync_metadata.concurrent.futures.ThreadPoolExecutor") as mock_exec_cls:
+             patch("scripts.sync_metadata.get_sql_connection") as mock_get_conn:
 
             mock_conn = MagicMock()
             mock_cursor = MagicMock()
@@ -473,10 +487,7 @@ class TestSyncObjectTags:
             mock_schema.properties = None
             mock_w.schemas.list.return_value = [mock_schema]
             mock_w.tables.list.return_value = []
-
-            mock_executor = MagicMock()
-            mock_exec_cls.return_value.__enter__.return_value = mock_executor
-            mock_executor.map.return_value = []
+            mock_w.grants.get.return_value = None
 
             from scripts.sync_metadata import sync
             sync()
