@@ -48,6 +48,7 @@ Thumbs.db
 
 # --- Project Specific ---
 .digest/
+data/
 screenshots/
 !screenshots/latest/
 venv/
