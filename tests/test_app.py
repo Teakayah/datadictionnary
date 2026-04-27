@@ -291,7 +291,7 @@ class TestTableDetail:
         at = authenticated_app()
         at.query_params["tab"] = "search"
         at.run()
-        at.text_input(key="catalog_search").set_value("orders").run()
+        at.selectbox(key="catalog_search").select("orders").run()
         return at
 
     def test_columns_rendered(self):
@@ -541,7 +541,7 @@ class TestLineageAndRelated:
         at = authenticated_app()
         at.query_params["tab"] = "search"
         at.run()
-        at.text_input(key="catalog_search").set_value("orders").run()
+        at.selectbox(key="catalog_search").select("orders").run()
         return at
 
     # ── § Grants ──────────────────────────────────────────────────────────────
