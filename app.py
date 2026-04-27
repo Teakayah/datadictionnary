@@ -2962,12 +2962,10 @@ if current_tab == "search":
     except Exception:
         _table_options = []
 
-    _current = st.session_state.get("catalog_search")
-    _idx = _table_options.index(_current) if _current in _table_options else None
     search_query = st.selectbox(
         t("common.search"),
         options=_table_options,
-        index=_idx,
+        index=None,
         placeholder=t("search.placeholder"),
         label_visibility="collapsed",
         key="catalog_search",
