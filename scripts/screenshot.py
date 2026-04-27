@@ -21,51 +21,59 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright, Page
 
 DEFAULT_OUT = Path(__file__).resolve().parent.parent / "screenshots" / "latest"
-# Wide viewport; tall enough to show most content without scrolling on overview screens.
 VIEWPORT = {"width": 1440, "height": 1080}
-# Tall viewport used for detail/content-heavy shots — Streamlit renders inside a
-# fixed-height scroll container so tall=True has no effect; we resize instead.
+# Streamlit renders inside a fixed-height scroll container — tall shots resize
+# the viewport rather than using full_page=True (which has no effect).
 DETAIL_HEIGHT = 3600
-WAIT_AFTER_NAV = 2000   # ms — let Streamlit finish rendering after navigation
+WAIT_AFTER_NAV = 2000   # ms
 
-# Set at runtime from --host arg; helpers read this module-level var.
 _base_url = os.getenv("SCREENSHOT_HOST", "http://127.0.0.1:8501")
 
+
+# ── core helpers ──────────────────────────────────────────────────────────────
 
 def _wait(page: Page, ms: int = WAIT_AFTER_NAV) -> None:
     page.wait_for_timeout(ms)
 
 
 def _nav(page: Page, tab: str, extra: str = "") -> None:
-    """Navigate to a tab, triggering mock auth if needed."""
     page.goto(f"{_base_url}/?tab={tab}&mock_login=true{extra}")
     _wait(page)
 
 
 def _shot(page: Page, out: Path, name: str, *, tall: bool = False) -> None:
-    """Capture a screenshot.
-
-    tall=True temporarily resizes the viewport to DETAIL_HEIGHT so Streamlit's
-    fixed-height scroll container expands to show the full detail panel.
-    tall=False takes a normal viewport-sized shot.
-    """
     path = out / f"{name}.png"
     if tall:
         w = page.viewport_size["width"]
         page.set_viewport_size({"width": w, "height": DETAIL_HEIGHT})
-        _wait(page, 600)   # let Streamlit re-layout at the new height
+        _wait(page, 600)
         page.screenshot(path=str(path), full_page=False)
         page.set_viewport_size({"width": w, "height": VIEWPORT["height"]})
     else:
         page.screenshot(path=str(path), full_page=False)
-    mode = f"tall({DETAIL_HEIGHT}px)" if tall else "viewport"
+    mode = f"tall" if tall else "viewport"
     print(f"  ✓  {name}.png  [{mode}]")
 
 
-# ── helpers ───────────────────────────────────────────────────────────────────
+def _switch_locale(page: Page, locale: str) -> bool:
+    """Force-click the hidden Streamlit locale proxy button (LOCALE_EN / LOCALE_FR)."""
+    clicked = page.evaluate(f"""
+        () => {{
+            for (const btn of document.querySelectorAll('button')) {{
+                if (btn.textContent.trim() === 'LOCALE_{locale.upper()}') {{
+                    btn.click();
+                    return true;
+                }}
+            }}
+            return false;
+        }}
+    """)
+    if clicked:
+        _wait(page)
+    return bool(clicked)
+
 
 def _select_first_table(page: Page) -> bool:
-    """Open the search selectbox and pick the first option. Returns True on success."""
     box = page.locator('[data-testid="stSelectbox"] input').first
     box.click()
     _wait(page, 700)
@@ -78,8 +86,7 @@ def _select_first_table(page: Page) -> bool:
 
 
 def _open_first_detail(page: Page) -> bool:
-    """Click 'View details' on the first result card. Returns True on success."""
-    btn = page.locator('button:has-text("View details")').first
+    btn = page.locator('button:has-text("View details"), button:has-text("Voir les détails")').first
     if not btn.is_visible():
         return False
     btn.click()
@@ -87,7 +94,7 @@ def _open_first_detail(page: Page) -> bool:
     return True
 
 
-# ── capture functions ─────────────────────────────────────────────────────────
+# ── English capture functions ─────────────────────────────────────────────────
 
 def capture_login(page: Page, out: Path) -> None:
     print("\n── Login page")
@@ -101,7 +108,6 @@ def capture_search(page: Page, out: Path) -> None:
     _nav(page, "search")
     _shot(page, out, "02_search_empty")
 
-    # Autocomplete dropdown
     box = page.locator('[data-testid="stSelectbox"] input').first
     box.click()
     _wait(page, 700)
@@ -114,18 +120,15 @@ def capture_search(page: Page, out: Path) -> None:
     _wait(page)
     _shot(page, out, "04_search_results_cards")
 
-    # Detail panel — full-page so the entire panel (including columns) is visible
     if not _open_first_detail(page):
         return
     _shot(page, out, "05_search_detail_panel", tall=True)
 
-    # Scroll to column list then take a focused viewport shot
     page.evaluate("window.scrollBy(0, 500)")
     _wait(page, 500)
     _shot(page, out, "06_search_detail_columns")
 
-    # Data preview dialog
-    preview_btn = page.locator('button:has-text("Preview data"), button:has-text("Aperçu")').first
+    preview_btn = page.locator('button:has-text("Preview data")').first
     if preview_btn.is_visible():
         preview_btn.click()
         _wait(page)
@@ -133,19 +136,17 @@ def capture_search(page: Page, out: Path) -> None:
         page.keyboard.press("Escape")
         _wait(page, 500)
 
-    # Bookmark the table from the detail panel (star button next to st.code)
+    # Bookmark the table so Discovery can show a populated bookmarks tab
     page.evaluate("window.scrollTo(0, 0)")
     _wait(page, 400)
     star_btn = page.locator('button:has-text("☆")').first
     if star_btn.is_visible():
         star_btn.click()
         _wait(page, 800)
-        # Star should now be filled — capture the bookmarked state
         _shot(page, out, "08_search_detail_bookmarked", tall=True)
         print("  ✓  table bookmarked for discovery showcase")
 
-    # Back to results
-    back_btn = page.locator('button:has-text("Back to results"), button:has-text("Retour")').first
+    back_btn = page.locator('button:has-text("Back to results")').first
     if back_btn.is_visible():
         back_btn.click()
         _wait(page)
@@ -180,14 +181,12 @@ def capture_glossary(page: Page, out: Path) -> None:
 
 
 def capture_discovery(page: Page, out: Path) -> None:
-    """Discovery tab — Notable, Bookmarks (populated by earlier search flow), Recent."""
     print("\n── Discovery")
     _nav(page, "discovery")
     _shot(page, out, "13_discovery_notable")
 
-    # Bookmarks tab — should now show the table bookmarked in capture_search
     try:
-        bk = page.locator('button:has-text("Bookmarks"), button:has-text("Favoris")').first
+        bk = page.locator('button:has-text("Bookmarks")').first
         bk.wait_for(state="visible", timeout=3000)
         bk.click()
         _wait(page)
@@ -195,9 +194,8 @@ def capture_discovery(page: Page, out: Path) -> None:
     except Exception as exc:
         print(f"  ⚠  Bookmarks tab not found ({exc})")
 
-    # Recent tab
     try:
-        rc = page.locator('button:has-text("Recent"), button:has-text("Récents")').first
+        rc = page.locator('button:has-text("Recent")').first
         rc.wait_for(state="visible", timeout=3000)
         rc.click()
         _wait(page)
@@ -224,7 +222,6 @@ def capture_grants_filter(page: Page, out: Path) -> None:
     if not _open_first_detail(page):
         return
 
-    # Scroll to grants section (near the bottom of the detail panel)
     page.evaluate("window.scrollBy(0, 1400)")
     _wait(page, 600)
     _shot(page, out, "18_search_grants_section")
@@ -236,25 +233,92 @@ def capture_grants_filter(page: Page, out: Path) -> None:
         _shot(page, out, "19_group_filter_results", tall=True)
 
 
-def capture_language_toggle(page: Page, out: Path) -> None:
-    print("\n── Language toggle (FR)")
-    _nav(page, "search")
-    try:
-        fr_btn = page.locator('button:has-text("LOCALE_FR")').first
-        fr_btn.wait_for(state="visible", timeout=4000)
-        fr_btn.click()
-        _wait(page)
-        _shot(page, out, "20_search_french")
-        try:
-            en_btn = page.locator('button:has-text("LOCALE_EN")').first
-            en_btn.wait_for(state="visible", timeout=3000)
-            en_btn.click()
-            _wait(page, 500)
-        except Exception:
-            pass
-    except Exception as exc:
-        print(f"  ⚠  Language toggle not found ({exc}); skipping screenshot 20")
+# ── French (bilingual) section ────────────────────────────────────────────────
 
+def capture_french(page: Page, out: Path) -> None:
+    """Switch UI to French and capture key screens to showcase bilingual support."""
+    print("\n── French / bilingual section")
+    _nav(page, "search")
+
+    if not _switch_locale(page, "FR"):
+        print("  ⚠  Could not switch to French — skipping bilingual section")
+        return
+    print("  ✓  locale switched to FR")
+
+    # Search empty state in French
+    _shot(page, out, "20_fr_search_empty")
+
+    # Autocomplete
+    box = page.locator('[data-testid="stSelectbox"] input').first
+    box.click()
+    _wait(page, 700)
+    _shot(page, out, "21_fr_search_autocomplete")
+
+    first_opt = page.locator('[data-testid="stSelectboxVirtualDropdown"] li').first
+    if first_opt.is_visible():
+        first_opt.click()
+        _wait(page)
+        _shot(page, out, "22_fr_search_results_cards")
+
+        if _open_first_detail(page):
+            _shot(page, out, "23_fr_search_detail_panel", tall=True)
+
+    # Catalog in French
+    _nav(page, "catalog")
+    if not _switch_locale(page, "FR"):
+        _switch_locale(page, "FR")   # locale may reset on nav — retry
+    _shot(page, out, "24_fr_catalog")
+
+    # Discovery in French
+    _nav(page, "discovery")
+    _switch_locale(page, "FR")
+    _shot(page, out, "25_fr_discovery")
+
+    try:
+        bk = page.locator('button:has-text("Favoris")').first
+        bk.wait_for(state="visible", timeout=3000)
+        bk.click()
+        _wait(page)
+        _shot(page, out, "26_fr_discovery_bookmarks", tall=True)
+    except Exception:
+        pass
+
+    # Glossary in French
+    _nav(page, "glossary")
+    _switch_locale(page, "FR")
+    _shot(page, out, "27_fr_glossary")
+
+    # Restore English for any subsequent captures
+    _switch_locale(page, "EN")
+    print("  ✓  locale restored to EN")
+
+
+# ── Load test report ──────────────────────────────────────────────────────────
+
+def capture_load_test_report(page: Page, out: Path) -> None:
+    """Screenshot the saved Locust HTML report."""
+    print("\n── Load test report")
+    report = Path(__file__).resolve().parent.parent / "tests" / "load" / "results" / "report.html"
+    if not report.exists():
+        print(f"  ⚠  Report not found at {report}; skipping")
+        return
+
+    page.goto(report.as_uri())
+    _wait(page, 1500)
+    _shot(page, out, "28_load_test_overview")
+
+    # Scroll down to the stats table
+    page.evaluate("window.scrollBy(0, 600)")
+    _wait(page, 400)
+    _shot(page, out, "29_load_test_stats_table")
+
+    # Scroll further to charts if present
+    page.evaluate("window.scrollBy(0, 800)")
+    _wait(page, 400)
+    _shot(page, out, "30_load_test_charts")
+
+
+# ── main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
     global _base_url
@@ -275,14 +339,11 @@ def main() -> None:
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
-        ctx = browser.new_context(
-            viewport=viewport,
-            device_scale_factor=2,   # retina-quality PNGs
-        )
+        ctx = browser.new_context(viewport=viewport, device_scale_factor=2)
         page = ctx.new_page()
 
-        # Order matters: capture_search bookmarks a table so that
-        # capture_discovery can show a populated Bookmarks tab.
+        # English screens — capture_search must run before capture_discovery
+        # so the bookmarked table shows up in the Bookmarks tab.
         capture_login(page, out)
         capture_search(page, out)
         capture_catalog(page, out)
@@ -290,7 +351,12 @@ def main() -> None:
         capture_discovery(page, out)
         capture_health(page, out)
         capture_grants_filter(page, out)
-        capture_language_toggle(page, out)
+
+        # Bilingual showcase
+        capture_french(page, out)
+
+        # Load test report (opens a local HTML file, no app needed)
+        capture_load_test_report(page, out)
 
         browser.close()
 
