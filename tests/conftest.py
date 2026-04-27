@@ -27,6 +27,7 @@ from unittest.mock import MagicMock
 import os as _os
 _os.environ.setdefault("ENABLE_MOCK_AUTH", "true")
 _os.environ.setdefault("ENVIRONMENT", "development")
+_os.environ.setdefault("DEMO_DATA", "true")
 
 # ── Stub missing packages ─────────────────────────────────────────────────────
 
@@ -88,22 +89,19 @@ def reset_sql_mock():
     cursor.execute.side_effect = None
 
 
-def sql_returns(*dataframes: pd.DataFrame) -> None:
-    """Configure the SQL mock to return the given DataFrames in order.
-
-    Call this at the top of any test that needs run_query() to return data.
-    If only one DataFrame is passed, it is returned for every query.
-    If multiple are passed, they are consumed in order (first call → first df,
-    second call → second df, etc.).
-    """
+def sql_returns(*dataframes: pd.DataFrame, side_effect=None) -> None:
+    """Configure the SQL mock to return the given DataFrames in order."""
     cursor = get_db_cursor()
     cursor.reset_mock()
-    def side_effect(*args, **kwargs):
-        if hasattr(side_effect, "index") and side_effect.index < len(dataframes):
-            df = dataframes[side_effect.index]
-            side_effect.index += 1
-            return df
-        return pd.DataFrame()
-    side_effect.index = 0
-    cursor.fetchall_as_pandas.side_effect = side_effect
+    if side_effect:
+        cursor.fetchall_as_pandas.side_effect = side_effect
+    else:
+        def default_side_effect(*args, **kwargs):
+            if hasattr(default_side_effect, "index") and default_side_effect.index < len(dataframes):
+                df = dataframes[default_side_effect.index]
+                default_side_effect.index += 1
+                return df
+            return pd.DataFrame()
+        default_side_effect.index = 0
+        cursor.fetchall_as_pandas.side_effect = default_side_effect
     cursor.fetchall_as_pandas.return_value = None
