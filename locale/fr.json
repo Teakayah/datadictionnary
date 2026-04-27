@@ -60,7 +60,8 @@
     "search_tables_accessible": "Rechercher les tables accessibles à: {principal} ({privilege})",
     "browse_public_tables": "Parcourir les tables accessibles à tous ({privilege})",
     "load_error": "Erreur lors de l’affichage des détails.",
-    "preview_data": "Aperçu des données"
+    "preview_data": "Aperçu des données",
+    "export_dictionary": "Exporter le dictionnaire"
   },
   "comment": {
     "add_comment": "Ajouter un commentaire",

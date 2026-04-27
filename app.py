@@ -3109,28 +3109,33 @@ if current_tab == "search":
                             st.session_state.recent_views = _rv
                             _pref_upsert(full_name, "recent")
 
-                        # --- § Data preview button ---
-                        if st.button(t("detail.preview_data"), key=f"preview_{full_name}", use_container_width=True):
-                            render_data_sample(full_name)
-
-                        # --- § Columns ---
+                        # --- § Data preview + Export dictionary ---
                         # Bulk-fetch overrides first (one query for all columns)
                         col_overrides = get_column_business_names(full_name)
 
                         cols_query = ("SELECT column_name, data_type, comment FROM {0}.{1}.columns_metadata WHERE table_full_name = %(table_full_name)s ORDER BY column_name").format(CATALOG_CACHE, SCHEMA_CACHE)
                         cols = run_query(cols_query, {"table_full_name": full_name})
                         n_cols = len(cols) if cols is not None and not cols.empty else 0
+
+                        _c_preview, _c_export = st.columns(2, gap="small")
+                        with _c_preview:
+                            if st.button(t("detail.preview_data"), key=f"preview_{full_name}", use_container_width=True):
+                                render_data_sample(full_name)
+                        with _c_export:
+                            if n_cols > 0:
+                                csv_data = export_schema_to_csv(cols, col_overrides)
+                                st.download_button(
+                                    label=t("detail.export_dictionary"),
+                                    data=csv_data,
+                                    file_name=f"{row['catalog_name']}_{row['schema_name']}_{row['table_name']}_schema.csv",
+                                    mime="text/csv",
+                                    key=f"export_{full_name}",
+                                    use_container_width=True,
+                                )
+
+                        # --- § Columns ---
                         st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_columns")}</span><span class="dd-section-count">{n_cols}</span></div>', unsafe_allow_html=True)
 
-                        if n_cols > 0:
-                            csv_data = export_schema_to_csv(cols, col_overrides)
-                            st.download_button(
-                                label="Export Dictionary (CSV)",
-                                data=csv_data,
-                                file_name=f"{row['catalog_name']}_{row['schema_name']}_{row['table_name']}_schema.csv",
-                                mime="text/csv",
-                                key=f"export_{full_name}",
-                            )
 
                         _power = is_power_user()
                         _col_edit = st.session_state.get("dd_col_edit_mode", "")
