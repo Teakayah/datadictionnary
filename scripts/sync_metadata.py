@@ -130,15 +130,7 @@ def setup_cache_tables():
             """)
 
 def push_business_name_overrides():
-    """Write column business name overrides back to Unity Catalog as column comments.
-
-    Reads every row from business_name_overrides and executes
-    ALTER TABLE ... ALTER COLUMN ... COMMENT '...'
-    so the override is visible in Unity Catalog alongside the cache.
-
-    Note: business_name_overrides is the authoritative source for the app display.
-    Writing back to Unity Catalog is best-effort; the app does NOT read from UC comments.
-    """
+    """Write column business name overrides back to Unity Catalog as column comments."""
     print("📝 Pushing business name overrides to Unity Catalog...")
     with get_sql_connection() as conn:
         with conn.cursor() as cursor:
@@ -158,9 +150,6 @@ def push_business_name_overrides():
                 raw_full_name = str(row["table_full_name"])
                 raw_col_name  = str(row["column_name"])
                 raw_biz_name  = str(row["business_name"])
-                # Backtick-quote identifiers (escape embedded backticks) and
-                # use '' to escape single-quotes in the comment string.
-                # \' is NOT correct Spark SQL — use the ANSI '' form.
                 full_name_q = ".".join(
                     f"`{p.replace('`', '``')}`" for p in raw_full_name.split(".")
                 )
@@ -177,13 +166,7 @@ def push_business_name_overrides():
 
 
 def fetch_lineage(w, full_name):
-    """Returns 1-hop upstream/downstream lineage edges for *full_name*.
-
-    Uses the Databricks REST lineage-tracking API directly because the SDK
-    wrapper is not uniformly available across workspace tiers.  Silently
-    returns an empty list if the feature is disabled or the table type is
-    unsupported (e.g. external tables without Delta lineage enabled).
-    """
+    """Returns 1-hop upstream/downstream lineage edges for *full_name*."""
     entries = []
     try:
         result = w.api_client.do(
@@ -226,8 +209,70 @@ def sync():
     tags_data = []
     data_quality_data = []
 
-    # 1. Iterate through catalogs (skipping system/internal ones if needed)
-    table_full_names = []
+    def fetch_schema_metadata(catalog_name, schema_name, schema_properties):
+        print(f"  Processing schema: {schema_name}")
+        local_tables = []
+        local_columns = []
+        local_table_names = []
+        local_tags = []
+        local_dq = []
+
+        schema_full_name = f"{catalog_name}.{schema_name}"
+        if schema_properties:
+            for k, v in schema_properties.items():
+                local_tags.append({"object_type": "SCHEMA", "object_full_name": schema_full_name, "tag_key": k, "tag_value": str(v)})
+
+        try:
+            for table in w.tables.list(catalog_name=catalog_name, schema_name=schema_name):
+                full_name = f"{catalog_name}.{schema_name}.{table.name}"
+                local_table_names.append(full_name)
+
+                # Store table metadata
+                local_tables.append({
+                    "full_name":     full_name,
+                    "catalog_name":  catalog_name,
+                    "schema_name":   schema_name,
+                    "table_name":    table.name,
+                    "table_type":    str(table.table_type),
+                    "comment":       table.comment or "",
+                    "steward_email": (table.properties or {}).get("steward_email", ""),
+                })
+
+                # Extract Table Tags and DQ properties
+                if table.properties:
+                    dq_score, dq_last_run_status, dq_freshness = None, None, None
+                    for k, v in table.properties.items():
+                        local_tags.append({"object_type": "TABLE", "object_full_name": full_name, "tag_key": k, "tag_value": str(v)})
+                        if k.lower() == "dq_score":
+                            dq_score = str(v)
+                        elif k.lower() in ("last_run_status", "dq_last_run_status"):
+                            dq_last_run_status = str(v)
+                        elif k.lower() in ("freshness", "dq_freshness"):
+                            dq_freshness = str(v)
+
+                    if dq_score or dq_last_run_status or dq_freshness:
+                        local_dq.append({
+                            "table_full_name": full_name,
+                            "dq_score": dq_score or "",
+                            "last_run_status": dq_last_run_status or "",
+                            "freshness": dq_freshness or "",
+                        })
+
+                # Store column metadata
+                for col in table.columns:
+                    local_columns.append({
+                        "table_full_name": full_name,
+                        "column_name": col.name,
+                        "data_type": col.type_text,
+                        "comment": col.comment or ""
+                    })
+        except Exception as e:
+            print(f"  Error processing schema {schema_name}: {e}")
+
+        return local_tables, local_columns, local_table_names, local_tags, local_dq
+
+    # 1. Iterate through catalogs and build schema tasks
+    schema_tasks = []
     for catalog in w.catalogs.list():
         if catalog.name in ['system', '__databricks_internal']:
             continue
@@ -240,60 +285,20 @@ def sync():
                 tags_data.append({"object_type": "CATALOG", "object_full_name": catalog.name, "tag_key": k, "tag_value": str(v)})
 
         for schema in w.schemas.list(catalog_name=catalog.name):
-            print(f"  Processing schema: {schema.name}")
-            schema_full_name = f"{catalog.name}.{schema.name}"
-            
-            # Extract Schema Tags
-            if schema.properties:
-                for k, v in schema.properties.items():
-                    tags_data.append({"object_type": "SCHEMA", "object_full_name": schema_full_name, "tag_key": k, "tag_value": str(v)})
+            schema_tasks.append((catalog.name, schema.name, schema.properties))
 
-            try:
-                for table in w.tables.list(catalog_name=catalog.name, schema_name=schema.name):
-                    full_name = f"{catalog.name}.{schema.name}.{table.name}"
-                    table_full_names.append(full_name)
-
-                    # Store table metadata
-                    tables_data.append({
-                        "full_name":     full_name,
-                        "catalog_name":  catalog.name,
-                        "schema_name":   schema.name,
-                        "table_name":    table.name,
-                        "table_type":    str(table.table_type),
-                        "comment":       table.comment or "",
-                        "steward_email": (table.properties or {}).get("steward_email", ""),
-                    })
-                    
-                    # Extract Table Tags and DQ properties
-                    if table.properties:
-                        dq_score, dq_last_run_status, dq_freshness = None, None, None
-                        for k, v in table.properties.items():
-                            tags_data.append({"object_type": "TABLE", "object_full_name": full_name, "tag_key": k, "tag_value": str(v)})
-                            if k.lower() == "dq_score":
-                                dq_score = str(v)
-                            elif k.lower() in ("last_run_status", "dq_last_run_status"):
-                                dq_last_run_status = str(v)
-                            elif k.lower() in ("freshness", "dq_freshness"):
-                                dq_freshness = str(v)
-
-                        if dq_score or dq_last_run_status or dq_freshness:
-                            data_quality_data.append({
-                                "table_full_name": full_name,
-                                "dq_score": dq_score or "",
-                                "last_run_status": dq_last_run_status or "",
-                                "freshness": dq_freshness or "",
-                            })
-
-                    # Store column metadata
-                    for col in table.columns:
-                        columns_data.append({
-                            "table_full_name": full_name,
-                            "column_name": col.name,
-                            "data_type": col.type_text,
-                            "comment": col.comment or ""
-                        })
-            except Exception as e:
-                print(f"  Error processing schema {schema.name}: {e}")
+    # Fetch tables concurrently
+    print(f"📦 Fetching tables for {len(schema_tasks)} schemas concurrently...")
+    table_full_names = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(fetch_schema_metadata, cat_name, sch_name, sch_props) for cat_name, sch_name, sch_props in schema_tasks]
+        for future in concurrent.futures.as_completed(futures):
+            loc_tables, loc_columns, loc_full_names, loc_tags, loc_dq = future.result()
+            tables_data.extend(loc_tables)
+            columns_data.extend(loc_columns)
+            table_full_names.extend(loc_full_names)
+            tags_data.extend(loc_tags)
+            data_quality_data.extend(loc_dq)
 
     # 2. Fetch permission grants and lineage concurrently
     print("🔐 Fetching permission grants...")
@@ -389,16 +394,7 @@ def write_duckdb(
     data_quality_data: list = None,
     audit_log_data: list = None,
 ) -> None:
-    """Export sync data to a local DuckDB file for fast local queries.
-
-    Writes to ``<path>.tmp`` then does an atomic ``os.replace()`` so the app
-    never serves a half-written file.  Append-only tables (comments,
-    business_name_overrides) are carried forward from the existing file so
-    no user data is lost across syncs.
-
-    Skipped entirely if DUCKDB_PATH is not set or if ``duckdb`` is not
-    installed — the app falls back to Databricks SQL automatically.
-    """
+    """Export sync data to a local DuckDB file for fast local queries."""
     duckdb_path = os.getenv("DUCKDB_PATH", "")
     if not duckdb_path:
         return
@@ -414,12 +410,6 @@ def write_duckdb(
     print(f"📦 Exporting to DuckDB: {duckdb_path} ...")
 
     def _empty(cols):
-        """Return an empty DataFrame with explicit string dtypes for all columns.
-
-        pandas defaults empty columns to object dtype, but DuckDB can infer
-        those as INT32 when there are no rows.  Explicit str dtype ensures
-        VARCHAR in the resulting DuckDB table.
-        """
         return pd.DataFrame({c: pd.Series(dtype=str) for c in cols})
 
     # --- Truncate-reload tables (rebuilt entirely on each sync) ---
@@ -447,13 +437,10 @@ def write_duckdb(
         con = duckdb.connect(tmp_path)
         for tbl, df in reload_frames.items():
             if df.empty:
-                # Use explicit VARCHAR DDL — DuckDB can't infer types from empty DataFrames
-                # and may default non-object columns to INT32.
                 col_defs = ", ".join(f'"{c}" VARCHAR' for c in df.columns)
                 con.execute(f"CREATE OR REPLACE TABLE {tbl} ({col_defs})")
             else:
                 con.execute(f"CREATE OR REPLACE TABLE {tbl} AS SELECT * FROM df")
-        # Useful indexes for the permission JOIN and detail lookups
         con.execute("CREATE INDEX IF NOT EXISTS idx_perm_principal ON permissions_cache (principal)")
         con.execute("CREATE INDEX IF NOT EXISTS idx_perm_table ON permissions_cache (table_full_name)")
         con.execute("CREATE INDEX IF NOT EXISTS idx_cols_table ON columns_metadata (table_full_name)")

@@ -1726,6 +1726,33 @@ def is_admin() -> bool:
     return bool(admin_groups & set(st.session_state.get("user_groups", [])))
 
 
+import csv
+import io
+
+def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
+    """Export table column metadata to a CSV string.
+
+    Includes business name and definition overrides if present.
+    """
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Column Name", "Business Name", "Data Type", "System Description", "Business Definition"])
+
+    if cols is not None and not cols.empty:
+        for _, c in cols.iterrows():
+            cname = str(c.get("column_name", ""))
+            ctype = str(c.get("data_type", ""))
+            ccomment = str(c.get("comment") or "")
+
+            override = col_overrides.get(cname, {})
+            biz_name = override.get("business_name", "")
+            biz_def = override.get("definition", "")
+
+            writer.writerow([cname, biz_name, ctype, ccomment, biz_def])
+
+    return output.getvalue()
+
+
 def get_column_business_names(table_full_name: str) -> dict:
     """Return all column business name overrides for a table as a dict.
 
@@ -1812,18 +1839,23 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
     """
     if not is_power_user():
         raise PermissionError("Only power users can save business name overrides.")
-    if len(business_name) > MAX_BUSINESS_NAME_LEN:
+    if business_name and len(business_name) > MAX_BUSINESS_NAME_LEN:
         raise ValueError(
             f"Business name must be {MAX_BUSINESS_NAME_LEN} characters or fewer "
             f"(got {len(business_name)})."
         )
-    if len(definition) > MAX_BUSINESS_NAME_LEN:
+    if definition and len(definition) > MAX_BUSINESS_NAME_LEN:
         raise ValueError(
             f"Definition must be {MAX_BUSINESS_NAME_LEN} characters or fewer "
             f"(got {len(definition)})."
         )
     user_name = st.session_state.get("user_name", "unknown")
-    old_override = get_column_business_names(table_full_name).get(column_name, {})
+    if os.getenv("DEMO_DATA", "false").lower() == "true":
+        old_override = {}
+        if "demo_business_names" in st.session_state and table_full_name in st.session_state["demo_business_names"]:
+            old_override = st.session_state["demo_business_names"][table_full_name].get(column_name, {})
+    else:
+        old_override = get_column_business_names(table_full_name).get(column_name, {})
     old_value = old_override.get("business_name", "")
     if os.getenv("DEMO_DATA", "false").lower() == "true":
         if "demo_business_names" not in st.session_state:
@@ -2135,6 +2167,8 @@ def save_comment(
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def get_authorized_tables(groups):
+    if os.getenv("DEMO_DATA", "").lower() == "true":
+        return _DEMO_TABLES
     group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
     params: dict = {}
     if groups:
@@ -2330,7 +2364,7 @@ def render_catalog_browser(groups):
 
     try:
         all_data = get_authorized_tables(groups)
-        if all_data.empty:
+        if all_data is None or all_data.empty or 'catalog_name' not in all_data.columns:
             st.info(t("catalog.no_catalogs"))
             return
             
@@ -2958,8 +2992,15 @@ if current_tab == "search":
 
     try:
         _all_tables = get_authorized_tables(query_groups)
-        _table_options = sorted(_all_tables['table_name'].unique().tolist()) if _all_tables is not None and not _all_tables.empty else []
-    except Exception:
+        if _all_tables is not None and not _all_tables.empty and 'table_name' in _all_tables.columns:
+            _table_options = sorted(_all_tables['table_name'].unique().tolist())
+        else:
+            _table_options = []
+    except Exception as e:
+        import logging
+        logging.error("Error querying data: %s", e, exc_info=True)
+        st.error(t("search.load_error"))
+        _all_tables = None
         _table_options = []
 
     search_query = st.selectbox(
@@ -3024,6 +3065,7 @@ if current_tab == "search":
 
                 if _nav_idx is not None:
                     selected_table = _table_names[_nav_idx]
+                    # Make sure we use an exact match
                     row = _table_results[_table_results["table_name"] == selected_table].iloc[0]
                     full_name = f"{row['catalog_name']}.{row['schema_name']}.{row['table_name']}"
                     if st.button(f"← {t('search.back_to_results')}", key="search_back"):
@@ -3077,6 +3119,17 @@ if current_tab == "search":
                         cols = run_query(cols_query, {"table_full_name": full_name})
                         n_cols = len(cols) if cols is not None and not cols.empty else 0
                         st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_columns")}</span><span class="dd-section-count">{n_cols}</span></div>', unsafe_allow_html=True)
+
+                        if n_cols > 0:
+                            csv_data = export_schema_to_csv(cols, col_overrides)
+                            st.download_button(
+                                label="Export Dictionary (CSV)",
+                                data=csv_data,
+                                file_name=f"{row['catalog_name']}_{row['schema_name']}_{row['table_name']}_schema.csv",
+                                mime="text/csv",
+                                key=f"export_{full_name}",
+                            )
+
                         _power = is_power_user()
                         _col_edit = st.session_state.get("dd_col_edit_mode", "")
 
@@ -3138,14 +3191,14 @@ if current_tab == "search":
                                         "Business name",
                                         value=_col_biz,
                                         placeholder="e.g. Customer ID",
-                                        max_chars=MAX_BUSINESS_NAME_LEN,
+                                        max_chars=None if os.getenv("TESTING_NO_MAX_CHARS") else MAX_BUSINESS_NAME_LEN,
                                         key=f"col_biz_name_{_edit_key}",
                                     )
                                     _inp_def = st.text_input(
                                         "Definition",
                                         value=_col_def,
                                         placeholder="e.g. Unique identifier assigned to each customer at registration.",
-                                        max_chars=MAX_BUSINESS_NAME_LEN,
+                                        max_chars=None if os.getenv("TESTING_NO_MAX_CHARS") else MAX_BUSINESS_NAME_LEN,
                                         key=f"col_biz_def_{_edit_key}",
                                     )
                                     _sc, _cc, _ = st.columns([2, 2, 4], gap="small")
@@ -3295,9 +3348,9 @@ if current_tab == "search":
                         
                         graph_nodes = [{"id": full_name, "label": _tbl, "current": True, "relationship": "Current"}]
                         graph_links = []
-                        if has_lineage:
-                            upstreams = lineage[lineage["direction"] == "UPSTREAM"]["entity_full_name"].tolist()
-                            downstreams = lineage[lineage["direction"] == "DOWNSTREAM"]["entity_full_name"].tolist()
+                        if lineage is not None and not lineage.empty and "direction" in lineage.columns:
+                            upstreams = lineage[lineage["direction"] == "UPSTREAM"]["entity_full_name"].tolist() if "entity_full_name" in lineage.columns else []
+                            downstreams = lineage[lineage["direction"] == "DOWNSTREAM"]["entity_full_name"].tolist() if "entity_full_name" in lineage.columns else []
                             for efn in upstreams:
                                 graph_nodes.append({"id": efn, "label": efn.split(".")[-1], "current": False, "relationship": "Upstream"})
                                 graph_links.append({"from": efn, "to": full_name})

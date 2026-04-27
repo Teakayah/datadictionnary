@@ -34,14 +34,14 @@ APP_PATH = os.path.join(os.path.dirname(__file__), "..", "app.py")
 
 def make_tables_df() -> pd.DataFrame:
     return pd.DataFrame({
-        "full_name":         ["main.sales.orders"],
+        "full_name":         ["main.analytics.customers"],
         "catalog_name":      ["main"],
-        "schema_name":       ["sales"],
-        "table_name":        ["orders"],
-        "name":              ["orders"],
+        "schema_name":       ["analytics"],
+        "table_name":        ["customers"],
+        "name":              ["customers"],
         "match_type":        ["Table"],
-        "description":       ["All customer orders"],
-        "table_description": ["All customer orders"],
+        "description":       ["Customer master data"],
+        "table_description": ["Customer master data"],
         "table_type":        ["TABLE"],
         "updated_at":        [pd.Timestamp("2026-04-22 10:00")],
     })
@@ -103,6 +103,10 @@ def authenticated_app() -> AppTest:
     at.session_state["authenticated"] = True
     at.session_state["user_groups"] = ["finance_dept_id", "all_employees_id"]
     at.session_state["user_name"] = "Finance User"
+    at.session_state["bookmarks"] = set()
+    at.session_state["col_bookmarks"] = set()
+    at.session_state["recent_views"] = []
+    at.session_state["_prefs_loaded"] = True
     return at
 
 
@@ -179,13 +183,16 @@ class TestSearch:
         html = _html(*at.markdown)
         assert "Start typing" in html
 
-    def test_search_queries_correct_tables(self):
+    def test_search_queries_correct_tables(self, monkeypatch):
         """Loading the search page must JOIN tables_metadata with permissions_cache."""
-        sql_returns(make_tables_df())
+        monkeypatch.setenv("DEMO_DATA", "false")
+        sql_returns(make_tables_df(), make_tables_df())
         at = authenticated_app()
         at.query_params["tab"] = "search"
         at.run()
-        at.text_input(key="catalog_search").set_value("test").run()
+        at.selectbox(key="catalog_search").select("customers").run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
         cursor = get_db_cursor()
         executed = [call[0][0] for call in cursor.execute.call_args_list]
         assert any("tables_metadata" in q for q in executed), \
@@ -193,32 +200,38 @@ class TestSearch:
         assert any("permissions_cache" in q for q in executed), \
             f"permissions_cache not found in queries: {executed}"
 
-    def test_search_term_parameterized(self):
+    def test_search_term_parameterized(self, monkeypatch):
         """The search term MUST appear as a parameterized value in SQL."""
-        sql_returns(make_tables_df())
+        monkeypatch.setenv("DEMO_DATA", "false")
+        sql_returns(make_tables_df(), make_tables_df())
         at = authenticated_app()
         at.query_params["tab"] = "search"
         at.run()
-        at.text_input(key="catalog_search").set_value("test").run()
+        at.selectbox(key="catalog_search").select("customers").run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
         cursor = get_db_cursor()
         all_params = [call[0][1] for call in cursor.execute.call_args_list if len(call[0]) > 1]
         found = False
         for params in all_params:
-            if isinstance(params, dict) and "q" in params and params["q"] == "%test%":
+            if isinstance(params, dict) and "q" in params and params["q"] == "%customers%":
                 found = True
-        assert found, "Search term 'test' not found in SQL parameters as '%test%'"
+        assert found, "Search term 'customers' not found in SQL parameters as '%customers%'"
 
-    def test_search_passes_user_groups_as_param(self):
+    def test_search_passes_user_groups_as_param(self, monkeypatch):
         """User groups must be a bound SQL parameter, not interpolated.
 
         This is the permission enforcement test: if groups are interpolated
         rather than parameterised, a crafted group name could bypass the JOIN.
         """
-        sql_returns(make_tables_df())
+        monkeypatch.setenv("DEMO_DATA", "false")
+        sql_returns(make_tables_df(), make_tables_df())
         at = authenticated_app()
         at.query_params["tab"] = "search"
         at.run()
-        at.text_input(key="catalog_search").set_value("test").run()
+        at.selectbox(key="catalog_search").select("customers").run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
         cursor = get_db_cursor()
         first_call_params = cursor.execute.call_args_list[0][0][1]
         # SQL injection fix: groups are now bound as individual params (group_0, group_1, ...)
@@ -227,17 +240,19 @@ class TestSearch:
             "finance_dept_id not in group params — permission filter may be bypassable"
         )
 
-    def test_search_results_show_text_input(self):
-        """A text input for search must appear."""
+    def test_search_results_show_selectbox(self):
+        """A selectbox for search must appear."""
         sql_returns(make_tables_df())
         at = authenticated_app()
         at.query_params["tab"] = "search"
         at.run()
-        assert len(at.text_input) >= 1, "No text input found for search"
+        assert len(at.selectbox) >= 1, "No selectbox found for search"
 
-    def test_search_exception_shows_generic_error(self):
+    def test_search_exception_shows_generic_error(self, monkeypatch):
         """When an exception occurs during query execution, the UI must show
         a generic message, not the raw exception."""
+        monkeypatch.delenv("DEMO_DATA", raising=False)
+        sql_returns(make_tables_df())
         cursor = get_db_cursor()
         cursor.reset_mock()
         cursor.execute.side_effect = Exception("SECRET_DB_ERROR_123")
@@ -245,7 +260,7 @@ class TestSearch:
         at = authenticated_app()
         at.query_params["tab"] = "search"
         at.run()
-        at.text_input(key="catalog_search").set_value("test").run()
+        at.selectbox(key="catalog_search").select("customers").run()
 
         assert any("Error loading catalog" in msg.value for msg in at.error)
 
@@ -286,12 +301,14 @@ class TestTableDetail:
     _EMPTY_COMMENTS  = lambda: pd.DataFrame(columns=["comment_id", "comment_text", "author_name", "author_email", "created_at"])
 
     def _run_with_table_selected(self, *dataframes) -> AppTest:
-        """Run app with SQL mocks (DataFrames in call order), then type 'orders'."""
+        """Run app with SQL mocks (DataFrames in call order), then type 'customers'."""
         sql_returns(*dataframes)
         at = authenticated_app()
         at.query_params["tab"] = "search"
         at.run()
-        at.text_input(key="catalog_search").set_value("orders").run()
+        at.selectbox(key="catalog_search").select("customers").run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
         return at
 
     def test_columns_rendered(self):
@@ -304,10 +321,11 @@ class TestTableDetail:
         html = _html(*at.markdown)
         assert "dd-col-name" in html, "Expected dd-col-name spans in detail pane"
 
-    def test_column_query_targets_columns_metadata(self):
+    def test_column_query_targets_columns_metadata(self, monkeypatch):
         """SQL must query the columns_metadata table after table selection."""
+        monkeypatch.setenv("DEMO_DATA", "false")
         at = self._run_with_table_selected(
-            make_tables_df(), TestTableDetail._EMPTY_OVERRIDES(), make_columns_df(),
+            make_tables_df(), make_tables_df(), TestTableDetail._EMPTY_OVERRIDES(), make_columns_df(),
             TestTableDetail._EMPTY_STEWARD(), TestTableDetail._EMPTY_COMMENTS(),
             make_grants_df(), make_lineage_df(), make_related_df(),
         )
@@ -316,10 +334,18 @@ class TestTableDetail:
         assert any("columns_metadata" in q for q in executed), \
             f"columns_metadata not found in queries: {executed}"
 
-    def test_column_query_uses_three_part_full_name(self):
+    def test_column_query_uses_three_part_full_name(self, monkeypatch):
         """The columns query param must be the 3-part full_name."""
+        monkeypatch.setenv("DEMO_DATA", "false")
+        # 1: get_authorized_tables (load)
+        # 2: get_authorized_tables (select)
+        # 3: get_authorized_tables (rerun after button click)
+        # 4: search_all_metadata (details)
+        # 5: get_column_business_names
+        # 6: columns_metadata
         at = self._run_with_table_selected(
-            make_tables_df(), TestTableDetail._EMPTY_OVERRIDES(), make_columns_df(),
+            make_tables_df(), make_tables_df(), make_tables_df(), make_tables_df(),
+            TestTableDetail._EMPTY_OVERRIDES(), make_columns_df(),
             TestTableDetail._EMPTY_STEWARD(), TestTableDetail._EMPTY_COMMENTS(),
             make_grants_df(), make_lineage_df(), make_related_df(),
         )
@@ -329,7 +355,7 @@ class TestTableDetail:
             if "columns_metadata" in sql and len(call_args[0]) > 1:
                 params = call_args[0][1]
                 if isinstance(params, dict) and "table_full_name" in params:
-                    assert params["table_full_name"] == "main.sales.orders"
+                    assert params["table_full_name"] == "main.analytics.customers"
                     return
         pytest.fail("Could not find columns_metadata query with table_full_name param")
 
@@ -501,61 +527,70 @@ class TestLineageAndRelated:
     sql_returns() must be called with all 8 DataFrames in that order.
     """
 
-    _EMPTY_LINEAGE    = lambda: pd.DataFrame(columns=["direction", "entity_full_name", "entity_type"])
-    _EMPTY_RELATED    = lambda: pd.DataFrame(columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"])
-    _EMPTY_OVERRIDES  = lambda: pd.DataFrame(columns=["column_name", "business_name", "definition", "edited_by", "edited_at"])
-    _EMPTY_STEWARD    = lambda: pd.DataFrame(columns=["steward_email"])
-    _EMPTY_COMMENTS   = lambda: pd.DataFrame(columns=["comment_id", "comment_text", "author_name", "author_email", "created_at"])
+    def _EMPTY_LINEAGE(self, cursor=None): return pd.DataFrame(columns=["direction", "entity_full_name", "entity_type"])
+    def _EMPTY_RELATED(self, cursor=None): return pd.DataFrame(columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"])
+    def _EMPTY_OVERRIDES(self, cursor=None): return pd.DataFrame(columns=["column_name", "business_name", "definition", "edited_by", "edited_at"])
+    def _EMPTY_STEWARD(self, cursor=None): return pd.DataFrame(columns=["steward_email"])
+    def _EMPTY_COMMENTS(self, cursor=None): return pd.DataFrame(columns=["comment_id", "comment_text", "author_name", "author_email", "created_at"])
 
     def _run_with_detail(
         self,
+        monkeypatch,
         tables_df=None,
         columns_df=None,
         grants_df=None,
         lineage_df=None,
         related_df=None,
     ) -> AppTest:
-        """Configure SQL mocks for the full detail-pane query sequence,
-        select 'orders' in the selectbox, and return the AppTest.
+        """Configure SQL mocks for the full detail-pane query sequence."""
+        monkeypatch.setenv("DEMO_DATA", "false")
+        
+        def detail_side_effect(*args, **kwargs):
+            cursor = get_db_cursor()
+            # Capture the last executed SQL
+            sql = ""
+            if cursor.execute.call_args_list:
+                sql = cursor.execute.call_args_list[-1][0][0]
+            
+            if "permissions_cache" in sql and "tables_metadata" in sql:
+                return tables_df if tables_df is not None else make_tables_df()
+            if "tables_metadata" in sql:
+                return tables_df if tables_df is not None else make_tables_df()
+            if "columns_metadata" in sql and "JOIN" not in sql:
+                return columns_df if columns_df is not None else make_columns_df()
+            if "permissions_cache" in sql:
+                return grants_df if grants_df is not None else make_grants_df()
+            if "lineage_cache" in sql:
+                return lineage_df if lineage_df is not None else self._EMPTY_LINEAGE()
+            if "UNION" in sql and "columns_metadata" in sql:
+                return related_df if related_df is not None else self._EMPTY_RELATED()
+            if "business_name_overrides" in sql:
+                return self._EMPTY_OVERRIDES()
+            if "comments" in sql:
+                return self._EMPTY_COMMENTS()
+            return pd.DataFrame()
 
-        Query order after table selection:
-          1. get_authorized_tables     (tables_metadata JOIN permissions_cache)
-          2. get_column_business_names (business_name_overrides bulk) — uncached
-          3. columns_metadata
-          4. get_table_steward         (tables_metadata.steward_email) — uncached
-          5. get_table_comments        (comments table) — uncached
-          6. permissions_cache (grants)
-          7. lineage_cache
-          8. related tables UNION query
-        """
-        sql_returns(
-            tables_df  if tables_df  is not None else make_tables_df(),
-            TestLineageAndRelated._EMPTY_OVERRIDES(),
-            columns_df if columns_df is not None else make_columns_df(),
-            TestLineageAndRelated._EMPTY_STEWARD(),
-            TestLineageAndRelated._EMPTY_COMMENTS(),
-            grants_df  if grants_df  is not None else make_grants_df(),
-            lineage_df if lineage_df is not None else TestLineageAndRelated._EMPTY_LINEAGE(),
-            related_df if related_df is not None else TestLineageAndRelated._EMPTY_RELATED(),
-        )
+        sql_returns(side_effect=detail_side_effect)
         at = authenticated_app()
         at.query_params["tab"] = "search"
         at.run()
-        at.text_input(key="catalog_search").set_value("orders").run()
+        at.selectbox(key="catalog_search").select("customers").run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
         return at
 
     # ── § Grants ──────────────────────────────────────────────────────────────
 
-    def test_grants_section_renders_rows(self):
+    def test_grants_section_renders_rows(self, monkeypatch):
         """§ Group Permissions must render dd-grant-row divs when grants exist."""
-        at = self._run_with_detail(grants_df=make_grants_df())
+        at = self._run_with_detail(monkeypatch, grants_df=make_grants_df())
         html = _html(*at.markdown)
         assert "dd-grant-row" in html
 
-    def test_grants_select_all_users_shown_as_all_users(self):
+    def test_grants_select_all_users_shown_as_all_users(self, monkeypatch):
         """SELECT_ALL_USERS must never appear raw; a browse button must be present."""
         grants = pd.DataFrame({"principal": ["SELECT_ALL_USERS"], "privilege": ["SELECT"]})
-        at = self._run_with_detail(grants_df=grants)
+        at = self._run_with_detail(monkeypatch, grants_df=grants)
         html = _html(*at.markdown)
         # Sentinel must not leak into the UI
         assert "SELECT_ALL_USERS" not in html
@@ -564,62 +599,114 @@ class TestLineageAndRelated:
         assert any("all users" in lbl.lower() for lbl in btn_labels), \
             f"Expected a 'Browse tables accessible to all users' button, got: {btn_labels}"
 
-    def test_grants_empty_state(self):
+    def test_grants_empty_state(self, monkeypatch):
         """§ Group Permissions must show fallback when no grants exist."""
         at = self._run_with_detail(
+            monkeypatch,
             grants_df=pd.DataFrame(columns=["principal", "privilege"])
         )
         html = _html(*at.markdown)
+        # Debug print to see what was actually rendered
+        if "No grants recorded" not in html:
+            print(f"DEBUG HTML: {html[:500]}...")
+            print(f"DEBUG BUTTONS: {[b.label for b in at.button]}")
         assert "No grants recorded" in html
 
     # ── § Lineage & Related ──────────────────────────────────────────────────
 
-    def test_lineage_graph_rendered_when_data_available(self):
+    def test_lineage_graph_rendered_when_data_available(self, monkeypatch):
         """§ Lineage must render a vis.js graph (via components.html)
         when lineage data exists."""
         lineage = make_lineage_df(
             upstreams=["raw.source.orders_raw"],
             downstreams=["prod.analytics.orders_fact"],
         )
-        at = self._run_with_detail(lineage_df=lineage)
+        at = self._run_with_detail(monkeypatch, lineage_df=lineage)
         html = _html(*at.markdown)
         # The section header should be present
         assert "Lineage" in html
 
-    def test_related_tables_renders_cards(self):
+    def test_related_tables_renders_cards(self, monkeypatch):
         """§ Related tables must render dd-related-card elements when data exists."""
         related = make_related_df([{
-            "full_name":    "main.sales.customers",
+            "full_name":    "main.analytics.customers",
             "table_name":   "customers",
             "catalog_name": "main",
-            "schema_name":  "sales",
+            "schema_name":  "analytics",
             "relationship": "Same schema",
         }])
-        at = self._run_with_detail(related_df=related)
+        at = self._run_with_detail(monkeypatch, related_df=related)
         html = _html(*at.markdown)
         assert "dd-related-card" in html
         assert "customers" in html
 
-    def test_related_table_open_button_present(self):
+    def test_related_table_open_button_present(self, monkeypatch):
         """Each related table card must render an 'Open →' navigation button."""
         related = make_related_df([{
-            "full_name":    "main.sales.customers",
+            "full_name":    "main.analytics.customers",
             "table_name":   "customers",
             "catalog_name": "main",
-            "schema_name":  "sales",
+            "schema_name":  "analytics",
             "relationship": "Same schema",
         }])
-        at = self._run_with_detail(related_df=related)
+        at = self._run_with_detail(monkeypatch, related_df=related)
         open_buttons = [b for b in at.button if b.label == "Open \u2192"]
         assert len(open_buttons) >= 1, "Expected 'Open \u2192' button for related table card"
+
+
+class TestGlossary:
+    """Tests for the Glossary tab."""
+
+    def test_glossary_hero_renders(self):
+        """When the Glossary tab is selected, the hero section should render with correct title and subtitle."""
+        at = authenticated_app()
+        at.query_params["tab"] = "glossary"
+        at.run()
+
+        html = _html(*at.markdown)
+        assert "Define business concepts and map them to technical data assets." in html
+        assert "Speak the same language." in html
+
+    def test_glossary_search_term_selection(self):
+        """When a term is selected from the glossary selectbox, it should render details."""
+        at = authenticated_app()
+        at.query_params["tab"] = "glossary"
+        at.run()
+
+        at.selectbox[0].select("Churn Rate").run()
+
+        html = _html(*at.markdown)
+        assert "The percentage of customers who stop using your product" in html
+        assert "Sales & Marketing" in html or "Sales &amp; Marketing" in html
+        assert "Jane Doe (Marketing)" in html
+
+        buttons = [b.label for b in at.button]
+        assert "→ customers" in buttons
+        assert "→ orders" in buttons
+
+    def test_glossary_linked_table_button_click(self):
+        """Clicking a linked table button should navigate to the search tab for that table."""
+        at = authenticated_app()
+        at.query_params["tab"] = "glossary"
+        at.run()
+
+        at.selectbox[0].select("Churn Rate").run()
+
+        for i, b in enumerate(at.button):
+            if b.label == "→ customers":
+                at.button[i].click().run()
+                break
+
+        assert at.query_params["tab"] == "search" or "search" in at.query_params["tab"]
 
 
 class TestDiscovery:
     """Tests for the Discovery tab."""
 
-    def test_discovery_exception_shows_generic_error(self):
+    def test_discovery_exception_shows_generic_error(self, monkeypatch):
         """When an exception occurs during query execution in the discovery tab,
         the UI must show a generic message, not the raw exception."""
+        monkeypatch.setenv("DEMO_DATA", "false")
         cursor = get_db_cursor()
         cursor.reset_mock()
         cursor.execute.side_effect = Exception("SECRET_DB_ERROR_DISCOVERY")
