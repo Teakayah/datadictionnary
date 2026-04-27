@@ -142,6 +142,7 @@ class TestBusinessNameEditorUI:
     def _at_detail(self, monkeypatch) -> AppTest:
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
         monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
         at = authenticated_app()
         at.run()
         at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
@@ -182,6 +183,7 @@ class TestBusinessNameEditorUI:
         """
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
         monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
         at = authenticated_app()
         at.session_state["dd_col_edit_mode"] = EDIT_KEY
         at.run()
@@ -235,6 +237,7 @@ class TestBusinessNameSave:
         """Go to detail, click the pencil on the first column, type a name, save."""
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
         monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
         at = authenticated_app()
         at.run()
         at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
@@ -280,6 +283,7 @@ class TestBusinessNameSave:
         """A name already in session state must render immediately on first load."""
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
         monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
 
         at = authenticated_app()
         at.session_state["demo_business_names"] = {
@@ -300,6 +304,7 @@ class TestBusinessNameSave:
         """
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
         monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
 
         at = authenticated_app()
         at.run()
@@ -325,6 +330,7 @@ class TestBusinessNameEdgeCases:
         """HTML injected as a business name must be escaped before render."""
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
         monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
 
         at = authenticated_app()
         at.session_state["demo_business_names"] = {
@@ -350,6 +356,7 @@ class TestBusinessNameValidation:
         """Entering > MAX_BUSINESS_NAME_LEN chars must show st.error."""
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
         monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
 
         at = authenticated_app()
         at.run()
@@ -375,6 +382,7 @@ class TestBusinessNameValidation:
         """save_business_name must show st.error if user is not in EDITOR_GROUPS."""
         monkeypatch.setenv("EDITOR_GROUPS", "data_stewards_only_id")  # not in user_groups
         monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
 
         at = authenticated_app()
         at.session_state["dd_col_edit_mode"] = EDIT_KEY
@@ -398,6 +406,7 @@ class TestBusinessNameAudit:
         """When a column already has an override, 'Last edited by' must show in edit mode."""
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
         monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
 
         at = authenticated_app()
         at.session_state["demo_business_names"] = {
