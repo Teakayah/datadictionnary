@@ -44,7 +44,7 @@ def test_setup_cache_tables(mock_get_sql_connection):
     from scripts.sync_metadata import setup_cache_tables, CATALOG_CACHE, SCHEMA_CACHE
     setup_cache_tables()
 
-    assert mock_cursor.execute.call_count == 10
+    assert mock_cursor.execute.call_count == 11
 
     calls = mock_cursor.execute.call_args_list
     assert f"CREATE CATALOG IF NOT EXISTS {CATALOG_CACHE}" in calls[0][0][0]
@@ -90,6 +90,7 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
     mock_table.name = 'my_table'
     mock_table.table_type = 'MANAGED'
     mock_table.comment = 'Table comment'
+    mock_table.properties = {'dq_score': '95', 'last_run_status': 'PASS', 'freshness': '2 hours'}
 
     mock_col = MagicMock()
     mock_col.name = 'my_col'
@@ -122,19 +123,21 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
     # + 1 SELECT from push_business_name_overrides (no overrides to push → returns empty)
     # + 1 SELECT from audit_log fetch for DuckDB export
     execute_calls = mock_cursor.execute.call_args_list
-    assert len(execute_calls) == 7
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata" in execute_calls[0][0][0]
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata" in execute_calls[1][0][0]
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache" in execute_calls[2][0][0]
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache" in execute_calls[3][0][0]
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags" in execute_calls[4][0][0]
-    assert f"audit_log" in execute_calls[5][0][0]
-    assert f"business_name_overrides" in execute_calls[6][0][0]
+    assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache" in execute_calls[5][0][0]
 
-    # 4 executemany calls: tables, columns, permissions, lineage
-    # (object_tags has no data here since mock catalogs have no .properties set)
+    # Check that audit_log and business_name_overrides are in the remaining execute calls
+    remaining_calls = [call[0][0] for call in execute_calls[6:]]
+    assert any("audit_log" in call for call in remaining_calls)
+    assert any("business_name_overrides" in call for call in remaining_calls)
+
+    # 6 executemany calls: tables, columns, permissions, lineage, object_tags, data_quality_cache
     executemany_calls = mock_cursor.executemany.call_args_list
-    assert len(executemany_calls) == 4
+    assert len(executemany_calls) == 6
     assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp(), %(steward_email)s)" in executemany_calls[0][0][0]
     assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata VALUES (%(table_full_name)s, %(column_name)s, %(data_type)s, %(comment)s)" in executemany_calls[1][0][0]
     assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache VALUES (%(table_full_name)s, %(principal)s, %(privilege)s)" in executemany_calls[2][0][0]
