@@ -1228,7 +1228,7 @@ def render_footer():
 
 
 # ── Authentication helpers ─────────────────────────────────────────────────────
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 def get_msal_app():
     return msal.ConfidentialClientApplication(
         CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET
@@ -1426,7 +1426,7 @@ def _to_duckdb_sql(sql: str, params: dict) -> tuple:
     return result, converted
 
 
-@st.cache_resource(validate=lambda c: c is not None)
+@st.cache_resource(validate=lambda c: c is not None, show_spinner=False)
 def _get_shared_duckdb_connection():
     """Singleton connection shared across all Streamlit sessions/threads."""
     if not _duckdb_available():
@@ -1542,7 +1542,7 @@ class _DuckDBConn:
         return self._con is not None
 
 
-@st.cache_resource(ttl="2h", validate=lambda conn: conn.open)
+@st.cache_resource(ttl="2h", validate=lambda conn: conn.open, show_spinner=False)
 def _get_databricks_connection():
     return sql.connect(
         server_hostname=os.getenv("DATABRICKS_HOST"),
@@ -1588,7 +1588,7 @@ def get_db_connection():
     return _get_databricks_connection()
 
 
-@st.cache_data(ttl="1h")
+@st.cache_data(ttl="1h", show_spinner=False)
 def _run_databricks_query(query, params=None):
     """Cached Databricks query — 1 h TTL to amortise network latency."""
     conn = _get_databricks_connection()
@@ -2132,7 +2132,7 @@ def save_comment(
     log_audit_event(_event_type, object_type, object_name, "", comment_text)
 
 
-@st.cache_data(ttl="1h")
+@st.cache_data(ttl="1h", show_spinner=False)
 def get_authorized_tables(groups):
     group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
     params: dict = {}
@@ -2160,7 +2160,7 @@ def get_authorized_tables(groups):
 
 # ── Feature scaffolds (stubs — to be implemented) ─────────────────────────────
 
-@st.cache_data(ttl="1h")
+@st.cache_data(ttl="1h", show_spinner=False)
 def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
     """Fetch lineage edges up to a given depth.
 
@@ -2175,7 +2175,7 @@ def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
     )
 
 
-@st.cache_data(ttl="1h")
+@st.cache_data(ttl="1h", show_spinner=False)
 def search_all_metadata(query: str, groups: tuple):
     """Search across tables, columns, and descriptions using UNION."""
     import logging
@@ -2241,14 +2241,44 @@ def search_all_metadata(query: str, groups: tuple):
                 "table_name": parts[2] if len(parts) == 3 else "",
             })
 
+    import pandas as pd
     if term_matches:
-        import pandas as pd
         glossary_results = pd.DataFrame(term_matches)
         if sql_results is not None and not sql_results.empty:
-            return pd.concat([sql_results, glossary_results], ignore_index=True)
-        return glossary_results
+            combined = pd.concat([sql_results, glossary_results], ignore_index=True)
+        else:
+            combined = glossary_results
+    else:
+        combined = sql_results
 
-    return sql_results
+    if combined is None or combined.empty:
+        return combined
+
+    # Rank results: exact table name > prefix > partial table > exact column > partial column > glossary/description
+    q_lower = query.lower()
+    def _score(row):
+        name = str(row.get("name") or "").lower()
+        mtype = str(row.get("match_type") or "")
+        if mtype == "Table":
+            if name == q_lower:
+                return 5
+            if name.startswith(q_lower):
+                return 4
+            if q_lower in name:
+                return 3
+            return 2  # description-only match
+        if mtype == "Column":
+            if name == q_lower:
+                return 2
+            if name.startswith(q_lower):
+                return 1
+            return 0
+        return 1  # Glossary
+
+    combined = combined.copy()
+    combined["_score"] = combined.apply(_score, axis=1)
+    combined = combined.sort_values("_score", ascending=False).drop(columns=["_score"]).reset_index(drop=True)
+    return combined
 
 
 @st.dialog("Data Sample")
