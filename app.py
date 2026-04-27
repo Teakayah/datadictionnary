@@ -3041,6 +3041,40 @@ if current_tab == "search":
         st.session_state.pop("_dd_sticky_nav", None)
     st.session_state["_dd_current_search_query"] = search_query
 
+    # When a group filter is active but no search term, show all tables for that group
+    if active_group and not search_query and _all_tables is not None and not _all_tables.empty:
+        import pandas as _pd2
+        _group_results = _all_tables.copy()
+        if "match_type" not in _group_results.columns:
+            _group_results["match_type"] = "Table"
+        if "name" not in _group_results.columns:
+            _group_results["name"] = _group_results["table_name"]
+        if "description" not in _group_results.columns:
+            _desc_col = "table_description" if "table_description" in _group_results.columns else "comment" if "comment" in _group_results.columns else None
+            _group_results["description"] = _group_results[_desc_col] if _desc_col else ""
+        st.markdown(f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);margin-bottom:12px">{len(_group_results)} {t("search.results_count") if len(_group_results) != 1 else "table"}</p>', unsafe_allow_html=True)
+        for _gr_i, (_, _gr) in enumerate(_group_results.iterrows()):
+            _gr_name = str(_gr.get("name") or _gr.get("table_name", ""))
+            _gr_full = str(_gr.get("full_name", ""))
+            _gr_desc = str(_gr.get("description", "") or "")
+            if not _gr_full:
+                continue
+            _gc, _gb = st.columns([5, 1], gap="small")
+            with _gc:
+                st.markdown(f'''
+                <div style="background:var(--paper); border:1px solid var(--ink-10); border-radius:4px; padding:14px 18px;">
+                    <div style="font-family:var(--font-mono); font-size:11px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">Table</div>
+                    <div style="font-family:var(--font-sans); font-size:15px; font-weight:600; color:var(--ink); margin-bottom:2px;">{_html.escape(_gr_name)}</div>
+                    <div style="font-family:var(--font-mono); font-size:11px; color:var(--ink-60); margin-bottom:6px;">{_html.escape(_gr_full)}</div>
+                    <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:0;">{_html.escape(_gr_desc)}</p>
+                </div>''', unsafe_allow_html=True)
+            with _gb:
+                if st.button(f"{t('search.view_details')} →", key=f"gview_{_gr_full}_{_gr_i}", use_container_width=True):
+                    st.session_state["catalog_search"] = _gr_name
+                    st.session_state["_dd_sticky_nav"] = _gr_full
+                    st.rerun()
+            st.markdown('<div style="margin-bottom:8px;"></div>', unsafe_allow_html=True)
+
     if search_query:
         try:
             results = search_all_metadata(search_query, query_groups)
