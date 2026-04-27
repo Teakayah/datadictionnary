@@ -290,7 +290,7 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
 
 /* Remove default Streamlit top padding so our fixed header sits flush */
 [data-testid="stMainBlockContainer"] {
-    padding-top: 100px !important;
+    padding-top: 56px !important;
     padding-left: 48px !important;
     padding-right: 48px !important;
     padding-bottom: 96px !important;
@@ -591,6 +591,9 @@ code, pre, .stCode {
 }
 
 /* ── Search page ── */
+.dd-search-hero {
+    margin-top: 0;
+}
 .dd-search-hero h1 {
     font-family: var(--font-display) !important;
     font-size: 64px !important;
@@ -1300,15 +1303,30 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
         """, unsafe_allow_html=True)
 
         if mock:
-            if st.button(t('auth.mock_button'), use_container_width=True):
-                st.session_state.authenticated = True
-                st.session_state.user_groups = ["finance_dept_id", "all_employees_id"]
-                st.session_state.user_name  = "Finance User"
-                st.session_state.user_email = "finance.user@example.com"
-                st.rerun()
+            _MOCK_DEPTS = {
+                "Finance":  (["finance_group",  "SELECT_ALL_USERS"], "finance.user@research-org.ca"),
+                "Research": (["research_group", "SELECT_ALL_USERS"], "research.user@research-org.ca"),
+                "HR":       (["hr_group",        "SELECT_ALL_USERS"], "hr.user@research-org.ca"),
+                "IT":       (["it_group",        "SELECT_ALL_USERS"], "it.user@research-org.ca"),
+                "Admin":    (["finance_group", "research_group", "hr_group", "it_group",
+                              "SELECT_ALL_USERS", "finance_dept_id", "all_employees_id"],
+                             "admin@research-org.ca"),
+            }
+            _default_dept = os.getenv("MOCK_DEPT", "Finance")
+            _mock_cols = st.columns(len(_MOCK_DEPTS), gap="small")
+            for (_dept_label, (_groups, _email)), _col in zip(_MOCK_DEPTS.items(), _mock_cols):
+                with _col:
+                    _is_default = _dept_label == _default_dept
+                    if st.button(_dept_label, use_container_width=True,
+                                 type="primary" if _is_default else "secondary"):
+                        st.session_state.authenticated = True
+                        st.session_state.user_groups   = _groups
+                        st.session_state.user_name     = f"{_dept_label} User"
+                        st.session_state.user_email    = _email
+                        st.rerun()
             st.markdown(
-                '<p class="dd-meta">Mock authentication active — '
-                'set TENANT_ID, CLIENT_ID, CLIENT_SECRET for production.</p>',
+                '<p class="dd-meta">Mock authentication active — pick a department to filter by its grants. '
+                'Set MOCK_DEPT env var to pre-select (default: Finance).</p>',
                 unsafe_allow_html=True,
             )
         else:
@@ -2929,12 +2947,27 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
         _sync_prefs_to_session()
         st.session_state["_prefs_loaded"] = True
     
-    # Auto-login if returning from a nav link
+    # Auto-login if returning from a nav link — grants all groups so screenshots
+    # and load tests see the full dataset regardless of dept selection.
     if st.query_params.get("mock_login") == "true":
+        _ql_dept = st.query_params.get("mock_dept", os.getenv("MOCK_DEPT", "")).lower()
+        _dept_group_map = {
+            "finance":  (["finance_group",  "SELECT_ALL_USERS"], "Finance User",  "finance.user@research-org.ca"),
+            "research": (["research_group", "SELECT_ALL_USERS"], "Research User", "research.user@research-org.ca"),
+            "hr":       (["hr_group",       "SELECT_ALL_USERS"], "HR User",       "hr.user@research-org.ca"),
+            "it":       (["it_group",       "SELECT_ALL_USERS"], "IT User",       "it.user@research-org.ca"),
+        }
+        if _ql_dept in _dept_group_map:
+            _ql_groups, _ql_name, _ql_email = _dept_group_map[_ql_dept]
+        else:
+            # Default: all groups (admin view — used by screenshot script & load tests)
+            _ql_groups = ["finance_group", "research_group", "hr_group", "it_group",
+                          "SELECT_ALL_USERS", "finance_dept_id", "all_employees_id"]
+            _ql_name, _ql_email = "Admin User", "admin@research-org.ca"
         st.session_state.authenticated = True
-        st.session_state.user_groups = ["finance_dept_id", "all_employees_id"]
-        st.session_state.user_name  = "Finance User"
-        st.session_state.user_email = "finance.user@example.com"
+        st.session_state.user_groups   = _ql_groups
+        st.session_state.user_name     = _ql_name
+        st.session_state.user_email    = _ql_email
     if not st.session_state.authenticated:
         # Slim logo-only header for the sign-in page — avoids nav JS wiring on unauthenticated renders
         st.markdown(f'''
