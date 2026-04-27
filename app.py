@@ -2214,7 +2214,7 @@ def search_all_metadata(query: str, groups: tuple):
           AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
 
         LIMIT 50
-    """).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders)  # nosec B608
+    """).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders, _overrides_tbl)  # nosec B608
 
     sql_results = run_query(sql_query, params)
 
