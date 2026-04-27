@@ -321,7 +321,8 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
     outline-offset: 3px !important;
 }
 .stTextInput label,
-[data-testid="stSelectbox"] label {
+[data-testid="stSelectbox"] label,
+.dd-eyebrow {
     font-family: var(--font-sans) !important;
     font-size: 12px !important;
     font-weight: 600 !important;
@@ -480,13 +481,7 @@ code, pre, .stCode {
 
 /* ── Eyebrow ── */
 .dd-eyebrow {
-    font-family: var(--font-sans);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--ink-60);
-    margin-bottom: 18px;
+    margin-bottom: 18px !important;
 }
 
 /* ── Rule ── */
