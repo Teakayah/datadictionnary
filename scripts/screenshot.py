@@ -20,9 +20,12 @@ import os
 from pathlib import Path
 from playwright.sync_api import sync_playwright, Page
 
-DEFAULT_OUT = Path(__file__).parent.parent / "screenshots" / "latest"
+DEFAULT_OUT = Path(__file__).resolve().parent.parent / "screenshots" / "latest"
 # Wide viewport; tall enough to show most content without scrolling on overview screens.
 VIEWPORT = {"width": 1440, "height": 1080}
+# Tall viewport used for detail/content-heavy shots — Streamlit renders inside a
+# fixed-height scroll container so tall=True has no effect; we resize instead.
+DETAIL_HEIGHT = 3600
 WAIT_AFTER_NAV = 2000   # ms — let Streamlit finish rendering after navigation
 
 # Set at runtime from --host arg; helpers read this module-level var.
@@ -39,16 +42,23 @@ def _nav(page: Page, tab: str, extra: str = "") -> None:
     _wait(page)
 
 
-def _shot(page: Page, out: Path, name: str, *, full_page: bool = False) -> None:
+def _shot(page: Page, out: Path, name: str, *, tall: bool = False) -> None:
     """Capture a screenshot.
 
-    full_page=True renders the entire scrollable page — use for detail panels
-    that extend below the fold.  Viewport-only shots (full_page=False) are
-    better for overview screens where you want a fixed-size preview.
+    tall=True temporarily resizes the viewport to DETAIL_HEIGHT so Streamlit's
+    fixed-height scroll container expands to show the full detail panel.
+    tall=False takes a normal viewport-sized shot.
     """
     path = out / f"{name}.png"
-    page.screenshot(path=str(path), full_page=full_page)
-    mode = "full" if full_page else "viewport"
+    if tall:
+        w = page.viewport_size["width"]
+        page.set_viewport_size({"width": w, "height": DETAIL_HEIGHT})
+        _wait(page, 600)   # let Streamlit re-layout at the new height
+        page.screenshot(path=str(path), full_page=False)
+        page.set_viewport_size({"width": w, "height": VIEWPORT["height"]})
+    else:
+        page.screenshot(path=str(path), full_page=False)
+    mode = f"tall({DETAIL_HEIGHT}px)" if tall else "viewport"
     print(f"  ✓  {name}.png  [{mode}]")
 
 
@@ -107,7 +117,7 @@ def capture_search(page: Page, out: Path) -> None:
     # Detail panel — full-page so the entire panel (including columns) is visible
     if not _open_first_detail(page):
         return
-    _shot(page, out, "05_search_detail_panel", full_page=True)
+    _shot(page, out, "05_search_detail_panel", tall=True)
 
     # Scroll to column list then take a focused viewport shot
     page.evaluate("window.scrollBy(0, 500)")
@@ -131,7 +141,7 @@ def capture_search(page: Page, out: Path) -> None:
         star_btn.click()
         _wait(page, 800)
         # Star should now be filled — capture the bookmarked state
-        _shot(page, out, "08_search_detail_bookmarked", full_page=True)
+        _shot(page, out, "08_search_detail_bookmarked", tall=True)
         print("  ✓  table bookmarked for discovery showcase")
 
     # Back to results
@@ -166,7 +176,7 @@ def capture_glossary(page: Page, out: Path) -> None:
         if first.is_visible():
             first.click()
             _wait(page)
-            _shot(page, out, "12_glossary_term_detail", full_page=True)
+            _shot(page, out, "12_glossary_term_detail", tall=True)
 
 
 def capture_discovery(page: Page, out: Path) -> None:
@@ -181,7 +191,7 @@ def capture_discovery(page: Page, out: Path) -> None:
         bk.wait_for(state="visible", timeout=3000)
         bk.click()
         _wait(page)
-        _shot(page, out, "14_discovery_bookmarks_populated", full_page=True)
+        _shot(page, out, "14_discovery_bookmarks_populated", tall=True)
     except Exception as exc:
         print(f"  ⚠  Bookmarks tab not found ({exc})")
 
@@ -191,7 +201,7 @@ def capture_discovery(page: Page, out: Path) -> None:
         rc.wait_for(state="visible", timeout=3000)
         rc.click()
         _wait(page)
-        _shot(page, out, "15_discovery_recent", full_page=True)
+        _shot(page, out, "15_discovery_recent", tall=True)
     except Exception as exc:
         print(f"  ⚠  Recent tab not found ({exc})")
 
@@ -223,7 +233,7 @@ def capture_grants_filter(page: Page, out: Path) -> None:
     if group_btn.is_visible():
         group_btn.click()
         _wait(page)
-        _shot(page, out, "19_group_filter_results", full_page=True)
+        _shot(page, out, "19_group_filter_results", tall=True)
 
 
 def capture_language_toggle(page: Page, out: Path) -> None:
