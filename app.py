@@ -349,6 +349,24 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
     border-color: var(--ink-90) !important;
     color: var(--paper) !important;
 }
+.stDownloadButton > button {
+    font-family: var(--font-sans) !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    padding: 10px 18px !important;
+    border-radius: 2px !important;
+    border: 1px solid var(--ink) !important;
+    background: var(--ink) !important;
+    color: var(--paper) !important;
+    letter-spacing: -0.005em !important;
+    transition: background var(--dur-hover) var(--ease) !important;
+    box-shadow: none !important;
+}
+.stDownloadButton > button:hover {
+    background: var(--ink-90) !important;
+    border-color: var(--ink-90) !important;
+    color: var(--paper) !important;
+}
 
 /* Selectbox */
 [data-testid="stSelectbox"] > div > div {
@@ -628,7 +646,7 @@ code, pre, .stCode {
     font-family: var(--font-sans);
     font-size: 15px;
     color: var(--ink-80);
-    margin-bottom: 20px;
+    margin-bottom: 12px;
     line-height: 1.5;
 }
 
@@ -735,13 +753,19 @@ button[data-testid="stBaseButton-secondary"]:hover {
 }
 
 /* ── Detail: section sub-headers (§ columns, § grants, …) ── */
+/* Tighten default Streamlit vertical rhythm inside the detail column */
+[data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stVerticalBlock"] > div > [data-testid="element-container"] {
+    margin-bottom: 0 !important;
+}
+
 .dd-section-header {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    padding-bottom: 10px;
+    padding-bottom: 8px;
     border-bottom: 1px solid var(--ink);
-    margin-top: 28px;
+    margin-top: 20px;
     margin-bottom: 0;
 }
 .dd-section-count {
