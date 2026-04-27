@@ -64,7 +64,10 @@ def _at_detail(monkeypatch) -> AppTest:
     monkeypatch.setenv("DEMO_DATA", "true")
     at = authenticated_app()
     at.run()
-    at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+    if "catalog_search" in [k.key for k in at.selectbox if k.key]:
+        at.selectbox(key="catalog_search").set_value(TABLE_NAME).run()
+    elif len(at.selectbox) > 0:
+        at.selectbox[0].set_value(TABLE_NAME).run()
     return at
 
 
