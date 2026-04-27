@@ -2557,8 +2557,6 @@ def render_discovery(groups):
     # Prevent deselecting all tabs (forces at least one to be active)
     if _disc_active is None:
         _disc_active = _disc_tab_labels[st.session_state.get("_disc_tab_idx", 0)]
-        st.session_state["discovery_active_tab"] = _disc_active
-        st.rerun()
 
     # Keep index in sync so the next rerun (e.g. locale switch) restores correctly
     if _disc_active in _disc_tab_labels:
