@@ -59,7 +59,8 @@
     "open_related": "Open →",
     "search_tables_accessible": "Search tables accessible to: {principal} ({privilege})",
     "browse_public_tables": "Browse tables accessible to all users ({privilege})",
-    "load_error": "Error displaying details."
+    "load_error": "Error displaying details.",
+    "preview_data": "Preview data"
   },
   "comment": {
     "add_comment": "Add a comment",
