@@ -1899,6 +1899,7 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
                 {"table_full_name": table_full_name, "column_name": column_name, "business_name": business_name, "definition": definition, "edited_by": user_name},
             )
     log_audit_event("business_name_change", "COLUMN", f"{table_full_name}.{column_name}", old_value, business_name)
+    search_all_metadata.clear()
 
 
 def get_table_steward(table_full_name: str) -> str:
@@ -2219,6 +2220,8 @@ def search_all_metadata(query: str, groups: tuple):
     params: dict = {f"group_{i}": g for i, g in enumerate(groups)} if groups else {}
     params["q"] = f"%{query}%"
 
+    _overrides_tbl = "user_data.business_name_overrides" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
+
     sql_query = ("""
         SELECT DISTINCT m.full_name, m.table_name AS name, 'Table' AS match_type, m.comment AS description, m.catalog_name, m.schema_name, m.table_name, m.comment AS table_description
         FROM {0}.{1}.tables_metadata m
@@ -2228,15 +2231,24 @@ def search_all_metadata(query: str, groups: tuple):
 
         UNION ALL
 
-        SELECT DISTINCT c.table_full_name AS full_name, c.column_name AS name, 'Column' AS match_type, c.comment AS description, t.catalog_name, t.schema_name, t.table_name, t.comment AS table_description
+        SELECT DISTINCT
+            c.table_full_name AS full_name,
+            COALESCE(o.business_name, c.column_name) AS name,
+            'Column' AS match_type,
+            COALESCE(o.definition, c.comment) AS description,
+            t.catalog_name, t.schema_name, t.table_name, t.comment AS table_description
         FROM {0}.{1}.columns_metadata c
         JOIN {0}.{1}.permissions_cache p ON c.table_full_name = p.table_full_name
         JOIN {0}.{1}.tables_metadata t ON c.table_full_name = t.full_name
-        WHERE (c.column_name LIKE %(q)s OR c.comment LIKE %(q)s)
+        LEFT JOIN {3} o ON o.table_full_name = c.table_full_name AND o.column_name = c.column_name
+        WHERE (
+            c.column_name LIKE %(q)s OR c.comment LIKE %(q)s
+            OR o.business_name LIKE %(q)s OR o.definition LIKE %(q)s
+          )
           AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
 
         LIMIT 50
-    """).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders)  # nosec B608
+    """).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders, _overrides_tbl)  # nosec B608
 
     sql_results = run_query(sql_query, params)
 
