@@ -1124,12 +1124,17 @@ iframe[height="0"] { display: none !important; }
 }
 
 /* ── Hide nav/lang proxy buttons immediately (before JS runs) ─────────────────
-   Proxy buttons are wrapped in a st.container() marked with #dd-proxy-anchor.
-   The :has() selector targets only the immediate container (direct child
-   stMarkdownContainer contains the anchor), not any ancestor stVerticalBlock.
-   JS still clicks them since hidden elements are clickable via .click().      */
-[data-testid="stVerticalBlock"]:has(> [data-testid="stMarkdownContainer"]:has(#dd-proxy-anchor)) {
-    display: none !important;
+   st.container() creates stLayoutWrapper > stVerticalBlock in the DOM.
+   Targeting the stVerticalBlock that is a direct child of stLayoutWrapper AND
+   contains #dd-proxy-anchor hits ONLY the proxy container — not the main
+   stVerticalBlock (which is the parent of stLayoutWrapper, not its child).
+   visibility:hidden (not display:none) keeps btn.click() functional for JS.  */
+[data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"]:has(#dd-proxy-anchor) {
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    pointer-events: none !important;
 }
 """
 
@@ -1265,14 +1270,8 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
         function wire() {{
             const allBtns = Array.from(parentDoc.querySelectorAll('button'));
             
-            // 1. Hide proxy buttons
-            allBtns.forEach(btn => {{
-                const label = btn.textContent.trim();
-                if (NAV_LABELS.includes(label) || label === 'LOCALE_EN' || label === 'LOCALE_FR') {{
-                    const wrapper = btn.closest('div[data-testid="stButton"]');
-                    if (wrapper) wrapper.style.display = 'none';
-                }}
-            }});
+            // 1. The proxy container is already hidden via CSS (visibility:hidden).
+            //    Nothing to do here — btn.click() works on visibility:hidden elements.
 
             // 2. Wire Navigation
             parentDoc.querySelectorAll('a.dd-nav-tab[data-tab], a.dd-logo-link[data-tab]').forEach(link => {{
