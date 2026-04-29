@@ -493,7 +493,7 @@ code, pre, .stCode {
 .dd-nav-user {
     font-family: var(--font-mono);
     font-size: 12px;
-    color: var(--ink-40);
+    color: var(--ink-80); /* was ink-40 (~2.8:1); ink-80 gives ~5.5:1 — WCAG AA */
 }
 
 /* ── Eyebrow ── */
@@ -1086,6 +1086,17 @@ iframe[height="0"] { display: none !important; }
 .stApp [data-testid="stButtonGroup"] button:hover * {
     color: var(--ink) !important;
 }
+
+/* ── Search result card / button column alignment ─────────────────────────────
+   Streamlit reserves label height above widgets even when no label is present.
+   This removes that gap so the button top-aligns with the card beside it.     */
+[data-testid="stHorizontalBlock"] > [data-testid="column"] > [data-testid="stVerticalBlock"] {
+    justify-content: flex-start;
+}
+[data-testid="stHorizontalBlock"] > [data-testid="column"]:last-child > [data-testid="stVerticalBlock"] > div:first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
 """
 
 # ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
@@ -1112,6 +1123,17 @@ SEARCH_ICON_SVG = """<svg width="18" height="18" viewBox="0 0 24 24" fill="none"
 
 def render_css():
     st.markdown(f"<style>{DESIGN_CSS}</style>", unsafe_allow_html=True)
+    # WCAG fix: Streamlit renders st.dataframe column headers as
+    # div[aria-haspopup] without a role, violating aria-allowed-attr.
+    # onerror runs JS synchronously after each Streamlit render cycle.
+    st.markdown(
+        '<img src="x" style="display:none" aria-hidden="true" '
+        'onerror="(function(){'
+        'document.querySelectorAll(\'div[aria-haspopup]\').forEach(function(el){'
+        'if(!el.getAttribute(\'role\')){el.setAttribute(\'role\',\'combobox\');}'
+        '});})();">',
+        unsafe_allow_html=True,
+    )
 
 
 
@@ -3092,7 +3114,7 @@ if current_tab == "search":
             _gr_desc = str(_gr.get("description", "") or "")
             if not _gr_full:
                 continue
-            _gc, _gb = st.columns([5, 1], gap="small")
+            _gc, _gb = st.columns([5, 1], gap="small", vertical_alignment="top")
             with _gc:
                 st.markdown(f'''
                 <div style="background:var(--paper); border:1px solid var(--ink-10); border-radius:4px; padding:14px 18px;">
@@ -3136,11 +3158,11 @@ if current_tab == "search":
                         _sr_desc = _s(_sr.get("description"))
                         if not _sr_full:
                             continue
-                        _card_col, _btn_col = st.columns([5, 1], gap="small")
+                        _card_col, _btn_col = st.columns([5, 1], gap="small", vertical_alignment="top")
                         with _card_col:
                             st.markdown(f'''
                             <div style="background:var(--paper); border:1px solid var(--ink-10); border-radius:4px; padding:14px 18px; height:100%;">
-                                <div style="font-family:var(--font-mono); font-size:11px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">{_html.escape(_sr_type)}</div>
+                                <div style="font-family:var(--font-mono); font-size:11px; color:var(--ink-60); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">{_html.escape(_sr_type)}</div>
                                 <div style="font-family:var(--font-sans); font-size:15px; font-weight:600; color:var(--ink); margin-bottom:2px;">{_html.escape(_sr_name)}</div>
                                 <div style="font-family:var(--font-mono); font-size:11px; color:var(--ink-60); margin-bottom:6px;">{_html.escape(_sr_full)}</div>
                                 <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:0;">{_html.escape(_sr_desc)}</p>
