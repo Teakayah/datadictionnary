@@ -1122,6 +1122,14 @@ iframe[height="0"] { display: none !important; }
     margin-top: 0 !important;
     padding-top: 0 !important;
 }
+
+/* ── Hide nav/lang proxy buttons immediately (before JS runs) ─────────────────
+   Proxy buttons are wrapped in a st.container() marked with #dd-proxy-anchor.
+   CSS hides the entire container instantly; JS still clicks them from the
+   iframe since hidden elements remain clickable via JS.                        */
+[data-testid="stVerticalBlock"]:has(#dd-proxy-anchor) {
+    display: none !important;
+}
 """
 
 # ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
@@ -1220,21 +1228,23 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
 </div>
 ''', unsafe_allow_html=True)
 
-    # Hidden Streamlit buttons — JS in the component iframe clicks these
+    # Hidden Streamlit nav/lang proxy buttons — JS clicks these; the container is
+    # hidden immediately via CSS :has(#dd-proxy-anchor) so they never flash.
     _tabs = ["search", "catalog", "glossary", "discovery", "health"]
     if show_admin:
         _tabs.append("admin")
-    for tab_id in _tabs:
-        if st.button(t(f"nav.{tab_id}"), key=f"nav_{tab_id}"):
-            st.query_params["tab"] = tab_id
-            st.query_params["mock_login"] = "true"
-            st.rerun()
-
-    # Hidden lang proxy buttons — JS clicks these to trigger locale rerun.
-    # on_click fires *before* the script reruns, so render_header() picks up
-    # the new locale on that same rerun and builds consistent nav labels + TAB_MAP.
-    st.button("LOCALE_EN", key="lang_btn_en", on_click=set_locale, args=("en",))
-    st.button("LOCALE_FR", key="lang_btn_fr", on_click=set_locale, args=("fr",))
+    _is_mock = os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
+    with st.container():
+        st.markdown('<div id="dd-proxy-anchor"></div>', unsafe_allow_html=True)
+        for tab_id in _tabs:
+            if st.button(t(f"nav.{tab_id}"), key=f"nav_{tab_id}"):
+                st.query_params["tab"] = tab_id
+                if _is_mock:
+                    st.query_params["mock_login"] = "true"
+                st.rerun()
+        # on_click fires before rerun so render_header() picks up the new locale.
+        st.button("LOCALE_EN", key="lang_btn_en", on_click=set_locale, args=("en",))
+        st.button("LOCALE_FR", key="lang_btn_fr", on_click=set_locale, args=("fr",))
 
     # Zero-height iframe: wires nav clicks → hidden Streamlit buttons,
     # and wires language toggle clicks → hidden lang proxy buttons.
@@ -1373,20 +1383,22 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
                              "admin@research-org.ca"),
             }
             _default_dept = os.getenv("MOCK_DEPT", "Finance")
-            _mock_cols = st.columns(len(_MOCK_DEPTS), gap="small")
-            for (_dept_label, (_groups, _email)), _col in zip(_MOCK_DEPTS.items(), _mock_cols):
-                with _col:
-                    _is_default = _dept_label == _default_dept
-                    if st.button(_dept_label, use_container_width=True,
-                                 type="primary" if _is_default else "secondary"):
-                        st.session_state.authenticated = True
-                        st.session_state.user_groups   = _groups
-                        st.session_state.user_name     = f"{_dept_label} User"
-                        st.session_state.user_email    = _email
-                        st.rerun()
+            _dept_opts = list(_MOCK_DEPTS.keys())
+            _dept_sel = st.selectbox(
+                "Department",
+                _dept_opts,
+                index=_dept_opts.index(_default_dept) if _default_dept in _dept_opts else 0,
+                label_visibility="collapsed",
+            )
+            if st.button("Sign in", use_container_width=True, type="primary"):
+                _groups, _email = _MOCK_DEPTS[_dept_sel]
+                st.session_state.authenticated = True
+                st.session_state.user_groups   = _groups
+                st.session_state.user_name     = f"{_dept_sel} User"
+                st.session_state.user_email    = _email
+                st.rerun()
             st.markdown(
-                '<p class="dd-meta">Mock authentication active — pick a department to filter by its grants. '
-                'Set MOCK_DEPT env var to pre-select (default: Finance).</p>',
+                '<p class="dd-meta">Mock authentication — select a department to filter by its grants.</p>',
                 unsafe_allow_html=True,
             )
         else:
