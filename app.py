@@ -1212,7 +1212,7 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
     title_fr = t("language.switch_to_fr")
     lang_toggle = f'<span class="dd-nav-sep"></span><span class="dd-lang-toggle" aria-label="Language selector"><a href="#" data-lang="en" class="dd-lang-opt {en_active}" title="{title_en}">EN</a><span class="dd-lang-sep">/</span><a href="#" data-lang="fr" class="dd-lang-opt {fr_active}" title="{title_fr}">FR</a></span>'
 
-    st.markdown(f'''
+    st.html(f'''
 <div class="dd-header" lang="{locale}">
   <div class="dd-header-inner">
     <a href="#" data-tab="search" class="dd-logo-link">
@@ -1232,7 +1232,7 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
     </nav>
   </div>
 </div>
-''', unsafe_allow_html=True)
+''')
 
     # Hidden Streamlit nav/lang proxy buttons — JS clicks these; the container is
     # hidden immediately via CSS :has(#dd-proxy-anchor) so they never flash.
@@ -3042,7 +3042,7 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
         st.session_state.user_email    = _ql_email
     if not st.session_state.authenticated:
         # Slim logo-only header for the sign-in page — avoids nav JS wiring on unauthenticated renders
-        st.markdown(f'''
+        st.html(f'''
 <div class="dd-header">
   <div class="dd-header-inner">
     <span class="dd-logo-link">
@@ -3052,7 +3052,7 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
     </span>
   </div>
 </div>
-''', unsafe_allow_html=True)
+''')
         st.markdown('<div class="dd-page" role="main" aria-live="polite">', unsafe_allow_html=True)
         render_signin_page(mock=True)
         st.markdown("</div>", unsafe_allow_html=True)
