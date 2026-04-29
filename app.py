@@ -3478,7 +3478,7 @@ if current_tab == "search":
                         grants_query = ("SELECT DISTINCT principal, privilege FROM {0}.{1}.permissions_cache WHERE table_full_name = %(table_full_name)s ORDER BY principal").format(CATALOG_CACHE, SCHEMA_CACHE)
                         grants = run_query(grants_query, {"table_full_name": full_name})
                         n_grants = len(grants) if grants is not None and not grants.empty else 0
-                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_grants")}</span><span class="dd-section-count">{n_grants}</span></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="dd-section-header" style="margin-top:0"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_grants")}</span><span class="dd-section-count">{n_grants}</span></div>', unsafe_allow_html=True)
                         if n_grants > 0:
                             for _, g in grants.iterrows():
                                 principal, privilege = str(g.get("principal", "")), str(g.get("privilege", ""))
