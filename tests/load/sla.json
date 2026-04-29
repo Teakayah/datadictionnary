@@ -1,0 +1,32 @@
+{
+  "_baseline": "300-user 2-min run — 2026-04-29, seed=42, 800-table dataset",
+  "_note": "50-user smoke test must not exceed these values. Any regression at lower concurrency indicates a real performance problem.",
+
+  "failure_rate_max_pct": 1.0,
+  "_failure_note": "1% tolerance covers transient auth-session setup failures in dev environments",
+
+  "http": {
+    "description": "Streamlit page-shell HTTP requests (tab navigation)",
+    "p95_max_ms": 20,
+    "p99_max_ms": 35,
+    "_note": "300-user p99 was 16ms; 20ms p95 / 35ms p99 gives headroom for dev variance"
+  },
+
+  "duckdb_search": {
+    "description": "Broad and narrow search queries (UNION across tables + columns)",
+    "p95_max_ms": 8,
+    "p99_max_ms": 15
+  },
+
+  "duckdb_simple": {
+    "description": "Single-table queries: columns fetch, permissions, export CSV",
+    "p95_max_ms": 5,
+    "p99_max_ms": 10
+  },
+
+  "duckdb_related": {
+    "description": "Related-tables UNION JOIN — the most expensive query path",
+    "p95_max_ms": 15,
+    "p99_max_ms": 20
+  }
+}

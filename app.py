@@ -243,7 +243,8 @@ DESIGN_CSS = """@import url('https://fonts.googleapis.com/css2?family=Fraunces:o
     --ink-90:       #2A2620;
     --ink-80:       #3D3830;
     --ink-60:       #6B645A;
-    --ink-40:       #9A9388;
+    --ink-40:       #6B645A; /* raised from #9A9388 (~2.8:1) to pass WCAG AA 4.5:1 on --paper */
+    --ink-subtle:   #9A9388; /* decorative only — borders, dividers, never text */
     --ink-20:       #C9C2B4;
     --ink-10:       #DCD6C8;
     --accent:       #B8362A;
@@ -865,7 +866,31 @@ button[data-testid="stBaseButton-secondary"]:hover {
     justify-content: space-between;
     font-family: var(--font-mono);
     font-size: 12px;
-    color: var(--ink-40);
+    color: var(--ink-60); /* was ink-40 (~2.8:1); ink-60 gives ~5.5:1 — WCAG AA */
+}
+
+/* ── Select / multiselect placeholder contrast fix ───────────────────────────
+   Streamlit renders Base Web select placeholder as a div overlay (#818186 by
+   default). Target the value/placeholder container directly.                  */
+input::placeholder,
+textarea::placeholder {
+    color: var(--ink-60) !important;
+    opacity: 1 !important;
+}
+[data-testid="stSelectbox"]   [data-baseweb="select"] > div > div,
+[data-testid="stSelectbox"]   [data-baseweb="select"] > div > div > div,
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div > div,
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div > div > div {
+    color: var(--ink-60) !important;
+}
+
+/* ── Alert / success text contrast fix ──────────────────────────────────────
+   Streamlit's st.success() green (#158237) gives 4.18:1 on --paper, below
+   the 4.5:1 WCAG AA threshold. Override to near-black.                       */
+[data-testid="stAlert"] p,
+[data-testid="stAlert"] li,
+[data-testid="stAlert"] span:not([class*="icon"]) {
+    color: var(--ink) !important;
 }
 
 .dd-nav a.active {
@@ -1123,15 +1148,28 @@ SEARCH_ICON_SVG = """<svg width="18" height="18" viewBox="0 0 24 24" fill="none"
 
 def render_css():
     st.markdown(f"<style>{DESIGN_CSS}</style>", unsafe_allow_html=True)
-    # WCAG fix: Streamlit renders st.dataframe column headers as
-    # div[aria-haspopup] without a role, violating aria-allowed-attr.
-    # onerror runs JS synchronously after each Streamlit render cycle.
+    # WCAG fix: Streamlit renders st.dataframe sort/filter buttons as
+    # div[aria-haspopup] without a role, violating aria-allowed-attr (WCAG 4.1.2).
+    # A MutationObserver patches current and future elements as they render.
+    _aria_patch = (
+        "document.querySelectorAll('div[aria-haspopup]').forEach(function(el){"
+        "if(!el.getAttribute('role')){el.setAttribute('role','combobox');}});"
+    )
     st.markdown(
-        '<img src="x" style="display:none" aria-hidden="true" '
-        'onerror="(function(){'
-        'document.querySelectorAll(\'div[aria-haspopup]\').forEach(function(el){'
-        'if(!el.getAttribute(\'role\')){el.setAttribute(\'role\',\'combobox\');}'
-        '});})();">',
+        '<img src="x" style="display:none" aria-hidden="true" onerror="'
+        "(function(){"
+        + _aria_patch
+        + "try{new MutationObserver(function(ms){"
+        "ms.forEach(function(m){m.addedNodes.forEach(function(n){"
+        "if(n.nodeType!==1)return;"
+        "if(n.matches&&n.matches('div[aria-haspopup]')&&!n.getAttribute('role'))n.setAttribute('role','combobox');"
+        "n.querySelectorAll&&n.querySelectorAll('div[aria-haspopup]').forEach(function(e){"
+        "if(!e.getAttribute('role'))e.setAttribute('role','combobox');});"
+        "});})"
+        "}).observe(document.body,{childList:true,subtree:true});"
+        "}catch(e){}"
+        "})();"
+        '">',
         unsafe_allow_html=True,
     )
 
