@@ -1125,9 +1125,10 @@ iframe[height="0"] { display: none !important; }
 
 /* ── Hide nav/lang proxy buttons immediately (before JS runs) ─────────────────
    Proxy buttons are wrapped in a st.container() marked with #dd-proxy-anchor.
-   CSS hides the entire container instantly; JS still clicks them from the
-   iframe since hidden elements remain clickable via JS.                        */
-[data-testid="stVerticalBlock"]:has(#dd-proxy-anchor) {
+   The :has() selector targets only the immediate container (direct child
+   stMarkdownContainer contains the anchor), not any ancestor stVerticalBlock.
+   JS still clicks them since hidden elements are clickable via .click().      */
+[data-testid="stVerticalBlock"]:has(> [data-testid="stMarkdownContainer"]:has(#dd-proxy-anchor)) {
     display: none !important;
 }
 """
