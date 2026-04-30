@@ -2048,23 +2048,24 @@ def _push_definition_to_databricks(table_full_name: str, column_name: str, defin
 def _process_sync_queue() -> int:
     """Drain pending sync items → Databricks. Returns number of items attempted.
 
-    Uses the shared DuckDB connection and lock to ensure thread safety
-    and avoid file-locking conflicts with the main thread.
+    Uses dynamic batching: scales throughput based on application activity.
     """
     if not _duckdb_available():
         return 0
     
+    # Determine mode: Idle if no UI activity for 5 minutes
+    is_idle = (time.time() - _LAST_UI_ACTIVITY) > 300
+    batch_size = 50 if is_idle else 5
+    
     conn = _get_write_connection()
     try:
-        # 1. Fetch pending items
-        # We don't need a write-lock for the SELECT, but we use the shared connection.
         with conn.cursor() as cursor:
             cursor.execute(
                 "SELECT sync_id, table_full_name, column_name, definition, attempts "
                 "FROM user_data.pending_sync "
                 "WHERE status = 'pending' AND attempts < %(max)s "
-                "ORDER BY queued_at LIMIT 5",
-                {"max": _SYNC_MAX_ATTEMPTS},
+                "ORDER BY queued_at LIMIT %(limit)s",
+                {"max": _SYNC_MAX_ATTEMPTS, "limit": batch_size},
             )
             rows = cursor.fetchall()
         
@@ -2073,8 +2074,8 @@ def _process_sync_queue() -> int:
 
         processed = 0
         for sync_id, table_fn, col_name, definition, attempts in rows:
-            # Yield to other threads before each item
-            time.sleep(0.1)
+            # Yield to other threads before each item (shorter yield when idle)
+            time.sleep(0.01 if is_idle else 0.1)
             new_attempts = attempts + 1
             
             # 2. Mark as processing
@@ -2124,7 +2125,10 @@ def _start_sync_worker_thread():
                     logging.info("Sync worker: pushed %d column definition(s) to Databricks.", n)
             except Exception as exc:
                 logging.error("Sync worker loop error: %s", exc, exc_info=True)
-            time.sleep(30)
+            
+            # Dynamic poll: 5s if idle, 30s if active
+            is_idle = (time.time() - _LAST_UI_ACTIVITY) > 300
+            time.sleep(5 if is_idle else 30)
 
     t = threading.Thread(target=_loop, name="dd-sync-worker", daemon=True)
     t.start()
@@ -3395,8 +3399,17 @@ def render_admin_page():
         )
 
 
+# ── Global State for Background Workers ──────────────────────────────────────
+_LAST_UI_ACTIVITY = time.time()
+
+def _mark_ui_activity():
+    global _LAST_UI_ACTIVITY
+    _LAST_UI_ACTIVITY = time.time()
+
+
 # ── App entry point ────────────────────────────────────────────────────────────
 render_css()
+_mark_ui_activity()
 
 # Start the Databricks write-back worker (singleton daemon thread, no-ops in pure local mode).
 if _duckdb_available():
