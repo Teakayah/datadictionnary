@@ -94,6 +94,7 @@
     "stats_overrides": "Business name overrides",
     "biz_log_title": "Business name change log",
     "comment_log_title": "Comment log",
+    "sync_title": "Synchronization status",
     "no_data": "No audit data available.",
     "access_denied": "Admin access required."
   },
