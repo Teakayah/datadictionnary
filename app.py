@@ -1438,7 +1438,7 @@ def check_auth():
     if "auth_token" not in st.session_state:
         st.session_state.auth_token = None
 
-    if st.session_state.auth_token is None:
+    if st.session_state.get("auth_token") is None:
         msal_app = get_msal_app()
         query_params = st.query_params
 
@@ -1555,88 +1555,99 @@ def _to_duckdb_sql(sql: str, params: dict) -> tuple:
             converted[name] = value
     # Remaining %(name)s → $name
     result = re.sub(r"%\((\w+)\)s", r"$\1", result)
+    # DuckDB compatibility: current_timestamp() → current_localtimestamp
+    result = result.replace("current_timestamp()", "current_localtimestamp")
     return result, converted
 
 
-@st.cache_resource(validate=lambda c: c is not None, show_spinner=False)
+_SHARED_CON = None
+
+@st.cache_resource(show_spinner=False)
 def _get_shared_duckdb_connection():
     """Singleton connection shared across all Streamlit sessions/threads."""
+    global _SHARED_CON
     if not _duckdb_available():
         return None
 
-    import duckdb
-    # Use an in-memory connection and ATTACH the cache file under the catalog
-    # name the app's SQL already expects ("data_governance"). This avoids any
-    # prefix-stripping hacks and means the same SQL works against Databricks
-    # and local DuckDB without modification.
-    con = duckdb.connect(":memory:")
-    con.execute(f"ATTACH '{DUCKDB_PATH}' AS {CATALOG_CACHE} (READ_ONLY)")
-
-    # Attach the persistent user data database
-    con.execute(f"ATTACH IF NOT EXISTS '{USER_DATA_PATH}' AS user_data")
-
-    # Initialize user data tables with primary keys (if they don't exist)
     with _db_write_lock:
-        con.execute("""
-            CREATE TABLE IF NOT EXISTS user_data.comments (
-                comment_id        VARCHAR PRIMARY KEY,
-                object_type       VARCHAR,
-                object_name       VARCHAR,
-                comment_text      VARCHAR,
-                author_name       VARCHAR,
-                author_email      VARCHAR,
-                created_at        TIMESTAMP,
-                steward_email     VARCHAR,
-                parent_comment_id VARCHAR
-            )
-        """)
-        con.execute("""
-            CREATE TABLE IF NOT EXISTS user_data.business_name_overrides (
-                table_full_name VARCHAR,
-                column_name     VARCHAR,
-                business_name   VARCHAR,
-                definition      VARCHAR,
-                edited_by       VARCHAR,
-                edited_at       TIMESTAMP,
-                PRIMARY KEY (table_full_name, column_name)
-            )
-        """)
-        con.execute("""
-            CREATE TABLE IF NOT EXISTS user_data.audit_log (
-                event_id        VARCHAR PRIMARY KEY,
-                event_type      VARCHAR,
-                object_type     VARCHAR,
-                object_name     VARCHAR,
-                actor_email     VARCHAR,
-                old_value       VARCHAR,
-                new_value       VARCHAR,
-                created_at      TIMESTAMP
-            )
-        """)
-        con.execute("""
-            CREATE TABLE IF NOT EXISTS user_data.user_preferences (
-                user_oid        VARCHAR NOT NULL,
-                table_full_name VARCHAR NOT NULL,
-                pref_type       VARCHAR NOT NULL,
-                last_interacted TIMESTAMP NOT NULL,
-                PRIMARY KEY (user_oid, table_full_name, pref_type)
-            )
-        """)
-        con.execute("""
-            CREATE TABLE IF NOT EXISTS user_data.pending_sync (
-                sync_id         VARCHAR PRIMARY KEY,
-                sync_type       VARCHAR NOT NULL, -- COLUMN_DEF, TABLE_DESC, AUDIT, COMMENT, TAG, STEWARD
-                table_full_name VARCHAR,
-                payload_json    VARCHAR, -- Store type-specific data (e.g., tag key/value, comment author)
-                queued_by       VARCHAR,
-                queued_at       TIMESTAMP NOT NULL,
-                status          VARCHAR NOT NULL DEFAULT 'pending',
-                attempts        INTEGER  NOT NULL DEFAULT 0,
-                last_error      VARCHAR,
-                completed_at    TIMESTAMP
-            )
-        """)
-    return con
+        if _SHARED_CON is not None:
+            return _SHARED_CON
+            
+        import duckdb
+        try:
+            # Use an in-memory connection as the primary
+            con = duckdb.connect(":memory:")
+            # Attach the main read-only cache
+            con.execute(f"ATTACH '{DUCKDB_PATH}' AS {CATALOG_CACHE} (READ_ONLY)")
+            # Attach the persistent user data database
+            con.execute(f"ATTACH IF NOT EXISTS '{USER_DATA_PATH}' AS user_data")
+
+            # Initialize user data tables with primary keys (if they don't exist)
+            con.execute("""
+                CREATE TABLE IF NOT EXISTS user_data.comments (
+                    comment_id        VARCHAR PRIMARY KEY,
+                    object_type       VARCHAR,
+                    object_name       VARCHAR,
+                    comment_text      VARCHAR,
+                    author_name       VARCHAR,
+                    author_email      VARCHAR,
+                    created_at        TIMESTAMP,
+                    steward_email     VARCHAR,
+                    parent_comment_id VARCHAR
+                )
+            """)
+            con.execute("""
+                CREATE TABLE IF NOT EXISTS user_data.business_name_overrides (
+                    table_full_name VARCHAR,
+                    column_name     VARCHAR,
+                    business_name   VARCHAR,
+                    definition      VARCHAR,
+                    edited_by       VARCHAR,
+                    edited_at       TIMESTAMP,
+                    PRIMARY KEY (table_full_name, column_name)
+                )
+            """)
+            con.execute("""
+                CREATE TABLE IF NOT EXISTS user_data.audit_log (
+                    event_id        VARCHAR PRIMARY KEY,
+                    event_type      VARCHAR,
+                    object_type     VARCHAR,
+                    object_name     VARCHAR,
+                    actor_email     VARCHAR,
+                    old_value       VARCHAR,
+                    new_value       VARCHAR,
+                    created_at      TIMESTAMP
+                )
+            """)
+            con.execute("""
+                CREATE TABLE IF NOT EXISTS user_data.user_preferences (
+                    user_oid        VARCHAR NOT NULL,
+                    table_full_name VARCHAR NOT NULL,
+                    pref_type       VARCHAR NOT NULL,
+                    last_interacted TIMESTAMP NOT NULL,
+                    PRIMARY KEY (user_oid, table_full_name, pref_type)
+                )
+            """)
+            con.execute("""
+                CREATE TABLE IF NOT EXISTS user_data.pending_sync (
+                    sync_id         VARCHAR PRIMARY KEY,
+                    sync_type       VARCHAR NOT NULL, -- COLUMN_DEF, TABLE_DESC, AUDIT, COMMENT, TAG, STEWARD
+                    table_full_name VARCHAR,
+                    payload_json    VARCHAR, -- Store type-specific data (e.g., tag key/value, comment author)
+                    queued_by       VARCHAR,
+                    queued_at       TIMESTAMP NOT NULL,
+                    status          VARCHAR NOT NULL DEFAULT 'pending',
+                    attempts        INTEGER  NOT NULL DEFAULT 0,
+                    last_error      VARCHAR,
+                    completed_at    TIMESTAMP
+                )
+            """)
+            _SHARED_CON = con
+            return con
+        except Exception as e:
+            logging.error("Failed to initialize shared DuckDB connection: %s", e)
+            return None
+
 
 
 class _DuckDBCursor:
@@ -2759,7 +2770,7 @@ def search_all_metadata(query: str, groups: tuple):
     term_matches = []
     if _DEMO_GLOSSARY is not None and not _DEMO_GLOSSARY.empty and query:
         # Security: only show glossary terms whose related tables are visible to the user
-        _auth_df = get_authorized_tables(query_groups)
+        _auth_df = get_authorized_tables(groups)
         _allowed_fns = set(_auth_df["full_name"].tolist()) if _auth_df is not None and not _auth_df.empty else set()
 
         query_lower = query.lower()
@@ -2957,7 +2968,7 @@ def render_data_sample(table_full_name: str):
     st.markdown(f"**{table_full_name}**")
 
     # Security: check permission even though UI usually prevents this call
-    groups = tuple(st.session_state.user_groups) if st.session_state.get("user_groups") else ("none",)
+    groups = tuple(st.session_state.get("user_groups", [])) if st.session_state.get("user_groups") else ("none",)
     active_group = st.session_state.get("group_filter")
     query_groups = (active_group,) if active_group else groups
     _auth_df = get_authorized_tables(query_groups)
@@ -3108,10 +3119,10 @@ def render_glossary():
                 with _c_star:
                     if st.button("★" if _gloss_bk else "☆", key=f"gloss_bk_{table_fn}", use_container_width=True):
                         if _gloss_bk:
-                            st.session_state.bookmarks.discard(table_fn)
+                            st.session_state.get("bookmarks", set()).discard(table_fn)
                             _pref_delete(table_fn, "bookmark")
                         else:
-                            st.session_state.bookmarks.add(table_fn)
+                            st.session_state.get("bookmarks", set()).add(table_fn)
                             _pref_upsert(table_fn, "bookmark")
                         st.rerun()
 
@@ -3179,10 +3190,10 @@ def _render_table_card(row: "pd.Series", key_prefix: str) -> None:
     with _c_star:
         if st.button("★" if _is_bk else "☆", key=f"{key_prefix}_bk_{_full}", use_container_width=True):
             if _is_bk:
-                st.session_state.bookmarks.discard(_full)
+                st.session_state.get("bookmarks", set()).discard(_full)
                 _pref_delete(_full, "bookmark")
             else:
-                st.session_state.bookmarks.add(_full)
+                st.session_state.get("bookmarks", set()).add(_full)
                 _pref_upsert(_full, "bookmark")
             st.rerun()
     st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
@@ -3576,7 +3587,8 @@ def render_admin_page():
 
     st.markdown('<div style="margin-top:32px;"></div>', unsafe_allow_html=True)
 
-    with st.expander(t("admin.biz_log_title"), expanded=True):        biz_log = get_business_name_change_log()
+    with st.expander(t("admin.biz_log_title"), expanded=True):
+        biz_log = get_business_name_change_log()
         st.dataframe(
             biz_log,
             column_config={
@@ -3733,7 +3745,7 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
         st.session_state.user_groups   = _ql_groups
         st.session_state.user_name     = _ql_name
         st.session_state.user_email    = _ql_email
-    if not st.session_state.authenticated:
+    if not st.session_state.get("authenticated"):
         # Slim logo-only header for the sign-in page — avoids nav JS wiring on unauthenticated renders
         st.html(f'''
 <div class="dd-header">
@@ -3759,7 +3771,7 @@ current_tab = st.query_params.get("tab", "search")
 render_header(user_name=st.session_state.get("user_name", ""), active_tab=current_tab, show_admin=is_admin())
 st.markdown('<div class="dd-page" role="main" aria-live="polite">', unsafe_allow_html=True)
 
-groups = tuple(st.session_state.user_groups) if st.session_state.user_groups else ("none",)
+groups = tuple(st.session_state.get("user_groups", [])) if st.session_state.get("user_groups") else ("none",)
 active_group = st.session_state.get("group_filter")
 query_groups = (active_group,) if active_group else groups
 
@@ -4008,10 +4020,10 @@ if current_tab == "search":
                         with _c_bk:
                             if st.button("★" if _is_bookmarked else "☆", key=f"bk_{full_name}", use_container_width=True):
                                 if _is_bookmarked:
-                                    st.session_state.bookmarks.discard(full_name)
+                                    st.session_state.get("bookmarks", set()).discard(full_name)
                                     _pref_delete(full_name, "bookmark")
                                 else:
-                                    st.session_state.bookmarks.add(full_name)
+                                    st.session_state.get("bookmarks", set()).add(full_name)
                                     _pref_upsert(full_name, "bookmark")
                                 st.rerun()
 
@@ -4098,10 +4110,10 @@ if current_tab == "search":
                                 _is_col_bk = _col_bk_id in st.session_state.get("col_bookmarks", set())
                                 if _r_star.button("★" if _is_col_bk else "☆", key=f"colbk_{_edit_key}", use_container_width=True):
                                     if _is_col_bk:
-                                        st.session_state.col_bookmarks.discard(_col_bk_id)
+                                        st.session_state.get("col_bookmarks", set()).discard(_col_bk_id)
                                         _pref_delete(_col_bk_id, "col_bookmark")
                                     else:
-                                        st.session_state.col_bookmarks.add(_col_bk_id)
+                                        st.session_state.get("col_bookmarks", set()).add(_col_bk_id)
                                         _pref_upsert(_col_bk_id, "col_bookmark")
                                     st.rerun()
 
