@@ -94,6 +94,7 @@
     "stats_overrides": "Surcharges de noms métier",
     "biz_log_title": "Historique des noms métier",
     "comment_log_title": "Historique des commentaires",
+    "sync_title": "État de la synchronisation",
     "no_data": "Aucune donnée d’audit disponible.",
     "access_denied": "Accès administrateur requis."
   },

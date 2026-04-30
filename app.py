@@ -2191,8 +2191,14 @@ def _start_sync_worker_thread():
     import threading
 
     def _loop():
+        _count = 0
         while True:
             try:
+                # Every 20 cycles (~10 mins in Active mode, ~1.6 mins in Idle mode), run DR resync
+                if _count % 20 == 0:
+                    _run_dr_resync()
+                _count += 1
+
                 n = _process_sync_queue()
                 if n:
                     logging.info("Sync worker: pushed %d column definition(s) to Databricks.", n)
@@ -3489,6 +3495,26 @@ def get_comment_log() -> pd.DataFrame:
     )
 
 
+def get_sync_queue_stats() -> dict:
+    """Return counts of pending_sync items by status."""
+    if not _duckdb_available():
+        return {}
+    try:
+        conn = _get_write_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT status, COUNT(*) FROM user_data.pending_sync GROUP BY status"
+            )
+            rows = cursor.fetchall()
+            stats = {row[0]: row[1] for row in rows}
+            # Ensure all statuses are present
+            for s in ("pending", "processing", "done", "failed"):
+                stats.setdefault(s, 0)
+            return stats
+    except Exception:
+        return {"pending": 0, "processing": 0, "done": 0, "failed": 0}
+
+
 def render_admin_page():
     if not is_admin():
         st.error(t("admin.access_denied"))
@@ -3513,8 +3539,44 @@ def render_admin_page():
     with c4:
         st.metric(t("admin.stats_overrides"), f"{stats.get('overrides', 0):,}")
 
-    with st.expander(t("admin.biz_log_title"), expanded=True):
-        biz_log = get_business_name_change_log()
+    # --- § Synchronization Status ---
+    st.markdown(f'<div class="dd-section-header" style="margin-top:32px;"><span class="dd-eyebrow">§ {t("admin.sync_title")}</span></div>', unsafe_allow_html=True)
+
+    sync_stats = get_sync_queue_stats()
+    total_jobs = sum(sync_stats.values())
+    done_jobs = sync_stats.get("done", 0)
+    pct_complete = (done_jobs / total_jobs * 100) if total_jobs > 0 else 100.0
+
+    sc1, sc2 = st.columns([7, 3], gap="large")
+    with sc1:
+        st.progress(pct_complete / 100.0, text=f"{pct_complete:.1f}% synced with Databricks")
+
+        # Detailed breakdown
+        bc1, bc2, bc3, bc4 = st.columns(4)
+        bc1.caption(f"Pending: {sync_stats.get('pending', 0)}")
+        bc2.caption(f"Processing: {sync_stats.get('processing', 0)}")
+        bc3.caption(f"Done: {sync_stats.get('done', 0)}")
+        bc4.caption(f"Failed: {sync_stats.get('failed', 0)}")
+
+    with sc2:
+        # Current Mode & DR Status
+        is_idle = (time.time() - _LAST_UI_ACTIVITY) > 300
+        mode_label = "Idle (High Throughput)" if is_idle else "Active (Low Impact)"
+        mode_color = "#2B4A6B" if is_idle else "#8C271E" # Deep blue vs Accent red
+
+        st.markdown(
+            f'<div style="background:var(--paper-deep); padding:12px; border-radius:4px; border-left:4px solid {mode_color};">'
+            f'<div style="font-family:var(--font-mono); font-size:10px; color:var(--ink-40); text-transform:uppercase;">Sync Mode</div>'
+            f'<div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink);">{mode_label}</div>'
+            f'<div style="margin-top:12px; font-family:var(--font-mono); font-size:10px; color:var(--ink-40); text-transform:uppercase;">Self-Healing (DR)</div>'
+            f'<div style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60);">{_DR_RESYNC_STATUS}</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+    st.markdown('<div style="margin-top:32px;"></div>', unsafe_allow_html=True)
+
+    with st.expander(t("admin.biz_log_title"), expanded=True):        biz_log = get_business_name_change_log()
         st.dataframe(
             biz_log,
             column_config={
@@ -3545,10 +3607,72 @@ def render_admin_page():
 
 # ── Global State for Background Workers ──────────────────────────────────────
 _LAST_UI_ACTIVITY = time.time()
+_DR_RESYNC_STATUS = "Idle" # Idle, Checking, Syncing, Up-to-date, Error
+_DR_RESYNC_PROGRESS = 0.0
 
 def _mark_ui_activity():
     global _LAST_UI_ACTIVITY
     _LAST_UI_ACTIVITY = time.time()
+
+
+def _run_dr_resync():
+    """Background task to pull missing records from Databricks to DuckDB."""
+    global _DR_RESYNC_STATUS, _DR_RESYNC_PROGRESS
+    if not _duckdb_available():
+        return
+    
+    _DR_RESYNC_STATUS = "Checking"
+    try:
+        conn = _get_write_connection()
+        # 1. Check for newest records in Databricks vs Local
+        # We check comments, audit_log, and overrides
+        tables_to_check = [
+            ("comments", "created_at", "comment_id"),
+            ("audit_log", "created_at", "event_id"),
+            ("business_name_overrides", "edited_at", "table_full_name, column_name")
+        ]
+        
+        for tbl, ts_col, pk in tables_to_check:
+            # Get max local timestamp
+            with conn.cursor() as cursor:
+                cursor.execute(f"SELECT MAX({ts_col}) FROM user_data.{tbl}")
+                local_max = cursor.fetchall()[0][0]
+            
+            # Query Databricks for any records AFTER local_max
+            # Note: run_query handles the Databricks connection
+            remote_q = f"SELECT * FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.{tbl}"
+            if local_max:
+                remote_q += f" WHERE {ts_col} > '{local_max}'"
+            
+            delta_df = run_query(remote_q)
+            
+            if delta_df is not None and not delta_df.empty:
+                _DR_RESYNC_STATUS = f"Syncing {tbl}"
+                # Merge into DuckDB
+                with conn.cursor() as cursor:
+                    for _, row in delta_df.iterrows():
+                        # Simple append for logs/comments (guaranteed unique IDs)
+                        if tbl in ("comments", "audit_log"):
+                            cols = ", ".join(delta_df.columns)
+                            placeholders = ", ".join([f"%({c})s" for c in delta_df.columns])
+                            cursor.execute_write(
+                                f"INSERT OR IGNORE INTO user_data.{tbl} ({cols}) VALUES ({placeholders})",
+                                row.to_dict()
+                            )
+                        else:
+                            # Merge for overrides
+                            cursor.execute_write(
+                                f"INSERT OR REPLACE INTO user_data.{tbl} ({', '.join(delta_df.columns)}) "
+                                f"VALUES ({', '.join([f'%({c})s' for c in delta_df.columns])})",
+                                row.to_dict()
+                            )
+        
+        _DR_RESYNC_STATUS = "Up-to-date"
+        _DR_RESYNC_PROGRESS = 100.0
+    except Exception as e:
+        logging.error("DR Resync failed: %s", e)
+        _DR_RESYNC_STATUS = f"Error: {str(e)[:50]}"
+
 
 
 # ── App entry point ────────────────────────────────────────────────────────────
