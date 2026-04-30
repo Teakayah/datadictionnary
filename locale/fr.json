@@ -61,7 +61,12 @@
     "browse_public_tables": "Parcourir les tables accessibles à tous ({privilege})",
     "load_error": "Erreur lors de l’affichage des détails.",
     "preview_data": "Aperçu des données",
-    "export_dictionary": "Exporter le dictionnaire"
+    "export_dictionary": "Exporter le dictionnaire",
+    "edit_table": "Modifier les métadonnées",
+    "table_description": "Description de la table",
+    "steward_email": "Email du responsable",
+    "unauthorized": "Vous n'avez pas la permission d'accéder à cet élément.",
+    "data_sample": "Aperçu des données"
   },
   "comment": {
     "add_comment": "Ajouter un commentaire",
