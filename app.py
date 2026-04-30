@@ -333,24 +333,7 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
 }
 
 /* ── Buttons ── */
-.stButton > button {
-    font-family: var(--font-sans) !important;
-    font-size: 14px !important;
-    font-weight: 500 !important;
-    padding: 10px 18px !important;
-    border-radius: 2px !important;
-    border: 1px solid var(--ink) !important;
-    background: var(--ink) !important;
-    color: var(--paper) !important;
-    letter-spacing: -0.005em !important;
-    transition: background var(--dur-hover) var(--ease) !important;
-    box-shadow: none !important;
-}
-.stButton > button:hover {
-    background: var(--ink-90) !important;
-    border-color: var(--ink-90) !important;
-    color: var(--paper) !important;
-}
+.stButton > button,
 .stDownloadButton > button {
     font-family: var(--font-sans) !important;
     font-size: 14px !important;
@@ -364,6 +347,7 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
     transition: background var(--dur-hover) var(--ease) !important;
     box-shadow: none !important;
 }
+.stButton > button:hover,
 .stDownloadButton > button:hover {
     background: var(--ink-90) !important;
     border-color: var(--ink-90) !important;
