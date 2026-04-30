@@ -433,17 +433,22 @@ def write_duckdb(
     }
 
     # --- Write to tmp, then atomic swap ---
+    # Tables are written into the "dictionary_cache" schema so that the app's
+    # 3-part SQL (data_governance.dictionary_cache.table) resolves when the file
+    # is ATTACHed AS data_governance — same layout as the Databricks catalog.
+    SCHEMA = SCHEMA_CACHE
     try:
         con = duckdb.connect(tmp_path)
+        con.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
         for tbl, df in reload_frames.items():
             if df.empty:
                 col_defs = ", ".join(f'"{c}" VARCHAR' for c in df.columns)
-                con.execute(f"CREATE OR REPLACE TABLE {tbl} ({col_defs})")
+                con.execute(f"CREATE OR REPLACE TABLE {SCHEMA}.{tbl} ({col_defs})")
             else:
-                con.execute(f"CREATE OR REPLACE TABLE {tbl} AS SELECT * FROM df")
-        con.execute("CREATE INDEX IF NOT EXISTS idx_perm_principal ON permissions_cache (principal)")
-        con.execute("CREATE INDEX IF NOT EXISTS idx_perm_table ON permissions_cache (table_full_name)")
-        con.execute("CREATE INDEX IF NOT EXISTS idx_cols_table ON columns_metadata (table_full_name)")
+                con.execute(f"CREATE OR REPLACE TABLE {SCHEMA}.{tbl} AS SELECT * FROM df")
+        con.execute(f"CREATE INDEX IF NOT EXISTS idx_perm_principal ON {SCHEMA}.permissions_cache (principal)")
+        con.execute(f"CREATE INDEX IF NOT EXISTS idx_perm_table ON {SCHEMA}.permissions_cache (table_full_name)")
+        con.execute(f"CREATE INDEX IF NOT EXISTS idx_cols_table ON {SCHEMA}.columns_metadata (table_full_name)")
         con.close()
         os.replace(tmp_path, duckdb_path)
         print(f"  ✓ DuckDB written ({duckdb_path})")

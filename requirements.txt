@@ -5,3 +5,4 @@ pandas
 python-dotenv
 databricks-sdk
 duckdb
+streamlit-js-eval
