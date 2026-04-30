@@ -124,7 +124,7 @@ def process_batch(con: duckdb.DuckDBPyConnection) -> int:
             with _write_lock:
                 con.execute(
                     "UPDATE pending_sync "
-                    "SET status='done', completed_at=current_localtimestamp, last_error=NULL "
+                    "SET status='done', completed_at=current_localtimestamp(), last_error=NULL "
                     "WHERE sync_id=?",
                     [sync_id],
                 )

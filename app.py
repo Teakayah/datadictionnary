@@ -1555,8 +1555,8 @@ def _to_duckdb_sql(sql: str, params: dict) -> tuple:
             converted[name] = value
     # Remaining %(name)s → $name
     result = re.sub(r"%\((\w+)\)s", r"$\1", result)
-    # DuckDB compatibility: current_timestamp() → current_localtimestamp
-    result = result.replace("current_timestamp()", "current_localtimestamp")
+    # DuckDB compatibility: current_timestamp() → current_localtimestamp()
+    result = result.replace("current_timestamp()", "current_localtimestamp()")
     return result, converted
 
 
@@ -2043,7 +2043,7 @@ def enqueue_sync(sync_type: str, table_full_name: str | None, payload: dict, que
         cursor.execute_write(
             "INSERT INTO user_data.pending_sync "
             "(sync_id, sync_type, table_full_name, payload_json, queued_by, queued_at, status, attempts) "
-            "VALUES (%(id)s, %(st)s, %(fn)s, %(pay)s, %(by)s, current_localtimestamp, 'pending', 0)",
+            "VALUES (%(id)s, %(st)s, %(fn)s, %(pay)s, %(by)s, current_localtimestamp(), 'pending', 0)",
             {
                 "id":  sync_id,
                 "st":  sync_type,
@@ -2176,7 +2176,7 @@ def _process_sync_queue() -> int:
                 
                 with conn.cursor() as cursor:
                     cursor.execute_write(
-                        "UPDATE user_data.pending_sync SET status='done', completed_at=current_localtimestamp, last_error=NULL WHERE sync_id=%(id)s",
+                        "UPDATE user_data.pending_sync SET status='done', completed_at=current_localtimestamp(), last_error=NULL WHERE sync_id=%(id)s",
                         {"id": sync_id},
                     )
                 processed += 1
@@ -2252,7 +2252,7 @@ def log_audit_event(event_type: str, object_type: str, object_name: str, old_val
                     f"INSERT INTO {table_name} "
                     f"(event_id, event_type, object_type, object_name, actor_email, old_value, new_value, created_at) "
                     f"VALUES (%(event_id)s, %(event_type)s, %(object_type)s, %(object_name)s, "
-                    f"%(actor_email)s, %(old_value)s, %(new_value)s, current_localtimestamp)",
+                    f"%(actor_email)s, %(old_value)s, %(new_value)s, current_localtimestamp())",
                     payload,
                 )
             # Enqueue for Databricks sync (Priority 3)
@@ -2345,13 +2345,13 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
                 INSERT INTO user_data.business_name_overrides (
                     table_full_name, column_name, business_name, definition, edited_by, edited_at
                 ) VALUES (
-                    %(table_full_name)s, %(column_name)s, %(business_name)s, %(definition)s, %(edited_by)s, current_localtimestamp
+                    %(table_full_name)s, %(column_name)s, %(business_name)s, %(definition)s, %(edited_by)s, current_localtimestamp()
                 )
                 ON CONFLICT (table_full_name, column_name) DO UPDATE SET
                     business_name = excluded.business_name,
                     definition = excluded.definition,
                     edited_by = excluded.edited_by,
-                    edited_at = current_localtimestamp
+                    edited_at = current_localtimestamp()
                 """,
                 {
                     "table_full_name": table_full_name,
@@ -2605,7 +2605,7 @@ def save_comment(
                 "(comment_id, object_type, object_name, comment_text, author_name, author_email, "
                 "created_at, steward_email, parent_comment_id) "
                 "VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
-                "%(author_name)s, %(author_email)s, current_localtimestamp, %(steward_email)s, %(parent_comment_id)s)",
+                "%(author_name)s, %(author_email)s, current_localtimestamp(), %(steward_email)s, %(parent_comment_id)s)",
                 {
                     "comment_id":        comment_id,
                     "object_type":       object_type,
