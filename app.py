@@ -2596,6 +2596,10 @@ def search_all_metadata(query: str, groups: tuple):
     # Process glossary terms
     term_matches = []
     if _DEMO_GLOSSARY is not None and not _DEMO_GLOSSARY.empty and query:
+        # Security: only show glossary terms whose related tables are visible to the user
+        _auth_df = get_authorized_tables(query_groups)
+        _allowed_fns = set(_auth_df["full_name"].tolist()) if _auth_df is not None and not _auth_df.empty else set()
+
         query_lower = query.lower()
         mask = (
             _DEMO_GLOSSARY['term'].str.lower().str.contains(query_lower, regex=False, na=False) |
@@ -2606,6 +2610,11 @@ def search_all_metadata(query: str, groups: tuple):
         for row in glossary_df.itertuples(index=False):
             related_tables = getattr(row, 'related_tables', [])
             target_table = related_tables[0] if related_tables else ""
+            
+            # Security filter: skip if user cannot see the primary related table
+            if target_table and target_table not in _allowed_fns:
+                continue
+
             parts = target_table.split('.')
             term_matches.append({
                 "full_name": target_table,
@@ -2761,6 +2770,17 @@ def render_data_sample(table_full_name: str):
     import pandas as pd
     st.markdown(_VIS_WIDE_CSS, unsafe_allow_html=True)
     st.markdown(f"**{table_full_name}**")
+
+    # Security: check permission even though UI usually prevents this call
+    groups = tuple(st.session_state.user_groups) if st.session_state.get("user_groups") else ("none",)
+    active_group = st.session_state.get("group_filter")
+    query_groups = (active_group,) if active_group else groups
+    _auth_df = get_authorized_tables(query_groups)
+    _allowed = set(_auth_df["full_name"].tolist()) if _auth_df is not None and not _auth_df.empty else set()
+    if table_full_name not in _allowed:
+        st.error(t("detail.unauthorized"))
+        return
+
     try:
         if not re.match(r"^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$", table_full_name):
             st.error("Invalid table name format.")
@@ -3552,9 +3572,15 @@ if current_tab == "search":
                 </div>''', unsafe_allow_html=True)
             with _gb:
                 if st.button(f"{t('search.view_details')} →", key=f"gview_{_gr_full}_{_gr_i}", use_container_width=True):
-                    st.session_state["dd_search_override"] = _gr_name
-                    st.session_state["dd_nav_select"] = _gr_full
-                    st.rerun()
+                    # Permission gate: verify access before setting sticky nav
+                    _auth_df = get_authorized_tables(query_groups)
+                    _allowed = set(_auth_df["full_name"].tolist()) if _auth_df is not None and not _auth_df.empty else set()
+                    if _gr_full in _allowed:
+                        st.session_state["dd_search_override"] = _gr_name
+                        st.session_state["dd_nav_select"] = _gr_full
+                        st.rerun()
+                    else:
+                        st.error(t("detail.unauthorized"))
             st.markdown('<div style="margin-bottom:8px;"></div>', unsafe_allow_html=True)
 
     if search_query:
@@ -3602,8 +3628,14 @@ if current_tab == "search":
                             ''', unsafe_allow_html=True)
                         with _btn_col:
                             if st.button(f"{t('search.view_details')} →", key=f"view_{_sr_full}_{_sr_i}", use_container_width=True):
-                                st.session_state["_dd_sticky_nav"] = _sr_full
-                                st.rerun()
+                                # Permission gate
+                                _auth_df = get_authorized_tables(query_groups)
+                                _allowed = set(_auth_df["full_name"].tolist()) if _auth_df is not None and not _auth_df.empty else set()
+                                if _sr_full in _allowed:
+                                    st.session_state["_dd_sticky_nav"] = _sr_full
+                                    st.rerun()
+                                else:
+                                    st.error(t("detail.unauthorized"))
                         st.markdown('<div style="margin-bottom:8px;"></div>', unsafe_allow_html=True)
 
                 if _nav_idx is not None:
