@@ -2063,7 +2063,7 @@ def _process_sync_queue() -> int:
                 "SELECT sync_id, table_full_name, column_name, definition, attempts "
                 "FROM user_data.pending_sync "
                 "WHERE status = 'pending' AND attempts < %(max)s "
-                "ORDER BY queued_at LIMIT 20",
+                "ORDER BY queued_at LIMIT 5",
                 {"max": _SYNC_MAX_ATTEMPTS},
             )
             rows = cursor.fetchall()
@@ -2073,6 +2073,8 @@ def _process_sync_queue() -> int:
 
         processed = 0
         for sync_id, table_fn, col_name, definition, attempts in rows:
+            # Yield to other threads before each item
+            time.sleep(0.1)
             new_attempts = attempts + 1
             
             # 2. Mark as processing
@@ -2122,7 +2124,7 @@ def _start_sync_worker_thread():
                     logging.info("Sync worker: pushed %d column definition(s) to Databricks.", n)
             except Exception as exc:
                 logging.error("Sync worker loop error: %s", exc, exc_info=True)
-            time.sleep(15)
+            time.sleep(30)
 
     t = threading.Thread(target=_loop, name="dd-sync-worker", daemon=True)
     t.start()
