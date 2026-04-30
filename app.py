@@ -1815,19 +1815,22 @@ def _pref_load(pref_type: str, limit: int = 20) -> list[str]:
     if not _duckdb_available():
         return []
     try:
-        con = get_db_connection()
-        rows = con.execute(
-            """
-            SELECT table_full_name FROM user_data.user_preferences
-            WHERE user_oid=? AND pref_type=?
-            ORDER BY last_interacted DESC LIMIT ?
-            """,
-            [_user_oid(), pref_type, limit],
-        ).fetchall()
-        return [r[0] for r in rows]
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT table_full_name FROM user_data.user_preferences
+                WHERE user_oid=%(oid)s AND pref_type=%(type)s
+                ORDER BY last_interacted DESC LIMIT %(lim)s
+                """,
+                {"oid": _user_oid(), "type": pref_type, "lim": limit},
+            )
+            rows = cursor.fetchall_as_pandas()
+            if rows is not None and not rows.empty:
+                return rows["table_full_name"].tolist()
     except Exception as _e:
         logging.warning("Could not load user preferences: %s", _e)
-        return []
+    return []
 
 
 def _sync_prefs_to_session() -> None:
@@ -2002,19 +2005,25 @@ def enqueue_column_sync(table_full_name: str, column_name: str, definition: str,
     if not _duckdb_available():
         return
     sync_id = str(uuid.uuid4())
-    con = _get_shared_duckdb_connection()
-    with _db_write_lock:
+    conn = _get_write_connection()
+    with conn.cursor() as cursor:
         # Upsert: if this column already has a pending item, replace it with the latest value.
-        con.execute(
+        cursor.execute_write(
             "DELETE FROM user_data.pending_sync "
-            "WHERE table_full_name = ? AND column_name = ? AND status IN ('pending', 'failed')",
-            [table_full_name, column_name],
+            "WHERE table_full_name = %(fn)s AND column_name = %(cn)s AND status IN ('pending', 'failed')",
+            {"fn": table_full_name, "cn": column_name},
         )
-        con.execute(
+        cursor.execute_write(
             "INSERT INTO user_data.pending_sync "
             "(sync_id, table_full_name, column_name, definition, queued_by, queued_at, status, attempts) "
-            "VALUES (?, ?, ?, ?, ?, current_localtimestamp, 'pending', 0)",
-            [sync_id, table_full_name, column_name, definition, queued_by],
+            "VALUES (%(id)s, %(fn)s, %(cn)s, %(def)s, %(by)s, current_localtimestamp, 'pending', 0)",
+            {
+                "id":  sync_id,
+                "fn":  table_full_name,
+                "cn":  column_name,
+                "def": definition,
+                "by":  queued_by,
+            },
         )
 
 
@@ -2039,46 +2048,65 @@ def _push_definition_to_databricks(table_full_name: str, column_name: str, defin
 def _process_sync_queue() -> int:
     """Drain pending sync items → Databricks. Returns number of items attempted.
 
-    Uses its own DuckDB connection to avoid sharing the main thread's
-    connection object across threads (DuckDB connections are not thread-safe).
+    Uses the shared DuckDB connection and lock to ensure thread safety
+    and avoid file-locking conflicts with the main thread.
     """
-    if not _duckdb_available() or not USER_DATA_PATH:
+    if not _duckdb_available():
         return 0
-    import duckdb as _duckdb
-    con = _duckdb.connect(USER_DATA_PATH)
+    
+    conn = _get_write_connection()
     try:
-        rows = con.execute(
-            "SELECT sync_id, table_full_name, column_name, definition, attempts "
-            "FROM pending_sync "
-            "WHERE status = 'pending' AND attempts < ? "
-            "ORDER BY queued_at LIMIT 20",
-            [_SYNC_MAX_ATTEMPTS],
-        ).fetchall()
+        # 1. Fetch pending items
+        # We don't need a write-lock for the SELECT, but we use the shared connection.
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT sync_id, table_full_name, column_name, definition, attempts "
+                "FROM user_data.pending_sync "
+                "WHERE status = 'pending' AND attempts < %(max)s "
+                "ORDER BY queued_at LIMIT 20",
+                {"max": _SYNC_MAX_ATTEMPTS},
+            )
+            rows = cursor.fetchall()
+        
+        if not rows:
+            return 0
+
         processed = 0
         for sync_id, table_fn, col_name, definition, attempts in rows:
             new_attempts = attempts + 1
-            con.execute(
-                "UPDATE pending_sync SET status='processing', attempts=? WHERE sync_id=?",
-                [new_attempts, sync_id],
-            )
-            try:
-                _push_definition_to_databricks(table_fn, col_name, definition or "")
-                con.execute(
-                    "UPDATE pending_sync SET status='done', completed_at=current_localtimestamp, last_error=NULL WHERE sync_id=?",
-                    [sync_id],
+            
+            # 2. Mark as processing
+            with conn.cursor() as cursor:
+                cursor.execute_write(
+                    "UPDATE user_data.pending_sync SET status='processing', attempts=%(att)s WHERE sync_id=%(id)s",
+                    {"att": new_attempts, "id": sync_id},
                 )
+            
+            try:
+                # 3. Push to Databricks (network call, takes time)
+                _push_definition_to_databricks(table_fn, col_name, definition or "")
+                
+                # 4. Mark as done
+                with conn.cursor() as cursor:
+                    cursor.execute_write(
+                        "UPDATE user_data.pending_sync SET status='done', completed_at=current_localtimestamp, last_error=NULL WHERE sync_id=%(id)s",
+                        {"id": sync_id},
+                    )
                 processed += 1
             except Exception as exc:
                 err = str(exc)[:500]
                 new_status = "failed" if new_attempts >= _SYNC_MAX_ATTEMPTS else "pending"
-                con.execute(
-                    "UPDATE pending_sync SET status=?, last_error=? WHERE sync_id=?",
-                    [new_status, err, sync_id],
-                )
+                with conn.cursor() as cursor:
+                    cursor.execute_write(
+                        "UPDATE user_data.pending_sync SET status=%(st)s, last_error=%(err)s WHERE sync_id=%(id)s",
+                        {"st": new_status, "err": err, "id": sync_id},
+                    )
                 logging.warning("Sync %s failed (attempt %d/%d): %s", sync_id[:8], new_attempts, _SYNC_MAX_ATTEMPTS, err)
+        
         return processed
-    finally:
-        con.close()
+    except Exception as e:
+        logging.error("Error processing sync queue: %s", e)
+        return 0
 
 
 @st.cache_resource(show_spinner=False)
@@ -2214,7 +2242,8 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
     # Flush write to disk so it's immediately visible to all sessions sharing the same file.
     if _duckdb_available():
         try:
-            _get_shared_duckdb_connection().execute("CHECKPOINT user_data")
+            with _db_write_lock:
+                _get_shared_duckdb_connection().execute("CHECKPOINT user_data")
         except Exception:
             pass
         enqueue_column_sync(table_full_name, column_name, definition, user_name)
