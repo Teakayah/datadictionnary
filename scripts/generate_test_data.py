@@ -577,13 +577,13 @@ def _rand_email(rng: random.Random, dept: str) -> str:
     return f"{rng.choice(names)}@research-org.ca"
 
 
-def _dq_score(rng: random.Random, has_desc: bool) -> tuple[str, str, str]:
-    if has_desc:
-        score = str(rng.randint(88, 100))
-        status = "PASS"
-    else:
-        score = str(rng.randint(55, 79))
-        status = rng.choice(["PASS", "PASS", "WARN"])
+def _dq_score(rng: random.Random, n_cols_with_desc: int, n_total_cols: int) -> tuple[str, str, str]:
+    """Completeness = % of ALL columns (any type) that have a definition."""
+    col_coverage = n_cols_with_desc / n_total_cols if n_total_cols > 0 else 0
+    # Add small random noise (±3 pts) so scores aren't all identical
+    raw = col_coverage * 100 + rng.uniform(-3, 3)
+    score = str(round(max(0, min(100, raw))))
+    status = "PASS" if col_coverage >= 0.70 else rng.choice(["PASS", "WARN"])
     n = rng.randint(1, 48)
     unit = "hours" if n < 24 else "days"
     freshness = f"{n % 24 + 1} {unit}" if unit == "hours" else f"{n // 24} days"
@@ -709,8 +709,11 @@ def generate(
 
             col_list = col_list[:n_cols]
 
+            _n_cols_with_desc = 0
             for col_name, data_type, col_comment in col_list:
                 has_col_desc = rng.random() < 0.65
+                if has_col_desc:
+                    _n_cols_with_desc += 1
                 columns_rows.append({
                     "table_full_name": full_name,
                     "column_name":     col_name,
@@ -760,7 +763,7 @@ def generate(
                                "tag_key": "department", "tag_value": dept})
 
             # ── data quality ───────────────────────────────────────────────────
-            score, status, freshness = _dq_score(rng, has_desc)
+            score, status, freshness = _dq_score(rng, _n_cols_with_desc, len(col_list))
             dq_rows.append({
                 "table_full_name": full_name,
                 "dq_score":        score,
@@ -863,6 +866,13 @@ def generate(
 
     con = duckdb.connect(str(tmp_path))
 
+    # Tables live in the "dictionary_cache" schema so that the app's 3-part SQL
+    # (data_governance.dictionary_cache.table_name) resolves correctly when the
+    # file is ATTACHed AS data_governance. This mirrors the Databricks catalog
+    # layout and avoids any prefix-stripping hacks in the app.
+    SCHEMA = "dictionary_cache"
+    con.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
+
     reload_frames = {
         "tables_metadata":  tables_df,
         "columns_metadata": columns_df,
@@ -882,16 +892,16 @@ def generate(
 
     for tbl, df in reload_frames.items():
         if df.empty:
-            con.execute(f"CREATE OR REPLACE TABLE {tbl} AS SELECT * FROM df LIMIT 0")
+            con.execute(f"CREATE OR REPLACE TABLE {SCHEMA}.{tbl} AS SELECT * FROM df LIMIT 0")
         else:
-            con.execute(f"CREATE OR REPLACE TABLE {tbl} AS SELECT * FROM df")
+            con.execute(f"CREATE OR REPLACE TABLE {SCHEMA}.{tbl} AS SELECT * FROM df")
 
     for tbl, schema_sql in empty_schemas.items():
-        con.execute(f"CREATE TABLE IF NOT EXISTS {tbl} ({schema_sql})")
+        con.execute(f"CREATE TABLE IF NOT EXISTS {SCHEMA}.{tbl} ({schema_sql})")
 
-    con.execute("CREATE INDEX IF NOT EXISTS idx_perm_principal ON permissions_cache (principal)")
-    con.execute("CREATE INDEX IF NOT EXISTS idx_perm_table    ON permissions_cache (table_full_name)")
-    con.execute("CREATE INDEX IF NOT EXISTS idx_cols_table    ON columns_metadata  (table_full_name)")
+    con.execute(f"CREATE INDEX IF NOT EXISTS idx_perm_principal ON {SCHEMA}.permissions_cache (principal)")
+    con.execute(f"CREATE INDEX IF NOT EXISTS idx_perm_table    ON {SCHEMA}.permissions_cache (table_full_name)")
+    con.execute(f"CREATE INDEX IF NOT EXISTS idx_cols_table    ON {SCHEMA}.columns_metadata  (table_full_name)")
 
     # ── optional: create actual row data for Preview feature ─────────────────
     if with_data:
@@ -931,8 +941,10 @@ def _write_row_data(con, tables_rows, columns_rows, tags_rows, rng: random.Rando
             continue
 
         col_defs = ", ".join(f'"{c}" VARCHAR' for c, _ in cols)
-        con.execute(f'CREATE SCHEMA IF NOT EXISTS "{catalog}"."{schema}"')
-        con.execute(f'CREATE OR REPLACE TABLE "{catalog}"."{schema}"."{tname}" ({col_defs})')
+        # Store under schema only (no catalog prefix) — the file is ATTACHed as the
+        # Databricks catalog name by the app, so data_governance.<schema>.<table> resolves.
+        con.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
+        con.execute(f'CREATE OR REPLACE TABLE "{schema}"."{tname}" ({col_defs})')
 
         rows = []
         for i in range(1, n_rows + 1):
@@ -959,7 +971,7 @@ def _write_row_data(con, tables_rows, columns_rows, tags_rows, rng: random.Rando
         placeholders = ", ".join(["?" ] * len(cols))
         col_names = ", ".join(f'"{c}"' for c, _ in cols)
         con.executemany(
-            f'INSERT INTO "{catalog}"."{schema}"."{tname}" ({col_names}) VALUES ({placeholders})',
+            f'INSERT INTO "{schema}"."{tname}" ({col_names}) VALUES ({placeholders})',
             rows
         )
 

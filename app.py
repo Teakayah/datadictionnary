@@ -6,6 +6,7 @@ import threading
 import time
 import streamlit as st
 import streamlit.components.v1 as components
+from streamlit_js_eval import streamlit_js_eval
 from databricks import sql
 import os
 import msal
@@ -590,6 +591,25 @@ code, pre, .stCode {
     color: var(--ink-40);
     margin-top: 12px;
 }
+
+/* ── DQ grade badges ── */
+.dd-dq-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+.dq-a { background: #dcfce7; color: #15803d; }
+.dq-b { background: #fef9c3; color: #92400e; }
+.dq-c { background: #ffedd5; color: #c2410c; }
+.dq-d { background: #fee2e2; color: #B8362A; }
 
 /* ── Search page ── */
 .dd-search-hero {
@@ -1245,8 +1265,6 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
         for tab_id in _tabs:
             if st.button(t(f"nav.{tab_id}"), key=f"nav_{tab_id}"):
                 st.query_params["tab"] = tab_id
-                if _is_mock:
-                    st.query_params["mock_login"] = "true"
                 st.rerun()
         # on_click fires before rerun so render_header() picks up the new locale.
         st.button("LOCALE_EN", key="lang_btn_en", on_click=set_locale, args=("en",))
@@ -1547,7 +1565,12 @@ def _get_shared_duckdb_connection():
         return None
 
     import duckdb
-    con = duckdb.connect(DUCKDB_PATH)
+    # Use an in-memory connection and ATTACH the cache file under the catalog
+    # name the app's SQL already expects ("data_governance"). This avoids any
+    # prefix-stripping hacks and means the same SQL works against Databricks
+    # and local DuckDB without modification.
+    con = duckdb.connect(":memory:")
+    con.execute(f"ATTACH '{DUCKDB_PATH}' AS {CATALOG_CACHE} (READ_ONLY)")
 
     # Attach the persistent user data database
     con.execute(f"ATTACH IF NOT EXISTS '{USER_DATA_PATH}' AS user_data")
@@ -1599,6 +1622,20 @@ def _get_shared_duckdb_connection():
                 PRIMARY KEY (user_oid, table_full_name, pref_type)
             )
         """)
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS user_data.pending_sync (
+                sync_id         VARCHAR PRIMARY KEY,
+                table_full_name VARCHAR NOT NULL,
+                column_name     VARCHAR NOT NULL,
+                definition      VARCHAR,
+                queued_by       VARCHAR,
+                queued_at       TIMESTAMP NOT NULL,
+                status          VARCHAR NOT NULL DEFAULT 'pending',
+                attempts        INTEGER  NOT NULL DEFAULT 0,
+                last_error      VARCHAR,
+                completed_at    TIMESTAMP
+            )
+        """)
     return con
 
 
@@ -1623,6 +1660,11 @@ class _DuckDBCursor:
         with _db_write_lock:
             self.execute(sql, params)
 
+    def fetchall(self):
+        if self._rel is None:
+            return []
+        return self._rel.fetchall()
+
     def fetchall_as_pandas(self):
         if self._rel is None:
             return pd.DataFrame()
@@ -1644,6 +1686,11 @@ class _DuckDBConn:
 
     def cursor(self):
         return _DuckDBCursor(self._con)
+
+    def execute(self, sql: str, params=None):
+        cur = _DuckDBCursor(self._con)
+        cur.execute(sql, params)
+        return cur
 
     def __enter__(self):
         return self
@@ -1843,6 +1890,51 @@ def is_admin() -> bool:
 import csv
 import io
 
+
+_DQ_GRADES = [
+    (90, "A", "dq-a"),
+    (75, "B", "dq-b"),
+    (60, "C", "dq-c"),
+    (0,  "D", "dq-d"),
+]
+
+
+def _dq_grade(score_str) -> tuple:
+    """Return (letter, css_class) from a dq_score string or number."""
+    try:
+        score = float(score_str or 0)
+    except (ValueError, TypeError):
+        score = 0
+    for threshold, letter, cls in _DQ_GRADES:
+        if score >= threshold:
+            return letter, cls
+    return "D", "dq-d"
+
+
+def _compute_live_completeness(table_full_name: str) -> float:
+    """Live column-definition coverage: (metadata comment OR user override) / total cols."""
+    bno_tbl = "user_data.business_name_overrides" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
+    q = (
+        "SELECT COUNT(*) AS total, "
+        "COUNT(CASE WHEN (cm.comment IS NOT NULL AND cm.comment != '') "
+        "           OR  (bno.definition IS NOT NULL AND bno.definition != '') "
+        "           THEN 1 END) AS defined "
+        "FROM {0}.{1}.columns_metadata cm "
+        "LEFT JOIN {2} bno "
+        "  ON cm.table_full_name = bno.table_full_name AND cm.column_name = bno.column_name "
+        "WHERE cm.table_full_name = %(fn)s"
+    ).format(CATALOG_CACHE, SCHEMA_CACHE, bno_tbl)
+    try:
+        result = run_query(q, {"fn": table_full_name})
+        if result is None or result.empty:
+            return 0.0
+        total = int(result.iloc[0]["total"] or 0)
+        defined = int(result.iloc[0]["defined"] or 0)
+        return (defined / total * 100) if total > 0 else 0.0
+    except Exception:
+        return 0.0
+
+
 def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
     """Export table column metadata to a CSV string.
 
@@ -1902,6 +1994,113 @@ def get_column_business_names(table_full_name: str) -> dict:
     return {}
 
 
+_SYNC_MAX_ATTEMPTS = 3
+
+
+def enqueue_column_sync(table_full_name: str, column_name: str, definition: str, queued_by: str) -> None:
+    """Add a column definition to the Databricks write-back queue."""
+    if not _duckdb_available():
+        return
+    sync_id = str(uuid.uuid4())
+    con = _get_shared_duckdb_connection()
+    with _db_write_lock:
+        # Upsert: if this column already has a pending item, replace it with the latest value.
+        con.execute(
+            "DELETE FROM user_data.pending_sync "
+            "WHERE table_full_name = ? AND column_name = ? AND status IN ('pending', 'failed')",
+            [table_full_name, column_name],
+        )
+        con.execute(
+            "INSERT INTO user_data.pending_sync "
+            "(sync_id, table_full_name, column_name, definition, queued_by, queued_at, status, attempts) "
+            "VALUES (?, ?, ?, ?, ?, current_localtimestamp, 'pending', 0)",
+            [sync_id, table_full_name, column_name, definition, queued_by],
+        )
+
+
+def _push_definition_to_databricks(table_full_name: str, column_name: str, definition: str) -> None:
+    """Execute ALTER TABLE ... ALTER COLUMN ... COMMENT on Databricks."""
+    host = os.getenv("DATABRICKS_HOST", "").strip()
+    http_path = os.getenv("DATABRICKS_HTTP_PATH", "").strip()
+    token = os.getenv("DATABRICKS_TOKEN", "").strip()
+    if not (host and http_path and token):
+        raise RuntimeError("Databricks credentials not configured — set DATABRICKS_HOST, DATABRICKS_HTTP_PATH, DATABRICKS_TOKEN.")
+    parts = table_full_name.split(".")
+    if len(parts) != 3:
+        raise ValueError(f"Expected catalog.schema.table, got {table_full_name!r}")
+    cat, sch, tbl = parts
+    safe_comment = (definition or "").replace("'", "\\'")
+    alter_sql = f"ALTER TABLE `{cat}`.`{sch}`.`{tbl}` ALTER COLUMN `{column_name}` COMMENT '{safe_comment}'"
+    with sql.connect(server_hostname=host, http_path=http_path, access_token=token) as db_conn:
+        with db_conn.cursor() as cur:
+            cur.execute(alter_sql)
+
+
+def _process_sync_queue() -> int:
+    """Drain pending sync items → Databricks. Returns number of items attempted.
+
+    Uses its own DuckDB connection to avoid sharing the main thread's
+    connection object across threads (DuckDB connections are not thread-safe).
+    """
+    if not _duckdb_available() or not USER_DATA_PATH:
+        return 0
+    import duckdb as _duckdb
+    con = _duckdb.connect(USER_DATA_PATH)
+    try:
+        rows = con.execute(
+            "SELECT sync_id, table_full_name, column_name, definition, attempts "
+            "FROM pending_sync "
+            "WHERE status = 'pending' AND attempts < ? "
+            "ORDER BY queued_at LIMIT 20",
+            [_SYNC_MAX_ATTEMPTS],
+        ).fetchall()
+        processed = 0
+        for sync_id, table_fn, col_name, definition, attempts in rows:
+            new_attempts = attempts + 1
+            con.execute(
+                "UPDATE pending_sync SET status='processing', attempts=? WHERE sync_id=?",
+                [new_attempts, sync_id],
+            )
+            try:
+                _push_definition_to_databricks(table_fn, col_name, definition or "")
+                con.execute(
+                    "UPDATE pending_sync SET status='done', completed_at=current_localtimestamp, last_error=NULL WHERE sync_id=?",
+                    [sync_id],
+                )
+                processed += 1
+            except Exception as exc:
+                err = str(exc)[:500]
+                new_status = "failed" if new_attempts >= _SYNC_MAX_ATTEMPTS else "pending"
+                con.execute(
+                    "UPDATE pending_sync SET status=?, last_error=? WHERE sync_id=?",
+                    [new_status, err, sync_id],
+                )
+                logging.warning("Sync %s failed (attempt %d/%d): %s", sync_id[:8], new_attempts, _SYNC_MAX_ATTEMPTS, err)
+        return processed
+    finally:
+        con.close()
+
+
+@st.cache_resource(show_spinner=False)
+def _start_sync_worker_thread():
+    """Singleton background thread that drains pending_sync every 15 s."""
+    import threading
+
+    def _loop():
+        while True:
+            try:
+                n = _process_sync_queue()
+                if n:
+                    logging.info("Sync worker: pushed %d column definition(s) to Databricks.", n)
+            except Exception as exc:
+                logging.error("Sync worker loop error: %s", exc, exc_info=True)
+            time.sleep(15)
+
+    t = threading.Thread(target=_loop, name="dd-sync-worker", daemon=True)
+    t.start()
+    return t
+
+
 def log_audit_event(event_type: str, object_type: str, object_name: str, old_value: str, new_value: str) -> None:
     """Record an audit event for admin review.  Never raises — failures are logged and swallowed."""
     actor_email = st.session_state.get("user_email", "")
@@ -1926,7 +2125,7 @@ def log_audit_event(event_type: str, object_type: str, object_name: str, old_val
                     f"INSERT INTO {table_name} "
                     f"(event_id, event_type, object_type, object_name, actor_email, old_value, new_value, created_at) "
                     f"VALUES (%(event_id)s, %(event_type)s, %(object_type)s, %(object_name)s, "
-                    f"%(actor_email)s, %(old_value)s, %(new_value)s, current_timestamp())",
+                    f"%(actor_email)s, %(old_value)s, %(new_value)s, {'current_localtimestamp' if _duckdb_available() else 'current_timestamp()'})",
                     {
                         "event_id":    event_id,
                         "event_type":  event_type,
@@ -1987,13 +2186,13 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
                 INSERT INTO user_data.business_name_overrides (
                     table_full_name, column_name, business_name, definition, edited_by, edited_at
                 ) VALUES (
-                    %(table_full_name)s, %(column_name)s, %(business_name)s, %(definition)s, %(edited_by)s, current_timestamp()
+                    %(table_full_name)s, %(column_name)s, %(business_name)s, %(definition)s, %(edited_by)s, current_localtimestamp
                 )
                 ON CONFLICT (table_full_name, column_name) DO UPDATE SET
                     business_name = excluded.business_name,
                     definition = excluded.definition,
                     edited_by = excluded.edited_by,
-                    edited_at = excluded.edited_at
+                    edited_at = current_localtimestamp
                 """,
                 {
                     "table_full_name": table_full_name,
@@ -2012,6 +2211,13 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
                 f"WHEN NOT MATCHED THEN INSERT (table_full_name, column_name, business_name, definition, edited_by, edited_at) VALUES (source.table_full_name, source.column_name, source.business_name, source.definition, source.edited_by, current_timestamp())",
                 {"table_full_name": table_full_name, "column_name": column_name, "business_name": business_name, "definition": definition, "edited_by": user_name},
             )
+    # Flush write to disk so it's immediately visible to all sessions sharing the same file.
+    if _duckdb_available():
+        try:
+            _get_shared_duckdb_connection().execute("CHECKPOINT user_data")
+        except Exception:
+            pass
+        enqueue_column_sync(table_full_name, column_name, definition, user_name)
     log_audit_event("business_name_change", "COLUMN", f"{table_full_name}.{column_name}", old_value, business_name)
     search_all_metadata.clear()
 
@@ -2239,7 +2445,7 @@ def save_comment(
                 "(comment_id, object_type, object_name, comment_text, author_name, author_email, "
                 "created_at, steward_email, parent_comment_id) "
                 "VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
-                "%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
+                "%(author_name)s, %(author_email)s, current_localtimestamp, %(steward_email)s, %(parent_comment_id)s)",
                 {
                     "comment_id":        comment_id,
                     "object_type":       object_type,
@@ -2297,10 +2503,14 @@ def get_authorized_tables(groups):
             m.table_name,
             m.comment as table_description,
             m.table_type,
-            m.updated_at
+            m.updated_at,
+            COALESCE(dq.dq_score, '') AS dq_score,
+            COALESCE(dq.last_run_status, '') AS dq_status
         FROM {0}.{1}.tables_metadata m
         JOIN {0}.{1}.permissions_cache p
           ON m.full_name = p.table_full_name
+        LEFT JOIN {0}.{1}.data_quality_cache dq
+          ON m.full_name = dq.table_full_name
         WHERE (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
     """).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders)  # nosec B608
 
@@ -2337,9 +2547,14 @@ def search_all_metadata(query: str, groups: tuple):
     _overrides_tbl = "user_data.business_name_overrides" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
 
     sql_query = ("""
-        SELECT DISTINCT m.full_name, m.table_name AS name, 'Table' AS match_type, m.comment AS description, m.catalog_name, m.schema_name, m.table_name, m.comment AS table_description
+        SELECT DISTINCT
+            m.full_name, m.table_name AS name, 'Table' AS match_type,
+            m.comment AS description, m.catalog_name, m.schema_name, m.table_name,
+            m.comment AS table_description,
+            COALESCE(dq.dq_score, '') AS dq_score
         FROM {0}.{1}.tables_metadata m
         JOIN {0}.{1}.permissions_cache p ON m.full_name = p.table_full_name
+        LEFT JOIN {0}.{1}.data_quality_cache dq ON m.full_name = dq.table_full_name
         WHERE (m.table_name LIKE %(q)s OR m.comment LIKE %(q)s)
           AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
 
@@ -2350,10 +2565,12 @@ def search_all_metadata(query: str, groups: tuple):
             COALESCE(o.business_name, c.column_name) AS name,
             'Column' AS match_type,
             COALESCE(o.definition, c.comment) AS description,
-            t.catalog_name, t.schema_name, t.table_name, t.comment AS table_description
+            t.catalog_name, t.schema_name, t.table_name, t.comment AS table_description,
+            COALESCE(dq.dq_score, '') AS dq_score
         FROM {0}.{1}.columns_metadata c
         JOIN {0}.{1}.permissions_cache p ON c.table_full_name = p.table_full_name
         JOIN {0}.{1}.tables_metadata t ON c.table_full_name = t.full_name
+        LEFT JOIN {0}.{1}.data_quality_cache dq ON c.table_full_name = dq.table_full_name
         LEFT JOIN {3} o ON o.table_full_name = c.table_full_name AND o.column_name = c.column_name
         WHERE (
             c.column_name LIKE %(q)s OR c.comment LIKE %(q)s
@@ -2441,25 +2658,138 @@ def search_all_metadata(query: str, groups: tuple):
     return combined
 
 
-@st.dialog("Data Sample")
+def _viewport_height(fallback: int = 800) -> int:
+    """Return the user's viewport height in px, falling back if not yet captured."""
+    return int(st.session_state.get("viewport_height", fallback))
+
+
+_VIS_WIDE_CSS = """<style>
+[data-testid="stDialog"] > div > div[role="dialog"] {
+    max-width: 92vw !important;
+    width: 92vw !important;
+}
+</style>"""
+
+def _fetch_lineage_hop(node_fn: str, query_groups: list) -> "pd.DataFrame | None":
+    """Fetch direct lineage neighbors of node_fn, permission-filtered."""
+    lin_ph = ", ".join([f"%(lin_g_{i})s" for i in range(len(query_groups))]) if query_groups else "''"
+    params: dict = {"table_full_name": node_fn}
+    for i, g in enumerate(query_groups):
+        params[f"lin_g_{i}"] = g
+    q = (
+        "SELECT DISTINCT l.direction, l.entity_full_name, l.entity_type "
+        "FROM {0}.{1}.lineage_cache l "
+        "JOIN {0}.{1}.permissions_cache p ON l.entity_full_name = p.table_full_name "
+        "WHERE l.table_full_name = %(table_full_name)s "
+        "AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS') "
+        "ORDER BY l.direction, l.entity_full_name"
+    ).format(CATALOG_CACHE, SCHEMA_CACHE, lin_ph)  # nosec B608
+    return run_query(q, params)
+
+
+def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, max_depth: int = 2):
+    """BFS multi-hop lineage. Returns (graph_nodes, graph_links)."""
+    graph_nodes = [{"id": start_fn, "label": start_label, "current": True, "relationship": "Current"}]
+    graph_links: list = []
+    visited: set = {start_fn}
+    frontier = [start_fn]
+
+    for _ in range(max_depth):
+        if not frontier:
+            break
+        next_frontier: list = []
+        for node_fn in frontier:
+            result = _fetch_lineage_hop(node_fn, query_groups)
+            if result is None or result.empty or "direction" not in result.columns:
+                continue
+            for _, lr in result.iterrows():
+                efn = str(lr["entity_full_name"])
+                direction = str(lr["direction"])
+                link = {"from": efn, "to": node_fn} if direction == "UPSTREAM" else {"from": node_fn, "to": efn}
+                if link not in graph_links:
+                    graph_links.append(link)
+                if efn not in visited:
+                    visited.add(efn)
+                    next_frontier.append(efn)
+                    graph_nodes.append({"id": efn, "label": efn.split(".")[-1], "current": False, "relationship": direction.capitalize()})
+        frontier = next_frontier
+
+    return graph_nodes, graph_links
+
+
+def _lineage_vis_html(graph_nodes: list, graph_links: list, height: int = 350, container_id: str = "mynetwork", spring_length: int = 120) -> str:
+    import json as _json
+    nodes_js = _json.dumps(graph_nodes)
+    edges_js = _json.dumps(graph_links)
+    return (
+        f'<div id="{container_id}" style="width:100%;height:{height}px;background:#F2EDE1;border-radius:4px;'
+        f'border:1px solid #C9C2B4;overflow:hidden;margin-top:16px;"></div>'
+        f'<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>'
+        f'<script>'
+        f'var nodes=new vis.DataSet({nodes_js});'
+        f'var edges=new vis.DataSet({edges_js});'
+        f'var container=document.getElementById("{container_id}");'
+        f'var options={{nodes:{{shape:"box",margin:10,font:{{size:14,face:"sans-serif"}},borderWidth:1,shadow:true}},'
+        f'edges:{{arrows:"to",color:"#C9C2B4",smooth:{{type:"cubicBezier",forceDirection:"horizontal"}}}},'
+        f'physics:{{barnesHut:{{springLength:{spring_length},springConstant:0.04}},minVelocity:0.75}},'
+        f'interaction:{{hover:false,dragNodes:true,dragView:true,zoomView:true}}}}; '
+        f'var upd=[];nodes.forEach(function(n){{'
+        f'var bg=n.current?"#B8362A":(n.relationship==="Shared column"?"#DDE4EC":"#FAF7F0");'
+        f'var bdr=n.current?"#8C271E":(n.relationship==="Shared column"?"#2B4A6B":"#C9C2B4");'
+        f'var txt=n.current?"#FAF7F0":(n.relationship==="Shared column"?"#2B4A6B":"#14110C");'
+        f'upd.push({{id:n.id,color:{{background:bg,border:bdr,highlight:{{background:bg,border:bdr}}}},font:{{color:txt}}}});}});'
+        f'nodes.update(upd);'
+        f'var net=new vis.Network(container,{{nodes:nodes,edges:edges}},options);'
+        f'net.once("stabilizationIterationsDone",function(){{net.fit();}});'
+        f'</script>'
+    )
+
+
+@st.dialog("Lineage graph", width="large")
+def render_lineage_fullscreen(graph_nodes: list, graph_links: list, full_name: str):
+    st.markdown(_VIS_WIDE_CSS, unsafe_allow_html=True)
+    st.markdown(f"**{full_name}** — full lineage graph")
+    _graph_h = int(_viewport_height(800) * 0.88)
+    graph_html = _lineage_vis_html(graph_nodes, graph_links, height=_graph_h, container_id="mynetwork_full", spring_length=220)
+    components.html(graph_html, height=_graph_h + 20)
+
+
+@st.dialog("Data Sample", width="large")
 def render_data_sample(table_full_name: str):
     import re
     import logging
     import pandas as pd
+    st.markdown(_VIS_WIDE_CSS, unsafe_allow_html=True)
     st.markdown(f"**{table_full_name}**")
     try:
         if not re.match(r"^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$", table_full_name):
             st.error("Invalid table name format.")
             return
-        query = f"SELECT * FROM {table_full_name} LIMIT 100"  # nosec B608
         if os.getenv("DEMO_DATA", "false").lower() == "true":
             df = pd.DataFrame({"id": [1, 2, 3], "status": ["NEW", "SHIPPED", "CLOSED"]})
+        elif _duckdb_available():
+            # DuckDB file is ATTACHed as CATALOG_CACHE; actual row data lives at
+            # CATALOG_CACHE.<schema>.<table> — strip the Databricks Unity Catalog prefix.
+            _parts = table_full_name.split(".")
+            if len(_parts) == 3:
+                _, _sch, _tbl = _parts
+                _sample_query = f'SELECT * FROM {CATALOG_CACHE}."{_sch}"."{_tbl}" LIMIT 100'  # nosec B608
+                df = run_query(_sample_query)
+            else:
+                st.info("Preview not available for this table in local mode.")
+                return
         else:
+            query = f"SELECT * FROM {table_full_name} LIMIT 100"  # nosec B608
             df = run_query(query)
         if df is not None and not df.empty:
-            st.dataframe(df, use_container_width=True)
+            # Fill ~82% of the user's screen; row-count cap prevents a tiny table from over-allocating.
+            _screen_h = _viewport_height(800)
+            _max_h = int(_screen_h * 0.88)
+            _row_h = len(df) * 35 + 38
+            _h = max(min(_row_h, _max_h), 300)
+            st.dataframe(df, use_container_width=True, height=_h)
         else:
-            st.info("No data found or table is empty.")
+            st.info("Preview data not available. Regenerate the dataset with --with-data to enable this feature.")
     except Exception as e:
         logging.error("Error fetching data sample for %s: %s", table_full_name, e, exc_info=True)
         st.error("Could not fetch data sample. You may not have permission to view the underlying data.")
@@ -2491,14 +2821,24 @@ def render_catalog_browser(groups):
                 # Group by schema_name to avoid O(N^2) dataframe filtering
                 for sch, sch_data in cat_data.groupby('schema_name'):
                     st.markdown(f'<div style="margin-left: 20px; font-weight: 500; color: var(--ink-60); margin-top: 10px; margin-bottom: 5px;">📂 {sch}</div>', unsafe_allow_html=True)
+                    _dq_lookup = dict(zip(sch_data["table_name"], sch_data["dq_score"])) if "dq_score" in sch_data.columns else {}
                     tables = sorted(sch_data['table_name'].unique().tolist())
-                    
+
                     # Columns for tables to make it more compact
                     t_cols = st.columns(3)
                     for i, tbl in enumerate(tables):
                         with t_cols[i % 3]:
                             full_n = f"{cat}.{sch}.{tbl}"
-                            if st.button(f"📄 {tbl}", key=f"tree_{full_n}", use_container_width=True):
+                            _grade, _gcls = _dq_grade(_dq_lookup.get(tbl, ""))
+                            # Show grade badge above the button via markdown, then the clickable button
+                            st.markdown(
+                                f'<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">'
+                                f'<span class="dd-dq-badge {_gcls}" title="Completeness grade {_grade}">{_grade}</span>'
+                                f'<span style="font-family:var(--font-mono);font-size:12px;color:var(--ink-60);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_html.escape(tbl)}</span>'
+                                f'</div>',
+                                unsafe_allow_html=True,
+                            )
+                            if st.button("Open →", key=f"tree_{full_n}", use_container_width=True):
                                 st.query_params["tab"] = "search"
                                 st.session_state["dd_search_override"] = tbl
                                 st.session_state["dd_nav_select"] = full_n
@@ -2548,7 +2888,10 @@ def render_glossary():
             <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:32px; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.linked_tables")}</div>
             ''', unsafe_allow_html=True)
             
+            _authorized_fns = set(get_authorized_tables(groups)["full_name"].tolist()) if groups else set()
             for table_fn in term_row["related_tables"]:
+                if table_fn not in _authorized_fns:
+                    continue  # hide tables the current user cannot access
                 _gloss_bk = table_fn in st.session_state.get("bookmarks", set())
                 _c_tbl, _c_star = st.columns([11, 1], gap="small")
                 with _c_tbl:
@@ -2724,10 +3067,13 @@ def render_discovery(groups):
         if not col_bookmarks:
             st.info(t("personalization.no_col_bookmarks"))
         else:
+            _col_bk_auth_fns = set(get_authorized_tables(groups)["full_name"].tolist()) if groups else set()
             for _bk_id in sorted(col_bookmarks):
                 if "::" not in _bk_id:
                     continue
                 _bk_table, _bk_col = _bk_id.split("::", 1)
+                if _bk_table not in _col_bk_auth_fns:
+                    continue  # column's parent table no longer authorized — hide silently
                 _bk_tbl_parts = _bk_table.split(".")
                 _bk_tbl_label = _bk_tbl_parts[-1] if _bk_tbl_parts else _bk_table
                 _bk_path = " · ".join(_bk_tbl_parts[:-1]) if len(_bk_tbl_parts) > 1 else ""
@@ -2898,8 +3244,8 @@ def get_admin_stats() -> dict:
         _ud = _duckdb_available()
         comments_tbl  = "user_data.comments"                if _ud else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
         overrides_tbl = "user_data.business_name_overrides" if _ud else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
-        tables_tbl    = "tables_metadata"                   if _ud else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata"
-        columns_tbl   = "columns_metadata"                  if _ud else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata"
+        tables_tbl    = f"{CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata"
+        columns_tbl   = f"{CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata"
         tables_cnt    = run_query(f"SELECT COUNT(*) AS c FROM {tables_tbl}").iloc[0]["c"]
         columns_cnt   = run_query(f"SELECT COUNT(*) AS c FROM {columns_tbl}").iloc[0]["c"]
         comments_cnt  = run_query(f"SELECT COUNT(*) AS c FROM {comments_tbl}").iloc[0]["c"]
@@ -3001,6 +3347,19 @@ def render_admin_page():
 # ── App entry point ────────────────────────────────────────────────────────────
 render_css()
 
+# Start the Databricks write-back worker (singleton daemon thread, no-ops in pure local mode).
+if _duckdb_available():
+    _start_sync_worker_thread()
+
+# Capture viewport height once per session; returns None on first render (before JS runs).
+if "viewport_height" not in st.session_state:
+    _vh = streamlit_js_eval(js_expressions="window.innerHeight", key="_dd_vh")
+    if _vh:
+        st.session_state["viewport_height"] = int(_vh)
+else:
+    # Keep the component alive so it runs on browsers that re-register after reload
+    streamlit_js_eval(js_expressions="window.innerHeight", key="_dd_vh")
+
 # ── Auth gate ─────────────────────────────────────────────────────────────────
 ENABLE_MOCK_AUTH = os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
@@ -3019,9 +3378,11 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
         _sync_prefs_to_session()
         st.session_state["_prefs_loaded"] = True
     
-    # Auto-login if returning from a nav link — grants all groups so screenshots
-    # and load tests see the full dataset regardless of dept selection.
-    if st.query_params.get("mock_login") == "true":
+    # Auto-login from a URL param — used by screenshot scripts and load tests
+    # that navigate directly to a URL without an existing session.
+    # Only fires when the user is NOT already authenticated so that a nav click
+    # (which re-adds mock_login=true to the URL) cannot overwrite the session.
+    if st.query_params.get("mock_login") == "true" and not st.session_state.authenticated:
         _ql_dept = st.query_params.get("mock_dept", os.getenv("MOCK_DEPT", "")).lower()
         _dept_group_map = {
             "finance":  (["finance_group",  "SELECT_ALL_USERS"], "Finance User",  "finance.user@research-org.ca"),
@@ -3102,8 +3463,19 @@ if current_tab == "search":
     if "dd_search_override" in st.session_state:
         st.session_state["catalog_search"] = st.session_state.pop("dd_search_override")
     if "dd_nav_select" in st.session_state:
-        # Promote to sticky so locale changes and star clicks don't lose the full-name anchor
-        st.session_state["_dd_sticky_nav"] = st.session_state.pop("dd_nav_select")
+        _nav_candidate = st.session_state.pop("dd_nav_select")
+        # Permission gate: only promote to sticky nav if the user is authorized for this table.
+        # get_authorized_tables is @st.cache_data so this call is free (already cached).
+        try:
+            _auth_df = get_authorized_tables(query_groups)
+            _auth_full_names = set(_auth_df["full_name"].tolist()) if _auth_df is not None and not _auth_df.empty else set()
+        except Exception:
+            _auth_full_names = set()
+        if _nav_candidate in _auth_full_names:
+            # Promote to sticky so locale changes and star clicks don't lose the full-name anchor
+            st.session_state["_dd_sticky_nav"] = _nav_candidate
+        else:
+            st.session_state.pop("_dd_sticky_nav", None)
 
     if active_group:
         c1, c2 = st.columns([8, 2], gap="small", vertical_alignment="center")
@@ -3164,19 +3536,24 @@ if current_tab == "search":
             _gr_desc = str(_gr.get("description", "") or "")
             if not _gr_full:
                 continue
+            _gr_dq_score = str(_gr.get("dq_score", "") or "")
+            _gr_grade, _gr_gcls = _dq_grade(_gr_dq_score)
             _gc, _gb = st.columns([5, 1], gap="small", vertical_alignment="top")
             with _gc:
                 st.markdown(f'''
                 <div style="background:var(--paper); border:1px solid var(--ink-10); border-radius:4px; padding:14px 18px;">
-                    <div style="font-family:var(--font-mono); font-size:11px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">Table</div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                        <span class="dd-dq-badge {_gr_gcls}" title="Completeness grade {_gr_grade}">{_gr_grade}</span>
+                        <span style="font-family:var(--font-mono); font-size:11px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.08em;">Table</span>
+                    </div>
                     <div style="font-family:var(--font-sans); font-size:15px; font-weight:600; color:var(--ink); margin-bottom:2px;">{_html.escape(_gr_name)}</div>
                     <div style="font-family:var(--font-mono); font-size:11px; color:var(--ink-60); margin-bottom:6px;">{_html.escape(_gr_full)}</div>
                     <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:0;">{_html.escape(_gr_desc)}</p>
                 </div>''', unsafe_allow_html=True)
             with _gb:
                 if st.button(f"{t('search.view_details')} →", key=f"gview_{_gr_full}_{_gr_i}", use_container_width=True):
-                    st.session_state["catalog_search"] = _gr_name
-                    st.session_state["_dd_sticky_nav"] = _gr_full
+                    st.session_state["dd_search_override"] = _gr_name
+                    st.session_state["dd_nav_select"] = _gr_full
                     st.rerun()
             st.markdown('<div style="margin-bottom:8px;"></div>', unsafe_allow_html=True)
 
@@ -3206,13 +3583,18 @@ if current_tab == "search":
                         _sr_name = _s(_sr.get("name"))
                         _sr_full = _s(_sr.get("full_name"))
                         _sr_desc = _s(_sr.get("description"))
+                        _sr_dq   = _s(_sr.get("dq_score", ""))
                         if not _sr_full:
                             continue
+                        _sr_grade, _sr_gcls = _dq_grade(_sr_dq)
                         _card_col, _btn_col = st.columns([5, 1], gap="small", vertical_alignment="top")
                         with _card_col:
                             st.markdown(f'''
                             <div style="background:var(--paper); border:1px solid var(--ink-10); border-radius:4px; padding:14px 18px; height:100%;">
-                                <div style="font-family:var(--font-mono); font-size:11px; color:var(--ink-60); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">{_html.escape(_sr_type)}</div>
+                                <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                                    <span class="dd-dq-badge {_sr_gcls}" title="Completeness grade {_sr_grade}">{_sr_grade}</span>
+                                    <span style="font-family:var(--font-mono); font-size:11px; color:var(--ink-60); text-transform:uppercase; letter-spacing:0.08em;">{_html.escape(_sr_type)}</span>
+                                </div>
                                 <div style="font-family:var(--font-sans); font-size:15px; font-weight:600; color:var(--ink); margin-bottom:2px;">{_html.escape(_sr_name)}</div>
                                 <div style="font-family:var(--font-mono); font-size:11px; color:var(--ink-60); margin-bottom:6px;">{_html.escape(_sr_full)}</div>
                                 <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:0;">{_html.escape(_sr_desc)}</p>
@@ -3243,13 +3625,32 @@ if current_tab == "search":
                         # Section header
                         st.markdown(f'<div class="dd-detail-header" style="margin-top: 0;"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.title")}</span></div>', unsafe_allow_html=True)
 
-                        # Table identity block
+                        # --- § Completeness grade (computed before identity block) ---
+                        # Live score: session_state cache keyed by table, invalidated on column Save.
+                        _live_score_key = f"_live_completeness_{full_name}"
+                        if _live_score_key not in st.session_state:
+                            _fallback = float(str(row.get("dq_score", "") or 0) or 0)
+                            try:
+                                st.session_state[_live_score_key] = _compute_live_completeness(full_name) or _fallback
+                            except Exception:
+                                st.session_state[_live_score_key] = _fallback
+                        _detail_score_num = float(st.session_state[_live_score_key])
+                        _detail_grade, _detail_gcls = _dq_grade(_detail_score_num)
+
+                        # Table identity block — grade badge floated far-right on table name line
                         st.markdown(
                             f'<div class="dd-eyebrow" style="margin-bottom:4px">{_cat} · {_sch}</div>'
-                            f'<div class="dd-detail-table-name">{_tbl}</div>'
+                            f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+                            f'<div class="dd-detail-table-name" style="margin-bottom:0">{_tbl}</div>'
+                            f'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">'
+                            f'<span class="dd-dq-badge {_detail_gcls}" style="width:32px;height:32px;font-size:14px;" title="Completeness {_detail_score_num:.0f}/100">{_detail_grade}</span>'
+                            f'<span style="font-family:var(--font-mono);font-size:13px;color:var(--ink-60);">{_detail_score_num:.0f}%</span>'
+                            f'</div>'
+                            f'</div>'
                             f'<p class="dd-detail-desc">{_desc}</p>{_ext_link}',
                             unsafe_allow_html=True,
                         )
+
                         # --- § Bookmark (star) + full_name — side by side ---
                         _is_bookmarked = full_name in st.session_state.get("bookmarks", set())
                         _c_code, _c_bk = st.columns([11, 1], gap="small")
@@ -3377,11 +3778,16 @@ if current_tab == "search":
                                             try:
                                                 save_business_name(full_name, _cname, _inp_name.strip(), _inp_def.strip())
                                                 st.session_state.pop("dd_col_edit_mode", None)
+                                                # Invalidate live completeness so badge recomputes on next render
+                                                st.session_state.pop(f"_live_completeness_{full_name}", None)
                                                 st.rerun()
                                             except PermissionError:
                                                 st.error("You do not have permission to edit business names.")
                                             except ValueError as exc:
                                                 st.error(str(exc))
+                                            except Exception as exc:
+                                                logging.error("Save failed for %s.%s: %s", full_name, _cname, exc, exc_info=True)
+                                                st.error(f"Save failed: {exc}")
                                     with _cc:
                                         if st.button("Cancel", key=f"col_biz_cancel_{_edit_key}", use_container_width=True):
                                             st.session_state.pop("dd_col_edit_mode", None)
@@ -3475,8 +3881,19 @@ if current_tab == "search":
 
                     with col_side_detail:
                         # --- § Group Permissions ---
-                        grants_query = ("SELECT DISTINCT principal, privilege FROM {0}.{1}.permissions_cache WHERE table_full_name = %(table_full_name)s ORDER BY principal").format(CATALOG_CACHE, SCHEMA_CACHE)
-                        grants = run_query(grants_query, {"table_full_name": full_name})
+                        # Only show grant rows for groups the viewer belongs to (or public).
+                        # Leaking other groups' access to a Finance user reveals org-wide ACL structure.
+                        grants_group_placeholders = ", ".join([f"%(grant_group_{i})s" for i in range(len(query_groups))]) if query_groups else "''"
+                        grants_params: dict = {"table_full_name": full_name}
+                        for _i, _g in enumerate(query_groups):
+                            grants_params[f"grant_group_{_i}"] = _g
+                        grants_query = (
+                            "SELECT DISTINCT principal, privilege FROM {0}.{1}.permissions_cache "
+                            "WHERE table_full_name = %(table_full_name)s "
+                            "AND (principal IN ({2}) OR principal = 'SELECT_ALL_USERS') "
+                            "ORDER BY principal"
+                        ).format(CATALOG_CACHE, SCHEMA_CACHE, grants_group_placeholders)  # nosec B608
+                        grants = run_query(grants_query, grants_params)
                         n_grants = len(grants) if grants is not None and not grants.empty else 0
                         st.markdown(f'<div class="dd-section-header" style="margin-top:0"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_grants")}</span><span class="dd-section-count">{n_grants}</span></div>', unsafe_allow_html=True)
                         if n_grants > 0:
@@ -3498,11 +3915,9 @@ if current_tab == "search":
                         else:
                             st.markdown('<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No grants recorded.</p>', unsafe_allow_html=True)
 
-                        # --- § Lineage ---
-                        lineage_query = ("SELECT direction, entity_full_name, entity_type FROM {0}.{1}.lineage_cache WHERE table_full_name = %(table_full_name)s ORDER BY direction, entity_full_name").format(CATALOG_CACHE, SCHEMA_CACHE)
-                        lineage = run_query(lineage_query, {"table_full_name": full_name})
-                        has_lineage = lineage is not None and not lineage.empty
-                        
+                        # --- § Lineage (multi-hop BFS, permission-filtered) ---
+                        graph_nodes, graph_links = _build_lineage_graph(full_name, _tbl, query_groups, max_depth=2)
+
                         # --- § Related tables ---
                         rel_group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(query_groups))]) if query_groups else "''"
                         rel_params = {"catalog_name": row["catalog_name"], "schema_name": row["schema_name"], "full_name": full_name}
@@ -3513,29 +3928,28 @@ if current_tab == "search":
                         related_query = ("SELECT t.full_name, t.table_name, t.catalog_name, t.schema_name, 'Same schema' AS relationship FROM {0}.{1}.tables_metadata t JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name WHERE t.catalog_name = %(catalog_name)s AND t.schema_name = %(schema_name)s AND t.full_name != %(full_name)s AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS') UNION SELECT DISTINCT t.full_name, t.table_name, t.catalog_name, t.schema_name, 'Shared column' AS relationship FROM {0}.{1}.columns_metadata c1 JOIN {0}.{1}.columns_metadata c2 ON c1.column_name = c2.column_name JOIN {0}.{1}.tables_metadata t ON c2.table_full_name = t.full_name JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name WHERE c1.table_full_name = %(full_name)s AND c2.table_full_name != %(full_name)s AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS') LIMIT 12").format(CATALOG_CACHE, SCHEMA_CACHE, rel_group_placeholders)  # nosec B608
                         related = run_query(related_query, rel_params)
                         n_related = len(related) if related is not None and not related.empty else 0
-                        
-                        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_lineage")} & {t("detail.section_related")}</span><span class="dd-section-count">{n_related} {t("detail.related_count")}</span></div>', unsafe_allow_html=True)
-                        
-                        graph_nodes = [{"id": full_name, "label": _tbl, "current": True, "relationship": "Current"}]
-                        graph_links = []
-                        if lineage is not None and not lineage.empty and "direction" in lineage.columns:
-                            upstreams = lineage[lineage["direction"] == "UPSTREAM"]["entity_full_name"].tolist() if "entity_full_name" in lineage.columns else []
-                            downstreams = lineage[lineage["direction"] == "DOWNSTREAM"]["entity_full_name"].tolist() if "entity_full_name" in lineage.columns else []
-                            for efn in upstreams:
-                                graph_nodes.append({"id": efn, "label": efn.split(".")[-1], "current": False, "relationship": "Upstream"})
-                                graph_links.append({"from": efn, "to": full_name})
-                            for efn in downstreams:
-                                graph_nodes.append({"id": efn, "label": efn.split(".")[-1], "current": False, "relationship": "Downstream"})
-                                graph_links.append({"from": full_name, "to": efn})
+
+                        # Merge related tables into graph
                         if n_related > 0:
                             for _, rel in related.iterrows():
-                                _rel_full, _rel_name, _rel_raw_badge = str(rel.get("full_name", "")), _html.escape(str(rel.get("table_name", ""))), str(rel.get("relationship", ""))
+                                _rel_full = str(rel.get("full_name", ""))
+                                _rel_name = _html.escape(str(rel.get("table_name", "")))
+                                _rel_raw_badge = str(rel.get("relationship", ""))
                                 _rel_badge = t("detail.same_schema") if _rel_raw_badge == "Same schema" else (t("detail.shared_column") if _rel_raw_badge == "Shared column" else _html.escape(_rel_raw_badge))
-                                if not any(n["id"] == _rel_full for n in graph_nodes): graph_nodes.append({"id": _rel_full, "label": _rel_name, "current": False, "relationship": _rel_badge})
-                                if not any((l["from"] == full_name and l["to"] == _rel_full) or (l["from"] == _rel_full and l["to"] == full_name) for l in graph_links): graph_links.append({"from": full_name, "to": _rel_full})
-                        
-                        import json
-                        graph_html = f'''<div id="mynetwork" style="width: 100%; height: 350px; background: #F2EDE1; border-radius: 4px; border: 1px solid #C9C2B4; overflow: hidden; margin-top: 16px;"></div><script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script><script type="text/javascript">var nodes = new vis.DataSet({json.dumps(graph_nodes)}); var edges = new vis.DataSet({json.dumps(graph_links)}); var container = document.getElementById('mynetwork'); var data = {{ nodes: nodes, edges: edges }}; var options = {{ nodes: {{ shape: 'box', margin: 10, font: {{ size: 14, face: 'sans-serif' }}, borderWidth: 1, shadow: true }}, edges: {{ arrows: 'to', color: '#C9C2B4', smooth: {{ type: 'cubicBezier', forceDirection: 'horizontal' }} }}, physics: {{ barnesHut: {{ springLength: 100, springConstant: 0.04 }}, minVelocity: 0.75 }}, interaction: {{ hover: false, dragNodes: true, dragView: true, zoomView: true }} }}; var updatedNodes = []; nodes.forEach(function(node) {{ var isCurrent = node.current; var rel = node.relationship; var bg = isCurrent ? '#B8362A' : (rel === 'Shared column' ? '#DDE4EC' : '#FAF7F0'); var border = isCurrent ? '#8C271E' : (rel === 'Shared column' ? '#2B4A6B' : '#C9C2B4'); var text = isCurrent ? '#FAF7F0' : (rel === 'Shared column' ? '#2B4A6B' : '#14110C'); updatedNodes.push({{ id: node.id, color: {{ background: bg, border: border, highlight: {{ background: bg, border: border }} }}, font: {{ color: text }} }}); }}); nodes.update(updatedNodes); var network = new vis.Network(container, data, options); network.once("stabilizationIterationsDone", function() {{ network.fit(); }});</script>'''
+                                if not any(n["id"] == _rel_full for n in graph_nodes):
+                                    graph_nodes.append({"id": _rel_full, "label": _rel_name, "current": False, "relationship": _rel_badge})
+                                if not any((l["from"] == full_name and l["to"] == _rel_full) or (l["from"] == _rel_full and l["to"] == full_name) for l in graph_links):
+                                    graph_links.append({"from": full_name, "to": _rel_full})
+
+                        # Section header + expand button
+                        _lin_hdr_col, _lin_btn_col = st.columns([11, 1])
+                        with _lin_hdr_col:
+                            st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_lineage")} & {t("detail.section_related")}</span><span class="dd-section-count">{n_related} {t("detail.related_count")}</span></div>', unsafe_allow_html=True)
+                        with _lin_btn_col:
+                            if st.button("⤢", key=f"expand_lin_{full_name}", help="Expand lineage graph", use_container_width=True):
+                                render_lineage_fullscreen(graph_nodes, graph_links, full_name)
+
+                        graph_html = _lineage_vis_html(graph_nodes, graph_links, height=350)
                         components.html(graph_html, height=380)
 
                         if n_related > 0:
