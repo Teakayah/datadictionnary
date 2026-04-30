@@ -1625,9 +1625,9 @@ def _get_shared_duckdb_connection():
         con.execute("""
             CREATE TABLE IF NOT EXISTS user_data.pending_sync (
                 sync_id         VARCHAR PRIMARY KEY,
-                table_full_name VARCHAR NOT NULL,
-                column_name     VARCHAR NOT NULL,
-                definition      VARCHAR,
+                sync_type       VARCHAR NOT NULL, -- COLUMN_DEF, TABLE_DESC, AUDIT, COMMENT, TAG, STEWARD
+                table_full_name VARCHAR,
+                payload_json    VARCHAR, -- Store type-specific data (e.g., tag key/value, comment author)
                 queued_by       VARCHAR,
                 queued_at       TIMESTAMP NOT NULL,
                 status          VARCHAR NOT NULL DEFAULT 'pending',
@@ -2000,55 +2000,121 @@ def get_column_business_names(table_full_name: str) -> dict:
 _SYNC_MAX_ATTEMPTS = 3
 
 
-def enqueue_column_sync(table_full_name: str, column_name: str, definition: str, queued_by: str) -> None:
-    """Add a column definition to the Databricks write-back queue."""
+def enqueue_sync(sync_type: str, table_full_name: str | None, payload: dict, queued_by: str) -> None:
+    """Add an action to the Databricks write-back queue."""
     if not _duckdb_available():
         return
+    import json
     sync_id = str(uuid.uuid4())
     conn = _get_write_connection()
+    payload_str = json.dumps(payload)
     with conn.cursor() as cursor:
-        # Upsert: if this column already has a pending item, replace it with the latest value.
-        cursor.execute_write(
-            "DELETE FROM user_data.pending_sync "
-            "WHERE table_full_name = %(fn)s AND column_name = %(cn)s AND status IN ('pending', 'failed')",
-            {"fn": table_full_name, "cn": column_name},
-        )
+        # For metadata types, we upsert to avoid duplicate pending work for the same object
+        if sync_type in ("COLUMN_DEF", "TABLE_DESC", "STEWARD"):
+            _key_col = "payload_json->>'column_name'" if sync_type == "COLUMN_DEF" else "NULL"
+            _match_val = payload.get("column_name") if sync_type == "COLUMN_DEF" else None
+            
+            # Simple cleanup of previous pending items for the same target
+            # Note: payload_json check is slightly complex in SQL so we target by table and sync_type primarily
+            _del_q = "DELETE FROM user_data.pending_sync WHERE sync_type = %(st)s AND status = 'pending'"
+            _params = {"st": sync_type}
+            if table_full_name:
+                _del_q += " AND table_full_name = %(fn)s"
+                _params["fn"] = table_full_name
+            
+            # For column defs, we must match the specific column
+            if sync_type == "COLUMN_DEF" and _match_val:
+                _del_q += " AND payload_json LIKE %(match)s"
+                _params["match"] = f'%"{_match_val}"%'
+                
+            cursor.execute_write(_del_q, _params)
+
         cursor.execute_write(
             "INSERT INTO user_data.pending_sync "
-            "(sync_id, table_full_name, column_name, definition, queued_by, queued_at, status, attempts) "
-            "VALUES (%(id)s, %(fn)s, %(cn)s, %(def)s, %(by)s, current_localtimestamp, 'pending', 0)",
+            "(sync_id, sync_type, table_full_name, payload_json, queued_by, queued_at, status, attempts) "
+            "VALUES (%(id)s, %(st)s, %(fn)s, %(pay)s, %(by)s, current_localtimestamp, 'pending', 0)",
             {
                 "id":  sync_id,
+                "st":  sync_type,
                 "fn":  table_full_name,
-                "cn":  column_name,
-                "def": definition,
+                "pay": payload_str,
                 "by":  queued_by,
             },
         )
 
 
-def _push_definition_to_databricks(table_full_name: str, column_name: str, definition: str) -> None:
-    """Execute ALTER TABLE ... ALTER COLUMN ... COMMENT on Databricks."""
+def enqueue_column_sync(table_full_name: str, column_name: str, definition: str, queued_by: str) -> None:
+    """Legacy wrapper for column definitions."""
+    enqueue_sync("COLUMN_DEF", table_full_name, {"column_name": column_name, "definition": definition}, queued_by)
+
+
+def _push_to_databricks(sync_type: str, table_full_name: str | None, payload: dict) -> None:
+    """Generalized dispatcher to push different types of changes to Databricks."""
     host = os.getenv("DATABRICKS_HOST", "").strip()
     http_path = os.getenv("DATABRICKS_HTTP_PATH", "").strip()
     token = os.getenv("DATABRICKS_TOKEN", "").strip()
     if not (host and http_path and token):
-        raise RuntimeError("Databricks credentials not configured — set DATABRICKS_HOST, DATABRICKS_HTTP_PATH, DATABRICKS_TOKEN.")
-    parts = table_full_name.split(".")
-    if len(parts) != 3:
-        raise ValueError(f"Expected catalog.schema.table, got {table_full_name!r}")
-    cat, sch, tbl = parts
-    safe_comment = (definition or "").replace("'", "\\'")
-    alter_sql = f"ALTER TABLE `{cat}`.`{sch}`.`{tbl}` ALTER COLUMN `{column_name}` COMMENT '{safe_comment}'"
-    with sql.connect(server_hostname=host, http_path=http_path, access_token=token) as db_conn:
+        raise RuntimeError("Databricks credentials not configured.")
+
+    from databricks import sql as dbsql
+    
+    with dbsql.connect(server_hostname=host, http_path=http_path, access_token=token) as db_conn:
         with db_conn.cursor() as cur:
-            cur.execute(alter_sql)
+            if sync_type == "COLUMN_DEF":
+                col = payload["column_name"]
+                dfn = (payload.get("definition") or "").replace("'", "''")
+                parts = table_full_name.split(".")
+                cat, sch, tbl = [f"`{p}`" for p in parts]
+                cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} ALTER COLUMN `{col}` COMMENT '{dfn}'")
+                
+            elif sync_type == "TABLE_DESC":
+                dfn = (payload.get("definition") or "").replace("'", "''")
+                parts = table_full_name.split(".")
+                cat, sch, tbl = [f"`{p}`" for p in parts]
+                cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} SET TBLPROPERTIES ('comment' = '{dfn}')")
+                
+            elif sync_type == "STEWARD":
+                stew = (payload.get("steward_email") or "").replace("'", "''")
+                parts = table_full_name.split(".")
+                cat, sch, tbl = [f"`{p}`" for p in parts]
+                cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} SET TBLPROPERTIES ('steward' = '{stew}')")
+
+            elif sync_type == "TAG":
+                key = payload["tag_key"]
+                val = payload["tag_value"]
+                parts = table_full_name.split(".")
+                cat, sch, tbl = [f"`{p}`" for p in parts]
+                cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} SET TAGS ('{key}' = '{val}')")
+
+            elif sync_type == "AUDIT":
+                audit_tbl = f"{CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log"
+                cur.execute(
+                    f"INSERT INTO {audit_tbl} (event_id, event_type, object_type, object_name, actor_email, old_value, new_value, created_at) "
+                    f"VALUES (%(event_id)s, %(event_type)s, %(object_type)s, %(object_name)s, %(actor_email)s, %(old_value)s, %(new_value)s, current_timestamp())",
+                    payload
+                )
+
+            elif sync_type == "COMMENT":
+                comm_tbl = f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
+                cur.execute(
+                    f"INSERT INTO {comm_tbl} (comment_id, object_type, object_name, comment_text, author_name, author_email, created_at, steward_email, parent_comment_id) "
+                    f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, %(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
+                    payload
+                )
+
+
+def _push_definition_to_databricks(table_full_name: str, column_name: str, definition: str) -> None:
+    """Legacy wrapper for backward compatibility."""
+    _push_to_databricks("COLUMN_DEF", table_full_name, {"column_name": column_name, "definition": definition})
 
 
 def _process_sync_queue() -> int:
     """Drain pending sync items → Databricks. Returns number of items attempted.
 
-    Uses dynamic batching: scales throughput based on application activity.
+    Uses dynamic batching and priority-aware processing:
+    1. Metadata (COLUMN_DEF, TABLE_DESC, STEWARD)
+    2. Tags and Comments
+    3. Audit logs (Lowest priority)
     """
     if not _duckdb_available():
         return 0
@@ -2058,13 +2124,23 @@ def _process_sync_queue() -> int:
     batch_size = 50 if is_idle else 5
     
     conn = _get_write_connection()
+    import json
     try:
         with conn.cursor() as cursor:
+            # Multi-tier priority: order by sync_type weight, then by age
+            # Weights: COLUMN_DEF/TABLE_DESC=1, STEWARD/TAG/COMMENT=2, AUDIT=3
+            priority_sql = """
+                CASE 
+                    WHEN sync_type IN ('COLUMN_DEF', 'TABLE_DESC') THEN 1
+                    WHEN sync_type IN ('STEWARD', 'TAG', 'COMMENT') THEN 2
+                    ELSE 3
+                END
+            """
             cursor.execute(
-                "SELECT sync_id, table_full_name, column_name, definition, attempts "
-                "FROM user_data.pending_sync "
-                "WHERE status = 'pending' AND attempts < %(max)s "
-                "ORDER BY queued_at LIMIT %(limit)s",
+                f"SELECT sync_id, sync_type, table_full_name, payload_json, attempts "
+                f"FROM user_data.pending_sync "
+                f"WHERE status = 'pending' AND attempts < %(max)s "
+                f"ORDER BY {priority_sql} ASC, queued_at ASC LIMIT %(limit)s",
                 {"max": _SYNC_MAX_ATTEMPTS, "limit": batch_size},
             )
             rows = cursor.fetchall()
@@ -2073,12 +2149,11 @@ def _process_sync_queue() -> int:
             return 0
 
         processed = 0
-        for sync_id, table_fn, col_name, definition, attempts in rows:
-            # Yield to other threads before each item (shorter yield when idle)
+        for sync_id, stype, table_fn, pay_json, attempts in rows:
             time.sleep(0.01 if is_idle else 0.1)
             new_attempts = attempts + 1
+            payload = json.loads(pay_json) if pay_json else {}
             
-            # 2. Mark as processing
             with conn.cursor() as cursor:
                 cursor.execute_write(
                     "UPDATE user_data.pending_sync SET status='processing', attempts=%(att)s WHERE sync_id=%(id)s",
@@ -2086,10 +2161,8 @@ def _process_sync_queue() -> int:
                 )
             
             try:
-                # 3. Push to Databricks (network call, takes time)
-                _push_definition_to_databricks(table_fn, col_name, definition or "")
+                _push_to_databricks(stype, table_fn, payload)
                 
-                # 4. Mark as done
                 with conn.cursor() as cursor:
                     cursor.execute_write(
                         "UPDATE user_data.pending_sync SET status='done', completed_at=current_localtimestamp, last_error=NULL WHERE sync_id=%(id)s",
@@ -2104,7 +2177,7 @@ def _process_sync_queue() -> int:
                         "UPDATE user_data.pending_sync SET status=%(st)s, last_error=%(err)s WHERE sync_id=%(id)s",
                         {"st": new_status, "err": err, "id": sync_id},
                     )
-                logging.warning("Sync %s failed (attempt %d/%d): %s", sync_id[:8], new_attempts, _SYNC_MAX_ATTEMPTS, err)
+                logging.warning("Sync %s (%s) failed: %s", sync_id[:8], stype, err)
         
         return processed
     except Exception as e:
@@ -2136,19 +2209,22 @@ def _start_sync_worker_thread():
 
 
 def log_audit_event(event_type: str, object_type: str, object_name: str, old_value: str, new_value: str) -> None:
-    """Record an audit event for admin review.  Never raises — failures are logged and swallowed."""
+    """Record an audit event for admin review and enqueue for Databricks sync."""
     actor_email = st.session_state.get("user_email", "")
     event_id = str(uuid.uuid4())
+    payload = {
+        "event_id":    event_id,
+        "event_type":  event_type,
+        "object_type": object_type,
+        "object_name": object_name,
+        "actor_email": actor_email,
+        "old_value":   old_value,
+        "new_value":   new_value,
+    }
     try:
         if os.getenv("DEMO_DATA", "false").lower() == "true":
             st.session_state.setdefault("demo_audit_log", []).append({
-                "event_id":    event_id,
-                "event_type":  event_type,
-                "object_type": object_type,
-                "object_name": object_name,
-                "actor_email": actor_email,
-                "old_value":   old_value,
-                "new_value":   new_value,
+                **payload,
                 "created_at":  pd.Timestamp.now(),
             })
         else:
@@ -2159,19 +2235,51 @@ def log_audit_event(event_type: str, object_type: str, object_name: str, old_val
                     f"INSERT INTO {table_name} "
                     f"(event_id, event_type, object_type, object_name, actor_email, old_value, new_value, created_at) "
                     f"VALUES (%(event_id)s, %(event_type)s, %(object_type)s, %(object_name)s, "
-                    f"%(actor_email)s, %(old_value)s, %(new_value)s, {'current_localtimestamp' if _duckdb_available() else 'current_timestamp()'})",
-                    {
-                        "event_id":    event_id,
-                        "event_type":  event_type,
-                        "object_type": object_type,
-                        "object_name": object_name,
-                        "actor_email": actor_email,
-                        "old_value":   old_value,
-                        "new_value":   new_value,
-                    },
+                    f"%(actor_email)s, %(old_value)s, %(new_value)s, current_localtimestamp)",
+                    payload,
                 )
+            # Enqueue for Databricks sync (Priority 3)
+            enqueue_sync("AUDIT", None, payload, actor_email)
     except Exception as e:
         logging.warning("Audit logging failed for %s: %s", event_id, e)
+
+
+def save_table_metadata(table_full_name: str, description: str = None, steward_email: str = None) -> None:
+    """Atomically update table metadata (description/steward) and enqueue for sync."""
+    if not is_power_user():
+        raise PermissionError("Only power users can update table metadata.")
+    
+    user_name = st.session_state.get("user_name", "unknown")
+    
+    # Update local cache (DuckDB)
+    if _duckdb_available():
+        conn = _get_write_connection()
+        with conn.cursor() as cursor:
+            if description is not None:
+                cursor.execute_write(
+                    f"UPDATE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata SET comment = %(desc)s WHERE full_name = %(fn)s",
+                    {"desc": description, "fn": table_full_name}
+                )
+                enqueue_sync("TABLE_DESC", table_full_name, {"definition": description}, user_name)
+                log_audit_event("table_description_change", "TABLE", table_full_name, "N/A", description)
+                
+            if steward_email is not None:
+                # We store steward in properties/tags in Databricks, locally in tables_metadata
+                cursor.execute_write(
+                    f"UPDATE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata SET steward_email = %(stew)s WHERE full_name = %(fn)s",
+                    {"stew": steward_email, "fn": table_full_name}
+                )
+                enqueue_sync("STEWARD", table_full_name, {"steward_email": steward_email}, user_name)
+                log_audit_event("table_steward_change", "TABLE", table_full_name, "N/A", steward_email)
+
+        try:
+            with _db_write_lock:
+                _get_shared_duckdb_connection().execute("CHECKPOINT user_data")
+        except Exception:
+            pass
+            
+    search_all_metadata.clear()
+    get_authorized_tables.clear()
 
 
 def save_business_name(table_full_name: str, column_name: str, business_name: str, definition: str = "") -> None:
@@ -2510,6 +2618,19 @@ def save_comment(
                     "parent_comment_id": parent_comment_id,
                 },
             )
+    
+    # Enqueue for Databricks sync (Priority 2)
+    enqueue_sync("COMMENT", object_name, {
+        "comment_id":        comment_id,
+        "object_type":       object_type,
+        "object_name":       object_name,
+        "comment_text":      comment_text,
+        "author_name":       author_name,
+        "author_email":      author_email,
+        "steward_email":     steward_email,
+        "parent_comment_id": parent_comment_id,
+    }, author_email)
+
     if parent_comment_id:
         # Re-fetch the parent author's email from the DB — do NOT trust the
         # UI-supplied parent_author_email to prevent open-relay abuse.
@@ -2796,6 +2917,29 @@ def render_lineage_fullscreen(graph_nodes: list, graph_links: list, full_name: s
     _graph_h = int(_viewport_height(800) * 0.88)
     graph_html = _lineage_vis_html(graph_nodes, graph_links, height=_graph_h, container_id="mynetwork_full", spring_length=220)
     components.html(graph_html, height=_graph_h + 20)
+
+
+@st.dialog(t("detail.edit_table"), width="large")
+def render_table_metadata_editor(table_full_name: str, current_desc: str, current_steward: str):
+    """Editor for table-level metadata (description, steward)."""
+    st.markdown(f"**{table_full_name}**")
+    
+    new_desc = st.text_area(t("detail.table_description"), value=current_desc, height=150)
+    new_stew = st.text_input(t("detail.steward_email"), value=current_steward)
+    
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        if st.button(t("common.save"), type="primary", use_container_width=True):
+            try:
+                save_table_metadata(table_full_name, description=new_desc, steward_email=new_stew)
+                st.success(t("common.saved"))
+                time.sleep(0.5)
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error: {e}")
+    with c2:
+        if st.button(t("common.cancel"), use_container_width=True):
+            st.rerun()
 
 
 @st.dialog("Data Sample", width="large")
@@ -3714,6 +3858,7 @@ if current_tab == "search":
                         _detail_grade, _detail_gcls = _dq_grade(_detail_score_num)
 
                         # Table identity block — grade badge floated far-right on table name line
+                        _steward = str(row.get("steward_email", ""))
                         st.markdown(
                             f'<div class="dd-eyebrow" style="margin-bottom:4px">{_cat} · {_sch}</div>'
                             f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
@@ -3726,6 +3871,10 @@ if current_tab == "search":
                             f'<p class="dd-detail-desc">{_desc}</p>{_ext_link}',
                             unsafe_allow_html=True,
                         )
+
+                        if is_power_user():
+                           if st.button(f"✎ {t('detail.edit_table')}", key=f"edit_tbl_{full_name}", type="secondary"):
+                               render_table_metadata_editor(full_name, _raw_desc, _steward)
 
                         # --- § Bookmark (star) + full_name — side by side ---
                         _is_bookmarked = full_name in st.session_state.get("bookmarks", set())
