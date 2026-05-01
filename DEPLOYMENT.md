@@ -12,28 +12,34 @@ Apply manifests in dependency order so each resource exists before the next refe
 # 1. Namespace — must exist before everything else
 kubectl apply -f k8s/namespace.yaml
 
-# 2. Persistent volume claim (DuckDB cache file)
+# 2. Network policy — restrict ingress/egress before workloads start
+kubectl apply -f k8s/networkpolicy.yaml
+
+# 3. Resource quota — enforce namespace-level limits
+kubectl apply -f k8s/resourcequota.yaml
+
+# 4. Persistent volume claim (DuckDB cache file)
 kubectl apply -f k8s/pvc.yaml
 
-# 3. Secrets (Databricks creds, Entra ID, GHCR pull secret)
+# 5. Secrets (Databricks creds, Entra ID, GHCR pull secret)
 kubectl apply -f k8s/secret.yaml
 
-# 4. ConfigMap (non-sensitive env vars)
+# 6. ConfigMap (non-sensitive env vars)
 kubectl apply -f k8s/configmap.yaml
 
-# 5. Deployment
+# 7. Deployment
 kubectl apply -f k8s/deployment.yaml
 
-# 6. Service
+# 8. Service
 kubectl apply -f k8s/service.yaml
 
-# 7. Ingress
+# 9. Ingress
 kubectl apply -f k8s/ingress.yaml
 
-# 8. Horizontal Pod Autoscaler
+# 10. Horizontal Pod Autoscaler
 kubectl apply -f k8s/hpa.yaml
 
-# 9. CronJob (metadata sync)
+# 11. CronJob (metadata sync)
 kubectl apply -f k8s/cronjob.yaml
 ```
 
@@ -137,6 +143,13 @@ kubectl rollout status deployment/dd-app -n data-dictionary
 kubectl get pods -n data-dictionary -l app=dd-app
 ```
 
+The rollback does not affect the CronJob or the DuckDB cache on the PVC. If the metadata in the cache is also suspect, trigger a manual sync after the rollback:
+
+```bash
+kubectl create job --from=cronjob/dd-sync post-rollback-sync-$(date +%s) \
+  -n data-dictionary
+```
+
 ---
 
 ## 5. Scaling manually
@@ -233,3 +246,55 @@ kubectl get events -n data-dictionary --sort-by='.lastTimestamp' | tail -30
    git commit -am "chore: deploy v1.2.0"
    git push
    ```
+
+---
+
+## 9. Local development quickstart
+
+This section covers running the app on a laptop without a Kubernetes cluster or Databricks connection.
+
+### Generate the test dataset
+
+The test dataset is a pre-populated DuckDB file that seeds the app with realistic demo data across four departments.
+
+```bash
+python scripts/generate_test_data.py --seed 42 --out data/test_data.duckdb
+```
+
+The `--seed 42` flag produces a deterministic dataset (800 tables, four departments: finance, research, hr, it). Use a different seed to vary the data. Add `--with-data` to include sample row data that enables the data preview dialog.
+
+### Configure the local environment
+
+Add the following to your `.env` file (or export as shell variables):
+
+```bash
+DUCKDB_PATH=data/test_data.duckdb
+ENABLE_MOCK_AUTH=true
+ENVIRONMENT=development
+DEMO_DATA=true
+EDITOR_GROUPS=finance_dept_id
+ADMIN_GROUPS=finance_dept_id
+```
+
+`DUCKDB_PATH` tells the app to serve all queries from the local file instead of opening a network connection to Databricks.
+
+### Start the app
+
+```bash
+streamlit run app.py
+```
+
+### Mock authentication
+
+When `ENABLE_MOCK_AUTH=true` and `ENVIRONMENT=development` are set, the sign-in page renders four department login buttons instead of the Entra ID redirect:
+
+| Button | Groups injected | Visible tables |
+|--------|----------------|----------------|
+| Finance | `finance_dept_id`, `all_employees_id` | Finance + public |
+| Research | `research_dept_id`, `all_employees_id` | Research + public |
+| HR | `hr_dept_id`, `all_employees_id` | HR + public |
+| IT | `it_dept_id`, `all_employees_id` | IT + public |
+
+Each button sets `st.session_state.user_groups` to the corresponding list. The permission JOIN in every search query then filters results to only the tables those groups are authorized to see, exactly as in production.
+
+No Databricks credentials are needed for local development. The sync job does not need to run if `DUCKDB_PATH` points to the pre-generated test file.

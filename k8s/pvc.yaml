@@ -12,9 +12,11 @@ spec:
   resources:
     requests:
       storage: 5Gi
-  # Change storageClassName to match your cloud provider:
+  # storageClassName must be set to a ReadWriteMany-capable class for your cluster.
+  # Operators must override this before applying. Common values:
   #   AWS EFS CSI:   efs-sc
   #   Azure Files:   azurefile-csi
   #   GCP Filestore: standard-rwx
   #   On-prem NFS:   nfs-client
+  # Example: storageClassName: efs-sc
   storageClassName: standard

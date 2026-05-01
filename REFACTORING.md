@@ -241,10 +241,142 @@ The file is the standalone nightly Databricks → DuckDB syncer. Its name collid
 
 ---
 
+## Phase 11 — Kubernetes deployment hardening
+
+The current `k8s/` manifests are a solid first draft but have several gaps before they are production-safe.
+
+### 11a — Rename sync script reference
+`k8s/cronjob.yaml` runs `python scripts/sync_metadata.py`. Once `scripts/sync_worker.py` is renamed to `scripts/nightly_sync.py` (see Phase 6 note), update the CronJob command to match.
+
+### 11b — Liveness and readiness probes
+The `k8s/deployment.yaml` currently has no probes. Streamlit exposes `GET /healthz` at its built-in health endpoint. Add:
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8501
+  initialDelaySeconds: 30
+  periodSeconds: 15
+  failureThreshold: 3
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: 8501
+  initialDelaySeconds: 10
+  periodSeconds: 5
+```
+
+### 11c — Resource limits
+Add CPU/memory requests and limits to both the app container and the sync CronJob container. Baseline:
+- App: `requests: {cpu: 250m, memory: 512Mi}`, `limits: {cpu: 1000m, memory: 1Gi}`
+- Sync job: `requests: {cpu: 100m, memory: 256Mi}`, `limits: {cpu: 500m, memory: 512Mi}`
+
+### 11d — HPA min/max alignment
+`k8s/hpa.yaml` should reference the actual Deployment name (`dd-app`) and have `minReplicas: 2` for HA. Currently the min is not set explicitly.
+
+### 11e — PVC storage class annotation
+`k8s/pvc.yaml` doesn't specify a `storageClassName`. Add an annotation block with a comment pointing operators to set this for their cluster (e.g., `standard`, `premium-rwo`, `gp3`).
+
+### 11f — Secret rotation runbook
+`k8s/secret.yaml` contains placeholder values only (good). Add a `docs/runbooks/secret-rotation.md` explaining how to rotate the Databricks token, Entra ID client secret, and GHCR pull secret without downtime.
+
+### 11g — Network policy
+Add `k8s/networkpolicy.yaml` restricting ingress to the app pod to only the ingress controller, and egress to only the Databricks workspace CIDR and Entra ID endpoints. This is a security baseline for production.
+
+### 11h — Namespace resource quota
+Add `k8s/resourcequota.yaml` to cap total namespace CPU/memory, preventing a runaway pod from starving cluster neighbours.
+
+**Estimated effort: 1–2 days. Risk: low for probes/resources; medium for network policy (cluster-specific).**
+
+---
+
+## Phase 12 — Documentation overhaul
+
+The existing docs (`README.md`, `ARCHITECTURE.md`, `DEPLOYMENT.md`, `docs/features/`) were written during the v0.1.0 sprint and are now partially stale. A full documentation pass is needed before any external handoff.
+
+### 12a — `ARCHITECTURE.md` — bring current
+
+Gaps to fix:
+- Mermaid diagram shows only one compute layer; add the **DuckDB local cache** layer and the **background DR resync worker** that fills it
+- Add the **personalisation persistence** path (`USER_DATA_PATH` → user preferences DuckDB file)
+- Update security model section: describe the `SELECT_ALL_USERS` sentinel and how `_to_duckdb_sql()` translates named-param Databricks SQL to positional-param DuckDB SQL
+- Add an **i18n** section describing locale loading and the `t()` call convention
+- Replace emoji headings (`🏗️`, `🌟`) with plain sentence-case text per the design system's tone rules
+
+### 12b — `DEPLOYMENT.md` — bring current
+
+Gaps to fix:
+- Add a **local development quickstart** section covering `generate_test_data.py`, `DUCKDB_PATH`, and the 4-department mock auth buttons
+- Add the **environment variable reference table** (all `os.getenv()` calls in `app.py` with their defaults and required/optional status)
+- Add a **smoke test checklist** (matches the load test smoke tag: login, search, catalog, glossary tabs all return 200)
+- Update the k8s apply order after Phase 11 changes (new `networkpolicy.yaml`, `resourcequota.yaml` steps)
+- Add a **rollback procedure** (image tag pinning, `kubectl rollout undo`)
+
+### 12c — `README.md` — sharpen for external audience
+
+The README is the first thing a new engineer or evaluator sees. Improvements:
+- Add a **one-paragraph product description** at the very top (before any technical details)
+- Add a **screenshots section** pointing to `screenshots/latest/` (3–4 key screens)
+- Shorten the "Architecture" section to 3 bullet points + link to `ARCHITECTURE.md`
+- Add a **"Contributing"** section with branch naming convention, commit message style, and `pytest` gate
+- Add **badges**: Python version, license, CI status
+
+### 12d — Per-module docstrings (after Phase 1–9 extraction)
+
+Once `app.py` is broken into modules, each new file needs a module-level docstring covering:
+- **Purpose**: one sentence on what this module owns
+- **Public API**: list of exported functions/classes
+- **Dependencies**: which other `src/` modules it imports
+- **Thread safety**: note if any function touches shared mutable state
+
+### 12e — Function-level docstrings audit
+
+Audit all public functions in `app.py` for missing or stale docstrings. Priority targets:
+- `search_all_metadata()` — documents the UNION ALL SQL, param order, and permission join semantics
+- `_to_duckdb_sql()` — documents the named→positional param translation and its limitations
+- `_run_dr_resync()` — documents when it runs, what it fills, and thread safety contract
+- `check_auth()` — documents the mock vs real auth branching and session state keys it sets
+- `render_table_detail()` (the large search detail panel) — documents session state keys and widget key namespacing
+
+### 12f — `docs/` structure
+
+Extend `docs/` from its current `features/` folder to a proper docs tree:
+
+```
+docs/
+  features/          # existing feature specs (keep)
+  runbooks/
+    secret-rotation.md   (Phase 11f)
+    incident-response.md
+    scaling.md
+  api/
+    queries.md       # SQL query reference (search, lineage, permissions)
+    locale-keys.md   # all i18n keys with EN/FR values
+  adr/
+    001-duckdb-local-cache.md     # why DuckDB over SQLite or Redis
+    002-streamlit-not-fastapi.md  # trade-offs
+    003-push-down-sql-auth.md     # security model rationale
+```
+
+The ADR (Architecture Decision Records) format is especially useful here: the project made several non-obvious choices (DuckDB over SQLite, push-down SQL auth, vis.js over Plotly for lineage) that future maintainers will question. Recording the reasoning prevents re-litigating settled decisions.
+
+### 12g — Test documentation
+
+Add `tests/README.md` covering:
+- How to run the full test suite (`pytest`)
+- How to run load tests (`locust ...` commands from `tests/load/locustfile.py` header)
+- How to regenerate the test dataset (`scripts/generate_test_data.py --seed 42`)
+- What `conftest.py` stubs and why (so a new contributor doesn't try to add real Databricks creds)
+- SLA targets from `tests/load/sla.json` and how to read the Locust CSV output
+
+**Estimated effort: 3–5 days. Can be parallelised across team members — each subsection is independent.**
+
+---
+
 ## What NOT to refactor
 
 - **`design_system/`** — design reference artefacts; no Python, no tests; leave as-is
-- **`k8s/`** — infra config; no Python; leave as-is
 - **`locale/`** — two JSON files; no refactoring needed
 - **`scripts/generate_test_data.py`** — standalone tool, 1 011 lines, self-contained; document it but don't split it
 - **`tests/` structure** — currently flat + `tests/load/`; once modules are extracted the test files will grow but the directory layout is correct
@@ -261,11 +393,15 @@ Phase 4 (DB)  →  Phase 5 (auth)  →  Phase 6 (sync)
 Phase 7 (prefs/comments)  →  Phase 8 (UI)  →  Phase 9 (pages)
                                               ↓
                                        Phase 10 (entry point)
+
+Parallel track (can start immediately, independent of code split):
+  Phase 11 (k8s hardening)  +  Phase 12 (docs overhaul)
 ```
 
 Phases 1–3 are safe to do on a single PR each (no behavioural change, tests still pass).  
 Phases 4–6 require updating `conftest.py` patch targets simultaneously.  
-Phases 7–9 are best done one page renderer at a time, each on its own PR.
+Phases 7–9 are best done one page renderer at a time, each on its own PR.  
+Phases 11 and 12 are **parallel** — no code changes, no test risk, can be done on a dedicated branch (`feature/docs-and-k8s`).
 
 ---
 
@@ -278,3 +414,8 @@ Phases 7–9 are best done one page renderer at a time, each on its own PR.
 | Test coverage (unit) | ~65% (estimated) | ≥ 80% |
 | `pytest` cold-start time | ~8 s | ≤ 3 s |
 | Requirements pinned | No | Yes (`pip-compile`) |
+| k8s probes configured | No | Yes (liveness + readiness) |
+| k8s resource limits set | No | Yes (app + sync job) |
+| Public functions with docstrings | ~40% | ≥ 90% |
+| ADRs recorded | 0 | ≥ 3 (DuckDB, Streamlit, push-down auth) |
+| `tests/README.md` exists | No | Yes |

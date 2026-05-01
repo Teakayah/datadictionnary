@@ -1,31 +1,32 @@
 # Business Data Dictionary for Unity Catalog
 
-An enterprise-grade, high-performance metadata browser for Databricks Unity Catalog. Provides business users with a searchable, permission-filtered view of organizational data assets — without requiring direct Databricks access.
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
+
+Business Data Dictionary is an enterprise-grade metadata browser for Databricks Unity Catalog. It gives business users a fast, searchable, permission-filtered view of their organization's data assets — tables, columns, business terms, lineage, and data quality — without requiring direct Databricks access or SQL knowledge. Authentication is handled via Microsoft Entra ID; permissions are enforced in the query engine, not in Python, so users can only ever see what they are authorized to see.
+
+---
+
+## Screenshots
+
+| Sign in | Search results | Glossary term detail |
+|---------|---------------|---------------------|
+| ![Sign in](screenshots/latest/01_login.png) | ![Search results](screenshots/latest/04_search_results_cards.png) | ![Glossary term detail](screenshots/latest/12_glossary_term_detail.png) |
 
 ---
 
 ## Architecture
 
-The solution uses a decoupled, three-component architecture designed for performance and reliability.
+- The **Streamlit frontend** (`app.py`) authenticates users via OIDC, serves all queries from a local DuckDB cache, and renders five tabs: search, catalog, discovery, health, and glossary.
+- The **nightly sync job** (`scripts/sync_metadata.py`) crawls Unity Catalog and atomically rebuilds the local DuckDB cache file, keeping the UI fast without live Databricks queries.
+- A **two-file DuckDB cache** separates the sync-owned catalog file (`DUCKDB_PATH`) from the app-owned user data file (`USER_DATA_PATH`), enabling cross-file JOINs for bookmarks and business name overrides without any write contention between the sync job and the app.
 
-**Frontend (`app.py`)** — Streamlit application with a bespoke design system, editorial typography, OIDC authentication, and permission-aware search across five tabs: search, discovery, health, glossary, and admin.
-
-**Metadata sync job (`scripts/sync_metadata.py`)** — Background process that crawls Unity Catalog (catalogs → schemas → tables → columns → grants → lineage) and writes results into both a Databricks SQL Warehouse and a local DuckDB file.
-
-**Two-file DuckDB local cache** — When `DUCKDB_PATH` is set, the app serves all queries from a local DuckDB file instead of going across the network. Two files are used:
-
-| File | Owner | Contents |
-|------|-------|----------|
-| `DUCKDB_PATH` (e.g. `dict.duckdb`) | Sync job | `tables_metadata`, `columns_metadata`, `permissions_cache`, `lineage_cache`, `object_tags`, `audit_log` — rebuilt atomically on each sync via `os.replace` |
-| `USER_DATA_PATH` (auto-derived as `dict_user_data.duckdb`) | App | `user_data.comments`, `user_data.business_name_overrides`, `user_data.audit_log` — append-only, never touched by the sync job |
-
-The app opens the catalog file and `ATTACH`es the user data file as the `user_data` schema, enabling cross-file JOINs. All writes are serialized through a singleton connection and a `threading.Lock`.
+For a full technical description of the system design, security model, i18n, and deployment topology, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
 ## Prerequisites
 
-- Python 3.9+
+- Python 3.11+
 - Databricks workspace with Unity Catalog enabled
 - Microsoft Entra ID app registration (for OIDC auth)
 
@@ -86,15 +87,21 @@ The sync job writes to the Databricks cache and, if `DUCKDB_PATH` is set, export
 For local UI development without any Databricks or Entra ID dependency:
 
 ```bash
-# .env
+# Generate the test dataset (800 tables, 4 departments)
+python scripts/generate_test_data.py --seed 42 --out data/test_data.duckdb
+```
+
+Then set in `.env`:
+
+```bash
 ENABLE_MOCK_AUTH=true
 ENVIRONMENT=development
-DEMO_DATA=true
+DUCKDB_PATH=data/test_data.duckdb
 EDITOR_GROUPS=finance_dept_id
 ADMIN_GROUPS=finance_dept_id
 ```
 
-Clicking the mock login button sets `user_groups = ["finance_dept_id", "all_employees_id"]`, granting both editor and admin access to all demo data.
+The sign-in page will show department-specific mock login buttons (finance, research, hr, it). Each button injects the appropriate group IDs into the session so the permission JOIN filters results exactly as in production.
 
 ---
 
@@ -116,13 +123,7 @@ Clicking the mock login button sets `user_groups = ["finance_dept_id", "all_empl
 python -m pytest --tb=short -q
 ```
 
-| File | Coverage |
-|------|----------|
-| `tests/test_app.py` | Auth flows, search, table detail, design system CSS compliance |
-| `tests/test_admin.py` | `is_admin()`, nav visibility, admin page rendering, audit log |
-| `tests/test_duckdb_cache.py` | `_to_duckdb_sql`, `_DuckDBCursor`/`_DuckDBConn` adapter, `write_duckdb`, `_duckdb_available` |
-| `tests/test_navigation.py` | Tab routing, health dashboard, catalog browser, discovery |
-| `tests/test_sync_metadata.py` | `setup_cache_tables` DDL, `sync` orchestration, `fetch_lineage` parsing |
+See [tests/README.md](tests/README.md) for full test documentation including load test commands, dataset generation, and SLA targets.
 
 ---
 
@@ -132,6 +133,7 @@ python -m pytest --tb=short -q
 app.py                    Main Streamlit application and design system CSS
 scripts/
   sync_metadata.py        Unity Catalog crawler and DuckDB/SQL exporter
+  generate_test_data.py   Deterministic test dataset generator
 tests/
   conftest.py             Shared fixtures and SQL mock helpers
   test_app.py
@@ -139,13 +141,49 @@ tests/
   test_duckdb_cache.py
   test_navigation.py
   test_sync_metadata.py
+  load/
+    locustfile.py         Load test scenarios (HTTP + DuckDB query layer)
+    sla.json              SLA targets for p95/p99 latency
+locale/
+  en.json                 English UI strings
+  fr.json                 French UI strings
 design_system/
   colors_and_type.css     Design tokens (CSS variables)
   README.md               Full design system specification
   ui_kits/app/            React JSX prototypes of every screen
+k8s/                      Kubernetes manifests
+docs/
+  adr/                    Architecture decision records
+  api/                    API and locale key references
+  runbooks/               Operations runbooks
 assets/
   logo-mark.svg
   logo-wordmark.svg
 .env.example              Environment variable reference
 requirements.txt
 ```
+
+---
+
+## Contributing
+
+**Branch naming** — use a prefix that matches the change type:
+- `feature/<short-description>` for new features
+- `fix/<short-description>` for bug fixes
+- `chore/<short-description>` for dependency updates, config changes, and housekeeping
+- `docs/<short-description>` for documentation-only changes
+
+**Commit messages** — use [Conventional Commits](https://www.conventionalcommits.org/):
+```
+feat(search): add group filter dropdown
+fix(duckdb): handle null description columns
+docs: update ARCHITECTURE.md with i18n section
+chore: bump streamlit to 1.35
+```
+
+**Tests** — all PRs must pass the full pytest suite:
+```bash
+python -m pytest --tb=short -q
+```
+
+There is no coverage gate enforced by CI yet, but new features should include tests for the happy path and at least one error case.
