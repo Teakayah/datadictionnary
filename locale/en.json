@@ -11,8 +11,14 @@
   "auth": {
     "title": "A card catalog for your warehouse.",
     "subtitle": "Search tables, columns, and business terms across Unity Catalog — filtered to what you have permission to see.",
+    "sign_in": "Sign in",
+    "corporate_account": "Use your corporate account",
+    "permission_trimmed": "The catalog is permission-trimmed by Microsoft Entra ID — you'll only see data your Unity Catalog grants allow.",
     "sign_in_button": "Sign in with Entra ID",
     "mock_button": "Sign in with Entra ID (mock)",
+    "mock_department": "Department",
+    "mock_meta": "Mock authentication — select a department to filter by its grants.",
+    "policy_agreement": "By signing in you agree to the data access policy.",
     "signed_in_as": "Signed in as"
   },
   "search": {

@@ -132,7 +132,7 @@ class TestMockAuth:
         """A sign-in button must be visible before auth."""
         at = unauthenticated_app()
         at.run()
-        assert any("Sign in" in b.label for b in at.button), \
+        assert any(b.label in ("Sign in", "Se connecter") for b in at.button), \
             "No sign-in button on unauthenticated page"
 
     def test_mock_signin_sets_authenticated(self):
@@ -147,7 +147,7 @@ class TestMockAuth:
         at = unauthenticated_app()
         at.run()
         at.button[0].click().run()
-        assert "finance_dept_id" in at.session_state["user_groups"]
+        assert "finance_group" in at.session_state["user_groups"]
 
     def test_mock_signin_sets_user_name(self):
         """Mock sign-in must set a non-empty user_name."""

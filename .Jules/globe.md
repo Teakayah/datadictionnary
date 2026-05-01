@@ -1,0 +1,3 @@
+## 2026-05-01 - Mock handling of translated elements in AppTest
+**Learning:** `AppTest` asserts checking `at.button` labels can fail if they look for the hardcoded english string. When UI labels are migrated to `t("auth.*")`, tests verifying their presence need to be updated to assert against a set of supported locale variants (e.g. `assert any(b.label in ("Sign in", "Se connecter") for b in at.button)`) because `AppTest` instantiates components using the runtime active locale.
+**Action:** When extracting hardcoded strings from Streamlit components (like `st.button`), proactively update related `AppTest` checks in the test suite to allow for all possible translated variants.

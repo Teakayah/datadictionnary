@@ -11,8 +11,14 @@
   "auth": {
     "title": "Un catalogue pour votre entrepôt.",
     "subtitle": "Recherchez des tables, des colonnes et des termes métier dans Unity Catalog — filtrés selon vos accès.",
+    "sign_in": "Se connecter",
+    "corporate_account": "Utilisez votre compte d'entreprise",
+    "permission_trimmed": "Le catalogue est filtré selon les permissions de Microsoft Entra ID — vous ne verrez que les données que vos accès Unity Catalog vous permettent de voir.",
     "sign_in_button": "Se connecter avec Entra ID",
     "mock_button": "Se connecter avec Entra ID (démo)",
+    "mock_department": "Département",
+    "mock_meta": "Authentification factice — sélectionnez un département pour filtrer par ses accès.",
+    "policy_agreement": "En vous connectant, vous acceptez la politique d'accès aux données.",
     "signed_in_as": "Connecté en tant que"
   },
   "search": {

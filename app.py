@@ -1381,12 +1381,11 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
         """, unsafe_allow_html=True)
 
     with col_card:
-        st.markdown("""
+        st.markdown(f"""
         <div class="dd-signin-card">
-          <div class="dd-eyebrow">Sign in</div>
-          <h3>Use your corporate account</h3>
-          <p class="body">The catalog is permission-trimmed by Microsoft Entra ID —
-          you'll only see data your Unity Catalog grants allow.</p>
+          <div class="dd-eyebrow">{t("auth.sign_in")}</div>
+          <h3>{t("auth.corporate_account")}</h3>
+          <p class="body">{t("auth.permission_trimmed")}</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1403,12 +1402,12 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
             _default_dept = os.getenv("MOCK_DEPT", "Finance")
             _dept_opts = list(_MOCK_DEPTS.keys())
             _dept_sel = st.selectbox(
-                "Department",
+                t("auth.mock_department"),
                 _dept_opts,
                 index=_dept_opts.index(_default_dept) if _default_dept in _dept_opts else 0,
                 label_visibility="collapsed",
             )
-            if st.button("Sign in", use_container_width=True, type="primary"):
+            if st.button(t("auth.sign_in"), use_container_width=True, type="primary"):
                 _groups, _email = _MOCK_DEPTS[_dept_sel]
                 st.session_state.authenticated = True
                 st.session_state.user_groups   = _groups
@@ -1416,7 +1415,7 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
                 st.session_state.user_email    = _email
                 st.rerun()
             st.markdown(
-                '<p class="dd-meta">Mock authentication — select a department to filter by its grants.</p>',
+                f'<p class="dd-meta">{t("auth.mock_meta")}</p>',
                 unsafe_allow_html=True,
             )
         else:
@@ -1430,7 +1429,7 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
               text-decoration:none;box-sizing:border-box;
               transition:background 120ms var(--ease);
             ">{MS_LOGO_SVG} {t('auth.sign_in_button')}</a>
-            <p class="dd-meta" style="margin-top:12px">By signing in you agree to the data access policy.</p>
+            <p class="dd-meta" style="margin-top:12px">{t("auth.policy_agreement")}</p>
             """, unsafe_allow_html=True)
 
 
