@@ -2857,6 +2857,13 @@ _VIS_WIDE_CSS = """<style>
 [data-testid="stDialog"] > div > div[role="dialog"] {
     max-width: 92vw !important;
     width: 92vw !important;
+    max-height: 95vh !important;
+    height: 95vh !important;
+}
+[data-testid="stDialog"] > div > div[role="dialog"] > div[data-testid="stDialogContent"] {
+    max-height: calc(95vh - 60px) !important;
+    overflow-y: auto !important;
+    flex: 1 1 auto !important;
 }
 </style>"""
 
@@ -2939,7 +2946,7 @@ def _lineage_vis_html(graph_nodes: list, graph_links: list, height: int = 350, c
 def render_lineage_fullscreen(graph_nodes: list, graph_links: list, full_name: str):
     st.markdown(_VIS_WIDE_CSS, unsafe_allow_html=True)
     st.markdown(f"**{full_name}** — {t('detail.lineage_graph_subtitle').format(table=full_name.split('.')[-1])}")
-    _graph_h = int(_viewport_height(800) * 0.92)
+    _graph_h = int(_viewport_height(800) * 0.95) - 124
     graph_html = _lineage_vis_html(graph_nodes, graph_links, height=_graph_h, container_id="mynetwork_full", spring_length=220)
     components.html(graph_html, height=_graph_h + 20)
 
@@ -3006,10 +3013,12 @@ def render_data_sample(table_full_name: str):
             query = f"SELECT * FROM {table_full_name} LIMIT 100"  # nosec B608
             df = run_query(query)
         if df is not None and not df.empty:
-            # Fill 92% of the user's screen height; row-count cap prevents tiny
-            # tables from over-allocating, minimum 400px so the grid feels usable.
+            # Dialog occupies 95vh; subtract chrome (title bar 56px + content
+            # padding 32px + table-name markdown 36px) ≈ 124px so the grid
+            # fills the remaining interior without scrolling the dialog itself.
             _screen_h = _viewport_height(800)
-            _max_h = int(_screen_h * 0.92)
+            _dialog_chrome = 124
+            _max_h = int(_screen_h * 0.95) - _dialog_chrome
             _row_h = len(df) * 35 + 38
             _h = max(min(_row_h, _max_h), 400)
             st.dataframe(df, use_container_width=True, height=_h)
