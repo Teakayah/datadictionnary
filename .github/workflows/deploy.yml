@@ -45,6 +45,7 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
           pip install pytest
+          playwright install --with-deps chromium
 
       - name: Run tests (excluding load tests)
         run: pytest tests/ -q --tb=short --ignore=tests/load
