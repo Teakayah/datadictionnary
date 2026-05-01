@@ -18,62 +18,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Internationalisation (i18n) ───────────────────────────────────────────────
-import json as _json
-
-def _load_locales() -> dict:
-    base = os.path.join(os.path.dirname(__file__), "locale")
-    result = {}
-    for lang in ("en", "fr"):
-        try:
-            with open(os.path.join(base, f"{lang}.json"), encoding="utf-8") as f:
-                result[lang] = _json.load(f)
-        except Exception:
-            result[lang] = {}
-    return result
-
-# Loaded once per process start — no caching decorator so restarts always
-# pick up locale file changes without needing a cache-clear.
-LOCALES: dict = _load_locales()
-
-def get_locale() -> str:
-    """Detect preferred locale from the browser Accept-Language header."""
-    try:
-        header = st.context.headers.get("Accept-Language", "en")
-        primary = header.split(",")[0].split(";")[0].split("-")[0].strip().lower()
-        return "fr" if primary == "fr" else "en"
-    except Exception:
-        return "en"
-
-def _ensure_locale() -> None:
-    if "locale" not in st.session_state:
-        st.session_state["locale"] = get_locale()
-
-def t(key: str, **kwargs) -> str:
-    """Look up a dotted key (e.g. 'nav.search') in the active locale.
-
-    Falls back to English if the key is missing in the active locale.
-    Supports str.format() style placeholders: t('search.results_count', count=5).
-    """
-    _ensure_locale()
-    lang = st.session_state.get("locale", "en")
-
-    def _lookup(d: dict, parts: list) -> str | None:
-        for p in parts:
-            if not isinstance(d, dict):
-                return None
-            d = d.get(p)
-        return d if isinstance(d, str) else None
-
-    parts = key.split(".")
-    val = _lookup(LOCALES.get(lang, {}), parts) or _lookup(LOCALES.get("en", {}), parts) or key
-    try:
-        return val.format(**kwargs) if kwargs else val
-    except (KeyError, IndexError):
-        return val
-
-def set_locale(lang: str) -> None:
-    """Persist locale choice; button click already triggers the rerun."""
-    st.session_state["locale"] = lang
+import json            # used in sync queue (json.dumps/loads)
+import json as _json   # alias used in render_header and lineage; keep alongside i18n import
+from src.i18n import LOCALES, get_locale, _ensure_locale, t, set_locale
 
 # ── Demo data (returned in mock/dev mode instead of hitting Databricks) ────────
 _DEMO_TABLES = pd.DataFrame({
