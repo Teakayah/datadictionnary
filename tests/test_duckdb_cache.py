@@ -11,8 +11,6 @@ from __future__ import annotations
 
 import os
 import sys
-import re as _re
-import textwrap
 import pandas as pd
 import pytest
 import duckdb
@@ -35,63 +33,41 @@ def sync_mocks():
         yield mocks
 
 
-# ── Helper: extract & exec pure-Python helpers from app.py ───────────────────
+# ── Helper: return src.db.duckdb_adapter symbols in a mutable namespace dict ──
+# Phase 4: functions moved from app.py into src/db/duckdb_adapter.py.
+# We expose them via a dict so all existing tests keep the same h["name"] access
+# pattern without changes to the test bodies.
 
 def _load_duckdb_helpers():
-    """Extract _to_duckdb_sql, _DuckDBCursor, _DuckDBConn, _duckdb_available
-    from app.py by exec-ing the relevant source block in a minimal namespace.
-    No Streamlit or Databricks imports needed.
+    """Return a dict with _to_duckdb_sql, _DuckDBCursor, _DuckDBConn, etc.
+
+    Phase 4 rewrite: imports directly from src.db.duckdb_adapter instead of
+    exec-slicing app.py.  The dict also exposes DUCKDB_PATH / USER_DATA_PATH
+    as mutable keys so individual tests can patch them without touching the
+    module (which caches them from src.config at import time).
     """
-    import types
-    import threading as _threading
-    import duckdb as _duckdb_module
-
-    src_path = os.path.join(os.path.dirname(__file__), "..", "app.py")
-    with open(src_path) as f:
-        source = f.read()
-
-    # Grab the block from _duckdb_available up to (but not including) the
-    # Databricks @st.cache_resource(ttl=...) so we capture _DuckDBCursor and
-    # _DuckDBConn which now live after _get_shared_duckdb_connection.
-    start = source.find("\ndef _duckdb_available(")
-    end   = source.find("\n@st.cache_resource(ttl=", start)
-    block = source[start:end]
-
-    # Mock st so @st.cache_resource decorator doesn't require a running Streamlit
-    mock_st = types.SimpleNamespace()
-    def _mock_cache_resource(*args, **kwargs):
-        # @st.cache_resource          → called with the function directly
-        # @st.cache_resource(...)     → called with kwargs, returns a decorator
-        if args and callable(args[0]):
-            return args[0]
-        return lambda f: f
-    mock_st.cache_resource = _mock_cache_resource
-
-    # Phase 1 src/config.py extraction: CATALOG_CACHE and SCHEMA_CACHE moved out
-    # of the inline duckdb block into src/config.py. Provide them here so the
-    # exec'd slice still resolves those names. logging is always a stdlib import
-    # but was previously available as a module-level name in the app — add it too.
-    import logging as _logging_mod
-    from src.config import CATALOG_CACHE as _CATALOG_CACHE, SCHEMA_CACHE as _SCHEMA_CACHE
+    import src.db.duckdb_adapter as _adapter
+    from src.config import CATALOG_CACHE, SCHEMA_CACHE
 
     ns = {
-        "os": os,
-        "pd": pd,
-        "re": _re,
-        "MagicMock": MagicMock,
-        "st": mock_st,
-        "duckdb": _duckdb_module,
-        "threading": _threading,
-        "logging": _logging_mod,
-        # Default values so _duckdb_available() and _get_shared_duckdb_connection()
-        # don't raise NameError; individual tests override as needed.
-        "DUCKDB_PATH": "",
-        "USER_DATA_PATH": "",
-        "_db_write_lock": _threading.Lock(),
-        "CATALOG_CACHE": _CATALOG_CACHE,
-        "SCHEMA_CACHE": _SCHEMA_CACHE,
+        # Core adapter functions & classes
+        "_to_duckdb_sql":                _adapter._to_duckdb_sql,
+        "_duckdb_available":             _adapter._duckdb_available,
+        "_get_shared_duckdb_connection": _adapter._get_shared_duckdb_connection,
+        "_DuckDBCursor":                 _adapter._DuckDBCursor,
+        "_DuckDBConn":                   _adapter._DuckDBConn,
+        "_run_duckdb_query":             _adapter._run_duckdb_query,
+        "_db_write_lock":                _adapter._db_write_lock,
+        # Config constants (informational — adapter reads from src.config directly)
+        "CATALOG_CACHE":  CATALOG_CACHE,
+        "SCHEMA_CACHE":   SCHEMA_CACHE,
+        # Path overrides: tests set these on the ns dict; use patch.object on the
+        # adapter module to make _duckdb_available() pick up the new value.
+        "DUCKDB_PATH":    _adapter.DUCKDB_PATH,
+        "USER_DATA_PATH": _adapter.USER_DATA_PATH,
+        # Reference to the module itself so tests can patch attributes directly
+        "_module": _adapter,
     }
-    exec(textwrap.dedent(block), ns)
     return ns
 
 
@@ -171,6 +147,14 @@ class TestDuckDBAdapter:
     @pytest.fixture(autouse=True)
     def helpers(self):
         self.h = _load_duckdb_helpers()
+        # Phase 4: _get_shared_duckdb_connection is now a module-level
+        # @st.cache_resource singleton shared across all tests. Clear it before
+        # each test so path-patching tests (test_duckconn_open_property) don't
+        # see a stale connection from a previous test.
+        import src.db.duckdb_adapter as _adapter
+        _adapter._get_shared_duckdb_connection.clear()
+        yield
+        _adapter._get_shared_duckdb_connection.clear()
 
     def _cursor(self, db_path: str):
         con = duckdb.connect(db_path)
@@ -223,25 +207,28 @@ class TestDuckDBAdapter:
         db = str(tmp_path / "t.duckdb")
         user_db = str(tmp_path / "user.duckdb")
         duckdb.connect(db).close()  # create catalog file
-        # _DuckDBConn routes through the singleton — patch the module-level paths
-        self.h["DUCKDB_PATH"] = db
-        self.h["USER_DATA_PATH"] = user_db
-        conn = self.h["_DuckDBConn"](db)
-        cur = conn.cursor()
-        assert hasattr(cur, "execute")
-        assert hasattr(cur, "fetchall_as_pandas")
+        # Patch the module-level DUCKDB_PATH so _duckdb_available() sees the file
+        _mod = self.h["_module"]
+        with patch.object(_mod, "DUCKDB_PATH", db), \
+             patch.object(_mod, "USER_DATA_PATH", user_db):
+            conn = self.h["_DuckDBConn"](db)
+            cur = conn.cursor()
+            assert hasattr(cur, "execute")
+            assert hasattr(cur, "fetchall_as_pandas")
 
     def test_duckconn_open_property(self, tmp_path):
         db = str(tmp_path / "t.duckdb")
+        user_db = str(tmp_path / "user.duckdb")
+        _mod = self.h["_module"]
         # File absent → singleton returns None → open is False
-        self.h["DUCKDB_PATH"] = db
-        self.h["USER_DATA_PATH"] = str(tmp_path / "user.duckdb")
-        conn_absent = self.h["_DuckDBConn"](db)
-        assert conn_absent.open is False
-        # File present → singleton succeeds → open is True
-        duckdb.connect(db).close()
-        conn_present = self.h["_DuckDBConn"](db)
-        assert conn_present.open is True
+        with patch.object(_mod, "DUCKDB_PATH", db), \
+             patch.object(_mod, "USER_DATA_PATH", user_db):
+            conn_absent = self.h["_DuckDBConn"](db)
+            assert conn_absent.open is False
+            # File present → singleton succeeds → open is True
+            duckdb.connect(db).close()
+            conn_present = self.h["_DuckDBConn"](db)
+            assert conn_present.open is True
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -249,19 +236,12 @@ class TestDuckDBAdapter:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class TestDuckdbAvailable:
+    """Phase 4: tests now patch src.db.duckdb_adapter.DUCKDB_PATH directly."""
 
     def _available(self, path):
-        h = _load_duckdb_helpers()
-        h["DUCKDB_PATH"] = path
-        # Re-exec so the closure picks up the patched DUCKDB_PATH
-        src_path = os.path.join(os.path.dirname(__file__), "..", "app.py")
-        with open(src_path) as f:
-            source = f.read()
-        start = source.find("\ndef _duckdb_available(")
-        end   = source.find("\n\ndef _to_duckdb_sql(", start)
-        ns = {"os": os, "pd": pd, "DUCKDB_PATH": path}
-        exec(source[start:end], ns)
-        return ns["_duckdb_available"]()
+        import src.db.duckdb_adapter as _adapter
+        with patch.object(_adapter, "DUCKDB_PATH", path):
+            return _adapter._duckdb_available()
 
     def test_false_when_path_empty(self):
         assert self._available("") is False
@@ -316,7 +296,10 @@ class TestWriteDuckdb:
         with patch.dict(os.environ, {"DUCKDB_PATH": db}):
             self.write_duckdb(self._tables(), [], [], [], [])
         con = duckdb.connect(db, read_only=True)
-        df = con.execute("SELECT * FROM tables_metadata").df()
+        # write_duckdb stores tables under the dictionary_cache schema so that
+        # the 3-part SQL (data_governance.dictionary_cache.table) resolves when
+        # the file is ATTACHed AS data_governance.
+        df = con.execute("SELECT * FROM dictionary_cache.tables_metadata").df()
         con.close()
         assert len(df) == 1
         assert df.iloc[0]["full_name"] == "c.s.t"
@@ -326,7 +309,7 @@ class TestWriteDuckdb:
         with patch.dict(os.environ, {"DUCKDB_PATH": db}):
             self.write_duckdb([], [], self._permissions(), [], [])
         con = duckdb.connect(db, read_only=True)
-        df = con.execute("SELECT * FROM permissions_cache").df()
+        df = con.execute("SELECT * FROM dictionary_cache.permissions_cache").df()
         con.close()
         assert df.iloc[0]["principal"] == "grp"
 
@@ -337,8 +320,8 @@ class TestWriteDuckdb:
         con = duckdb.connect(db, read_only=True)
         for tbl in ("tables_metadata", "columns_metadata", "permissions_cache",
                     "lineage_cache", "object_tags", "audit_log"):
-            df = con.execute(f"SELECT * FROM {tbl}").df()
-            assert isinstance(df, pd.DataFrame), f"{tbl} missing"
+            df = con.execute(f"SELECT * FROM dictionary_cache.{tbl}").df()
+            assert isinstance(df, pd.DataFrame), f"dictionary_cache.{tbl} missing"
         con.close()
 
     def test_user_data_tables_absent_from_catalog_file(self, tmp_path):

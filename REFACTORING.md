@@ -569,3 +569,115 @@ handoffs, the brief must include:
 - **The 4 known failing tests** so the agent doesn't try to fix them
 
 Keep the scope to one phase per agent call.
+
+---
+
+## Migration lessons learned — Phase 4 (DB adapters)
+
+> Completed on `feature/src-split-phase4-db`. Three new src/db/ modules.
+> Three new classes of problems emerged on top of the Phase 1–3 lessons.
+
+---
+
+### Lesson 9 — Late `import app` inside an extracted function causes AppTest to re-execute app.py
+
+**What happened:** `queries.py::get_authorized_tables` used `import app as _app` to
+access `_DEMO_TABLES`. In Streamlit's `AppTest.from_file("app.py")`, the app is
+`exec()`d into a module that is NOT registered under `sys.modules["app"]`. The late
+`import app` inside the function triggered a fresh import, which re-executed app.py
+from scratch, hitting `streamlit_js_eval(key="_dd_vh")` a second time and raising
+`StreamlitDuplicateElementKey`. 6 previously-passing tests failed.
+
+**Rule:** Never `import app` (or any Streamlit entry-point module) from inside an
+extracted helper module. The entry-point module is not a stable importable; it is
+re-executed on every AppTest run.
+
+**Correct pattern:** If an extracted function needs data owned by app.py, use one of:
+1. A *registry* function in the extracted module (`register_demo_data(...)`) called by
+   app.py at startup — no import of app needed.
+2. Move the shared data into a third module (`src/demo.py`) that both app.py and the
+   extracted module import from.
+3. Pass the data as a function parameter (dependency injection).
+
+**This phase's resolution:** Defer extraction of all `_DEMO_*`-coupled functions
+(`run_query`, `get_authorized_tables`, `search_all_metadata`, `get_column_business_names`,
+`get_multi_hop_lineage`) to Phase 4b. They remain in app.py until `_DEMO_*` fixtures
+move to `src/demo.py`.
+
+---
+
+### Lesson 10 — `@st.cache_resource` singletons survive between tests; the old exec() helper masked this
+
+**What happened:** `_get_shared_duckdb_connection` is decorated with
+`@st.cache_resource`. Under the old exec-slice approach, each `_load_duckdb_helpers()`
+call created a new function object with its own Streamlit cache identity — effectively
+a fresh singleton per test. Under the direct-import approach, all tests share the same
+module-level cached function. `test_duckconn_open_property` passed alone but failed in
+the full test run because a preceding test had populated the singleton with a valid
+connection; patching `DUCKDB_PATH` to a non-existent file did not invalidate the cache.
+
+**Rule:** When a module under test uses `@st.cache_resource` or `@st.cache_data`, add
+a fixture that calls `fn.clear()` before and after each test that relies on a specific
+cached value:
+
+```python
+@pytest.fixture(autouse=True)
+def helpers(self):
+    self.h = _load_duckdb_helpers()
+    import src.db.duckdb_adapter as _adapter
+    _adapter._get_shared_duckdb_connection.clear()
+    yield
+    _adapter._get_shared_duckdb_connection.clear()
+```
+
+---
+
+### Lesson 11 — Stale test assertions reveal bugs hidden by wrong test structure
+
+**What happened:** Three `TestWriteDuckdb` tests did `SELECT * FROM tables_metadata`
+without a schema prefix. The `write_duckdb` function has always created tables under
+`dictionary_cache.tables_metadata` (documented in a code comment). The tests were wrong
+and had never caught the correct behavior — they just happened to fail silently in the
+CI runs we didn't check. Phase 4 surfaced them because we finally ran the full
+`test_duckdb_cache.py` suite explicitly.
+
+**Rule:** Before declaring a test file "all pass," run it in isolation AND in the full
+suite. When a test passes in isolation but fails together with others, it reveals either
+a singleton/cache contamination problem (Lesson 10) or a test that was never actually
+exercising the function correctly.
+
+**Fix:** Update assertions to match the actual schema layout:
+`SELECT * FROM dictionary_cache.{table}` — matches what the app's ATTACH alias expects.
+
+---
+
+### Lesson 12 — An agent without bash access can only do half the job
+
+**What happened:** The Gemini agent created all four src/db/ files with good content but
+could not run `python -c "import py_compile..."` or `pytest`, so it couldn't discover
+that queries.py had a circular import problem (Lesson 9) or that test isolation was
+broken (Lesson 10). It correctly flagged the gap and asked for bash permissions.
+
+**Rule:** Any agent brief that involves verifying correctness (compile checks, test runs)
+must either:
+1. Use an agent type that has bash access (the `general-purpose` agent has all tools), OR
+2. Explicitly state "you cannot run tests — report what you've done and I will run them."
+
+For extraction phases, option 1 is strongly preferred: compilation errors and test
+failures are the primary acceptance gate, and finding them after the agent is done wastes
+the next iteration.
+
+---
+
+### Lesson 13 — Verify decorator parity when copying functions
+
+**What happened:** The agent added `@st.cache_resource(ttl="2h")` to
+`_get_databricks_connection()` — the original had no decorator. It also added
+`@st.cache_data(ttl="1h")` to `_run_databricks_query()` which was correct (matched the
+original). Silently adding caching to a function changes its behavior under test (the
+cache can return stale values) and in production (connections are cached longer than
+intended).
+
+**Rule:** When copying a function to a new module, grep the original for its decorator
+first: `grep -B3 "^def function_name" original.py`. Copy decorators verbatim. Do not add
+or remove caching decorators — that is a separate optimization decision.
