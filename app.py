@@ -1959,10 +1959,10 @@ def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
     writer.writerow(["Column Name", "Business Name", "Data Type", "System Description", "Business Definition"])
 
     if cols is not None and not cols.empty:
-        for _, c in cols.iterrows():
-            cname = str(c.get("column_name", ""))
-            ctype = str(c.get("data_type", ""))
-            ccomment = str(c.get("comment") or "")
+        for c in cols.itertuples(index=False):
+            cname = str(getattr(c, "column_name", ""))
+            ctype = str(getattr(c, "data_type", ""))
+            ccomment = str(getattr(c, "comment", "") or "")
 
             override = col_overrides.get(cname, {})
             biz_name = override.get("business_name", "")
@@ -1995,13 +1995,13 @@ def get_column_business_names(table_full_name: str) -> dict:
             rows = cursor.fetchall_as_pandas()
             if rows is not None and not rows.empty:
                 return {
-                    str(r["column_name"]): {
-                        "business_name": str(r["business_name"]) if r["business_name"] else "",
-                        "definition":    str(r["definition"])    if r["definition"]    else "",
-                        "edited_by":     str(r["edited_by"]),
-                        "edited_at":     str(r["edited_at"]),
+                    str(getattr(r, "column_name", "")): {
+                        "business_name": str(getattr(r, "business_name", "")) if getattr(r, "business_name", "") else "",
+                        "definition":    str(getattr(r, "definition", ""))    if getattr(r, "definition", "")    else "",
+                        "edited_by":     str(getattr(r, "edited_by", "")),
+                        "edited_at":     str(getattr(r, "edited_at", "")),
                     }
-                    for _, r in rows.iterrows()
+                    for r in rows.itertuples(index=False)
                 }
     except Exception as e:
         logging.warning("Could not fetch column business names for %s: %s", table_full_name, e)
@@ -2884,9 +2884,9 @@ def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, ma
             result = _fetch_lineage_hop(node_fn, query_groups)
             if result is None or result.empty or "direction" not in result.columns:
                 continue
-            for _, lr in result.iterrows():
-                efn = str(lr["entity_full_name"])
-                direction = str(lr["direction"])
+            for lr in result.itertuples(index=False):
+                efn = str(getattr(lr, "entity_full_name", ""))
+                direction = str(getattr(lr, "direction", ""))
                 link = {"from": efn, "to": node_fn} if direction == "UPSTREAM" else {"from": node_fn, "to": efn}
                 if link not in graph_links:
                     graph_links.append(link)
@@ -3248,8 +3248,9 @@ def render_discovery(groups):
                 all_authorized = get_authorized_tables((primary_group,))
                 if not all_authorized.empty and "updated_at" in all_authorized.columns:
                     recent_tables = all_authorized.sort_values(by="updated_at", ascending=False).head(10)
-                    for _, row in recent_tables.iterrows():
-                        _render_table_card(row, "notable")
+                    for row in recent_tables.itertuples(index=False):
+                        # Convert namedtuple to Series/dict for _render_table_card
+                        _render_table_card(pd.Series(row._asdict()), "notable")
                 else:
                     st.info(t("discovery.no_updates"))
             except Exception as e:
@@ -3271,8 +3272,8 @@ def render_discovery(groups):
                 if bk_df.empty:
                     st.info(t("personalization.no_bookmarks"))
                 else:
-                    for _, row in bk_df.iterrows():
-                        _render_table_card(row, "bk")
+                    for row in bk_df.itertuples(index=False):
+                        _render_table_card(pd.Series(row._asdict()), "bk")
             except Exception as e:
                 logging.error("Error loading bookmarks: %s", e)
                 st.error(t("discovery.load_error"))
@@ -3329,8 +3330,8 @@ def render_discovery(groups):
                 if rv_df.empty:
                     st.info(t("personalization.no_recent"))
                 else:
-                    for _, row in rv_df.iterrows():
-                        _render_table_card(row, "rv")
+                    for row in rv_df.itertuples(index=False):
+                        _render_table_card(pd.Series(row._asdict()), "rv")
             except Exception as e:
                 logging.error("Error loading recent views: %s", e)
                 st.error(t("discovery.load_error"))
@@ -3430,11 +3431,11 @@ def render_health(groups):
             
             if not undocumented.empty:
                 st.warning(t("health.missing_descriptions"))
-                for _, row in undocumented.iterrows():
-                    if st.button(f"📄 {row['table_name']}", key=f"health_fix_{row['full_name']}", use_container_width=True):
+                for row in undocumented.itertuples(index=False):
+                    if st.button(f"📄 {getattr(row, 'table_name', '')}", key=f"health_fix_{getattr(row, 'full_name', '')}", use_container_width=True):
                         st.query_params["tab"] = "search"
-                        st.session_state["dd_search_override"] = row["table_name"]
-                        st.session_state["dd_nav_select"] = row["full_name"]
+                        st.session_state["dd_search_override"] = getattr(row, 'table_name', '')
+                        st.session_state["dd_nav_select"] = getattr(row, 'full_name', '')
                         st.rerun()
             else:
                 st.success(t("health.all_documented"))
@@ -3662,21 +3663,21 @@ def _run_dr_resync():
                 _DR_RESYNC_STATUS = f"Syncing {tbl}"
                 # Merge into DuckDB
                 with conn.cursor() as cursor:
-                    for _, row in delta_df.iterrows():
+                    for row in delta_df.itertuples(index=False):
                         # Simple append for logs/comments (guaranteed unique IDs)
                         if tbl in ("comments", "audit_log"):
                             cols = ", ".join(delta_df.columns)
                             placeholders = ", ".join([f"%({c})s" for c in delta_df.columns])
                             cursor.execute_write(
                                 f"INSERT OR IGNORE INTO user_data.{tbl} ({cols}) VALUES ({placeholders})",
-                                row.to_dict()
+                                row._asdict()
                             )
                         else:
                             # Merge for overrides
                             cursor.execute_write(
                                 f"INSERT OR REPLACE INTO user_data.{tbl} ({', '.join(delta_df.columns)}) "
                                 f"VALUES ({', '.join([f'%({c})s' for c in delta_df.columns])})",
-                                row.to_dict()
+                                row._asdict()
                             )
         
         _DR_RESYNC_STATUS = "Up-to-date"
@@ -3874,13 +3875,13 @@ if current_tab == "search":
             _desc_col = "table_description" if "table_description" in _group_results.columns else "comment" if "comment" in _group_results.columns else None
             _group_results["description"] = _group_results[_desc_col] if _desc_col else ""
         st.markdown(f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);margin-bottom:12px">{len(_group_results)} {t("search.results_count") if len(_group_results) != 1 else "table"}</p>', unsafe_allow_html=True)
-        for _gr_i, (_, _gr) in enumerate(_group_results.iterrows()):
-            _gr_name = str(_gr.get("name") or _gr.get("table_name", ""))
-            _gr_full = str(_gr.get("full_name", ""))
-            _gr_desc = str(_gr.get("description", "") or "")
+        for _gr_i, _gr in enumerate(_group_results.itertuples(index=False)):
+            _gr_name = str(getattr(_gr, "name", "") or getattr(_gr, "table_name", ""))
+            _gr_full = str(getattr(_gr, "full_name", ""))
+            _gr_desc = str(getattr(_gr, "description", "") or "")
             if not _gr_full:
                 continue
-            _gr_dq_score = str(_gr.get("dq_score", "") or "")
+            _gr_dq_score = str(getattr(_gr, "dq_score", "") or "")
             _gr_grade, _gr_gcls = _dq_grade(_gr_dq_score)
             _gc, _gb = st.columns([5, 1], gap="small", vertical_alignment="top")
             with _gc:
@@ -3928,12 +3929,12 @@ if current_tab == "search":
                         return "" if _pd.isna(v) else str(v)
                     # No selection yet — show clickable result cards
                     st.markdown(f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);margin-bottom:12px">{len(results)} matches</p>', unsafe_allow_html=True)
-                    for _sr_i, (_, _sr) in enumerate(results.iterrows()):
-                        _sr_type = _s(_sr.get("match_type"))
-                        _sr_name = _s(_sr.get("name"))
-                        _sr_full = _s(_sr.get("full_name"))
-                        _sr_desc = _s(_sr.get("description"))
-                        _sr_dq   = _s(_sr.get("dq_score", ""))
+                    for _sr_i, _sr in enumerate(results.itertuples(index=False)):
+                        _sr_type = _s(getattr(_sr, "match_type", ""))
+                        _sr_name = _s(getattr(_sr, "name", ""))
+                        _sr_full = _s(getattr(_sr, "full_name", ""))
+                        _sr_desc = _s(getattr(_sr, "description", ""))
+                        _sr_dq   = _s(getattr(_sr, "dq_score", ""))
                         if not _sr_full:
                             continue
                         _sr_grade, _sr_gcls = _dq_grade(_sr_dq)
@@ -4066,10 +4067,10 @@ if current_tab == "search":
                         _col_edit = st.session_state.get("dd_col_edit_mode", "")
 
                         if n_cols > 0:
-                            for _, c in cols.iterrows():
-                                _cname    = str(c.get("column_name", ""))
-                                _ctype    = str(c.get("data_type", ""))
-                                _ccomment = str(c.get("comment") or "")
+                            for c in cols.itertuples(index=False):
+                                _cname    = str(getattr(c, "column_name", ""))
+                                _ctype    = str(getattr(c, "data_type", ""))
+                                _ccomment = str(getattr(c, "comment", "") or "")
                                 _edit_key = f"{full_name}__{_cname}"
                                 _override   = col_overrides.get(_cname, {})
                                 _col_biz    = _override.get("business_name", "")
@@ -4258,8 +4259,8 @@ if current_tab == "search":
                         n_grants = len(grants) if grants is not None and not grants.empty else 0
                         st.markdown(f'<div class="dd-section-header" style="margin-top:0"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_grants")}</span><span class="dd-section-count">{n_grants}</span></div>', unsafe_allow_html=True)
                         if n_grants > 0:
-                            for _, g in grants.iterrows():
-                                principal, privilege = str(g.get("principal", "")), str(g.get("privilege", ""))
+                            for g in grants.itertuples(index=False):
+                                principal, privilege = str(getattr(g, "principal", "")), str(getattr(g, "privilege", ""))
                                 st.markdown('<div style="border-top: 1px solid var(--ink-10); margin: 8px 0 4px 0;"></div>', unsafe_allow_html=True)
                                 if principal == "SELECT_ALL_USERS":
                                     if st.button(t("detail.browse_public_tables", privilege=privilege), key=f"grant_{full_name}_public_{privilege}", use_container_width=True):
@@ -4292,10 +4293,10 @@ if current_tab == "search":
 
                         # Merge related tables into graph
                         if n_related > 0:
-                            for _, rel in related.iterrows():
-                                _rel_full = str(rel.get("full_name", ""))
-                                _rel_name = _html.escape(str(rel.get("table_name", "")))
-                                _rel_raw_badge = str(rel.get("relationship", ""))
+                            for rel in related.itertuples(index=False):
+                                _rel_full = str(getattr(rel, "full_name", ""))
+                                _rel_name = _html.escape(str(getattr(rel, "table_name", "")))
+                                _rel_raw_badge = str(getattr(rel, "relationship", ""))
                                 _rel_badge = t("detail.same_schema") if _rel_raw_badge == "Same schema" else (t("detail.shared_column") if _rel_raw_badge == "Shared column" else _html.escape(_rel_raw_badge))
                                 if not any(n["id"] == _rel_full for n in graph_nodes):
                                     graph_nodes.append({"id": _rel_full, "label": _rel_name, "current": False, "relationship": _rel_badge})
@@ -4316,9 +4317,9 @@ if current_tab == "search":
                         if n_related > 0:
                             st.markdown('<div style="margin-top: 16px;"></div>', unsafe_allow_html=True)
                             _cols = st.columns(min(3, n_related), gap="small")
-                            for i, (_, rel) in enumerate(related.iterrows()):
+                            for i, rel in enumerate(related.itertuples(index=False)):
                                 with _cols[i % 3]:
-                                    _rel_full, _rel_name, _rel_sch, _rel_raw_badge = str(rel.get("full_name", "")), _html.escape(str(rel.get("table_name", ""))), _html.escape(f"{rel.get('catalog_name','')}.{rel.get('schema_name','')}"), str(rel.get("relationship", ""))
+                                    _rel_full, _rel_name, _rel_sch, _rel_raw_badge = str(getattr(rel, "full_name", "")), _html.escape(str(getattr(rel, "table_name", ""))), _html.escape(f"{getattr(rel, 'catalog_name', '')}.{getattr(rel, 'schema_name', '')}"), str(getattr(rel, "relationship", ""))
                                     _rel_badge = t("detail.same_schema") if _rel_raw_badge == "Same schema" else (t("detail.shared_column") if _rel_raw_badge == "Shared column" else _html.escape(_rel_raw_badge))
                                     st.markdown(f'<div class="dd-related-card"><div class="dd-related-badge">{_rel_badge}</div><div class="dd-related-name">{_rel_name}</div><div class="dd-related-schema">{_rel_sch}</div></div>', unsafe_allow_html=True)
                                     if st.button(t("detail.open_related"), key=f"rel_{_rel_full}", type="secondary", use_container_width=True):
