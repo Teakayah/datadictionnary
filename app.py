@@ -17,6 +17,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+def is_demo_mode() -> bool:
+    """Check if the application is running in demo mode."""
+    return os.getenv("DEMO_DATA", "false").lower() == "true"
+
 # ── Internationalisation (i18n) ───────────────────────────────────────────────
 import json as _json
 
@@ -1856,7 +1860,7 @@ def _sync_prefs_to_session() -> None:
 
 def run_query(query, params=None):
     # ── Demo mode: return hardcoded DataFrames without hitting any DB ──────────
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if is_demo_mode():
         p = params or {}
         # Detect get_authorized_tables() call: params are now group_0, group_1, ...
         # (SQL injection fix replaced the old "groups" tuple param)
@@ -1980,7 +1984,7 @@ def get_column_business_names(table_full_name: str) -> dict:
     One bulk query — not N per-column queries.
     In demo mode reads from session state instead of Databricks.
     """
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if is_demo_mode():
         return st.session_state.get("demo_business_names", {}).get(table_full_name, {})
     try:
         conn = get_db_connection()
@@ -2239,7 +2243,7 @@ def log_audit_event(event_type: str, object_type: str, object_name: str, old_val
         "new_value":   new_value,
     }
     try:
-        if os.getenv("DEMO_DATA", "false").lower() == "true":
+        if is_demo_mode():
             st.session_state.setdefault("demo_audit_log", []).append({
                 **payload,
                 "created_at":  pd.Timestamp.now(),
@@ -2322,14 +2326,14 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
             f"(got {len(definition)})."
         )
     user_name = st.session_state.get("user_name", "unknown")
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if is_demo_mode():
         old_override = {}
         if "demo_business_names" in st.session_state and table_full_name in st.session_state["demo_business_names"]:
             old_override = st.session_state["demo_business_names"][table_full_name].get(column_name, {})
     else:
         old_override = get_column_business_names(table_full_name).get(column_name, {})
     old_value = old_override.get("business_name", "")
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if is_demo_mode():
         if "demo_business_names" not in st.session_state:
             st.session_state["demo_business_names"] = {}
         tbl = st.session_state["demo_business_names"].setdefault(table_full_name, {})
@@ -2388,7 +2392,7 @@ def get_table_steward(table_full_name: str) -> str:
     In demo mode returns a fixed placeholder address so email flow can be tested.
     Not cached — always fresh so steward changes are reflected without restart.
     """
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if is_demo_mode():
         return "steward@example.com"
     try:
         conn = get_db_connection()
@@ -2413,7 +2417,7 @@ def get_table_comments(object_name: str) -> list:
     In demo mode reads from st.session_state["demo_comments"].
     Not cached — always fresh so new comments appear immediately.
     """
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if is_demo_mode():
         flat = st.session_state.get("demo_comments", {}).get(object_name, [])
         return _build_comment_tree(flat)
     try:
@@ -2456,7 +2460,7 @@ def send_comment_email(to_email: str, author_name: str, object_name: str, commen
     import smtplib
     from email.mime.text import MIMEText
 
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if is_demo_mode():
         print(f"[DEMO EMAIL] To: {to_email} | Object: {object_name} | From: {author_name}\n{comment_text}")
         return
     smtp_host = os.getenv("SMTP_HOST", "")
@@ -2498,7 +2502,7 @@ def send_reply_email(
     if not recipients:
         return
 
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if is_demo_mode():
         print(f"[DEMO REPLY] To: {recipients} | Object: {object_name} | From: {reply_author_name}\n{reply_text}")
         return
 
@@ -2580,7 +2584,7 @@ def save_comment(
 
     _event_type = "comment_reply" if parent_comment_id else "comment_added"
 
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if is_demo_mode():
         demo = st.session_state.setdefault("demo_comments", {})
         demo.setdefault(object_name, []).append({
             "comment_id":        comment_id,
@@ -2660,7 +2664,7 @@ def save_comment(
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def get_authorized_tables(groups):
-    if os.getenv("DEMO_DATA", "").lower() == "true":
+    if is_demo_mode():
         return _DEMO_TABLES
     group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
     params: dict = {}
@@ -2981,7 +2985,7 @@ def render_data_sample(table_full_name: str):
         if not re.match(r"^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$", table_full_name):
             st.error("Invalid table name format.")
             return
-        if os.getenv("DEMO_DATA", "false").lower() == "true":
+        if is_demo_mode():
             df = pd.DataFrame({"id": [1, 2, 3], "status": ["NEW", "SHIPPED", "CLOSED"]})
         elif _duckdb_available():
             # DuckDB file is ATTACHed as CATALOG_CACHE; actual row data lives at
@@ -3356,7 +3360,7 @@ def render_health(groups):
         table_coverage = (n_desc / n_tables * 100) if n_tables > 0 else 0
 
         # For columns, we need to query the cache (or use mock)
-        if os.getenv("DEMO_DATA", "false").lower() == "true":
+        if is_demo_mode():
             # Aggregate columns from _DEMO_COLUMNS
             all_cols_list = []
             for df in _DEMO_COLUMNS.values():
@@ -3449,7 +3453,7 @@ def render_health(groups):
 
 def get_admin_stats() -> dict:
     """Return four catalog-wide counts for the admin dashboard."""
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if is_demo_mode():
         return {
             "tables":    len(_DEMO_TABLES),
             "columns":   sum(len(df) for df in _DEMO_COLUMNS.values()),
@@ -3474,7 +3478,7 @@ def get_admin_stats() -> dict:
 
 def get_business_name_change_log() -> pd.DataFrame:
     """Return the last 200 business name change events for the admin log."""
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if is_demo_mode():
         logs = [l for l in st.session_state.get("demo_audit_log", []) if l["event_type"] == "business_name_change"]
         if not logs:
             return pd.DataFrame(columns=["event_id", "object_name", "old_value", "new_value", "actor_email", "created_at"])
@@ -3490,7 +3494,7 @@ def get_business_name_change_log() -> pd.DataFrame:
 
 def get_comment_log() -> pd.DataFrame:
     """Return the last 200 comment/reply events for the admin log."""
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if is_demo_mode():
         logs = [l for l in st.session_state.get("demo_audit_log", [])
                 if l["event_type"] in ("comment_added", "comment_reply")]
         if not logs:

@@ -1,0 +1,1 @@
+## 2026-05-01 - [Extract Demo Mode Helper] **Learning:** Repeated environment variable checks for DEMO_DATA were scattered across the codebase, making updates error-prone. **Action:** Created `is_demo_mode()` helper to consolidate the check. Future boolean env var checks should use dedicated getters.
