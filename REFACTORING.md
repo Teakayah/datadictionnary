@@ -419,3 +419,153 @@ Phases 11 and 12 are **parallel** — no code changes, no test risk, can be done
 | Public functions with docstrings | ~40% | ≥ 90% |
 | ADRs recorded | 0 | ≥ 3 (DuckDB, Streamlit, push-down auth) |
 | `tests/README.md` exists | No | Yes |
+
+---
+
+## Migration lessons learned — Phases 1–3
+
+> Written after completing Phases 1–3 on `feature/src-split-phase1-3`. Keep this
+> section updated as later phases complete. The goal is to make the next engineer's
+> (or AI agent's) extraction session predictably safe.
+
+---
+
+### Lesson 1 — `sys.modules` caching freezes `os.getenv()` at import time
+
+**What happened:** We moved `ENABLE_MOCK_AUTH`, `ENVIRONMENT`, and `DEMO_DATA` into
+`src/config.py`. All three are evaluated once when `src.config` is first imported.
+Tests that use `monkeypatch.setenv("ENVIRONMENT", "production")` saw the old cached
+value — causing 25 silent failures.
+
+**Rule:** Any env var that a test suite needs to override per-test **must** stay as an
+inline `os.getenv()` call inside the function or module that uses it (in our case, the
+`app.py` entry point). Only truly static, process-lifetime values belong in
+`src/config.py`.
+
+**Pattern to check during every extraction:** search the candidate block for
+`os.getenv()`. For each one, ask: "Does any test override this env var?" If yes, leave
+it inline.
+
+---
+
+### Lesson 2 — `exec()` test helpers need explicit namespaces
+
+**What happened:** `tests/test_duckdb_cache.py::_load_duckdb_helpers()` extracts a
+slice of `app.py` with `exec()`. After Phase 1, `CATALOG_CACHE`, `SCHEMA_CACHE`, and
+`logging` were no longer module-level globals in the extracted slice — they had moved to
+`src/config.py` and a stdlib import block. The exec'd code resolved them against the
+exec namespace dict, found nothing, and raised `NameError`.
+
+**Rule:** Before each extraction, grep for every name that the exec'd slice resolves from
+module-level scope. Add them explicitly to the `ns = {...}` dict:
+
+```python
+from src.config import CATALOG_CACHE as _CC, SCHEMA_CACHE as _SC
+import logging as _logging_mod
+ns = {
+    ...,
+    "CATALOG_CACHE": _CC,
+    "SCHEMA_CACHE":  _SC,
+    "logging":       _logging_mod,
+}
+```
+
+**Broader note:** `exec()` based test helpers are fragile by design. Once Phase 4
+extracts `_DuckDBCursor` etc. into `src/db/duckdb.py`, rewrite those tests to import
+directly rather than exec-slice.
+
+---
+
+### Lesson 3 — Never use multi-line regex to remove string literals
+
+**What happened:** The first attempt to remove the 930-line `DESIGN_CSS = """..."""`
+block used `re.sub(r'DESIGN_CSS\s*=\s*""".*?"""', ..., src, flags=re.DOTALL)`. The
+regex silently matched a partial block (ending at the first `"""` inside a CSS string
+value) and the replacement left a dangling orphan body, producing an
+`IndentationError: unexpected indent` at runtime.
+
+**Rule:** For removing or relocating large multi-line literals, use line-number-based
+slicing, not regex:
+
+```python
+lines = source.splitlines(keepends=True)
+# Find start/end by searching for known anchor strings
+start_idx = next(i for i, l in enumerate(lines) if 'DESIGN_CSS = """' in l)
+end_idx   = next(i for i, l in enumerate(lines[start_idx:], start_idx)
+                 if l.strip() == '"""') + 1
+new_source = "".join(lines[:start_idx] + replacement_lines + lines[end_idx:])
+```
+
+Always verify with `python -c "import py_compile; py_compile.compile('app.py')"` before
+running tests.
+
+---
+
+### Lesson 4 — Check which tests grep the source file text
+
+**What happened:** `TestDesignSystem` in `tests/test_app.py` validates CSS tokens by
+regex-searching `app.py` for the `DESIGN_CSS = """..."""` literal. After we moved CSS
+to `assets/design.css` the regex returned `None` and the entire test class was
+asserting against an empty string.
+
+**Rule:** Before any extraction, run `grep -r "app.py\|read_app_source\|open.*app" tests/`
+to find tests that read the source file as text. These must be updated to look in the
+new location. The safest upgrade is a two-step fallback: try the new file path first,
+fall back to the old regex for backward compatibility.
+
+---
+
+### Lesson 5 — Implicit alias dependencies travel with the removed block
+
+**What happened:** The i18n block contained `import json as _json`. That alias was also
+used at six other locations in `app.py` (lineage graph, render_header, queue
+serialisation). Removing the block removed the alias — causing `NameError: name '_json'
+is not defined` in the middle of rendering.
+
+**Rule:** Before removing any block, run this pipeline:
+
+```bash
+# 1. List every name defined in the block (import aliases, constants, top-level defs)
+# 2. Search the REST of app.py for those names
+grep -n "_json\|json\." app.py
+```
+
+Any name used outside the block must be re-declared explicitly after the `from src.x
+import ...` line.
+
+---
+
+### Lesson 6 — Verify imported names don't shadow each other
+
+When replacing a block with `from src.module import name`, check that:
+1. No existing `import name` statement further down will shadow it.
+2. No `name = ...` assignment exists that would override the import.
+
+Use `grep -n "^import\|^from\|^DESIGN_CSS\|^_json" app.py` to audit quickly.
+
+---
+
+### Lesson 7 — Commit scope per phase, test before every commit
+
+Each phase should be a single atomic commit with:
+- The new `src/` file(s)
+- The `app.py` modifications
+- Updated tests
+
+Run `pytest` before committing. The 4 pre-existing failures in `test_navigation.py` are
+the known baseline — any additional failure introduced by the extraction means the phase
+is not done.
+
+---
+
+### Lesson 8 — Agent-assisted extraction needs a tighter brief
+
+Both AI agent runs in this session got stuck: one couldn't commit (no git credentials),
+the other confused the project's source files with internal files. For future agent
+handoffs, the brief must include:
+- **Exact line numbers** to remove (run `grep -n` first and paste the output)
+- **Exact import line** to add as replacement
+- **Which tests to run** as acceptance check
+- **The 4 known failing tests** so the agent doesn't try to fix them
+
+Keep the scope to one phase per agent call.
