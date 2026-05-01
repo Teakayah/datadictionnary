@@ -46,6 +46,11 @@ Thumbs.db
 *.swp
 *.swo
 
+# --- Logs ---
+*.log
+streamlit.log
+new_streamlit.log
+
 # --- Project Specific ---
 .digest/
 data/
@@ -53,6 +58,10 @@ screenshots/
 !screenshots/latest/
 venv/
 tests/__pycache__/
+reports/
+# Generated HTML galleries and PowerPoint outputs
+*.pptx
+*.html.bak
 
 # --- Kubernetes ---
 # Never commit real secrets — keep only the placeholder template in source control
@@ -60,3 +69,6 @@ tests/__pycache__/
 *.duckdb
 *.duckdb.wal
 tests/load/results/
+
+# --- Node (scripts/package.json is tracked; installed modules are not) ---
+scripts/node_modules/
