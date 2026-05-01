@@ -19,7 +19,11 @@ import streamlit as st
 _ASSETS = Path(__file__).parent.parent.parent / "assets"
 
 DESIGN_CSS: str = (_ASSETS / "design.css").read_text(encoding="utf-8")
-VIS_WIDE_CSS: str = "<style>\n" + (_ASSETS / "vis_dialog.css").read_text(encoding="utf-8") + "\n</style>"
+VIS_WIDE_CSS: str = (
+    "<style>\n"
+    + (_ASSETS / "vis_dialog.css").read_text(encoding="utf-8")
+    + "\n</style>"
+)
 
 
 def render_css() -> None:
@@ -34,9 +38,7 @@ def render_css() -> None:
     )
     st.markdown(
         '<img src="x" style="display:none" aria-hidden="true" onerror="'
-        "(function(){"
-        + _aria_patch
-        + "try{new MutationObserver(function(ms){"
+        "(function(){" + _aria_patch + "try{new MutationObserver(function(ms){"
         "ms.forEach(function(m){m.addedNodes.forEach(function(n){"
         "if(n.nodeType!==1)return;"
         "if(n.matches&&n.matches('div[aria-haspopup]')&&!n.getAttribute('role'))n.setAttribute('role','combobox');"

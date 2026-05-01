@@ -182,28 +182,22 @@ st.set_page_config(
 
 # ── Design system CSS ──────────────────────────────────────────────────────────
 from src.ui.css import DESIGN_CSS, VIS_WIDE_CSS, render_css
+from src.ui.header import LOGO_MARK_SVG, render_header, render_footer
+from src.ui.lineage import _viewport_height, _fetch_lineage_hop, _build_lineage_graph, _lineage_vis_html, render_lineage_fullscreen
+from src.ui.dialogs import render_table_metadata_editor, render_data_sample
+from src.ui.cards import _dq_grade, _compute_live_completeness, _render_table_card
 from src.db.duckdb_adapter import (
     _duckdb_available, _to_duckdb_sql, _get_shared_duckdb_connection,
     _DuckDBCursor, _DuckDBConn, _run_duckdb_query, _db_write_lock,
 )
 from src.db.databricks_adapter import (
-    _get_databricks_connection, _get_databricks_write_connection,
+    _get_databricks_connection,
     _run_databricks_query,
 )
 from src.db.queries import _get_write_connection
 # run_query, get_authorized_tables, search_all_metadata, get_column_business_names,
 # get_multi_hop_lineage — defined below in app.py (Phase 4b: deferred until
 # _DEMO_* fixtures are moved to src/demo.py to avoid circular re-import)
-
-# ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
-LOGO_MARK_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" height="30">
-  <rect x="4.5" y="6.5" width="55" height="51" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1.5"/>
-  <line x1="4.5" y1="19" x2="59.5" y2="19" stroke="#14110C" stroke-width="1.25"/>
-  <circle cx="11" cy="12.75" r="2.5" fill="#B8362A"/>
-  <line x1="10" y1="28" x2="54" y2="28" stroke="#C9C2B4" stroke-width="1.25"/>
-  <line x1="10" y1="36" x2="54" y2="36" stroke="#C9C2B4" stroke-width="1.25"/>
-  <line x1="10" y1="44" x2="40" y2="44" stroke="#C9C2B4" stroke-width="1.25"/>
-</svg>"""
 
 MS_LOGO_SVG = """<svg width="16" height="16" viewBox="0 0 23 23" fill="none">
   <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
@@ -217,136 +211,6 @@ SEARCH_ICON_SVG = """<svg width="18" height="18" viewBox="0 0 24 24" fill="none"
 </svg>"""
 
 
-
-
-def render_header(user_name: str | None = None, active_tab: str = "search", show_admin: bool = False):
-    _ensure_locale()
-    locale = st.session_state.get("locale", "en")
-
-    user_section = ""
-    if user_name:
-        user_section = f'<span class="dd-nav-sep"></span><span class="dd-nav-user">{_html.escape(user_name)}</span>'
-
-    def link(label, tab_id):
-        active = "active" if active_tab == tab_id else ""
-        return f'<a href="#" data-tab="{tab_id}" class="dd-nav-tab {active}">{label}</a>'
-
-    admin_link = link(t("nav.admin"), "admin") if show_admin else ""
-
-    en_active = "dd-lang-active" if locale == "en" else ""
-    fr_active  = "dd-lang-active" if locale == "fr" else ""
-    title_en = t("language.switch_to_en")
-    title_fr = t("language.switch_to_fr")
-    lang_toggle = f'<span class="dd-nav-sep"></span><span class="dd-lang-toggle" aria-label="Language selector"><a href="#" data-lang="en" class="dd-lang-opt {en_active}" title="{title_en}">EN</a><span class="dd-lang-sep">/</span><a href="#" data-lang="fr" class="dd-lang-opt {fr_active}" title="{title_fr}">FR</a></span>'
-
-    st.html(f'''
-<div class="dd-header" lang="{locale}">
-  <div class="dd-header-inner">
-    <a href="#" data-tab="search" class="dd-logo-link">
-      {LOGO_MARK_SVG}
-      <span class="dd-logo-text">Data Dictionary</span>
-      <span class="dd-pill">Beta</span>
-    </a>
-    <nav class="dd-nav" role="navigation" aria-label="Main navigation">
-      {link(t("nav.search"), "search")}
-      {link(t("nav.catalog"), "catalog")}
-      {link(t("nav.glossary"), "glossary")}
-      {link(t("nav.discovery"), "discovery")}
-      {link(t("nav.health"), "health")}
-      {admin_link}
-      {lang_toggle}
-      {user_section}
-    </nav>
-  </div>
-</div>
-''')
-
-    # Hidden Streamlit nav/lang proxy buttons — JS clicks these; the container is
-    # hidden immediately via CSS :has(#dd-proxy-anchor) so they never flash.
-    _tabs = ["search", "catalog", "glossary", "discovery", "health"]
-    if show_admin:
-        _tabs.append("admin")
-    _is_mock = ENABLE_MOCK_AUTH
-    with st.container():
-        st.markdown('<div id="dd-proxy-anchor"></div>', unsafe_allow_html=True)
-        for tab_id in _tabs:
-            if st.button(t(f"nav.{tab_id}"), key=f"nav_{tab_id}"):
-                st.query_params["tab"] = tab_id
-                st.rerun()
-        # on_click fires before rerun so render_header() picks up the new locale.
-        st.button("LOCALE_EN", key="lang_btn_en", on_click=set_locale, args=("en",))
-        st.button("LOCALE_FR", key="lang_btn_fr", on_click=set_locale, args=("fr",))
-
-    # Zero-height iframe: wires nav clicks → hidden Streamlit buttons,
-    # and wires language toggle clicks → hidden lang proxy buttons.
-    _tab_map = {tid: t(f"nav.{tid}") for tid in _tabs}
-    _tab_map_js = _json.dumps(_tab_map)
-    _nav_labels_js = _json.dumps(list(_tab_map.values()))
-
-    components.html(f"""
-    <div style="display:none;">
-    <script>
-    (function() {{
-        const parentDoc = window.parent.document;
-        const NAV_LABELS = {_nav_labels_js};
-        const TAB_MAP = {_tab_map_js};
-        const iframeId = Math.random().toString(36);
-
-        function wire() {{
-            const allBtns = Array.from(parentDoc.querySelectorAll('button'));
-            
-            // 1. The proxy container is already hidden via CSS (visibility:hidden).
-            //    Nothing to do here — btn.click() works on visibility:hidden elements.
-
-            // 2. Wire Navigation
-            parentDoc.querySelectorAll('a.dd-nav-tab[data-tab], a.dd-logo-link[data-tab]').forEach(link => {{
-                if (link._wired === iframeId) return;
-                link._wired = iframeId;
-                link.addEventListener('click', function(e) {{
-                    e.preventDefault();
-                    const tabId = this.getAttribute('data-tab');
-                    const localizedLabel = TAB_MAP[tabId];
-                    const currentBtns = Array.from(parentDoc.querySelectorAll('button'));
-                    const btn = currentBtns.find(b => b.textContent.trim() === localizedLabel);
-                    if (btn) btn.click();
-                }});
-            }});
-
-            // 3. Wire Language
-            parentDoc.querySelectorAll('a.dd-lang-opt[data-lang]').forEach(link => {{
-                if (link._wired === iframeId) return;
-                link._wired = iframeId;
-                link.addEventListener('click', function(e) {{
-                    e.preventDefault();
-                    const lang = this.getAttribute('data-lang').toUpperCase();
-                    const currentBtns = Array.from(parentDoc.querySelectorAll('button'));
-                    const btn = currentBtns.find(b => b.textContent.trim() === 'LOCALE_' + lang);
-                    if (btn) btn.click();
-                }});
-            }});
-        }}
-
-        // Initial wire
-        setTimeout(wire, 150);
-
-        // Continuous monitoring for Streamlit rerenders
-        const observer = new MutationObserver(() => {{ wire(); }});
-        observer.observe(parentDoc.body, {{childList: true, subtree: true}});
-    }})();
-    </script>
-    </div>
-    """, height=0)
-
-
-def render_footer():
-    st.markdown(f"""
-    <div class="dd-footer">
-      <div class="dd-footer-inner">
-        <span>{t('footer.built_with')}</span>
-        <span>main.data_governance.dictionary_cache</span>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
 
 
 # ── Authentication helpers ─────────────────────────────────────────────────────
@@ -842,50 +706,6 @@ def is_admin() -> bool:
 
 import csv
 import io
-
-
-_DQ_GRADES = [
-    (90, "A", "dq-a"),
-    (75, "B", "dq-b"),
-    (60, "C", "dq-c"),
-    (0,  "D", "dq-d"),
-]
-
-
-def _dq_grade(score_str) -> tuple:
-    """Return (letter, css_class) from a dq_score string or number."""
-    try:
-        score = float(score_str or 0)
-    except (ValueError, TypeError):
-        score = 0
-    for threshold, letter, cls in _DQ_GRADES:
-        if score >= threshold:
-            return letter, cls
-    return "D", "dq-d"
-
-
-def _compute_live_completeness(table_full_name: str) -> float:
-    """Live column-definition coverage: (metadata comment OR user override) / total cols."""
-    bno_tbl = "user_data.business_name_overrides" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
-    q = (
-        "SELECT COUNT(*) AS total, "
-        "COUNT(CASE WHEN (cm.comment IS NOT NULL AND cm.comment != '') "
-        "           OR  (bno.definition IS NOT NULL AND bno.definition != '') "
-        "           THEN 1 END) AS defined "
-        "FROM {0}.{1}.columns_metadata cm "
-        "LEFT JOIN {2} bno "
-        "  ON cm.table_full_name = bno.table_full_name AND cm.column_name = bno.column_name "
-        "WHERE cm.table_full_name = %(fn)s"
-    ).format(CATALOG_CACHE, SCHEMA_CACHE, bno_tbl)
-    try:
-        result = run_query(q, {"fn": table_full_name})
-        if result is None or result.empty:
-            return 0.0
-        total = int(result.iloc[0]["total"] or 0)
-        defined = int(result.iloc[0]["defined"] or 0)
-        return (defined / total * 100) if total > 0 else 0.0
-    except Exception:
-        return 0.0
 
 
 def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
@@ -1562,59 +1382,8 @@ def save_comment(
     log_audit_event(_event_type, object_type, object_name, "", comment_text)
 
 
-def _viewport_height(fallback: int = 800) -> int:
-    """Return the user's viewport height in px, falling back if not yet captured."""
-    return int(st.session_state.get("viewport_height", fallback))
-
 
 # VIS_WIDE_CSS imported from src.ui.css (assets/vis_dialog.css)
-
-def _fetch_lineage_hop(node_fn: str, query_groups: list) -> "pd.DataFrame | None":
-    """Fetch direct lineage neighbors of node_fn, permission-filtered."""
-    lin_ph = ", ".join([f"%(lin_g_{i})s" for i in range(len(query_groups))]) if query_groups else "''"
-    params: dict = {"table_full_name": node_fn}
-    for i, g in enumerate(query_groups):
-        params[f"lin_g_{i}"] = g
-    q = (
-        "SELECT DISTINCT l.direction, l.entity_full_name, l.entity_type "
-        "FROM {0}.{1}.lineage_cache l "
-        "JOIN {0}.{1}.permissions_cache p ON l.entity_full_name = p.table_full_name "
-        "WHERE l.table_full_name = %(table_full_name)s "
-        "AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS') "
-        "ORDER BY l.direction, l.entity_full_name"
-    ).format(CATALOG_CACHE, SCHEMA_CACHE, lin_ph)  # nosec B608
-    return run_query(q, params)
-
-
-def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, max_depth: int = 2):
-    """BFS multi-hop lineage. Returns (graph_nodes, graph_links)."""
-    graph_nodes = [{"id": start_fn, "label": start_label, "current": True, "relationship": "Current"}]
-    graph_links: list = []
-    visited: set = {start_fn}
-    frontier = [start_fn]
-
-    for _ in range(max_depth):
-        if not frontier:
-            break
-        next_frontier: list = []
-        for node_fn in frontier:
-            result = _fetch_lineage_hop(node_fn, query_groups)
-            if result is None or result.empty or "direction" not in result.columns:
-                continue
-            for _, lr in result.iterrows():
-                efn = str(lr["entity_full_name"])
-                direction = str(lr["direction"])
-                link = {"from": efn, "to": node_fn} if direction == "UPSTREAM" else {"from": node_fn, "to": efn}
-                if link not in graph_links:
-                    graph_links.append(link)
-                if efn not in visited:
-                    visited.add(efn)
-                    next_frontier.append(efn)
-                    graph_nodes.append({"id": efn, "label": efn.split(".")[-1], "current": False, "relationship": direction.capitalize()})
-        frontier = next_frontier
-
-    return graph_nodes, graph_links
-
 
 def _lineage_vis_html(graph_nodes: list, graph_links: list, height: int = 350, container_id: str = "mynetwork", spring_length: int = 120) -> str:
     import json as _json
@@ -1643,91 +1412,6 @@ def _lineage_vis_html(graph_nodes: list, graph_links: list, height: int = 350, c
         f'</script>'
     )
 
-
-@st.dialog(t("detail.lineage_graph"), width="large")
-def render_lineage_fullscreen(graph_nodes: list, graph_links: list, full_name: str):
-    st.markdown(VIS_WIDE_CSS, unsafe_allow_html=True)
-    st.markdown(f"**{full_name}** — {t('detail.lineage_graph_subtitle').format(table=full_name.split('.')[-1])}")
-    # Use a large fixed canvas — CSS in VIS_WIDE_CSS stretches the iframe to
-    # calc(95vh - 190px), so the vis.js div just needs to be big enough that
-    # the graph isn't clipped before CSS takes over.
-    _graph_h = 1800
-    graph_html = _lineage_vis_html(graph_nodes, graph_links, height=_graph_h, container_id="mynetwork_full", spring_length=220)
-    components.html(graph_html, height=_graph_h + 20, scrolling=False)
-
-
-@st.dialog(t("detail.edit_table"), width="large")
-def render_table_metadata_editor(table_full_name: str, current_desc: str, current_steward: str):
-    """Editor for table-level metadata (description, steward)."""
-    st.markdown(f"**{table_full_name}**")
-    
-    new_desc = st.text_area(t("detail.table_description"), value=current_desc, height=150)
-    new_stew = st.text_input(t("detail.steward_email"), value=current_steward)
-    
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        if st.button(t("common.save"), type="primary", use_container_width=True):
-            try:
-                save_table_metadata(table_full_name, description=new_desc, steward_email=new_stew)
-                st.success(t("common.saved"))
-                time.sleep(0.5)
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error: {e}")
-    with c2:
-        if st.button(t("common.cancel"), use_container_width=True):
-            st.rerun()
-
-
-@st.dialog(t("detail.data_sample"), width="large")
-def render_data_sample(table_full_name: str):
-    import re
-    import logging
-    import pandas as pd
-    st.markdown(VIS_WIDE_CSS, unsafe_allow_html=True)
-    st.markdown(f"**{table_full_name}**")
-
-    # Security: check permission even though UI usually prevents this call
-    groups = tuple(st.session_state.get("user_groups", [])) if st.session_state.get("user_groups") else ("none",)
-    active_group = st.session_state.get("group_filter")
-    query_groups = (active_group,) if active_group else groups
-    _auth_df = get_authorized_tables(query_groups)
-    _allowed = set(_auth_df["full_name"].tolist()) if _auth_df is not None and not _auth_df.empty else set()
-    if table_full_name not in _allowed:
-        st.error(t("detail.unauthorized"))
-        return
-
-    try:
-        if not re.match(r"^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$", table_full_name):
-            st.error(t("common.error"))
-            return
-        if DEMO_DATA:
-            df = pd.DataFrame({"id": [1, 2, 3], "status": ["NEW", "SHIPPED", "CLOSED"]})
-        elif _duckdb_available():
-            # DuckDB file is ATTACHed as CATALOG_CACHE; actual row data lives at
-            # CATALOG_CACHE.<schema>.<table> — strip the Databricks Unity Catalog prefix.
-            _parts = table_full_name.split(".")
-            if len(_parts) == 3:
-                _, _sch, _tbl = _parts
-                _sample_query = f'SELECT * FROM {CATALOG_CACHE}."{_sch}"."{_tbl}" LIMIT 100'  # nosec B608
-                df = run_query(_sample_query)
-            else:
-                st.info(t("detail.preview_not_available"))
-                return
-        else:
-            query = f"SELECT * FROM {table_full_name} LIMIT 100"  # nosec B608
-            df = run_query(query)
-        if df is not None and not df.empty:
-            # Height is controlled by VIS_WIDE_CSS (calc(95vh - 190px)) so
-            # the grid always fills the dialog regardless of viewport size.
-            # Pass a generous fixed height so Streamlit allocates enough iframe
-            # space; CSS then stretches it to the actual available area.
-            st.dataframe(df, use_container_width=True, height=2000)
-        else:
-            st.info(t("detail.preview_needs_data"))
-    except Exception as e:
-        logging.error("Error fetching data sample for %s: %s", table_full_name, e, exc_info=True)
-        st.error(t("detail.preview_error"))
 
 
 # ── Page renderers ─────────────────────────────────────────────────────────────
@@ -1880,44 +1564,6 @@ def render_glossary(query_groups):
             graph_html = f'''<div id="mynetwork_glossary" style="width: 100%; height: 300px; background: #F2EDE1; border-radius: 4px; border: 1px solid #C9C2B4; overflow: hidden; margin-top: 16px;"></div><script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script><script type="text/javascript">var nodes = new vis.DataSet({json.dumps(graph_nodes)}); var edges = new vis.DataSet({json.dumps(graph_links)}); var container = document.getElementById('mynetwork_glossary'); var data = {{ nodes: nodes, edges: edges }}; var options = {{ nodes: {{ shape: 'box', margin: 10, font: {{ size: 14, face: 'sans-serif' }}, borderWidth: 1, shadow: true }}, edges: {{ arrows: 'to', color: '#C9C2B4', smooth: {{ type: 'cubicBezier', forceDirection: 'horizontal' }} }}, physics: {{ barnesHut: {{ springLength: 100, springConstant: 0.04 }}, minVelocity: 0.75 }}, interaction: {{ hover: false, dragNodes: true, dragView: true, zoomView: true }} }}; var updatedNodes = []; nodes.forEach(function(node) {{ var isCurrent = node.current; var bg = isCurrent ? '#B8362A' : '#FAF7F0'; var border = isCurrent ? '#8C271E' : '#C9C2B4'; var text = isCurrent ? '#FAF7F0' : '#14110C'; updatedNodes.push({{ id: node.id, color: {{ background: bg, border: border, highlight: {{ background: bg, border: border }} }}, font: {{ color: text }} }}); }}); nodes.update(updatedNodes); var network = new vis.Network(container, data, options); network.once("stabilizationIterationsDone", function() {{ network.fit(); }});</script>'''
             components.html(graph_html, height=330)
 
-def _render_table_card(row: "pd.Series", key_prefix: str) -> None:
-    """Discovery card: table name is clickable, star toggles bookmark."""
-    _ts = row.get("updated_at")
-    _time_str = _ts.strftime(t("discovery.date_format")) if isinstance(_ts, pd.Timestamp) else (str(_ts) if _ts else "")
-    _full      = str(row.get("full_name", ""))
-    _tname     = str(row.get("table_name", ""))
-    _is_bk     = _full in st.session_state.get("bookmarks", set())
-
-    st.markdown(f'''
-    <div style="background:var(--paper); border:1px solid var(--ink-10); padding:16px 20px 4px; margin-bottom:4px; border-radius:2px;">
-        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
-            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(row.get("catalog_name","")))} · {_html.escape(str(row.get("schema_name","")))}</div>
-            <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{t("discovery.updated")} {_time_str}</div>
-        </div>
-        <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:4px 0 8px;">{_html.escape(str(row.get("table_description","")))}</p>
-    </div>
-    ''', unsafe_allow_html=True)
-
-    # Table name button (navigates to detail) + star bookmark — flush below the card
-    _c_name, _c_star = st.columns([11, 1], gap="small")
-    with _c_name:
-        if st.button(f"→ {_tname}", key=f"{key_prefix}_open_{_full}", use_container_width=True, type="secondary"):
-            st.query_params["tab"] = "search"
-            st.session_state["dd_search_override"] = _tname
-            st.session_state["dd_nav_select"] = _full
-            st.rerun()
-    with _c_star:
-        if st.button("★" if _is_bk else "☆", key=f"{key_prefix}_bk_{_full}", use_container_width=True):
-            if _is_bk:
-                st.session_state.get("bookmarks", set()).discard(_full)
-                _pref_delete(_full, "bookmark")
-            else:
-                st.session_state.get("bookmarks", set()).add(_full)
-                _pref_upsert(_full, "bookmark")
-            st.rerun()
-    st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
-
-
 def render_discovery(groups):
     st.markdown(f'''
     <div class="dd-search-hero">
@@ -1968,7 +1614,7 @@ def render_discovery(groups):
                 if not all_authorized.empty and "updated_at" in all_authorized.columns:
                     recent_tables = all_authorized.sort_values(by="updated_at", ascending=False).head(10)
                     for _, row in recent_tables.iterrows():
-                        _render_table_card(row, "notable")
+                        _render_table_card(row, "notable", _pref_upsert, _pref_delete)
                 else:
                     st.info(t("discovery.no_updates"))
             except Exception as e:
@@ -1991,7 +1637,7 @@ def render_discovery(groups):
                     st.info(t("personalization.no_bookmarks"))
                 else:
                     for _, row in bk_df.iterrows():
-                        _render_table_card(row, "bk")
+                        _render_table_card(row, "bk", _pref_upsert, _pref_delete)
             except Exception as e:
                 logging.error("Error loading bookmarks: %s", e)
                 st.error(t("discovery.load_error"))
@@ -2049,7 +1695,7 @@ def render_discovery(groups):
                     st.info(t("personalization.no_recent"))
                 else:
                     for _, row in rv_df.iterrows():
-                        _render_table_card(row, "rv")
+                        _render_table_card(row, "rv", _pref_upsert, _pref_delete)
             except Exception as e:
                 logging.error("Error loading recent views: %s", e)
                 st.error(t("discovery.load_error"))
@@ -2723,7 +2369,7 @@ if current_tab == "search":
                         if _live_score_key not in st.session_state:
                             _fallback = float(str(row.get("dq_score", "") or 0) or 0)
                             try:
-                                st.session_state[_live_score_key] = _compute_live_completeness(full_name) or _fallback
+                                st.session_state[_live_score_key] = _compute_live_completeness(full_name, run_query) or _fallback
                             except Exception:
                                 st.session_state[_live_score_key] = _fallback
                         _detail_score_num = float(st.session_state[_live_score_key])
@@ -2746,7 +2392,7 @@ if current_tab == "search":
 
                         if is_power_user():
                            if st.button(f"✎ {t('detail.edit_table')}", key=f"edit_tbl_{full_name}", type="secondary"):
-                               render_table_metadata_editor(full_name, _raw_desc, _steward)
+                               render_table_metadata_editor(full_name, _raw_desc, _steward, save_table_metadata)
 
                         # --- § Bookmark (star) + full_name — side by side ---
                         _is_bookmarked = full_name in st.session_state.get("bookmarks", set())
@@ -2781,7 +2427,7 @@ if current_tab == "search":
                         _c_preview, _c_export = st.columns(2, gap="small")
                         with _c_preview:
                             if st.button(t("detail.preview_data"), key=f"preview_{full_name}", use_container_width=True):
-                                render_data_sample(full_name)
+                                render_data_sample(full_name, get_authorized_tables, DEMO_DATA, run_query)
                         with _c_export:
                             if n_cols > 0:
                                 csv_data = export_schema_to_csv(cols, col_overrides)
@@ -3013,7 +2659,7 @@ if current_tab == "search":
                             st.markdown('<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No grants recorded.</p>', unsafe_allow_html=True)
 
                         # --- § Lineage (multi-hop BFS, permission-filtered) ---
-                        graph_nodes, graph_links = _build_lineage_graph(full_name, _tbl, query_groups, max_depth=2)
+                        graph_nodes, graph_links = _build_lineage_graph(full_name, _tbl, query_groups, run_query, max_depth=2)
 
                         # --- § Related tables ---
                         rel_group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(query_groups))]) if query_groups else "''"
@@ -3044,7 +2690,7 @@ if current_tab == "search":
                             st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_lineage")} & {t("detail.section_related")}</span><span class="dd-section-count">{n_related} {t("detail.related_count")}</span></div>', unsafe_allow_html=True)
                         with _lin_btn_col:
                             if st.button("⤢", key=f"expand_lin_{full_name}", help="Expand lineage graph", use_container_width=True):
-                                render_lineage_fullscreen(graph_nodes, graph_links, full_name)
+                                render_lineage_fullscreen(graph_nodes, graph_links, full_name, run_query)
 
                         graph_html = _lineage_vis_html(graph_nodes, graph_links, height=350)
                         components.html(graph_html, height=380)
