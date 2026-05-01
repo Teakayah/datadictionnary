@@ -143,11 +143,12 @@ class TestMockAuth:
         assert at.session_state["authenticated"] is True
 
     def test_mock_signin_populates_user_groups(self):
-        """Mock sign-in must set finance group IDs in session_state.user_groups."""
+        """Mock sign-in must set the finance group ID in session_state.user_groups."""
         at = unauthenticated_app()
         at.run()
         at.button[0].click().run()
-        assert "finance_dept_id" in at.session_state["user_groups"]
+        # Group IDs were updated to match generate_test_data.py dataset (finance_group)
+        assert "finance_group" in at.session_state["user_groups"]
 
     def test_mock_signin_sets_user_name(self):
         """Mock sign-in must set a non-empty user_name."""
@@ -411,7 +412,10 @@ class TestDesignSystem:
         Track as a follow-up — should become a dedicated semitransparent token.
         """
         css = _extract_design_css(_read_app_source())
-        css_no_root = re.sub(r":root\s*\{[^}]+\}", "", css, flags=re.DOTALL)
+        # Strip CSS block comments before checking — hex values in /* … */ are
+        # documentation of Streamlit internals, not colour declarations.
+        css_no_comments = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+        css_no_root = re.sub(r":root\s*\{[^}]+\}", "", css_no_comments, flags=re.DOTALL)
         hex_literals = re.findall(r'(?<!["\'])#[0-9A-Fa-f]{3,8}\b', css_no_root)
         assert hex_literals == [], (
             f"Hardcoded hex colors outside :root: {hex_literals}\n"
@@ -446,11 +450,19 @@ class TestDesignSystem:
                 )
 
     def test_header_shows_authenticated_user_name(self):
-        """The fixed header must display the authenticated user's name."""
+        """The fixed header must display the authenticated user's name.
+
+        The header is rendered via st.html() (to bypass the Markdown parser),
+        so we inspect the proto.body of the UnknownElement, not at.markdown.
+        """
         at = authenticated_app()
         at.run()
-        html = _html(*at.markdown)
-        assert "Finance User" in html, "User name not rendered in app header"
+        html_bodies = " ".join(
+            el.proto.body
+            for el in at.get("html")
+            if hasattr(el, "proto") and hasattr(el.proto, "body")
+        )
+        assert "Finance User" in html_bodies, "User name not rendered in app header"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -474,7 +486,8 @@ class TestRealAuth:
             "access_token": "secret_token",
             "id_token_claims": {
                 "groups": ["group1"],
-                "name": "Real User"
+                "name": "Real User",
+                "nonce": "test_nonce"
             }
         }
 

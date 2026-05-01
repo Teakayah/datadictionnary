@@ -88,6 +88,7 @@
   },
   "admin": {
     "title": "§ Admin",
+    "subtitle": "System health, usage statistics, and sync logs.",
     "stats_tables": "Total tables",
     "stats_columns": "Total columns",
     "stats_comments": "Total comments",
