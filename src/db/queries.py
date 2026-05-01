@@ -23,3 +23,11 @@ def _get_write_connection():
         from src.config import DUCKDB_PATH
         return _DuckDBConn(DUCKDB_PATH)
     return _get_databricks_write_connection()
+
+def get_db_connection():
+    """Return a DB connection for read queries (DuckDB → Databricks fallback)."""
+    if _duckdb_available():
+        from src.config import DUCKDB_PATH
+        return _DuckDBConn(DUCKDB_PATH)
+    from src.db.databricks_adapter import _get_databricks_connection
+    return _get_databricks_connection()

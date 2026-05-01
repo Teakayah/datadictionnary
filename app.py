@@ -172,7 +172,6 @@ from src.config import (
 # on every AppTest execution without hitting the src.config module cache.
 ENABLE_MOCK_AUTH = os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
 ENVIRONMENT      = os.getenv("ENVIRONMENT", "production").lower()
-DEMO_DATA        = os.getenv("DEMO_DATA", "false").lower() == "true"
 
 st.set_page_config(
     page_title="Data Dictionary",
@@ -190,7 +189,21 @@ from src.db.databricks_adapter import (
     _get_databricks_connection, _get_databricks_write_connection,
     _run_databricks_query,
 )
-from src.db.queries import _get_write_connection
+from src.db.queries import _get_write_connection, get_db_connection
+
+from src.config import is_demo_mode
+from src.personalization import (
+    _user_oid, _pref_upsert, _pref_delete, _pref_load,
+    _sync_prefs_to_session, is_power_user
+)
+from src.comments import (
+    get_table_comments, _build_comment_tree, save_comment,
+    send_comment_email, send_reply_email, _fetch_comment_author_email
+)
+from src.audit import (
+    log_audit_event, save_table_metadata, save_business_name, get_table_steward
+)
+
 # run_query, get_authorized_tables, search_all_metadata, get_column_business_names,
 # get_multi_hop_lineage — defined below in app.py (Phase 4b: deferred until
 # _DEMO_* fixtures are moved to src/demo.py to avoid circular re-import)
@@ -528,16 +541,11 @@ def check_auth():
 
 # ── Query helpers (Phase 4b deferred — _DEMO_* coupling prevents extraction) ──
 
-def get_db_connection():
-    """Return a DB connection for read queries (DuckDB → Databricks fallback)."""
-    if _duckdb_available():
-        return _DuckDBConn(DUCKDB_PATH)
-    return _get_databricks_connection()
 
 
 def run_query(query, params=None):
     # ── Demo mode: return hardcoded DataFrames without hitting any DB ──────────
-    if DEMO_DATA:
+    if is_demo_mode():
         p = params or {}
         _has_groups = "groups" in p or any(k.startswith("group_") for k in p)
         if "full_name" in p and _has_groups:
@@ -561,7 +569,7 @@ def run_query(query, params=None):
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def get_authorized_tables(groups):
-    if DEMO_DATA:
+    if is_demo_mode():
         return _DEMO_TABLES
     group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
     params: dict = {}
@@ -719,7 +727,7 @@ def search_all_metadata(query: str, groups: tuple):
 
 def get_column_business_names(table_full_name: str) -> dict:
     """Return column business name overrides for a table as a dict."""
-    if DEMO_DATA:
+    if is_demo_mode():
         return st.session_state.get("demo_business_names", {}).get(table_full_name, {})
     try:
         conn = get_db_connection()
@@ -746,86 +754,6 @@ def get_column_business_names(table_full_name: str) -> dict:
         logging.warning("Could not fetch column business names for %s: %s", table_full_name, e)
     return {}
 
-
-def _user_oid() -> str:
-    """Return a stable identifier for the current user (OID or email fallback)."""
-    return st.session_state.get("user_oid") or st.session_state.get("user_email") or "anonymous"
-
-
-def _pref_upsert(table_full_name: str, pref_type: str) -> None:
-    """Write or refresh a bookmark/recent entry in user_data.user_preferences."""
-    if not _duckdb_available():
-        return
-    try:
-        con = get_db_connection()
-        with _db_write_lock:
-            con.execute(
-                """
-                INSERT INTO user_data.user_preferences (user_oid, table_full_name, pref_type, last_interacted)
-                VALUES (?, ?, ?, now())
-                ON CONFLICT (user_oid, table_full_name, pref_type) DO UPDATE
-                    SET last_interacted = excluded.last_interacted
-                """,
-                [_user_oid(), table_full_name, pref_type],
-            )
-    except Exception as _e:
-        logging.warning("Could not write user preference: %s", _e)
-
-
-def _pref_delete(table_full_name: str, pref_type: str) -> None:
-    """Remove a bookmark entry from user_data.user_preferences."""
-    if not _duckdb_available():
-        return
-    try:
-        con = get_db_connection()
-        with _db_write_lock:
-            con.execute(
-                "DELETE FROM user_data.user_preferences WHERE user_oid=? AND table_full_name=? AND pref_type=?",
-                [_user_oid(), table_full_name, pref_type],
-            )
-    except Exception as _e:
-        logging.warning("Could not delete user preference: %s", _e)
-
-
-def _pref_load(pref_type: str, limit: int = 20) -> list[str]:
-    """Return table_full_name list for the given pref_type, newest first."""
-    if not _duckdb_available():
-        return []
-    try:
-        conn = get_db_connection()
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT table_full_name FROM user_data.user_preferences
-                WHERE user_oid=%(oid)s AND pref_type=%(type)s
-                ORDER BY last_interacted DESC LIMIT %(lim)s
-                """,
-                {"oid": _user_oid(), "type": pref_type, "lim": limit},
-            )
-            rows = cursor.fetchall_as_pandas()
-            if rows is not None and not rows.empty:
-                return rows["table_full_name"].tolist()
-    except Exception as _e:
-        logging.warning("Could not load user preferences: %s", _e)
-    return []
-
-
-def _sync_prefs_to_session() -> None:
-    """Populate in-memory sets from DuckDB on first load (or after rerun)."""
-    bookmarks = _pref_load("bookmark")
-    st.session_state.bookmarks = set(bookmarks)
-    col_bookmarks = _pref_load("col_bookmark")
-    st.session_state.col_bookmarks = set(col_bookmarks)
-    recent = _pref_load("recent", limit=50)
-    st.session_state.recent_views = recent
-
-
-def is_power_user() -> bool:
-    """True if the current user belongs to at least one EDITOR_GROUPS group."""
-    editor_groups = {g.strip() for g in os.getenv("EDITOR_GROUPS", "").split(",") if g.strip()}
-    if not editor_groups:
-        return False
-    return bool(editor_groups & set(st.session_state.get("user_groups", [])))
 
 
 def is_admin() -> bool:
@@ -1129,438 +1057,6 @@ def _start_sync_worker_thread():
     return t
 
 
-def log_audit_event(event_type: str, object_type: str, object_name: str, old_value: str, new_value: str) -> None:
-    """Record an audit event for admin review and enqueue for Databricks sync."""
-    actor_email = st.session_state.get("user_email", "")
-    event_id = str(uuid.uuid4())
-    payload = {
-        "event_id":    event_id,
-        "event_type":  event_type,
-        "object_type": object_type,
-        "object_name": object_name,
-        "actor_email": actor_email,
-        "old_value":   old_value,
-        "new_value":   new_value,
-    }
-    try:
-        if DEMO_DATA:
-            st.session_state.setdefault("demo_audit_log", []).append({
-                **payload,
-                "created_at":  pd.Timestamp.now(),
-            })
-        else:
-            conn = _get_write_connection()
-            with conn.cursor() as cursor:
-                table_name = "user_data.audit_log" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log"
-                cursor.execute_write(
-                    f"INSERT INTO {table_name} "
-                    f"(event_id, event_type, object_type, object_name, actor_email, old_value, new_value, created_at) "
-                    f"VALUES (%(event_id)s, %(event_type)s, %(object_type)s, %(object_name)s, "
-                    f"%(actor_email)s, %(old_value)s, %(new_value)s, current_localtimestamp())",
-                    payload,
-                )
-            # Enqueue for Databricks sync (Priority 3)
-            enqueue_sync("AUDIT", None, payload, actor_email)
-    except Exception as e:
-        logging.warning("Audit logging failed for %s: %s", event_id, e)
-
-
-def save_table_metadata(table_full_name: str, description: str = None, steward_email: str = None) -> None:
-    """Atomically update table metadata (description/steward) and enqueue for sync."""
-    if not is_power_user():
-        raise PermissionError("Only power users can update table metadata.")
-    
-    user_name = st.session_state.get("user_name", "unknown")
-    
-    # Update local cache (DuckDB)
-    if _duckdb_available():
-        conn = _get_write_connection()
-        with conn.cursor() as cursor:
-            if description is not None:
-                cursor.execute_write(
-                    f"UPDATE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata SET comment = %(desc)s WHERE full_name = %(fn)s",
-                    {"desc": description, "fn": table_full_name}
-                )
-                enqueue_sync("TABLE_DESC", table_full_name, {"definition": description}, user_name)
-                log_audit_event("table_description_change", "TABLE", table_full_name, "N/A", description)
-                
-            if steward_email is not None:
-                # We store steward in properties/tags in Databricks, locally in tables_metadata
-                cursor.execute_write(
-                    f"UPDATE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata SET steward_email = %(stew)s WHERE full_name = %(fn)s",
-                    {"stew": steward_email, "fn": table_full_name}
-                )
-                enqueue_sync("STEWARD", table_full_name, {"steward_email": steward_email}, user_name)
-                log_audit_event("table_steward_change", "TABLE", table_full_name, "N/A", steward_email)
-
-        try:
-            with _db_write_lock:
-                _get_shared_duckdb_connection().execute("CHECKPOINT user_data")
-        except Exception:
-            pass
-            
-    search_all_metadata.clear()
-    get_authorized_tables.clear()
-
-
-def save_business_name(table_full_name: str, column_name: str, business_name: str, definition: str = "") -> None:
-    """Atomically upsert a column override (business name + definition) using MERGE INTO.
-
-    Raises:
-        PermissionError: if the current session user is not a power user.
-        ValueError: if business_name or definition exceeds MAX_BUSINESS_NAME_LEN characters.
-
-    In demo mode writes to session state (ephemeral, lost on browser close).
-    Demo mode structure: {table_full_name: {column_name: {business_name, definition, ...}}}
-    """
-    if not is_power_user():
-        raise PermissionError("Only power users can save business name overrides.")
-    if business_name and len(business_name) > MAX_BUSINESS_NAME_LEN:
-        raise ValueError(
-            f"Business name must be {MAX_BUSINESS_NAME_LEN} characters or fewer "
-            f"(got {len(business_name)})."
-        )
-    if definition and len(definition) > MAX_BUSINESS_NAME_LEN:
-        raise ValueError(
-            f"Definition must be {MAX_BUSINESS_NAME_LEN} characters or fewer "
-            f"(got {len(definition)})."
-        )
-    user_name = st.session_state.get("user_name", "unknown")
-    if DEMO_DATA:
-        old_override = {}
-        if "demo_business_names" in st.session_state and table_full_name in st.session_state["demo_business_names"]:
-            old_override = st.session_state["demo_business_names"][table_full_name].get(column_name, {})
-    else:
-        old_override = get_column_business_names(table_full_name).get(column_name, {})
-    old_value = old_override.get("business_name", "")
-    if DEMO_DATA:
-        if "demo_business_names" not in st.session_state:
-            st.session_state["demo_business_names"] = {}
-        tbl = st.session_state["demo_business_names"].setdefault(table_full_name, {})
-        tbl[column_name] = {"business_name": business_name, "definition": definition, "edited_by": user_name, "edited_at": "just now"}
-        log_audit_event("business_name_change", "COLUMN", f"{table_full_name}.{column_name}", old_value, business_name)
-        return
-    # Use DuckDB if available, otherwise Databricks
-    conn = _get_write_connection()
-    with conn.cursor() as cursor:
-        if _duckdb_available():
-            cursor.execute_write(
-                """
-                INSERT INTO user_data.business_name_overrides (
-                    table_full_name, column_name, business_name, definition, edited_by, edited_at
-                ) VALUES (
-                    %(table_full_name)s, %(column_name)s, %(business_name)s, %(definition)s, %(edited_by)s, current_localtimestamp()
-                )
-                ON CONFLICT (table_full_name, column_name) DO UPDATE SET
-                    business_name = excluded.business_name,
-                    definition = excluded.definition,
-                    edited_by = excluded.edited_by,
-                    edited_at = current_localtimestamp()
-                """,
-                {
-                    "table_full_name": table_full_name,
-                    "column_name": column_name,
-                    "business_name": business_name,
-                    "definition": definition,
-                    "edited_by": user_name,
-                },
-            )
-        else:
-            cursor.execute(
-                f"MERGE INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides AS target "
-                f"USING (SELECT %(table_full_name)s AS table_full_name, %(column_name)s AS column_name, %(business_name)s AS business_name, %(definition)s AS definition, %(edited_by)s AS edited_by) AS source "
-                f"ON target.table_full_name = source.table_full_name AND target.column_name = source.column_name "
-                f"WHEN MATCHED THEN UPDATE SET target.business_name = source.business_name, target.definition = source.definition, target.edited_by = source.edited_by, target.edited_at = current_timestamp() "
-                f"WHEN NOT MATCHED THEN INSERT (table_full_name, column_name, business_name, definition, edited_by, edited_at) VALUES (source.table_full_name, source.column_name, source.business_name, source.definition, source.edited_by, current_timestamp())",
-                {"table_full_name": table_full_name, "column_name": column_name, "business_name": business_name, "definition": definition, "edited_by": user_name},
-            )
-    # Flush write to disk so it's immediately visible to all sessions sharing the same file.
-    if _duckdb_available():
-        try:
-            with _db_write_lock:
-                _get_shared_duckdb_connection().execute("CHECKPOINT user_data")
-        except Exception:
-            pass
-        enqueue_column_sync(table_full_name, column_name, definition, user_name)
-    log_audit_event("business_name_change", "COLUMN", f"{table_full_name}.{column_name}", old_value, business_name)
-    search_all_metadata.clear()
-
-
-def get_table_steward(table_full_name: str) -> str:
-    """Return the steward_email for a table, or '' if unset.
-
-    In demo mode returns a fixed placeholder address so email flow can be tested.
-    Not cached — always fresh so steward changes are reflected without restart.
-    """
-    if DEMO_DATA:
-        return "steward@example.com"
-    try:
-        conn = get_db_connection()
-        with conn.cursor() as cursor:
-            cursor.execute(
-                f"SELECT steward_email FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata "
-                f"WHERE full_name = %(full_name)s LIMIT 1",
-                {"full_name": table_full_name},
-            )
-            row = cursor.fetchall_as_pandas()
-            if row is not None and not row.empty:
-                return str(row.iloc[0]["steward_email"] or "")
-    except Exception as e:
-        logging.warning("Could not fetch steward for %s: %s", table_full_name, e)
-    return ""
-
-
-def get_table_comments(object_name: str) -> list:
-    """Fetch all comments for an object, returned as a tree (parent comments
-    with a ``replies`` list each).
-
-    In demo mode reads from st.session_state["demo_comments"].
-    Not cached — always fresh so new comments appear immediately.
-    """
-    if DEMO_DATA:
-        flat = st.session_state.get("demo_comments", {}).get(object_name, [])
-        return _build_comment_tree(flat)
-    try:
-        conn = get_db_connection()
-        tbl = "user_data.comments" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
-        with conn.cursor() as cursor:
-            cursor.execute(
-                f"SELECT comment_id, author_name, author_email, comment_text, created_at, parent_comment_id "
-                f"FROM {tbl} "
-                f"WHERE object_name = %(object_name)s ORDER BY created_at ASC",
-                {"object_name": object_name},
-            )
-            rows = cursor.fetchall_as_pandas()
-            if rows is not None and not rows.empty:
-                return _build_comment_tree(rows.to_dict(orient="records"))
-    except Exception as e:
-        logging.warning("Could not fetch comments for %s: %s", object_name, e)
-    return []
-
-
-def _build_comment_tree(flat: list) -> list:
-    """Group a flat list of comment dicts into a parent/replies tree."""
-    by_id = {c["comment_id"]: {**c, "replies": []} for c in flat}
-    roots = []
-    for c in by_id.values():
-        pid = c.get("parent_comment_id")
-        if pid and pid in by_id:
-            by_id[pid]["replies"].append(c)
-        else:
-            roots.append(c)
-    return roots
-
-
-def send_comment_email(to_email: str, author_name: str, object_name: str, comment_text: str) -> None:
-    """Send a comment notification email to the data steward.
-
-    In demo mode logs to console instead of sending. Silently skips if
-    SMTP_HOST or to_email is not configured rather than raising.
-    """
-    import smtplib
-    from email.mime.text import MIMEText
-
-    if DEMO_DATA:
-        print(f"[DEMO EMAIL] To: {to_email} | Object: {object_name} | From: {author_name}\n{comment_text}")
-        return
-    smtp_host = os.getenv("SMTP_HOST", "")
-    if not smtp_host or not to_email:
-        logging.warning("Comment saved but email not sent: SMTP_HOST or steward_email not configured.")
-        return
-    # Strip newlines from header fields to prevent SMTP header injection.
-    safe_object_name = object_name.replace("\r", "").replace("\n", "")
-    safe_author_name = author_name.replace("\r", "").replace("\n", "")
-    msg = MIMEText(f"{safe_author_name} left a comment on {safe_object_name}:\n\n{comment_text}", "plain")
-    msg["Subject"] = f"[Data Dictionary] Comment on {safe_object_name}"
-    msg["From"]    = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
-    msg["To"]      = to_email
-    try:
-        with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587"))) as s:
-            s.starttls()
-            s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASSWORD", ""))
-            s.sendmail(msg["From"], [to_email], msg.as_string())
-        logging.info("Comment email sent to %s", to_email)
-    except Exception as e:
-        logging.error("Failed to send comment email to %s: %s", to_email, e)
-
-
-def send_reply_email(
-    parent_author_email: str,
-    reply_author_name: str,
-    object_name: str,
-    reply_text: str,
-    steward_email: str,
-) -> None:
-    """Notify the original commenter (and the steward if different) of a reply.
-
-    In demo mode logs to console. Silently skips if SMTP_HOST is not configured.
-    """
-    import smtplib
-    from email.mime.text import MIMEText
-
-    recipients = list({e for e in [parent_author_email, steward_email] if e})
-    if not recipients:
-        return
-
-    if DEMO_DATA:
-        print(f"[DEMO REPLY] To: {recipients} | Object: {object_name} | From: {reply_author_name}\n{reply_text}")
-        return
-
-    smtp_host = os.getenv("SMTP_HOST", "")
-    if not smtp_host:
-        logging.warning("Reply saved but email not sent: SMTP_HOST not configured.")
-        return
-
-    # Strip newlines from header fields to prevent SMTP header injection.
-    safe_object_name  = object_name.replace("\r", "").replace("\n", "")
-    safe_reply_author = reply_author_name.replace("\r", "").replace("\n", "")
-    msg = MIMEText(
-        f"{safe_reply_author} replied to a comment on {safe_object_name}:\n\n{reply_text}",
-        "plain",
-    )
-    msg["Subject"] = f"[Data Dictionary] Reply on {safe_object_name}"
-    msg["From"]    = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
-    msg["To"]      = ", ".join(recipients)
-    try:
-        with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587"))) as s:
-            s.starttls()
-            s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASSWORD", ""))
-            s.sendmail(msg["From"], recipients, msg.as_string())
-        logging.info("Reply email sent to %s", recipients)
-    except Exception as e:
-        logging.error("Failed to send reply email to %s: %s", recipients, e)
-
-
-def _fetch_comment_author_email(comment_id: str) -> str:
-    """Look up the author_email of a comment from the DB.
-
-    Used by save_comment to resolve the reply recipient server-side rather
-    than trusting the value passed in from the UI (open-relay mitigation).
-    Returns '' if the comment is not found or on error.
-    """
-    try:
-        conn = get_db_connection()
-        tbl = "user_data.comments" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
-        with conn.cursor() as cursor:
-            cursor.execute(
-                f"SELECT author_email FROM {tbl} "
-                f"WHERE comment_id = %(comment_id)s LIMIT 1",
-                {"comment_id": comment_id},
-            )
-            row = cursor.fetchall_as_pandas()
-            if row is not None and not row.empty:
-                return str(row.iloc[0]["author_email"] or "")
-    except Exception as e:
-        logging.warning("Could not fetch author_email for comment %s: %s", comment_id, e)
-    return ""
-
-
-def save_comment(
-    object_type: str,
-    object_name: str,
-    comment_text: str,
-    steward_email: str,
-    parent_comment_id: str = None,
-    parent_author_email: str = "",
-) -> None:
-    """Persist a comment (or reply) and trigger notification emails.
-
-    For a top-level comment, notifies the steward.
-    For a reply (parent_comment_id set), notifies the original commenter and steward.
-
-    The reply recipient email is re-fetched from the database rather than
-    trusting the caller-supplied parent_author_email, preventing an
-    authenticated user from using the SMTP relay to spam arbitrary addresses.
-    parent_author_email is used only in demo mode (no DB available).
-
-    In demo mode writes to st.session_state["demo_comments"] dict.
-    object_name for table comments is the full_name; for column comments
-    it is "{full_name}::{column_name}".
-    """
-    import uuid
-    comment_id   = str(uuid.uuid4())
-    author_name  = st.session_state.get("user_name", "unknown")
-    author_email = (st.session_state.get("user_email", "") or "").lower().strip()
-
-    _event_type = "comment_reply" if parent_comment_id else "comment_added"
-
-    if DEMO_DATA:
-        demo = st.session_state.setdefault("demo_comments", {})
-        demo.setdefault(object_name, []).append({
-            "comment_id":        comment_id,
-            "author_name":       author_name,
-            "author_email":      author_email,
-            "comment_text":      comment_text,
-            "created_at":        "just now",
-            "parent_comment_id": parent_comment_id,
-        })
-        if parent_comment_id:
-            send_reply_email(parent_author_email, author_name, object_name, comment_text, steward_email)
-        else:
-            send_comment_email(steward_email, author_name, object_name, comment_text)
-        log_audit_event(_event_type, object_type, object_name, "", comment_text)
-        return
-
-    conn = _get_write_connection()
-    with conn.cursor() as cursor:
-        if _duckdb_available():
-            cursor.execute_write(
-                "INSERT INTO user_data.comments "
-                "(comment_id, object_type, object_name, comment_text, author_name, author_email, "
-                "created_at, steward_email, parent_comment_id) "
-                "VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
-                "%(author_name)s, %(author_email)s, current_localtimestamp(), %(steward_email)s, %(parent_comment_id)s)",
-                {
-                    "comment_id":        comment_id,
-                    "object_type":       object_type,
-                    "object_name":       object_name,
-                    "comment_text":      comment_text,
-                    "author_name":       author_name,
-                    "author_email":      author_email,
-                    "steward_email":     steward_email,
-                    "parent_comment_id": parent_comment_id,
-                },
-            )
-        else:
-            cursor.execute(
-                f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
-                f"(comment_id, object_type, object_name, comment_text, author_name, author_email, "
-                f"created_at, steward_email, parent_comment_id) "
-                f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
-                f"%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
-                {
-                    "comment_id":        comment_id,
-                    "object_type":       object_type,
-                    "object_name":       object_name,
-                    "comment_text":      comment_text,
-                    "author_name":       author_name,
-                    "author_email":      author_email,
-                    "steward_email":     steward_email,
-                    "parent_comment_id": parent_comment_id,
-                },
-            )
-    
-    # Enqueue for Databricks sync (Priority 2)
-    enqueue_sync("COMMENT", object_name, {
-        "comment_id":        comment_id,
-        "object_type":       object_type,
-        "object_name":       object_name,
-        "comment_text":      comment_text,
-        "author_name":       author_name,
-        "author_email":      author_email,
-        "steward_email":     steward_email,
-        "parent_comment_id": parent_comment_id,
-    }, author_email)
-
-    if parent_comment_id:
-        # Re-fetch the parent author's email from the DB — do NOT trust the
-        # UI-supplied parent_author_email to prevent open-relay abuse.
-        verified_parent_email = _fetch_comment_author_email(parent_comment_id)
-        send_reply_email(verified_parent_email, author_name, object_name, comment_text, steward_email)
-    else:
-        send_comment_email(steward_email, author_name, object_name, comment_text)
-    log_audit_event(_event_type, object_type, object_name, "", comment_text)
-
 
 def _viewport_height(fallback: int = 800) -> int:
     """Return the user's viewport height in px, falling back if not yet captured."""
@@ -1701,7 +1197,7 @@ def render_data_sample(table_full_name: str):
         if not re.match(r"^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$", table_full_name):
             st.error(t("common.error"))
             return
-        if DEMO_DATA:
+        if is_demo_mode():
             df = pd.DataFrame({"id": [1, 2, 3], "status": ["NEW", "SHIPPED", "CLOSED"]})
         elif _duckdb_available():
             # DuckDB file is ATTACHed as CATALOG_CACHE; actual row data lives at
@@ -2075,7 +1571,7 @@ def render_health(groups):
         table_coverage = (n_desc / n_tables * 100) if n_tables > 0 else 0
 
         # For columns, we need to query the cache (or use mock)
-        if DEMO_DATA:
+        if is_demo_mode():
             # Aggregate columns from _DEMO_COLUMNS
             all_cols_list = []
             for df in _DEMO_COLUMNS.values():
@@ -2168,7 +1664,7 @@ def render_health(groups):
 
 def get_admin_stats() -> dict:
     """Return four catalog-wide counts for the admin dashboard."""
-    if DEMO_DATA:
+    if is_demo_mode():
         return {
             "tables":    len(_DEMO_TABLES),
             "columns":   sum(len(df) for df in _DEMO_COLUMNS.values()),
@@ -2193,7 +1689,7 @@ def get_admin_stats() -> dict:
 
 def get_business_name_change_log() -> pd.DataFrame:
     """Return the last 200 business name change events for the admin log."""
-    if DEMO_DATA:
+    if is_demo_mode():
         logs = [l for l in st.session_state.get("demo_audit_log", []) if l["event_type"] == "business_name_change"]
         if not logs:
             return pd.DataFrame(columns=["event_id", "object_name", "old_value", "new_value", "actor_email", "created_at"])
@@ -2209,7 +1705,7 @@ def get_business_name_change_log() -> pd.DataFrame:
 
 def get_comment_log() -> pd.DataFrame:
     """Return the last 200 comment/reply events for the admin log."""
-    if DEMO_DATA:
+    if is_demo_mode():
         logs = [l for l in st.session_state.get("demo_audit_log", [])
                 if l["event_type"] in ("comment_added", "comment_reply")]
         if not logs:
