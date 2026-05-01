@@ -422,6 +422,43 @@ def get_sync_queue_stats() -> dict:
         return {"pending": 0, "processing": 0, "done": 0, "failed": 0}
 
 
+@st.dialog(t("admin.biz_log_title"), width="large")
+def _show_biz_log_dialog():
+    from src.ui.css import VIS_WIDE_CSS
+    st.markdown(VIS_WIDE_CSS, unsafe_allow_html=True)
+    biz_log = get_business_name_change_log()
+    st.dataframe(
+        biz_log,
+        column_config={
+            "object_name": st.column_config.TextColumn("Object"),
+            "old_value":   st.column_config.TextColumn("Old name"),
+            "new_value":   st.column_config.TextColumn("New name"),
+            "actor_email": st.column_config.TextColumn("Changed by"),
+            "created_at":  st.column_config.TextColumn("Changed at"),
+        },
+        hide_index=True,
+        use_container_width=True,
+    )
+
+
+@st.dialog(t("admin.comment_log_title"), width="large")
+def _show_comment_log_dialog():
+    from src.ui.css import VIS_WIDE_CSS
+    st.markdown(VIS_WIDE_CSS, unsafe_allow_html=True)
+    comment_log = get_comment_log()
+    st.dataframe(
+        comment_log,
+        column_config={
+            "object_name":      st.column_config.TextColumn("Object"),
+            "comment_preview":  st.column_config.TextColumn("Comment preview"),
+            "actor_email":      st.column_config.TextColumn("Author"),
+            "created_at":       st.column_config.TextColumn("Posted at"),
+        },
+        hide_index=True,
+        use_container_width=True,
+    )
+
+
 def render_admin_page():
     if not is_admin():
         st.error(t("admin.access_denied"))
@@ -483,34 +520,23 @@ def render_admin_page():
 
     st.markdown('<div style="margin-top:32px;"></div>', unsafe_allow_html=True)
 
-    with st.expander(t("admin.biz_log_title"), expanded=True):
-        biz_log = get_business_name_change_log()
-        st.dataframe(
-            biz_log,
-            column_config={
-                "object_name": st.column_config.TextColumn("Object"),
-                "old_value":   st.column_config.TextColumn("Old name"),
-                "new_value":   st.column_config.TextColumn("New name"),
-                "actor_email": st.column_config.TextColumn("Changed by"),
-                "created_at":  st.column_config.TextColumn("Changed at"),
-            },
-            hide_index=True,
-            use_container_width=True,
-        )
+    # --- § Business name change log ---
+    _biz_h, _biz_btn = st.columns([9, 1], gap="small")
+    with _biz_h:
+        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow">§ {t("admin.biz_log_title")}</span></div>', unsafe_allow_html=True)
+    with _biz_btn:
+        if st.button("⤢", key="admin_biz_log_expand", help="Expand log", use_container_width=True):
+            _show_biz_log_dialog()
 
-    with st.expander(t("admin.comment_log_title"), expanded=True):
-        comment_log = get_comment_log()
-        st.dataframe(
-            comment_log,
-            column_config={
-                "object_name":      st.column_config.TextColumn("Object"),
-                "comment_preview":  st.column_config.TextColumn("Comment preview"),
-                "actor_email":      st.column_config.TextColumn("Author"),
-                "created_at":       st.column_config.TextColumn("Posted at"),
-            },
-            hide_index=True,
-            use_container_width=True,
-        )
+    st.markdown('<div style="margin-top:24px;"></div>', unsafe_allow_html=True)
+
+    # --- § Comment log ---
+    _cmt_h, _cmt_btn = st.columns([9, 1], gap="small")
+    with _cmt_h:
+        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow">§ {t("admin.comment_log_title")}</span></div>', unsafe_allow_html=True)
+    with _cmt_btn:
+        if st.button("⤢", key="admin_comment_log_expand", help="Expand log", use_container_width=True):
+            _show_comment_log_dialog()
 
 
 # ── Global State for Background Workers ──────────────────────────────────────
