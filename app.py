@@ -1435,6 +1435,15 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
 
 
 def check_auth():
+    """
+    Executes the MSAL OAuth 2.0 authorization code flow.
+
+    This function manages the complete sign-in lifecycle:
+    1. Unauthenticated: Generates secure state/nonce and redirects the user to Microsoft Entra ID.
+    2. Callback: Verifies the state token to prevent CSRF, exchanges the authorization code
+       for access/ID tokens, and securely loads the user's groups into the session.
+    3. Authenticated: Does nothing, allowing the app to render.
+    """
     if "auth_token" not in st.session_state:
         st.session_state.auth_token = None
 
@@ -1855,6 +1864,20 @@ def _sync_prefs_to_session() -> None:
 
 
 def run_query(query, params=None):
+    """
+    Core data access abstraction implementing a 3-tier routing strategy:
+
+    1. Demo Mock Data: Used in local dev (`DEMO_DATA=true`). Returns hardcoded
+       Pandas DataFrames without requiring a database connection.
+    2. DuckDB Local Cache: Used when a local `.duckdb` file is present. Provides
+       lightning-fast reads without network round-trips.
+    3. Databricks SQL Warehouse: Fallback for when the local cache is absent or
+       when executing write operations.
+
+    @param query: The SQL query string (pyformat parameterization).
+    @param params: Dictionary of parameters to inject into the query.
+    @returns: A pandas DataFrame containing the query results.
+    """
     # ── Demo mode: return hardcoded DataFrames without hitting any DB ──────────
     if os.getenv("DEMO_DATA", "false").lower() == "true":
         p = params or {}
@@ -2660,6 +2683,16 @@ def save_comment(
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def get_authorized_tables(groups):
+    """
+    Fetches the list of tables the current user is authorized to view.
+
+    Applies row-level security (RLS) by joining against the permissions_cache.
+    A table is returned if the user belongs to a group listed in `permissions_cache.principal`,
+    OR if the table is explicitly marked public via the special `SELECT_ALL_USERS` principal.
+
+    @param groups: A tuple of Entra ID group strings for the current user.
+    @returns: A pandas DataFrame of authorized table metadata.
+    """
     if os.getenv("DEMO_DATA", "").lower() == "true":
         return _DEMO_TABLES
     group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
@@ -2978,6 +3011,8 @@ def render_data_sample(table_full_name: str):
         return
 
     try:
+        # Validate table name matches the Databricks Unity Catalog 3-level namespace format: catalog.schema.table
+        # Prevents SQL injection by ensuring only alphanumeric characters and underscores are used.
         if not re.match(r"^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$", table_full_name):
             st.error("Invalid table name format.")
             return

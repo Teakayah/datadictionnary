@@ -1,0 +1,3 @@
+## 2025-10-24 - Core Architecture Documentation Silos
+**Learning:** Core architectural flows—specifically the 3-tier data routing in `run_query`, the custom MSAL OAuth 2.0 flow in `check_auth`, and the Unity Catalog-style access control in `get_authorized_tables`—are heavily relied upon but lack explanatory documentation. Developers must currently trace execution across multiple functions and files to understand these fundamental patterns.
+**Action:** Add comprehensive, high-level JSDoc/docstrings to core routing and authorization functions to explain the *why* and *how* of the architecture, reducing cognitive load for new contributors.
