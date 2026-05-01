@@ -3013,14 +3013,11 @@ def render_data_sample(table_full_name: str):
             query = f"SELECT * FROM {table_full_name} LIMIT 100"  # nosec B608
             df = run_query(query)
         if df is not None and not df.empty:
-            # Dialog occupies 95vh; subtract chrome (title bar 56px + content
-            # padding 32px + table-name markdown 36px) ≈ 124px so the grid
-            # fills the remaining interior without scrolling the dialog itself.
+            # Always fill the dialog interior — dialog is 95vh, subtract chrome
+            # (title bar 56px + padding 32px + table-name row 36px) ≈ 124px.
+            # Don't shrink for small tables; the grid renders empty rows to fill.
             _screen_h = _viewport_height(800)
-            _dialog_chrome = 124
-            _max_h = int(_screen_h * 0.95) - _dialog_chrome
-            _row_h = len(df) * 35 + 38
-            _h = max(min(_row_h, _max_h), 400)
+            _h = max(int(_screen_h * 0.95) - 124, 400)
             st.dataframe(df, use_container_width=True, height=_h)
         else:
             st.info(t("detail.preview_needs_data"))
