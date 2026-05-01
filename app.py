@@ -238,6 +238,7 @@ DESIGN_CSS = """@import url('https://fonts.googleapis.com/css2?family=Fraunces:o
 
 :root {
     --paper:        #FAF7F0;
+    --paper-rgb:    250, 247, 240;
     --paper-deep:   #F2EDE1;
     --paper-ink:    #E8E1D0;
     --ink:          #14110C;
@@ -253,7 +254,12 @@ DESIGN_CSS = """@import url('https://fonts.googleapis.com/css2?family=Fraunces:o
     --accent-wash:  #F3DFD9;
     --forest:       #3F5E3A;
     --ochre:        #9A6D1C;
+    --ochre-wash:   #FEF3D7;
+    --ochre-ink:    #92400E;
+    --amber-wash:   #FEF9C3;
+    --amber-ink:    #92400E;
     --deepblue:     #2B4A6B;
+    --deepblue-wash:#DDE4EC;
     --font-display: "Fraunces", "Cormorant Garamond", serif;
     --font-sans:    "Manrope", -apple-system, system-ui, sans-serif;
     --font-mono:    "JetBrains Mono", ui-monospace, monospace;
@@ -435,7 +441,7 @@ code, pre, .stCode {
     left: 0;
     right: 0;
     z-index: 1000;
-    background: rgba(250, 247, 240, 0.92);
+    background: rgba(var(--paper-rgb), 0.92);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border-bottom: 1px solid var(--ink-20);
@@ -606,10 +612,10 @@ code, pre, .stCode {
     flex-shrink: 0;
     vertical-align: middle;
 }
-.dq-a { background: #dcfce7; color: #15803d; }
-.dq-b { background: #fef9c3; color: #92400e; }
-.dq-c { background: #ffedd5; color: #c2410c; }
-.dq-d { background: #fee2e2; color: #B8362A; }
+.dq-a { background: var(--accent-wash); color: var(--forest); }
+.dq-b { background: var(--amber-wash);  color: var(--amber-ink); }
+.dq-c { background: var(--ochre-wash);  color: var(--ochre); }
+.dq-d { background: var(--accent-wash); color: var(--accent); }
 
 /* ── Search page ── */
 .dd-search-hero {
@@ -1471,8 +1477,13 @@ def check_auth():
                 del st.session_state["oauth_nonce"]
 
             if "access_token" in result:
-                st.session_state.auth_token = result
                 claims = result.get("id_token_claims", {})
+                if expected_nonce and claims.get("nonce") != expected_nonce:
+                    logging.error("OAuth nonce mismatch or missing.")
+                    st.error("Authentication failed: Security verification (nonce mismatch).")
+                    st.stop()
+
+                st.session_state.auth_token = result
                 st.session_state.user_groups = claims.get("groups", [])
                 st.session_state.user_name   = claims.get("name")
                 st.session_state.user_email  = claims.get("email") or claims.get("preferred_username", "")
@@ -1560,19 +1571,13 @@ def _to_duckdb_sql(sql: str, params: dict) -> tuple:
     return result, converted
 
 
-_SHARED_CON = None
-
-@st.cache_resource(show_spinner=False)
+@st.cache_resource(show_spinner=False, validate=lambda c: c is not None)
 def _get_shared_duckdb_connection():
     """Singleton connection shared across all Streamlit sessions/threads."""
-    global _SHARED_CON
     if not _duckdb_available():
         return None
 
     with _db_write_lock:
-        if _SHARED_CON is not None:
-            return _SHARED_CON
-            
         import duckdb
         try:
             # Use an in-memory connection as the primary
@@ -1642,7 +1647,6 @@ def _get_shared_duckdb_connection():
                     completed_at    TIMESTAMP
                 )
             """)
-            _SHARED_CON = con
             return con
         except Exception as e:
             logging.error("Failed to initialize shared DuckDB connection: %s", e)
@@ -1773,10 +1777,11 @@ def _run_duckdb_query(query, params=None):
     """Uncached DuckDB query — local file is fast enough that caching adds
     overhead rather than benefit, and skipping the cache means the app
     always sees the freshest file after the nightly sync."""
-    conn = _DuckDBConn(DUCKDB_PATH)
-    with conn.cursor() as cursor:
-        cursor.execute(query, params)
-        return cursor.fetchall_as_pandas()
+    with _db_write_lock:
+        conn = _DuckDBConn(DUCKDB_PATH)
+        with conn.cursor() as cursor:
+            cursor.execute(query, params)
+            return cursor.fetchall_as_pandas()
 
 
 # ── Personalization persistence helpers ───────────────────────────────────────
@@ -2091,8 +2096,11 @@ def _push_to_databricks(sync_type: str, table_full_name: str | None, payload: di
                 cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} SET TBLPROPERTIES ('steward' = '{stew}')")
 
             elif sync_type == "TAG":
+                import re
                 key = payload["tag_key"]
-                val = payload["tag_value"]
+                if not re.match(r"^[A-Za-z0-9_]+$", key):
+                    raise ValueError(f"Invalid tag key: {key}")
+                val = payload["tag_value"].replace("'", "''")
                 parts = table_full_name.split(".")
                 cat, sch, tbl = [f"`{p}`" for p in parts]
                 cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} SET TAGS ('{key}' = '{val}')")
@@ -2131,7 +2139,7 @@ def _process_sync_queue() -> int:
         return 0
     
     # Determine mode: Idle if no UI activity for 5 minutes
-    is_idle = (time.time() - _LAST_UI_ACTIVITY) > 300
+    is_idle = (time.time() - _get_last_ui_activity()) > 300
     batch_size = 50 if is_idle else 5
     
     conn = _get_write_connection()
@@ -2217,7 +2225,7 @@ def _start_sync_worker_thread():
                 logging.error("Sync worker loop error: %s", exc, exc_info=True)
             
             # Dynamic poll: 5s if idle, 30s if active
-            is_idle = (time.time() - _LAST_UI_ACTIVITY) > 300
+            is_idle = (time.time() - _get_last_ui_activity()) > 300
             time.sleep(5 if is_idle else 30)
 
     t = threading.Thread(target=_loop, name="dd-sync-worker", daemon=True)
@@ -3063,7 +3071,7 @@ def render_catalog_browser(groups):
         logging.error("Error in catalog browser: %s", e)
         st.error(t("catalog.load_error"))
 
-def render_glossary():
+def render_glossary(query_groups):
     st.markdown(f'''
     <div class="dd-search-hero">
       <div class="dd-eyebrow">{t("glossary.title")}</div>
@@ -3104,7 +3112,7 @@ def render_glossary():
             <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:32px; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.linked_tables")}</div>
             ''', unsafe_allow_html=True)
             
-            _authorized_fns = set(get_authorized_tables(groups)["full_name"].tolist()) if groups else set()
+            _authorized_fns = set(get_authorized_tables(query_groups)["full_name"].tolist()) if query_groups else set()
             for table_fn in term_row["related_tables"]:
                 if table_fn not in _authorized_fns:
                     continue  # hide tables the current user cannot access
@@ -3535,7 +3543,7 @@ def render_admin_page():
     <div class="dd-search-hero">
       <div class="dd-eyebrow">{t("admin.title")}</div>
       <h1>Administration.</h1>
-      <p class="lead">{t("health.subtitle")}</p>
+      <p class="lead">{t("admin.subtitle")}</p>
     </div>
     ''', unsafe_allow_html=True)
 
@@ -3550,7 +3558,7 @@ def render_admin_page():
     with c4:
         st.metric(t("admin.stats_overrides"), f"{stats.get('overrides', 0):,}")
 
-    # --- § Synchronization Status ---
+    # --- § Synchronization status ---
     st.markdown(f'<div class="dd-section-header" style="margin-top:32px;"><span class="dd-eyebrow">§ {t("admin.sync_title")}</span></div>', unsafe_allow_html=True)
 
     sync_stats = get_sync_queue_stats()
@@ -3571,16 +3579,16 @@ def render_admin_page():
 
     with sc2:
         # Current Mode & DR Status
-        is_idle = (time.time() - _LAST_UI_ACTIVITY) > 300
+        is_idle = (time.time() - _get_last_ui_activity()) > 300
         mode_label = "Idle (High Throughput)" if is_idle else "Active (Low Impact)"
-        mode_color = "#2B4A6B" if is_idle else "#8C271E" # Deep blue vs Accent red
+        mode_color = "var(--deepblue)" if is_idle else "var(--accent-ink)" # Deep blue vs Accent red
 
         st.markdown(
             f'<div style="background:var(--paper-deep); padding:12px; border-radius:4px; border-left:4px solid {mode_color};">'
             f'<div style="font-family:var(--font-mono); font-size:10px; color:var(--ink-40); text-transform:uppercase;">Sync Mode</div>'
             f'<div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink);">{mode_label}</div>'
             f'<div style="margin-top:12px; font-family:var(--font-mono); font-size:10px; color:var(--ink-40); text-transform:uppercase;">Self-Healing (DR)</div>'
-            f'<div style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60);">{_DR_RESYNC_STATUS}</div>'
+            f'<div style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60);">{_get_dr_resync_status()}</div>'
             f'</div>',
             unsafe_allow_html=True
         )
@@ -3618,22 +3626,41 @@ def render_admin_page():
 
 
 # ── Global State for Background Workers ──────────────────────────────────────
+_worker_state_lock = threading.Lock()
 _LAST_UI_ACTIVITY = time.time()
 _DR_RESYNC_STATUS = "Idle" # Idle, Checking, Syncing, Up-to-date, Error
 _DR_RESYNC_PROGRESS = 0.0
 
+def _get_last_ui_activity():
+    with _worker_state_lock:
+        return _LAST_UI_ACTIVITY
+
+def _get_dr_resync_status():
+    with _worker_state_lock:
+        return _DR_RESYNC_STATUS
+
+def _set_dr_resync_status(status):
+    global _DR_RESYNC_STATUS
+    with _worker_state_lock:
+        _DR_RESYNC_STATUS = status
+
+def _set_dr_resync_progress(progress):
+    global _DR_RESYNC_PROGRESS
+    with _worker_state_lock:
+        _DR_RESYNC_PROGRESS = progress
+
 def _mark_ui_activity():
     global _LAST_UI_ACTIVITY
-    _LAST_UI_ACTIVITY = time.time()
+    with _worker_state_lock:
+        _LAST_UI_ACTIVITY = time.time()
 
 
 def _run_dr_resync():
     """Background task to pull missing records from Databricks to DuckDB."""
-    global _DR_RESYNC_STATUS, _DR_RESYNC_PROGRESS
     if not _duckdb_available():
         return
     
-    _DR_RESYNC_STATUS = "Checking"
+    _set_dr_resync_status("Checking")
     try:
         conn = _get_write_connection()
         # 1. Check for newest records in Databricks vs Local
@@ -3653,13 +3680,14 @@ def _run_dr_resync():
             # Query Databricks for any records AFTER local_max
             # Note: run_query handles the Databricks connection
             remote_q = f"SELECT * FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.{tbl}"
+            params = {}
             if local_max:
-                remote_q += f" WHERE {ts_col} > '{local_max}'"
-            
-            delta_df = run_query(remote_q)
-            
+                remote_q += f" WHERE {ts_col} > %(local_max)s"
+                params["local_max"] = local_max
+
+            delta_df = run_query(remote_q, params)            
             if delta_df is not None and not delta_df.empty:
-                _DR_RESYNC_STATUS = f"Syncing {tbl}"
+                _set_dr_resync_status(f"Syncing {tbl}")
                 # Merge into DuckDB
                 with conn.cursor() as cursor:
                     for _, row in delta_df.iterrows():
@@ -3679,11 +3707,11 @@ def _run_dr_resync():
                                 row.to_dict()
                             )
         
-        _DR_RESYNC_STATUS = "Up-to-date"
-        _DR_RESYNC_PROGRESS = 100.0
+        _set_dr_resync_status("Up-to-date")
+        _set_dr_resync_progress(100.0)
     except Exception as e:
         logging.error("DR Resync failed: %s", e)
-        _DR_RESYNC_STATUS = f"Error: {str(e)[:50]}"
+        _set_dr_resync_status(f"Error: {str(e)[:50]}")
 
 
 
@@ -4034,7 +4062,7 @@ if current_tab == "search":
                             st.session_state.recent_views = _rv
                             _pref_upsert(full_name, "recent")
 
-                        # --- § Data preview + Export dictionary ---
+                        # --- § Data preview + export dictionary ---
                         # Bulk-fetch overrides first (one query for all columns)
                         col_overrides = get_column_business_names(full_name)
 
@@ -4336,7 +4364,7 @@ if current_tab == "search":
 elif current_tab == "catalog":
     render_catalog_browser(query_groups)
 elif current_tab == "glossary":
-    render_glossary()
+    render_glossary(query_groups)
 elif current_tab == "discovery":
     render_discovery(query_groups)
 elif current_tab == "health":

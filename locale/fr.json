@@ -88,6 +88,7 @@
   },
   "admin": {
     "title": "§ Admin",
+    "subtitle": "Santé du système, statistiques d'utilisation et journaux de synchronisation.",
     "stats_tables": "Total tables",
     "stats_columns": "Total colonnes",
     "stats_comments": "Total commentaires",
