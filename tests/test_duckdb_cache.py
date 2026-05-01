@@ -67,6 +67,13 @@ def _load_duckdb_helpers():
         return lambda f: f
     mock_st.cache_resource = _mock_cache_resource
 
+    # Phase 1 src/config.py extraction: CATALOG_CACHE and SCHEMA_CACHE moved out
+    # of the inline duckdb block into src/config.py. Provide them here so the
+    # exec'd slice still resolves those names. logging is always a stdlib import
+    # but was previously available as a module-level name in the app — add it too.
+    import logging as _logging_mod
+    from src.config import CATALOG_CACHE as _CATALOG_CACHE, SCHEMA_CACHE as _SCHEMA_CACHE
+
     ns = {
         "os": os,
         "pd": pd,
@@ -75,11 +82,14 @@ def _load_duckdb_helpers():
         "st": mock_st,
         "duckdb": _duckdb_module,
         "threading": _threading,
+        "logging": _logging_mod,
         # Default values so _duckdb_available() and _get_shared_duckdb_connection()
         # don't raise NameError; individual tests override as needed.
         "DUCKDB_PATH": "",
         "USER_DATA_PATH": "",
         "_db_write_lock": _threading.Lock(),
+        "CATALOG_CACHE": _CATALOG_CACHE,
+        "SCHEMA_CACHE": _SCHEMA_CACHE,
     }
     exec(textwrap.dedent(block), ns)
     return ns
