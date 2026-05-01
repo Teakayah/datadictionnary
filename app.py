@@ -3117,7 +3117,7 @@ def render_glossary():
                         st.session_state["dd_nav_select"] = table_fn
                         st.rerun()
                 with _c_star:
-                    if st.button("★" if _gloss_bk else "☆", key=f"gloss_bk_{table_fn}", use_container_width=True):
+                    if st.button("★" if _gloss_bk else "☆", key=f"gloss_bk_{table_fn}", help=t("personalization.remove_bookmark") if _gloss_bk else t("personalization.add_bookmark"), use_container_width=True):
                         if _gloss_bk:
                             st.session_state.get("bookmarks", set()).discard(table_fn)
                             _pref_delete(table_fn, "bookmark")
@@ -3188,7 +3188,7 @@ def _render_table_card(row: "pd.Series", key_prefix: str) -> None:
             st.session_state["dd_nav_select"] = _full
             st.rerun()
     with _c_star:
-        if st.button("★" if _is_bk else "☆", key=f"{key_prefix}_bk_{_full}", use_container_width=True):
+        if st.button("★" if _is_bk else "☆", key=f"{key_prefix}_bk_{_full}", help=t("personalization.remove_bookmark") if _is_bk else t("personalization.add_bookmark"), use_container_width=True):
             if _is_bk:
                 st.session_state.get("bookmarks", set()).discard(_full)
                 _pref_delete(_full, "bookmark")
@@ -3308,7 +3308,7 @@ def render_discovery(groups):
                         st.session_state["dd_nav_select"] = _bk_table
                         st.rerun()
                 with _c_star:
-                    if st.button("★", key=f"colbk_rm_{_bk_id}", use_container_width=True):
+                    if st.button("★", key=f"colbk_rm_{_bk_id}", help=t("personalization.remove_bookmark"), use_container_width=True):
                         st.session_state.col_bookmarks.discard(_bk_id)
                         _pref_delete(_bk_id, "col_bookmark")
                         st.rerun()
@@ -4018,7 +4018,7 @@ if current_tab == "search":
                         with _c_code:
                             st.code(full_name, language=None)
                         with _c_bk:
-                            if st.button("★" if _is_bookmarked else "☆", key=f"bk_{full_name}", use_container_width=True):
+                            if st.button("★" if _is_bookmarked else "☆", key=f"bk_{full_name}", help=t("personalization.remove_bookmark") if _is_bookmarked else t("personalization.add_bookmark"), use_container_width=True):
                                 if _is_bookmarked:
                                     st.session_state.get("bookmarks", set()).discard(full_name)
                                     _pref_delete(full_name, "bookmark")
@@ -4101,14 +4101,14 @@ if current_tab == "search":
                                     _r_desc.markdown(f'<span class="dd-col-desc">{_html.escape(_ccomment)}</span>', unsafe_allow_html=True)
 
                                 if _power and _col_edit != _edit_key:
-                                    if _r_btn.button("✎", key=f"col_edit_{_edit_key}", use_container_width=True):
+                                    if _r_btn.button("✎", key=f"col_edit_{_edit_key}", help=t("common.edit"), use_container_width=True):
                                         st.session_state["dd_col_edit_mode"] = _edit_key
                                         st.rerun()
 
                                 # Column bookmark star
                                 _col_bk_id = f"{full_name}::{_cname}"
                                 _is_col_bk = _col_bk_id in st.session_state.get("col_bookmarks", set())
-                                if _r_star.button("★" if _is_col_bk else "☆", key=f"colbk_{_edit_key}", use_container_width=True):
+                                if _r_star.button("★" if _is_col_bk else "☆", key=f"colbk_{_edit_key}", help=t("personalization.remove_bookmark") if _is_col_bk else t("personalization.add_bookmark"), use_container_width=True):
                                     if _is_col_bk:
                                         st.session_state.get("col_bookmarks", set()).discard(_col_bk_id)
                                         _pref_delete(_col_bk_id, "col_bookmark")
