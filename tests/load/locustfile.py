@@ -80,10 +80,20 @@ _SEARCH_TERMS = [
     "xyzzy_no_match", "subaward", "reagent", "postdoc", "firewall",
 ]
 
+_SCHEMA = "dictionary_cache"  # schema used by generate_test_data.py
+
+
+def _open_con(read_only: bool = True) -> duckdb.DuckDBPyConnection:
+    """Open a connection with the correct default search path."""
+    con = duckdb.connect(_DUCKDB_PATH, read_only=read_only)
+    con.execute(f"SET search_path = '{_SCHEMA}'")
+    return con
+
+
 def _load_table_names() -> list[str]:
     """Read all table full_names from the dataset at startup."""
     try:
-        con = duckdb.connect(_DUCKDB_PATH, read_only=True)
+        con = _open_con()
         rows = con.execute("SELECT full_name FROM tables_metadata").fetchall()
         con.close()
         return [r[0] for r in rows]
@@ -98,7 +108,8 @@ print(f"[locust] Loaded {len(_ALL_TABLES)} table names from {_DUCKDB_PATH}")
 
 # ── DuckDB query helpers (mirror the actual SQL in app.py) ───────────────────
 
-# DuckDB tables have no catalog prefix — they are bare table names.
+# Tables are referenced without schema prefix — search_path is set to
+# dictionary_cache on every connection via _open_con().
 # Positional params use ? with a list (DuckDB Python API).
 
 def _search_sql(term: str, groups: list[str]) -> tuple[str, list]:
@@ -200,7 +211,7 @@ class DuckDBQueryUser(User):
         self._dept = random.choice(list(_DEPT_GROUPS.keys()))
         self._groups = _DEPT_GROUPS[self._dept]
         try:
-            self._con = duckdb.connect(_DUCKDB_PATH, read_only=True)
+            self._con = _open_con()
         except Exception as exc:
             print(f"[DuckDBQueryUser] Could not open DuckDB: {exc}")
             self._con = None
