@@ -12,11 +12,10 @@ import os
 import html as _html
 import pandas as pd
 from dotenv import load_dotenv
+load_dotenv()  # must run before any src.* import so os.getenv() reads .env values
 
 from src.auth import check_auth, is_power_user, is_admin, render_signin_page
 from src.ui.header import render_footer, LOGO_MARK_SVG
-
-load_dotenv()
 
 # ── Internationalisation (i18n) ───────────────────────────────────────────────
 import json            # used in sync queue (json.dumps/loads)
