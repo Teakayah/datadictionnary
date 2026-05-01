@@ -8,6 +8,7 @@ import time
 import pandas as pd
 import streamlit as st
 
+from src.auth import is_admin
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import _get_write_connection, run_query
