@@ -12,7 +12,7 @@ pip install -r requirements.txt
 streamlit run app.py
 
 # Run the metadata sync job (must be run before the app has any data)
-python scripts/sync_metadata.py
+python scripts/nightly_sync.py
 
 # Configure environment
 cp .env.example .env
@@ -27,7 +27,7 @@ This is a **Python-native Business Data Dictionary** for Databricks Unity Catalo
 
 ### Three-component design
 
-**`scripts/sync_metadata.py` — Metadata Sync Job**
+**`scripts/nightly_sync.py` — Metadata Sync Job**
 - Uses `databricks-sdk` (`WorkspaceClient`) to crawl Unity Catalog hierarchy (catalogs → schemas → tables → columns)
 - Extracts structural metadata, comments/tags, and all `GRANT` permissions per table
 - Writes results via truncate-and-reload into three cache tables in `data_governance.dictionary_cache`:
