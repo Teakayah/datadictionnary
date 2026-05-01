@@ -22,7 +22,10 @@ from typing import Generator
 
 import pytest
 import requests
-from playwright.sync_api import Page, sync_playwright
+try:
+    from playwright.sync_api import Page, sync_playwright
+except ImportError:
+    pass
 
 APP_URL = os.getenv("LOAD_TEST_HOST", "http://localhost:8501")
 
@@ -65,7 +68,7 @@ def require_server():
 
 
 @pytest.fixture(scope="session")
-def browser_page(require_server) -> Generator[Page, None, None]:
+def browser_page(require_server) -> "Generator[Page, None, None]":
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
         ctx = browser.new_context(viewport={"width": 1440, "height": 900})
@@ -76,7 +79,7 @@ def browser_page(require_server) -> Generator[Page, None, None]:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _run_axe(page: Page) -> list[dict]:
+def _run_axe(page: "Page") -> list[dict]:
     """Run axe-core and return WCAG 2.0 A/AA violations."""
     from axe_playwright_python.sync_playwright import Axe
     results = Axe().run(
@@ -89,7 +92,7 @@ def _run_axe(page: Page) -> list[dict]:
     return results.response.get("violations", [])
 
 
-def _load_page(page: Page, url: str, wait_selector: str, timeout: int = 15_000):
+def _load_page(page: "Page", url: str, wait_selector: str, timeout: int = 15_000):
     """Navigate, wait for Streamlit to finish rendering, and apply ARIA patches."""
     page.goto(f"{APP_URL}{url}")
     page.wait_for_load_state("networkidle", timeout=timeout)
@@ -126,7 +129,7 @@ class TestWCAGCompliance:
         pass
 
     @pytest.mark.parametrize("label,path,selector", _PAGES)
-    def test_no_wcag_violations(self, browser_page: Page, label: str, path: str, selector: str):
+    def test_no_wcag_violations(self, browser_page: "Page", label: str, path: str, selector: str):
         """Every audited page must have zero WCAG 2.0 AA violations."""
         _load_page(browser_page, path, selector)
         violations = _run_axe(browser_page)
@@ -141,7 +144,7 @@ class TestWCAGCompliance:
             )
 
     @pytest.mark.parametrize("label,path,selector", _PAGES)
-    def test_color_contrast_passes(self, browser_page: Page, label: str, path: str, selector: str):
+    def test_color_contrast_passes(self, browser_page: "Page", label: str, path: str, selector: str):
         """color-contrast must not appear in violations on any page."""
         _load_page(browser_page, path, selector)
         violations = _run_axe(browser_page)
@@ -153,7 +156,7 @@ class TestWCAGCompliance:
                 + "\n".join(nodes)
             )
 
-    def test_aria_patch_reduces_violations_on_non_dataframe_pages(self, browser_page: Page):
+    def test_aria_patch_reduces_violations_on_non_dataframe_pages(self, browser_page: "Page"):
         """Pages without st.dataframe must have zero aria-allowed-attr violations.
 
         The Health page is excluded here because Streamlit's st.dataframe

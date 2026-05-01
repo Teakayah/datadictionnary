@@ -19,7 +19,10 @@ from typing import Generator
 
 import pytest
 import requests
-from playwright.sync_api import Page, sync_playwright
+try:
+    from playwright.sync_api import Page, sync_playwright
+except ImportError:
+    pass
 
 APP_URL = os.getenv("LOAD_TEST_HOST", "http://localhost:8501")
 _SEARCH_URL = "/?tab=search&mock_login=true"
