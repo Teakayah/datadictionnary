@@ -215,17 +215,17 @@ _DEMO_GLOSSARY = pd.DataFrame({
     ]
 })
 
-# Configuration
-TENANT_ID = os.getenv("TENANT_ID")
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
-REDIRECT_URI = os.getenv("REDIRECT_URI")
-SCOPE = ["User.Read", "GroupMember.Read.All", "email"]
-
-CATALOG_CACHE = "data_governance"
-SCHEMA_CACHE = "dictionary_cache"
-MAX_BUSINESS_NAME_LEN = 255
+from src.config import (
+    TENANT_ID, CLIENT_ID, CLIENT_SECRET, AUTHORITY, REDIRECT_URI, SCOPE,
+    CATALOG_CACHE, SCHEMA_CACHE, MAX_BUSINESS_NAME_LEN,
+    DUCKDB_PATH, USER_DATA_PATH,
+    MOCK_DEPT,
+)
+# Runtime flags kept as inline reads so per-test env overrides are picked up
+# on every AppTest execution without hitting the src.config module cache.
+ENABLE_MOCK_AUTH = os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
+ENVIRONMENT      = os.getenv("ENVIRONMENT", "production").lower()
+DEMO_DATA        = os.getenv("DEMO_DATA", "false").lower() == "true"
 
 st.set_page_config(
     page_title="Data Dictionary",
@@ -1265,7 +1265,7 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
     _tabs = ["search", "catalog", "glossary", "discovery", "health"]
     if show_admin:
         _tabs.append("admin")
-    _is_mock = os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
+    _is_mock = ENABLE_MOCK_AUTH
     with st.container():
         st.markdown('<div id="dd-proxy-anchor"></div>', unsafe_allow_html=True)
         for tab_id in _tabs:
@@ -1406,7 +1406,7 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
                               "SELECT_ALL_USERS", "finance_dept_id", "all_employees_id"],
                              "admin@research-org.ca"),
             }
-            _default_dept = os.getenv("MOCK_DEPT", "Finance")
+            _default_dept = MOCK_DEPT
             _dept_opts = list(_MOCK_DEPTS.keys())
             _dept_sel = st.selectbox(
                 "Department",
@@ -1523,15 +1523,6 @@ def check_auth():
 # read queries and app writes are served locally — no network round-trip.
 # The adapter translates the existing %(name)s pyformat SQL into DuckDB's
 # $name named-parameter style so no query code needs to change.
-
-DUCKDB_PATH = os.getenv("DUCKDB_PATH", "")
-# User data (comments, overrides, audit) lives in a separate persistent file
-# that is never swapped by the nightly sync job.
-USER_DATA_PATH = (
-    DUCKDB_PATH.replace(".duckdb", "_user_data.duckdb")
-    if ".duckdb" in DUCKDB_PATH
-    else DUCKDB_PATH + "_user_data.duckdb"
-) if DUCKDB_PATH else ""
 
 _db_write_lock = threading.Lock()
 
@@ -1861,7 +1852,7 @@ def _sync_prefs_to_session() -> None:
 
 def run_query(query, params=None):
     # ── Demo mode: return hardcoded DataFrames without hitting any DB ──────────
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         p = params or {}
         # Detect get_authorized_tables() call: params are now group_0, group_1, ...
         # (SQL injection fix replaced the old "groups" tuple param)
@@ -1985,7 +1976,7 @@ def get_column_business_names(table_full_name: str) -> dict:
     One bulk query — not N per-column queries.
     In demo mode reads from session state instead of Databricks.
     """
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         return st.session_state.get("demo_business_names", {}).get(table_full_name, {})
     try:
         conn = get_db_connection()
@@ -2247,7 +2238,7 @@ def log_audit_event(event_type: str, object_type: str, object_name: str, old_val
         "new_value":   new_value,
     }
     try:
-        if os.getenv("DEMO_DATA", "false").lower() == "true":
+        if DEMO_DATA:
             st.session_state.setdefault("demo_audit_log", []).append({
                 **payload,
                 "created_at":  pd.Timestamp.now(),
@@ -2330,14 +2321,14 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
             f"(got {len(definition)})."
         )
     user_name = st.session_state.get("user_name", "unknown")
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         old_override = {}
         if "demo_business_names" in st.session_state and table_full_name in st.session_state["demo_business_names"]:
             old_override = st.session_state["demo_business_names"][table_full_name].get(column_name, {})
     else:
         old_override = get_column_business_names(table_full_name).get(column_name, {})
     old_value = old_override.get("business_name", "")
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         if "demo_business_names" not in st.session_state:
             st.session_state["demo_business_names"] = {}
         tbl = st.session_state["demo_business_names"].setdefault(table_full_name, {})
@@ -2396,7 +2387,7 @@ def get_table_steward(table_full_name: str) -> str:
     In demo mode returns a fixed placeholder address so email flow can be tested.
     Not cached — always fresh so steward changes are reflected without restart.
     """
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         return "steward@example.com"
     try:
         conn = get_db_connection()
@@ -2421,7 +2412,7 @@ def get_table_comments(object_name: str) -> list:
     In demo mode reads from st.session_state["demo_comments"].
     Not cached — always fresh so new comments appear immediately.
     """
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         flat = st.session_state.get("demo_comments", {}).get(object_name, [])
         return _build_comment_tree(flat)
     try:
@@ -2464,7 +2455,7 @@ def send_comment_email(to_email: str, author_name: str, object_name: str, commen
     import smtplib
     from email.mime.text import MIMEText
 
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         print(f"[DEMO EMAIL] To: {to_email} | Object: {object_name} | From: {author_name}\n{comment_text}")
         return
     smtp_host = os.getenv("SMTP_HOST", "")
@@ -2506,7 +2497,7 @@ def send_reply_email(
     if not recipients:
         return
 
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         print(f"[DEMO REPLY] To: {recipients} | Object: {object_name} | From: {reply_author_name}\n{reply_text}")
         return
 
@@ -2588,7 +2579,7 @@ def save_comment(
 
     _event_type = "comment_reply" if parent_comment_id else "comment_added"
 
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         demo = st.session_state.setdefault("demo_comments", {})
         demo.setdefault(object_name, []).append({
             "comment_id":        comment_id,
@@ -2668,7 +2659,7 @@ def save_comment(
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def get_authorized_tables(groups):
-    if os.getenv("DEMO_DATA", "").lower() == "true":
+    if DEMO_DATA:
         return _DEMO_TABLES
     group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
     params: dict = {}
@@ -3018,7 +3009,7 @@ def render_data_sample(table_full_name: str):
         if not re.match(r"^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$", table_full_name):
             st.error(t("common.error"))
             return
-        if os.getenv("DEMO_DATA", "false").lower() == "true":
+        if DEMO_DATA:
             df = pd.DataFrame({"id": [1, 2, 3], "status": ["NEW", "SHIPPED", "CLOSED"]})
         elif _duckdb_available():
             # DuckDB file is ATTACHed as CATALOG_CACHE; actual row data lives at
@@ -3392,7 +3383,7 @@ def render_health(groups):
         table_coverage = (n_desc / n_tables * 100) if n_tables > 0 else 0
 
         # For columns, we need to query the cache (or use mock)
-        if os.getenv("DEMO_DATA", "false").lower() == "true":
+        if DEMO_DATA:
             # Aggregate columns from _DEMO_COLUMNS
             all_cols_list = []
             for df in _DEMO_COLUMNS.values():
@@ -3485,7 +3476,7 @@ def render_health(groups):
 
 def get_admin_stats() -> dict:
     """Return four catalog-wide counts for the admin dashboard."""
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         return {
             "tables":    len(_DEMO_TABLES),
             "columns":   sum(len(df) for df in _DEMO_COLUMNS.values()),
@@ -3510,7 +3501,7 @@ def get_admin_stats() -> dict:
 
 def get_business_name_change_log() -> pd.DataFrame:
     """Return the last 200 business name change events for the admin log."""
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         logs = [l for l in st.session_state.get("demo_audit_log", []) if l["event_type"] == "business_name_change"]
         if not logs:
             return pd.DataFrame(columns=["event_id", "object_name", "old_value", "new_value", "actor_email", "created_at"])
@@ -3526,7 +3517,7 @@ def get_business_name_change_log() -> pd.DataFrame:
 
 def get_comment_log() -> pd.DataFrame:
     """Return the last 200 comment/reply events for the admin log."""
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         logs = [l for l in st.session_state.get("demo_audit_log", [])
                 if l["event_type"] in ("comment_added", "comment_reply")]
         if not logs:
@@ -3761,9 +3752,6 @@ else:
     streamlit_js_eval(js_expressions="window.innerHeight", key="_dd_vh")
 
 # ── Auth gate ─────────────────────────────────────────────────────────────────
-ENABLE_MOCK_AUTH = os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
-ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
-
 if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
@@ -3783,7 +3771,7 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
     # Only fires when the user is NOT already authenticated so that a nav click
     # (which re-adds mock_login=true to the URL) cannot overwrite the session.
     if st.query_params.get("mock_login") == "true" and not st.session_state.authenticated:
-        _ql_dept = st.query_params.get("mock_dept", os.getenv("MOCK_DEPT", "")).lower()
+        _ql_dept = st.query_params.get("mock_dept", MOCK_DEPT).lower()
         _dept_group_map = {
             "finance":  (["finance_group",  "SELECT_ALL_USERS"], "Finance User",  "finance.user@research-org.ca"),
             "research": (["research_group", "SELECT_ALL_USERS"], "Research User", "research.user@research-org.ca"),
