@@ -371,8 +371,14 @@ def _read_app_source() -> str:
 
 
 def _extract_design_css(src: str) -> str:
+    # Phase 3: DESIGN_CSS was moved from app.py into assets/design.css.
+    # Try the asset file first; fall back to the old inline literal for safety.
+    assets_css = os.path.join(os.path.dirname(__file__), "..", "assets", "design.css")
+    if os.path.exists(assets_css):
+        with open(assets_css, encoding="utf-8") as f:
+            return f.read()
     match = re.search(r'DESIGN_CSS\s*=\s*"""(.*?)"""', src, re.DOTALL)
-    assert match, "Could not locate DESIGN_CSS in app.py"
+    assert match, "Could not locate DESIGN_CSS in app.py or assets/design.css"
     return match.group(1)
 
 

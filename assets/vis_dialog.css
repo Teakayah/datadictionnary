@@ -1,0 +1,30 @@
+/* ── Dialog shell ── */
+[data-testid="stDialog"] > div > div[role="dialog"] {
+    max-width: 92vw !important;
+    width: 92vw !important;
+    max-height: 95vh !important;
+    height: 95vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+}
+/* Content area grows to fill remaining dialog height */
+[data-testid="stDialog"] > div > div[role="dialog"] > div:not([class*="header"]) {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+}
+/* ── Dataframe: stretch to dialog interior (95vh minus title+padding+subtitle ≈ 190px) ── */
+[data-testid="stDialog"] [data-testid="stDataFrame"] {
+    height: calc(95vh - 190px) !important;
+}
+[data-testid="stDialog"] [data-testid="stDataFrame"] > div,
+[data-testid="stDialog"] [data-testid="stDataFrame"] iframe {
+    height: 100% !important;
+    min-height: 100% !important;
+}
+/* ── Components iframe (vis.js lineage graph) ── */
+[data-testid="stDialog"] iframe:not([title*="streamlit"]) {
+    height: calc(95vh - 190px) !important;
+    min-height: calc(95vh - 190px) !important;
+}

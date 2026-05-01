@@ -18,62 +18,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Internationalisation (i18n) ───────────────────────────────────────────────
-import json as _json
-
-def _load_locales() -> dict:
-    base = os.path.join(os.path.dirname(__file__), "locale")
-    result = {}
-    for lang in ("en", "fr"):
-        try:
-            with open(os.path.join(base, f"{lang}.json"), encoding="utf-8") as f:
-                result[lang] = _json.load(f)
-        except Exception:
-            result[lang] = {}
-    return result
-
-# Loaded once per process start — no caching decorator so restarts always
-# pick up locale file changes without needing a cache-clear.
-LOCALES: dict = _load_locales()
-
-def get_locale() -> str:
-    """Detect preferred locale from the browser Accept-Language header."""
-    try:
-        header = st.context.headers.get("Accept-Language", "en")
-        primary = header.split(",")[0].split(";")[0].split("-")[0].strip().lower()
-        return "fr" if primary == "fr" else "en"
-    except Exception:
-        return "en"
-
-def _ensure_locale() -> None:
-    if "locale" not in st.session_state:
-        st.session_state["locale"] = get_locale()
-
-def t(key: str, **kwargs) -> str:
-    """Look up a dotted key (e.g. 'nav.search') in the active locale.
-
-    Falls back to English if the key is missing in the active locale.
-    Supports str.format() style placeholders: t('search.results_count', count=5).
-    """
-    _ensure_locale()
-    lang = st.session_state.get("locale", "en")
-
-    def _lookup(d: dict, parts: list) -> str | None:
-        for p in parts:
-            if not isinstance(d, dict):
-                return None
-            d = d.get(p)
-        return d if isinstance(d, str) else None
-
-    parts = key.split(".")
-    val = _lookup(LOCALES.get(lang, {}), parts) or _lookup(LOCALES.get("en", {}), parts) or key
-    try:
-        return val.format(**kwargs) if kwargs else val
-    except (KeyError, IndexError):
-        return val
-
-def set_locale(lang: str) -> None:
-    """Persist locale choice; button click already triggers the rerun."""
-    st.session_state["locale"] = lang
+import json            # used in sync queue (json.dumps/loads)
+import json as _json   # alias used in render_header and lineage; keep alongside i18n import
+from src.i18n import LOCALES, get_locale, _ensure_locale, t, set_locale
 
 # ── Demo data (returned in mock/dev mode instead of hitting Databricks) ────────
 _DEMO_TABLES = pd.DataFrame({
@@ -215,17 +162,17 @@ _DEMO_GLOSSARY = pd.DataFrame({
     ]
 })
 
-# Configuration
-TENANT_ID = os.getenv("TENANT_ID")
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
-REDIRECT_URI = os.getenv("REDIRECT_URI")
-SCOPE = ["User.Read", "GroupMember.Read.All", "email"]
-
-CATALOG_CACHE = "data_governance"
-SCHEMA_CACHE = "dictionary_cache"
-MAX_BUSINESS_NAME_LEN = 255
+from src.config import (
+    TENANT_ID, CLIENT_ID, CLIENT_SECRET, AUTHORITY, REDIRECT_URI, SCOPE,
+    CATALOG_CACHE, SCHEMA_CACHE, MAX_BUSINESS_NAME_LEN,
+    DUCKDB_PATH, USER_DATA_PATH,
+    MOCK_DEPT,
+)
+# Runtime flags kept as inline reads so per-test env overrides are picked up
+# on every AppTest execution without hitting the src.config module cache.
+ENABLE_MOCK_AUTH = os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
+ENVIRONMENT      = os.getenv("ENVIRONMENT", "production").lower()
+DEMO_DATA        = os.getenv("DEMO_DATA", "false").lower() == "true"
 
 st.set_page_config(
     page_title="Data Dictionary",
@@ -234,935 +181,7 @@ st.set_page_config(
 )
 
 # ── Design system CSS ──────────────────────────────────────────────────────────
-DESIGN_CSS = """@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
-:root {
-    --paper:        #FAF7F0;
-    --paper-rgb:    250, 247, 240;
-    --paper-deep:   #F2EDE1;
-    --paper-ink:    #E8E1D0;
-    --ink:          #14110C;
-    --ink-90:       #2A2620;
-    --ink-80:       #3D3830;
-    --ink-60:       #6B645A;
-    --ink-40:       #6B645A; /* raised from #9A9388 (~2.8:1) to pass WCAG AA 4.5:1 on --paper */
-    --ink-subtle:   #9A9388; /* decorative only — borders, dividers, never text */
-    --ink-20:       #C9C2B4;
-    --ink-10:       #DCD6C8;
-    --accent:       #B8362A;
-    --accent-ink:   #8C271E;
-    --accent-wash:  #F3DFD9;
-    --forest:       #3F5E3A;
-    --ochre:        #9A6D1C;
-    --ochre-wash:   #FEF3D7;
-    --ochre-ink:    #92400E;
-    --amber-wash:   #FEF9C3;
-    --amber-ink:    #92400E;
-    --deepblue:     #2B4A6B;
-    --deepblue-wash:#DDE4EC;
-    --font-display: "Fraunces", "Cormorant Garamond", serif;
-    --font-sans:    "Manrope", -apple-system, system-ui, sans-serif;
-    --font-mono:    "JetBrains Mono", ui-monospace, monospace;
-    --ease:         cubic-bezier(0.2, 0, 0, 1);
-    --dur-hover:    120ms;
-    --dur-state:    180ms;
-}
-
-/* ── Hide Streamlit chrome ── */
-#MainMenu,
-header[data-testid="stHeader"],
-footer,
-[data-testid="stSidebar"],
-[data-testid="stToolbar"],
-[data-testid="stDecoration"],
-[data-testid="stStatusWidget"] {
-    display: none !important;
-}
-
-/* ── Global surface ── */
-html, body, .stApp, [data-testid="stAppViewContainer"] {
-    background: var(--paper) !important;
-    font-family: var(--font-sans);
-    color: var(--ink);
-    -webkit-font-smoothing: antialiased;
-}
-
-/* Smooth fade-in on rerun to prevent white flash */
-@keyframes ddFadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
-.stApp {
-    animation: ddFadeIn 0.25s ease-out;
-}
-
-/* Remove default Streamlit top padding so our fixed header sits flush */
-[data-testid="stMainBlockContainer"] {
-    padding-top: 56px !important;
-    padding-left: 48px !important;
-    padding-right: 48px !important;
-    padding-bottom: 96px !important;
-    max-width: 1200px !important;
-    margin: 0 auto !important;
-}
-
-/* Inner content wrapper — applied via .dd-content divs */
-.dd-page {
-    /* No longer needed as a wrapper since we constrain stMainBlockContainer, 
-       but kept for any inner markdown sections if necessary */
-}
-
-/* ── Inputs ── */
-.stTextInput input {
-    border: 1px solid var(--ink) !important;
-    border-radius: 2px !important;
-    background: var(--paper) !important;
-    font-family: var(--font-sans) !important;
-    padding: 12px 14px !important;
-    font-size: 16px !important;
-    color: var(--ink) !important;
-    box-shadow: none !important;
-    transition: outline var(--dur-hover) var(--ease);
-}
-.stTextInput input:focus {
-    outline: 2px solid var(--accent) !important;
-    outline-offset: 3px !important;
-}
-.stTextInput label,
-[data-testid="stSelectbox"] label {
-    font-family: var(--font-sans) !important;
-    font-size: 12px !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.14em !important;
-    text-transform: uppercase !important;
-    color: var(--ink-60) !important;
-}
-
-/* ── Buttons ── */
-.stButton > button {
-    font-family: var(--font-sans) !important;
-    font-size: 14px !important;
-    font-weight: 500 !important;
-    padding: 10px 18px !important;
-    border-radius: 2px !important;
-    border: 1px solid var(--ink) !important;
-    background: var(--ink) !important;
-    color: var(--paper) !important;
-    letter-spacing: -0.005em !important;
-    transition: background var(--dur-hover) var(--ease) !important;
-    box-shadow: none !important;
-}
-.stButton > button:hover {
-    background: var(--ink-90) !important;
-    border-color: var(--ink-90) !important;
-    color: var(--paper) !important;
-}
-.stDownloadButton > button {
-    font-family: var(--font-sans) !important;
-    font-size: 14px !important;
-    font-weight: 500 !important;
-    padding: 10px 18px !important;
-    border-radius: 2px !important;
-    border: 1px solid var(--ink) !important;
-    background: var(--ink) !important;
-    color: var(--paper) !important;
-    letter-spacing: -0.005em !important;
-    transition: background var(--dur-hover) var(--ease) !important;
-    box-shadow: none !important;
-}
-.stDownloadButton > button:hover {
-    background: var(--ink-90) !important;
-    border-color: var(--ink-90) !important;
-    color: var(--paper) !important;
-}
-
-/* Selectbox */
-[data-testid="stSelectbox"] > div > div {
-    border: 1px solid var(--ink-20) !important;
-    border-radius: 2px !important;
-    background: var(--paper) !important;
-    font-family: var(--font-sans) !important;
-    font-size: 16px !important;
-    color: var(--ink) !important;
-}
-[data-testid="stSelectbox"] input {
-    color: var(--ink) !important;
-}
-
-/* Dataframe */
-[data-testid="stDataFrame"] {
-    border-top: 1px solid var(--ink) !important;
-    border-radius: 0 !important;
-}
-[data-testid="stDataFrame"] th {
-    font-family: var(--font-mono) !important;
-    font-size: 11px !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.08em !important;
-    text-transform: uppercase !important;
-    color: var(--ink-60) !important;
-    background: var(--paper-deep) !important;
-    border-bottom: 1px solid var(--ink-20) !important;
-}
-[data-testid="stDataFrame"] td {
-    font-family: var(--font-mono) !important;
-    font-size: 13px !important;
-    color: var(--ink-80) !important;
-}
-
-/* Alerts */
-.stAlert {
-    border-radius: 2px !important;
-    border-left: 3px solid var(--accent) !important;
-    background: var(--paper-deep) !important;
-    font-family: var(--font-sans) !important;
-}
-
-/* Headings */
-h1, h2, h3 {
-    font-family: var(--font-display) !important;
-    font-weight: 400 !important;
-    letter-spacing: -0.02em !important;
-    line-height: 1.1 !important;
-    color: var(--ink) !important;
-}
-
-code, pre, .stCode {
-    font-family: var(--font-mono) !important;
-    font-size: 13px !important;
-}
-
-::selection { background: var(--accent-wash); color: var(--ink); }
-
-/* ── Fixed header ── */
-.dd-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
-    background: rgba(var(--paper-rgb), 0.92);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--ink-20);
-}
-.dd-header-inner {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 14px 48px;
-    display: flex;
-    align-items: center;
-    gap: 24px;
-}
-.dd-logo-link {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    text-decoration: none;
-}
-.dd-logo-text {
-    font-family: var(--font-display);
-    font-size: 22px;
-    font-weight: 500;
-    color: var(--ink);
-    letter-spacing: -0.01em;
-}
-.dd-pill {
-    font-family: var(--font-sans);
-    font-size: 10px;
-    padding: 2px 8px;
-    border: 1px solid var(--ink);
-    border-radius: 999px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-weight: 600;
-    color: var(--ink);
-    margin-left: 4px;
-}
-.dd-nav {
-    margin-left: auto;
-    display: flex;
-    gap: 22px;
-    align-items: center;
-}
-.dd-nav a {
-    font-size: 14px;
-    color: var(--ink-80);
-    text-decoration: none;
-    transition: color var(--dur-hover) var(--ease);
-}
-.dd-nav a:hover { color: var(--accent); }
-.dd-nav-sep {
-    width: 1px;
-    height: 20px;
-    background: var(--ink-20);
-    display: inline-block;
-}
-.dd-nav-user {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--ink-80); /* was ink-40 (~2.8:1); ink-80 gives ~5.5:1 — WCAG AA */
-}
-
-/* ── Eyebrow ── */
-.dd-eyebrow {
-    font-family: var(--font-sans);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--ink-60);
-    margin-bottom: 18px;
-}
-
-/* ── Rule ── */
-.dd-rule {
-    border: 0;
-    border-top: 1px solid var(--ink-20);
-    margin: 32px 0;
-}
-.dd-rule-ink {
-    border: 0;
-    border-top: 1px solid var(--ink);
-    margin-bottom: 10px;
-}
-
-/* ── Sign-in page ── */
-.dd-signin-grid {
-    display: grid;
-    grid-template-columns: 1.1fr 0.9fr;
-    gap: 64px;
-    align-items: center;
-    min-height: calc(100vh - 160px);
-    padding: 0;
-}
-.dd-signin-hero h1 {
-    font-family: var(--font-display) !important;
-    font-size: 64px !important;
-    font-weight: 400 !important;
-    line-height: 1.1 !important;
-    letter-spacing: -0.02em !important;
-    margin: 0 0 24px !important;
-    color: var(--ink) !important;
-}
-.dd-signin-hero .lead {
-    font-family: var(--font-sans);
-    font-size: 18px;
-    line-height: 1.5;
-    color: var(--ink-80);
-    max-width: 46ch;
-    margin-bottom: 32px;
-}
-.dd-stats-row {
-    display: flex;
-    gap: 48px;
-    margin-top: 8px;
-}
-.dd-stat-n {
-    font-family: var(--font-display);
-    font-size: 40px;
-    font-weight: 500;
-    line-height: 1;
-    letter-spacing: -0.02em;
-    color: var(--ink);
-}
-.dd-stat-l {
-    font-family: var(--font-sans);
-    font-size: 12px;
-    color: var(--ink-40);
-    margin-top: 6px;
-}
-.dd-signin-card {
-    border-top: 1px solid var(--ink);
-    padding-top: 32px;
-}
-.dd-signin-card h3 {
-    font-family: var(--font-display) !important;
-    font-size: 28px !important;
-    font-weight: 500 !important;
-    margin: 0 0 12px !important;
-    letter-spacing: -0.015em !important;
-}
-.dd-signin-card .body {
-    font-family: var(--font-sans);
-    font-size: 15px;
-    color: var(--ink-80);
-    line-height: 1.5;
-    margin-bottom: 28px;
-    max-width: 38ch;
-}
-.dd-meta {
-    font-family: var(--font-sans);
-    font-size: 12px;
-    color: var(--ink-40);
-    margin-top: 12px;
-}
-
-/* ── DQ grade badges ── */
-.dd-dq-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 700;
-    flex-shrink: 0;
-    vertical-align: middle;
-}
-.dq-a { background: var(--accent-wash); color: var(--forest); }
-.dq-b { background: var(--amber-wash);  color: var(--amber-ink); }
-.dq-c { background: var(--ochre-wash);  color: var(--ochre); }
-.dq-d { background: var(--accent-wash); color: var(--accent); }
-
-/* ── Search page ── */
-.dd-search-hero {
-    margin-top: 0;
-}
-.dd-search-hero h1 {
-    font-family: var(--font-display) !important;
-    font-size: 64px !important;
-    font-weight: 400 !important;
-    line-height: 1.1 !important;
-    letter-spacing: -0.02em !important;
-    margin: 0 0 10px !important;
-}
-.dd-search-hero .lead {
-    font-family: var(--font-sans);
-    font-size: 18px;
-    line-height: 1.5;
-    color: var(--ink-80);
-    margin-bottom: 32px;
-}
-
-/* ── Results section ── */
-.dd-results-header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    padding-bottom: 14px;
-    border-bottom: 1px solid var(--ink);
-    margin-bottom: 0;
-    margin-top: 40px;
-}
-.dd-results-count {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--ink-40);
-    margin-left: 12px;
-}
-
-/* ── Detail section ── */
-.dd-detail-header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--ink);
-    margin-top: 32px;
-    margin-bottom: 16px;
-}
-.dd-detail-table-name {
-    font-family: var(--font-mono) !important;
-    font-size: 28px !important;
-    font-weight: 500 !important;
-    margin: 0 0 6px !important;
-    letter-spacing: -0.01em !important;
-    color: var(--ink) !important;
-}
-.dd-detail-desc {
-    font-family: var(--font-sans);
-    font-size: 15px;
-    color: var(--ink-80);
-    margin-bottom: 12px;
-    line-height: 1.5;
-}
-
-/* ── Secondary / ghost nav buttons (used in lineage + related sections) ── */
-button[data-testid="stBaseButton-secondary"] {
-    background: transparent !important;
-    color: var(--ink-60) !important;
-    border: 1px solid var(--ink-20) !important;
-    font-size: 12px !important;
-    font-family: var(--font-mono) !important;
-    padding: 5px 10px !important;
-    letter-spacing: 0 !important;
-}
-button[data-testid="stBaseButton-secondary"]:hover {
-    color: var(--ink) !important;
-    border-color: var(--ink) !important;
-    background: transparent !important;
-}
-
-/* ── Lineage flow ── */
-.dd-lineage-dir {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--ink-40);
-    margin-bottom: 8px;
-}
-.dd-lineage-node {
-    border: 1px solid var(--ink-10);
-    padding: 10px 12px;
-    margin-bottom: 8px;
-    background: var(--paper);
-}
-.dd-lineage-node.dd-lineage-locked {
-    opacity: 0.45;
-    background: var(--paper-deep);
-}
-.dd-lineage-node-name {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    color: var(--ink);
-}
-.dd-lineage-node-schema {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--ink-40);
-    margin-top: 2px;
-}
-.dd-lineage-center {
-    border: 2px solid var(--accent);
-    padding: 10px 12px;
-    margin-bottom: 8px;
-    background: var(--paper);
-}
-.dd-lineage-center-name {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--accent);
-}
-.dd-lineage-center-schema {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--ink-40);
-    margin-top: 2px;
-}
-.dd-lineage-empty {
-    font-family: var(--font-sans);
-    font-size: 12px;
-    color: var(--ink-40);
-    padding: 8px 0;
-    font-style: italic;
-}
-
-/* ── Related tables cards ── */
-.dd-related-card {
-    border: 1px solid var(--ink-10);
-    padding: 12px;
-    background: var(--paper);
-    margin-bottom: 4px;
-    transition: border-color var(--dur-hover) var(--ease);
-}
-.dd-related-card:hover { border-color: var(--ink-40); }
-.dd-related-badge {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--ink-40);
-    margin-bottom: 4px;
-}
-.dd-related-name {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    color: var(--ink);
-    font-weight: 500;
-}
-.dd-related-schema {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--ink-40);
-    margin-top: 2px;
-}
-
-/* ── Detail: section sub-headers (§ columns, § grants, …) ── */
-/* Tighten default Streamlit vertical rhythm inside the detail column */
-[data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"],
-[data-testid="stVerticalBlock"] > div > [data-testid="element-container"] {
-    margin-bottom: 0 !important;
-}
-
-.dd-section-header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--ink);
-    margin-top: 20px;
-    margin-bottom: 0;
-}
-.dd-section-count {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--ink-40);
-}
-
-/* ── Columns list (Streamlit-column-based rows) ── */
-.dd-col-name {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    color: var(--ink);
-    line-height: 1.5;
-}
-.dd-col-type {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--ink-40);
-    line-height: 1.5;
-}
-.dd-col-desc {
-    font-family: var(--font-sans);
-    font-size: 13px;
-    color: var(--ink-60);
-    line-height: 1.4;
-}
-.dd-col-biz-name {
-    font-family: var(--font-sans);
-    font-size: 13px;
-    color: var(--ink);
-    font-weight: 500;
-    line-height: 1.4;
-    display: block;
-}
-.dd-col-tech-sub {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--ink-40);
-    display: block;
-    line-height: 1.3;
-    margin-top: 2px;
-}
-.dd-col-desc-faded {
-    font-family: var(--font-sans);
-    font-size: 11px;
-    color: var(--ink-40);
-    display: block;
-    line-height: 1.3;
-    margin-top: 2px;
-}
-.dd-col-divider {
-    border: none;
-    border-top: 1px solid var(--ink-10);
-    margin: 2px 0;
-}
-
-/* ── Grants list ── */
-.dd-grant-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 8px 0;
-    border-top: 1px solid var(--ink-10);
-    font-family: var(--font-mono);
-    font-size: 12px;
-}
-.dd-grant-who { color: var(--ink); }
-.dd-grant-what { color: var(--ink-60); }
-
-/* ── External link (Open in Databricks) ── */
-.dd-link-external {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--ink-60);
-    text-decoration: none;
-    border-bottom: 1px solid var(--ink-20);
-    transition: color var(--dur-hover) var(--ease), border-color var(--dur-hover) var(--ease);
-    display: inline-block;
-    margin-top: 4px;
-    margin-bottom: 20px;
-}
-.dd-link-external:hover { color: var(--ink); border-color: var(--ink); }
-
-/* ── Footer ── */
-.dd-footer {
-    border-top: 1px solid var(--ink-10);
-    padding: 32px 48px;
-    margin-top: 96px;
-}
-.dd-footer-inner {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: flex;
-    justify-content: space-between;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--ink-60); /* was ink-40 (~2.8:1); ink-60 gives ~5.5:1 — WCAG AA */
-}
-
-/* ── Select / multiselect placeholder contrast fix ───────────────────────────
-   Streamlit renders Base Web select placeholder as a div overlay (#818186 by
-   default). Target the value/placeholder container directly.                  */
-input::placeholder,
-textarea::placeholder {
-    color: var(--ink-60) !important;
-    opacity: 1 !important;
-}
-[data-testid="stSelectbox"]   [data-baseweb="select"] > div > div,
-[data-testid="stSelectbox"]   [data-baseweb="select"] > div > div > div,
-[data-testid="stMultiSelect"] [data-baseweb="select"] > div > div,
-[data-testid="stMultiSelect"] [data-baseweb="select"] > div > div > div {
-    color: var(--ink-60) !important;
-}
-
-/* ── Alert / success text contrast fix ──────────────────────────────────────
-   Streamlit's st.success() green (#158237) gives 4.18:1 on --paper, below
-   the 4.5:1 WCAG AA threshold. Override to near-black.                       */
-[data-testid="stAlert"] p,
-[data-testid="stAlert"] li,
-[data-testid="stAlert"] span:not([class*="icon"]) {
-    color: var(--ink) !important;
-}
-
-.dd-nav a.active {
-    color: var(--accent) !important;
-    font-weight: 600 !important;
-}
-
-/* ── Language toggle ── */
-.dd-lang-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}
-.dd-lang-opt {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    color: var(--ink-40);
-    text-decoration: none;
-    transition: color var(--dur-hover) var(--ease);
-}
-.dd-lang-opt:hover { color: var(--ink); }
-.dd-lang-opt.dd-lang-active {
-    color: var(--ink) !important;
-    font-weight: 600;
-}
-.dd-lang-sep {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--ink-20);
-}
-
-/* Hide the zero-height JS bridge iframe */
-iframe[height="0"] { display: none !important; }
-
-/* ── Business name editor ── */
-.dd-edit-banner {
-    background: var(--ochre);
-    color: var(--paper);
-    font-family: var(--font-sans);
-    font-size: 13px;
-    font-weight: 500;
-    padding: 10px 14px;
-    border-radius: 2px;
-    margin-bottom: 16px;
-    letter-spacing: -0.005em;
-}
-.dd-business-name {
-    font-family: var(--font-display);
-    font-size: 36px;
-    font-weight: 500;
-    color: var(--ink);
-    line-height: 1.1;
-    margin: 4px 0 4px 0;
-}
-.dd-tech-name-sub {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--ink-40);
-    margin-bottom: 12px;
-}
-.dd-biz-audit {
-    font-family: var(--font-sans);
-    font-size: 11px;
-    color: var(--ink-40);
-    margin-top: -8px;
-    margin-bottom: 12px;
-    letter-spacing: -0.003em;
-}
-
-/* ── Comments ── */
-.dd-comment-row {
-    border-top: 1px solid var(--ink-10);
-    padding: 10px 0;
-}
-.dd-comment-author {
-    font-family: var(--font-sans);
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--ink);
-}
-.dd-comment-date {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--ink-40);
-}
-.dd-comment-text {
-    font-family: var(--font-sans);
-    font-size: 13px;
-    color: var(--ink-60);
-    line-height: 1.5;
-    margin-top: 4px;
-    white-space: pre-wrap;
-}
-.dd-comment-no-steward {
-    font-family: var(--font-sans);
-    font-size: 11px;
-    color: var(--ink-40);
-    font-style: italic;
-    margin-top: 4px;
-}
-.dd-comment-reply {
-    border-top: none;
-    padding: 6px 0 6px 12px;
-    border-left: 2px solid var(--ink-10);
-    margin-top: 4px;
-}
-
-/* ── Expanders ── */
-[data-testid="stExpander"] {
-    border: 1px solid var(--ink-20) !important;
-    border-radius: 2px !important;
-    background: var(--paper) !important;
-}
-[data-testid="stExpander"] details {
-    background: var(--paper) !important;
-}
-[data-testid="stExpander"] details summary {
-    background: var(--paper-deep) !important;
-    color: var(--ink) !important;
-}
-[data-testid="stExpander"] details summary:hover {
-    background: var(--paper-ink) !important;
-    color: var(--ink) !important;
-}
-/* Target only the label paragraph — NOT span, which carries the Material Icons glyph */
-[data-testid="stExpander"] details summary p {
-    color: var(--ink) !important;
-    font-family: var(--font-sans) !important;
-    font-size: 14px !important;
-    font-weight: 500 !important;
-}
-
-/* ── Dataframe (glide-data-grid) ── */
-[data-testid="stDataFrame"] {
-    --gdg-bg-cell:        var(--paper) !important;
-    --gdg-bg-cell-medium: var(--paper-deep) !important;
-    --gdg-bg-header:      var(--paper-deep) !important;
-    --gdg-bg-header-has-focus: var(--paper-ink) !important;
-    --gdg-text-dark:      var(--ink) !important;
-    --gdg-text-medium:    var(--ink-60) !important;
-    --gdg-text-light:     var(--ink-40) !important;
-    --gdg-border-color:   var(--ink-10) !important;
-}
-[data-testid="stDataFrame"] > div {
-    background: var(--paper) !important;
-}
-
-/* ── Streamlit tab labels — force full-ink color in all states ── */
-[data-testid="stTabs"] button[data-baseweb="tab"] {
-    color: var(--ink) !important;
-    font-family: var(--font-sans) !important;
-    font-size: 13px !important;
-    font-weight: 500 !important;
-}
-[data-testid="stTabs"] button[data-baseweb="tab"]:hover {
-    color: var(--ink) !important;
-}
-[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="false"] {
-    color: var(--ink) !important;
-    opacity: 0.55;
-}
-[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
-    color: var(--ink) !important;
-    opacity: 1;
-}
-
-/* ── Segmented control themed pills ── */
-.stApp [data-testid="stButtonGroup"],
-.stApp [data-testid="stButtonGroup"] > div,
-.stApp [data-testid="stButtonGroup"] [role="radiogroup"] {
-    background: transparent !important;
-    background-color: transparent !important;
-    border: none !important;
-}
-
-.stApp [data-testid="stButtonGroup"] [role="radiogroup"] {
-    gap: 8px !important;
-    padding: 4px 0 !important;
-}
-
-.stApp [data-testid="stButtonGroup"] button,
-.stApp [data-testid="stButtonGroup"] [role="radiogroup"] button {
-    border-radius: 999px !important;
-    background-color: var(--paper) !important;
-    color: var(--ink-60) !important;
-    border: 1px solid var(--ink-20) !important;
-    padding: 4px 16px !important;
-    height: 32px !important;
-    transition: all 0.1s ease !important;
-    box-shadow: none !important;
-}
-
-.stApp [data-testid="stButtonGroup"] button[kind="segmented_controlActive"],
-.stApp [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] {
-    background-color: var(--accent) !important;
-    color: var(--paper) !important;
-    border: 1px solid var(--accent) !important;
-}
-
-.stApp [data-testid="stButtonGroup"] button[kind="segmented_controlActive"] *,
-.stApp [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] * {
-    color: var(--paper) !important;
-    font-weight: 600 !important;
-    pointer-events: none !important;
-}
-
-.stApp [data-testid="stButtonGroup"] button[kind="segmented_control"] *,
-.stApp [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_control"] * {
-    color: var(--ink-60) !important;
-    pointer-events: none !important;
-}
-
-.stApp [data-testid="stButtonGroup"] button:hover {
-    background-color: var(--paper-deep) !important;
-    border-color: var(--ink-40) !important;
-}
-.stApp [data-testid="stButtonGroup"] button:hover * {
-    color: var(--ink) !important;
-}
-
-/* ── Search result card / button column alignment ─────────────────────────────
-   Streamlit reserves label height above widgets even when no label is present.
-   This removes that gap so the button top-aligns with the card beside it.     */
-[data-testid="stHorizontalBlock"] > [data-testid="column"] > [data-testid="stVerticalBlock"] {
-    justify-content: flex-start;
-}
-[data-testid="stHorizontalBlock"] > [data-testid="column"]:last-child > [data-testid="stVerticalBlock"] > div:first-child {
-    margin-top: 0 !important;
-    padding-top: 0 !important;
-}
-
-/* ── Hide nav/lang proxy buttons immediately (before JS runs) ─────────────────
-   st.container() creates stLayoutWrapper > stVerticalBlock in the DOM.
-   Targeting the stVerticalBlock that is a direct child of stLayoutWrapper AND
-   contains #dd-proxy-anchor hits ONLY the proxy container — not the main
-   stVerticalBlock (which is the parent of stLayoutWrapper, not its child).
-   visibility:hidden (not display:none) keeps btn.click() functional for JS.  */
-[data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"]:has(#dd-proxy-anchor) {
-    visibility: hidden !important;
-    height: 0 !important;
-    overflow: hidden !important;
-    position: absolute !important;
-    pointer-events: none !important;
-}
-"""
+from src.ui.css import DESIGN_CSS, VIS_WIDE_CSS, render_css
 
 # ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
 LOGO_MARK_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" height="30">
@@ -1184,36 +203,6 @@ MS_LOGO_SVG = """<svg width="16" height="16" viewBox="0 0 23 23" fill="none">
 SEARCH_ICON_SVG = """<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B645A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
   <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
 </svg>"""
-
-
-def render_css():
-    st.markdown(f"<style>{DESIGN_CSS}</style>", unsafe_allow_html=True)
-    # WCAG fix: Streamlit renders st.dataframe sort/filter buttons as
-    # div[aria-haspopup] without a role, violating aria-allowed-attr (WCAG 4.1.2).
-    # A MutationObserver patches current and future elements as they render.
-    _aria_patch = (
-        "document.querySelectorAll('div[aria-haspopup]').forEach(function(el){"
-        "if(!el.getAttribute('role')){el.setAttribute('role','combobox');}});"
-    )
-    st.markdown(
-        '<img src="x" style="display:none" aria-hidden="true" onerror="'
-        "(function(){"
-        + _aria_patch
-        + "try{new MutationObserver(function(ms){"
-        "ms.forEach(function(m){m.addedNodes.forEach(function(n){"
-        "if(n.nodeType!==1)return;"
-        "if(n.matches&&n.matches('div[aria-haspopup]')&&!n.getAttribute('role'))n.setAttribute('role','combobox');"
-        "n.querySelectorAll&&n.querySelectorAll('div[aria-haspopup]').forEach(function(e){"
-        "if(!e.getAttribute('role'))e.setAttribute('role','combobox');});"
-        "});})"
-        "}).observe(document.body,{childList:true,subtree:true});"
-        "}catch(e){}"
-        "})();"
-        '">',
-        unsafe_allow_html=True,
-    )
-
-
 
 
 
@@ -1265,7 +254,7 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
     _tabs = ["search", "catalog", "glossary", "discovery", "health"]
     if show_admin:
         _tabs.append("admin")
-    _is_mock = os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
+    _is_mock = ENABLE_MOCK_AUTH
     with st.container():
         st.markdown('<div id="dd-proxy-anchor"></div>', unsafe_allow_html=True)
         for tab_id in _tabs:
@@ -1406,7 +395,7 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
                               "SELECT_ALL_USERS", "finance_dept_id", "all_employees_id"],
                              "admin@research-org.ca"),
             }
-            _default_dept = os.getenv("MOCK_DEPT", "Finance")
+            _default_dept = MOCK_DEPT
             _dept_opts = list(_MOCK_DEPTS.keys())
             _dept_sel = st.selectbox(
                 "Department",
@@ -1523,15 +512,6 @@ def check_auth():
 # read queries and app writes are served locally — no network round-trip.
 # The adapter translates the existing %(name)s pyformat SQL into DuckDB's
 # $name named-parameter style so no query code needs to change.
-
-DUCKDB_PATH = os.getenv("DUCKDB_PATH", "")
-# User data (comments, overrides, audit) lives in a separate persistent file
-# that is never swapped by the nightly sync job.
-USER_DATA_PATH = (
-    DUCKDB_PATH.replace(".duckdb", "_user_data.duckdb")
-    if ".duckdb" in DUCKDB_PATH
-    else DUCKDB_PATH + "_user_data.duckdb"
-) if DUCKDB_PATH else ""
 
 _db_write_lock = threading.Lock()
 
@@ -1861,7 +841,7 @@ def _sync_prefs_to_session() -> None:
 
 def run_query(query, params=None):
     # ── Demo mode: return hardcoded DataFrames without hitting any DB ──────────
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         p = params or {}
         # Detect get_authorized_tables() call: params are now group_0, group_1, ...
         # (SQL injection fix replaced the old "groups" tuple param)
@@ -1985,7 +965,7 @@ def get_column_business_names(table_full_name: str) -> dict:
     One bulk query — not N per-column queries.
     In demo mode reads from session state instead of Databricks.
     """
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         return st.session_state.get("demo_business_names", {}).get(table_full_name, {})
     try:
         conn = get_db_connection()
@@ -2247,7 +1227,7 @@ def log_audit_event(event_type: str, object_type: str, object_name: str, old_val
         "new_value":   new_value,
     }
     try:
-        if os.getenv("DEMO_DATA", "false").lower() == "true":
+        if DEMO_DATA:
             st.session_state.setdefault("demo_audit_log", []).append({
                 **payload,
                 "created_at":  pd.Timestamp.now(),
@@ -2330,14 +1310,14 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
             f"(got {len(definition)})."
         )
     user_name = st.session_state.get("user_name", "unknown")
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         old_override = {}
         if "demo_business_names" in st.session_state and table_full_name in st.session_state["demo_business_names"]:
             old_override = st.session_state["demo_business_names"][table_full_name].get(column_name, {})
     else:
         old_override = get_column_business_names(table_full_name).get(column_name, {})
     old_value = old_override.get("business_name", "")
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         if "demo_business_names" not in st.session_state:
             st.session_state["demo_business_names"] = {}
         tbl = st.session_state["demo_business_names"].setdefault(table_full_name, {})
@@ -2396,7 +1376,7 @@ def get_table_steward(table_full_name: str) -> str:
     In demo mode returns a fixed placeholder address so email flow can be tested.
     Not cached — always fresh so steward changes are reflected without restart.
     """
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         return "steward@example.com"
     try:
         conn = get_db_connection()
@@ -2421,7 +1401,7 @@ def get_table_comments(object_name: str) -> list:
     In demo mode reads from st.session_state["demo_comments"].
     Not cached — always fresh so new comments appear immediately.
     """
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         flat = st.session_state.get("demo_comments", {}).get(object_name, [])
         return _build_comment_tree(flat)
     try:
@@ -2464,7 +1444,7 @@ def send_comment_email(to_email: str, author_name: str, object_name: str, commen
     import smtplib
     from email.mime.text import MIMEText
 
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         print(f"[DEMO EMAIL] To: {to_email} | Object: {object_name} | From: {author_name}\n{comment_text}")
         return
     smtp_host = os.getenv("SMTP_HOST", "")
@@ -2506,7 +1486,7 @@ def send_reply_email(
     if not recipients:
         return
 
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         print(f"[DEMO REPLY] To: {recipients} | Object: {object_name} | From: {reply_author_name}\n{reply_text}")
         return
 
@@ -2588,7 +1568,7 @@ def save_comment(
 
     _event_type = "comment_reply" if parent_comment_id else "comment_added"
 
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         demo = st.session_state.setdefault("demo_comments", {})
         demo.setdefault(object_name, []).append({
             "comment_id":        comment_id,
@@ -2668,7 +1648,7 @@ def save_comment(
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def get_authorized_tables(groups):
-    if os.getenv("DEMO_DATA", "").lower() == "true":
+    if DEMO_DATA:
         return _DEMO_TABLES
     group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
     params: dict = {}
@@ -2853,38 +1833,7 @@ def _viewport_height(fallback: int = 800) -> int:
     return int(st.session_state.get("viewport_height", fallback))
 
 
-_VIS_WIDE_CSS = """<style>
-/* ── Dialog shell ── */
-[data-testid="stDialog"] > div > div[role="dialog"] {
-    max-width: 92vw !important;
-    width: 92vw !important;
-    max-height: 95vh !important;
-    height: 95vh !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-}
-/* Content area grows to fill remaining dialog height */
-[data-testid="stDialog"] > div > div[role="dialog"] > div:not([class*="header"]) {
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    overflow-y: auto !important;
-}
-/* ── Dataframe: stretch to dialog interior (95vh minus title+padding+subtitle ≈ 190px) ── */
-[data-testid="stDialog"] [data-testid="stDataFrame"] {
-    height: calc(95vh - 190px) !important;
-}
-[data-testid="stDialog"] [data-testid="stDataFrame"] > div,
-[data-testid="stDialog"] [data-testid="stDataFrame"] iframe {
-    height: 100% !important;
-    min-height: 100% !important;
-}
-/* ── Components iframe (vis.js lineage graph) ── */
-[data-testid="stDialog"] iframe:not([title*="streamlit"]) {
-    height: calc(95vh - 190px) !important;
-    min-height: calc(95vh - 190px) !important;
-}
-</style>"""
+# VIS_WIDE_CSS imported from src.ui.css (assets/vis_dialog.css)
 
 def _fetch_lineage_hop(node_fn: str, query_groups: list) -> "pd.DataFrame | None":
     """Fetch direct lineage neighbors of node_fn, permission-filtered."""
@@ -2963,9 +1912,9 @@ def _lineage_vis_html(graph_nodes: list, graph_links: list, height: int = 350, c
 
 @st.dialog(t("detail.lineage_graph"), width="large")
 def render_lineage_fullscreen(graph_nodes: list, graph_links: list, full_name: str):
-    st.markdown(_VIS_WIDE_CSS, unsafe_allow_html=True)
+    st.markdown(VIS_WIDE_CSS, unsafe_allow_html=True)
     st.markdown(f"**{full_name}** — {t('detail.lineage_graph_subtitle').format(table=full_name.split('.')[-1])}")
-    # Use a large fixed canvas — CSS in _VIS_WIDE_CSS stretches the iframe to
+    # Use a large fixed canvas — CSS in VIS_WIDE_CSS stretches the iframe to
     # calc(95vh - 190px), so the vis.js div just needs to be big enough that
     # the graph isn't clipped before CSS takes over.
     _graph_h = 1800
@@ -3001,7 +1950,7 @@ def render_data_sample(table_full_name: str):
     import re
     import logging
     import pandas as pd
-    st.markdown(_VIS_WIDE_CSS, unsafe_allow_html=True)
+    st.markdown(VIS_WIDE_CSS, unsafe_allow_html=True)
     st.markdown(f"**{table_full_name}**")
 
     # Security: check permission even though UI usually prevents this call
@@ -3018,7 +1967,7 @@ def render_data_sample(table_full_name: str):
         if not re.match(r"^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$", table_full_name):
             st.error(t("common.error"))
             return
-        if os.getenv("DEMO_DATA", "false").lower() == "true":
+        if DEMO_DATA:
             df = pd.DataFrame({"id": [1, 2, 3], "status": ["NEW", "SHIPPED", "CLOSED"]})
         elif _duckdb_available():
             # DuckDB file is ATTACHed as CATALOG_CACHE; actual row data lives at
@@ -3035,7 +1984,7 @@ def render_data_sample(table_full_name: str):
             query = f"SELECT * FROM {table_full_name} LIMIT 100"  # nosec B608
             df = run_query(query)
         if df is not None and not df.empty:
-            # Height is controlled by _VIS_WIDE_CSS (calc(95vh - 190px)) so
+            # Height is controlled by VIS_WIDE_CSS (calc(95vh - 190px)) so
             # the grid always fills the dialog regardless of viewport size.
             # Pass a generous fixed height so Streamlit allocates enough iframe
             # space; CSS then stretches it to the actual available area.
@@ -3392,7 +2341,7 @@ def render_health(groups):
         table_coverage = (n_desc / n_tables * 100) if n_tables > 0 else 0
 
         # For columns, we need to query the cache (or use mock)
-        if os.getenv("DEMO_DATA", "false").lower() == "true":
+        if DEMO_DATA:
             # Aggregate columns from _DEMO_COLUMNS
             all_cols_list = []
             for df in _DEMO_COLUMNS.values():
@@ -3485,7 +2434,7 @@ def render_health(groups):
 
 def get_admin_stats() -> dict:
     """Return four catalog-wide counts for the admin dashboard."""
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         return {
             "tables":    len(_DEMO_TABLES),
             "columns":   sum(len(df) for df in _DEMO_COLUMNS.values()),
@@ -3510,7 +2459,7 @@ def get_admin_stats() -> dict:
 
 def get_business_name_change_log() -> pd.DataFrame:
     """Return the last 200 business name change events for the admin log."""
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         logs = [l for l in st.session_state.get("demo_audit_log", []) if l["event_type"] == "business_name_change"]
         if not logs:
             return pd.DataFrame(columns=["event_id", "object_name", "old_value", "new_value", "actor_email", "created_at"])
@@ -3526,7 +2475,7 @@ def get_business_name_change_log() -> pd.DataFrame:
 
 def get_comment_log() -> pd.DataFrame:
     """Return the last 200 comment/reply events for the admin log."""
-    if os.getenv("DEMO_DATA", "false").lower() == "true":
+    if DEMO_DATA:
         logs = [l for l in st.session_state.get("demo_audit_log", [])
                 if l["event_type"] in ("comment_added", "comment_reply")]
         if not logs:
@@ -3761,9 +2710,6 @@ else:
     streamlit_js_eval(js_expressions="window.innerHeight", key="_dd_vh")
 
 # ── Auth gate ─────────────────────────────────────────────────────────────────
-ENABLE_MOCK_AUTH = os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
-ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
-
 if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
@@ -3783,7 +2729,7 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
     # Only fires when the user is NOT already authenticated so that a nav click
     # (which re-adds mock_login=true to the URL) cannot overwrite the session.
     if st.query_params.get("mock_login") == "true" and not st.session_state.authenticated:
-        _ql_dept = st.query_params.get("mock_dept", os.getenv("MOCK_DEPT", "")).lower()
+        _ql_dept = st.query_params.get("mock_dept", MOCK_DEPT).lower()
         _dept_group_map = {
             "finance":  (["finance_group",  "SELECT_ALL_USERS"], "Finance User",  "finance.user@research-org.ca"),
             "research": (["research_group", "SELECT_ALL_USERS"], "Research User", "research.user@research-org.ca"),
