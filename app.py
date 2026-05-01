@@ -182,6 +182,18 @@ st.set_page_config(
 
 # ── Design system CSS ──────────────────────────────────────────────────────────
 from src.ui.css import DESIGN_CSS, VIS_WIDE_CSS, render_css
+from src.db.duckdb_adapter import (
+    _duckdb_available, _to_duckdb_sql, _get_shared_duckdb_connection,
+    _DuckDBCursor, _DuckDBConn, _run_duckdb_query, _db_write_lock,
+)
+from src.db.databricks_adapter import (
+    _get_databricks_connection, _get_databricks_write_connection,
+    _run_databricks_query,
+)
+from src.db.queries import _get_write_connection
+# run_query, get_authorized_tables, search_all_metadata, get_column_business_names,
+# get_multi_hop_lineage — defined below in app.py (Phase 4b: deferred until
+# _DEMO_* fixtures are moved to src/demo.py to avoid circular re-import)
 
 # ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
 LOGO_MARK_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" height="30">
@@ -513,258 +525,227 @@ def check_auth():
 # The adapter translates the existing %(name)s pyformat SQL into DuckDB's
 # $name named-parameter style so no query code needs to change.
 
-_db_write_lock = threading.Lock()
 
-
-def _duckdb_available() -> bool:
-    return bool(DUCKDB_PATH and os.path.exists(DUCKDB_PATH))
-
-
-def _to_duckdb_sql(sql: str, params: dict) -> tuple:
-    """Convert %(name)s pyformat SQL + dict params to DuckDB $name style.
-
-    Special case: ``IN %(name)s`` where the value is a list/tuple is rewritten
-    to ``= ANY($name)`` so the DuckDB array-contains operator is used.
-    Returns (converted_sql, converted_params_dict).
-    """
-    import re
-    if not params:
-        return sql, {}
-    converted = {}
-    result = sql
-    for name, value in params.items():
-        if isinstance(value, (list, tuple)):
-            # IN %(name)s  →  = ANY($name)
-            result = re.sub(
-                rf"\bIN\s+%\({re.escape(name)}\)s",
-                f"= ANY(${name})",
-                result,
-                flags=re.IGNORECASE,
-            )
-            converted[name] = list(value)
-        else:
-            converted[name] = value
-    # Remaining %(name)s → $name
-    result = re.sub(r"%\((\w+)\)s", r"$\1", result)
-    # DuckDB compatibility: current_timestamp() → current_localtimestamp()
-    result = result.replace("current_timestamp()", "current_localtimestamp()")
-    return result, converted
-
-
-@st.cache_resource(show_spinner=False, validate=lambda c: c is not None)
-def _get_shared_duckdb_connection():
-    """Singleton connection shared across all Streamlit sessions/threads."""
-    if not _duckdb_available():
-        return None
-
-    with _db_write_lock:
-        import duckdb
-        try:
-            # Use an in-memory connection as the primary
-            con = duckdb.connect(":memory:")
-            # Attach the main read-only cache
-            con.execute(f"ATTACH '{DUCKDB_PATH}' AS {CATALOG_CACHE} (READ_ONLY)")
-            # Attach the persistent user data database
-            con.execute(f"ATTACH IF NOT EXISTS '{USER_DATA_PATH}' AS user_data")
-
-            # Initialize user data tables with primary keys (if they don't exist)
-            con.execute("""
-                CREATE TABLE IF NOT EXISTS user_data.comments (
-                    comment_id        VARCHAR PRIMARY KEY,
-                    object_type       VARCHAR,
-                    object_name       VARCHAR,
-                    comment_text      VARCHAR,
-                    author_name       VARCHAR,
-                    author_email      VARCHAR,
-                    created_at        TIMESTAMP,
-                    steward_email     VARCHAR,
-                    parent_comment_id VARCHAR
-                )
-            """)
-            con.execute("""
-                CREATE TABLE IF NOT EXISTS user_data.business_name_overrides (
-                    table_full_name VARCHAR,
-                    column_name     VARCHAR,
-                    business_name   VARCHAR,
-                    definition      VARCHAR,
-                    edited_by       VARCHAR,
-                    edited_at       TIMESTAMP,
-                    PRIMARY KEY (table_full_name, column_name)
-                )
-            """)
-            con.execute("""
-                CREATE TABLE IF NOT EXISTS user_data.audit_log (
-                    event_id        VARCHAR PRIMARY KEY,
-                    event_type      VARCHAR,
-                    object_type     VARCHAR,
-                    object_name     VARCHAR,
-                    actor_email     VARCHAR,
-                    old_value       VARCHAR,
-                    new_value       VARCHAR,
-                    created_at      TIMESTAMP
-                )
-            """)
-            con.execute("""
-                CREATE TABLE IF NOT EXISTS user_data.user_preferences (
-                    user_oid        VARCHAR NOT NULL,
-                    table_full_name VARCHAR NOT NULL,
-                    pref_type       VARCHAR NOT NULL,
-                    last_interacted TIMESTAMP NOT NULL,
-                    PRIMARY KEY (user_oid, table_full_name, pref_type)
-                )
-            """)
-            con.execute("""
-                CREATE TABLE IF NOT EXISTS user_data.pending_sync (
-                    sync_id         VARCHAR PRIMARY KEY,
-                    sync_type       VARCHAR NOT NULL, -- COLUMN_DEF, TABLE_DESC, AUDIT, COMMENT, TAG, STEWARD
-                    table_full_name VARCHAR,
-                    payload_json    VARCHAR, -- Store type-specific data (e.g., tag key/value, comment author)
-                    queued_by       VARCHAR,
-                    queued_at       TIMESTAMP NOT NULL,
-                    status          VARCHAR NOT NULL DEFAULT 'pending',
-                    attempts        INTEGER  NOT NULL DEFAULT 0,
-                    last_error      VARCHAR,
-                    completed_at    TIMESTAMP
-                )
-            """)
-            return con
-        except Exception as e:
-            logging.error("Failed to initialize shared DuckDB connection: %s", e)
-            return None
-
-
-
-class _DuckDBCursor:
-    """Cursor-like wrapper around a shared DuckDB connection."""
-
-    def __init__(self, con):
-        self._con = con
-        self._rel = None
-
-    def execute(self, sql: str, params=None):
-        if params is None:
-            self._rel = self._con.execute(sql)
-        elif isinstance(params, dict):
-            converted_sql, converted_params = _to_duckdb_sql(sql, params)
-            self._rel = self._con.execute(converted_sql, converted_params)
-        else:
-            self._rel = self._con.execute(sql, params)
-
-    def execute_write(self, sql: str, params=None):
-        """Thread-safe write execution wrapped in a lock."""
-        with _db_write_lock:
-            self.execute(sql, params)
-
-    def fetchall(self):
-        if self._rel is None:
-            return []
-        return self._rel.fetchall()
-
-    def fetchall_as_pandas(self):
-        if self._rel is None:
-            return pd.DataFrame()
-        return self._rel.df()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *_):
-        # We do NOT close the shared connection!
-        pass
-
-
-class _DuckDBConn:
-    """Connection-like wrapper that uses the shared singleton connection."""
-
-    def __init__(self, path: str):
-        self._con = _get_shared_duckdb_connection()
-
-    def cursor(self):
-        return _DuckDBCursor(self._con)
-
-    def execute(self, sql: str, params=None):
-        cur = _DuckDBCursor(self._con)
-        cur.execute(sql, params)
-        return cur
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *_):
-        pass
-
-    @property
-    def open(self):
-        return self._con is not None
-
-
-@st.cache_resource(ttl="2h", validate=lambda conn: conn.open, show_spinner=False)
-def _get_databricks_connection():
-    return sql.connect(
-        server_hostname=os.getenv("DATABRICKS_HOST"),
-        http_path=os.getenv("DATABRICKS_HTTP_PATH"),
-        access_token=os.getenv("DATABRICKS_TOKEN"),
-    )
-
-
-def _get_write_connection():
-    """Return a DB connection for write operations (DuckDB primary)."""
-    if _duckdb_available():
-        return _DuckDBConn(DUCKDB_PATH)
-    return _get_databricks_write_connection()
-
-
-def _get_databricks_write_connection():
-    """Return a fresh (uncached) Databricks connection for write operations.
-
-    Write operations (INSERT, MERGE INTO) must always target the Databricks SQL
-    Warehouse — never the local DuckDB file, which is a read-only cache that is
-    rebuilt from Databricks on each sync and would silently discard any local
-    writes.  This function bypasses the read-path DuckDB check intentionally.
-    """
-    return sql.connect(
-        server_hostname=os.getenv("DATABRICKS_HOST"),
-        http_path=os.getenv("DATABRICKS_HTTP_PATH"),
-        access_token=os.getenv("DATABRICKS_TOKEN"),
-    )
-
+# ── Query helpers (Phase 4b deferred — _DEMO_* coupling prevents extraction) ──
 
 def get_db_connection():
-    """Return a DB connection for read queries.
-
-    Returns a DuckDB-backed connection when DUCKDB_PATH points to an existing
-    file (fast, local, no network).  Falls back to the cached Databricks SQL
-    Warehouse connection otherwise.
-
-    Do NOT use this for write operations — use _get_databricks_write_connection()
-    instead so writes always reach Databricks regardless of cache state.
-    """
+    """Return a DB connection for read queries (DuckDB → Databricks fallback)."""
     if _duckdb_available():
         return _DuckDBConn(DUCKDB_PATH)
     return _get_databricks_connection()
 
 
+def run_query(query, params=None):
+    # ── Demo mode: return hardcoded DataFrames without hitting any DB ──────────
+    if DEMO_DATA:
+        p = params or {}
+        _has_groups = "groups" in p or any(k.startswith("group_") for k in p)
+        if "full_name" in p and _has_groups:
+            return _DEMO_RELATED.get(p["full_name"], pd.DataFrame(
+                columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"]))
+        if _has_groups:
+            return _DEMO_TABLES
+        fn = p.get("table_full_name", "")
+        if "lineage_cache" in query:
+            return _DEMO_LINEAGE.get(fn, pd.DataFrame(
+                columns=["direction", "entity_full_name", "entity_type"]))
+        if "columns_metadata" in query:
+            return _DEMO_COLUMNS.get(fn, pd.DataFrame(
+                columns=["column_name", "data_type", "comment"]))
+        return _DEMO_GRANTS.get(fn, pd.DataFrame(columns=["principal", "privilege"]))
+
+    if _duckdb_available():
+        return _run_duckdb_query(query, params)
+    return _run_databricks_query(query, params)
+
+
 @st.cache_data(ttl="1h", show_spinner=False)
-def _run_databricks_query(query, params=None):
-    """Cached Databricks query — 1 h TTL to amortise network latency."""
-    conn = _get_databricks_connection()
-    with conn.cursor() as cursor:
-        cursor.execute(query, params)
-        return cursor.fetchall_as_pandas()
+def get_authorized_tables(groups):
+    if DEMO_DATA:
+        return _DEMO_TABLES
+    group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
+    params: dict = {}
+    if groups:
+        for i, group in enumerate(groups):
+            params[f"group_{i}"] = group
+    sql_query = ("""
+        SELECT DISTINCT
+            m.full_name,
+            m.catalog_name,
+            m.schema_name,
+            m.table_name,
+            m.comment as table_description,
+            m.table_type,
+            m.updated_at,
+            COALESCE(dq.dq_score, '') AS dq_score,
+            COALESCE(dq.last_run_status, '') AS dq_status
+        FROM {0}.{1}.tables_metadata m
+        JOIN {0}.{1}.permissions_cache p
+          ON m.full_name = p.table_full_name
+        LEFT JOIN {0}.{1}.data_quality_cache dq
+          ON m.full_name = dq.table_full_name
+        WHERE (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
+    """).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders)  # nosec B608
+    return run_query(sql_query, params)
 
 
-def _run_duckdb_query(query, params=None):
-    """Uncached DuckDB query — local file is fast enough that caching adds
-    overhead rather than benefit, and skipping the cache means the app
-    always sees the freshest file after the nightly sync."""
-    with _db_write_lock:
-        conn = _DuckDBConn(DUCKDB_PATH)
+@st.cache_data(ttl="1h", show_spinner=False)
+def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
+    """Fetch lineage edges up to a given depth.
+
+    TODO (feature/enhanced-lineage): Implement recursive traversal.
+    """
+    return run_query(
+        ("SELECT * FROM {0}.{1}.lineage_cache WHERE table_full_name = %(fn)s").format(
+            CATALOG_CACHE, SCHEMA_CACHE
+        ),
+        {"fn": table_full_name},
+    )
+
+
+@st.cache_data(ttl="1h", show_spinner=False)
+def search_all_metadata(query: str, groups: tuple):
+    """Search across tables, columns, and descriptions using UNION."""
+    import logging
+    logging.info("GLOBAL SEARCH query=%s groups=%s", query, groups)
+
+    group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
+    params: dict = {f"group_{i}": g for i, g in enumerate(groups)} if groups else {}
+    params["q"] = f"%{query}%"
+
+    _overrides_tbl = "user_data.business_name_overrides" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
+
+    sql_query = ("""
+        SELECT DISTINCT
+            m.full_name, m.table_name AS name, 'Table' AS match_type,
+            m.comment AS description, m.catalog_name, m.schema_name, m.table_name,
+            m.comment AS table_description,
+            COALESCE(dq.dq_score, '') AS dq_score
+        FROM {0}.{1}.tables_metadata m
+        JOIN {0}.{1}.permissions_cache p ON m.full_name = p.table_full_name
+        LEFT JOIN {0}.{1}.data_quality_cache dq ON m.full_name = dq.table_full_name
+        WHERE (m.table_name LIKE %(q)s OR m.comment LIKE %(q)s)
+          AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
+
+        UNION ALL
+
+        SELECT DISTINCT
+            c.table_full_name AS full_name,
+            COALESCE(o.business_name, c.column_name) AS name,
+            'Column' AS match_type,
+            COALESCE(o.definition, c.comment) AS description,
+            t.catalog_name, t.schema_name, t.table_name, t.comment AS table_description,
+            COALESCE(dq.dq_score, '') AS dq_score
+        FROM {0}.{1}.columns_metadata c
+        JOIN {0}.{1}.permissions_cache p ON c.table_full_name = p.table_full_name
+        JOIN {0}.{1}.tables_metadata t ON c.table_full_name = t.full_name
+        LEFT JOIN {0}.{1}.data_quality_cache dq ON c.table_full_name = dq.table_full_name
+        LEFT JOIN {3} o ON o.table_full_name = c.table_full_name AND o.column_name = c.column_name
+        WHERE (
+            c.column_name LIKE %(q)s OR c.comment LIKE %(q)s
+            OR o.business_name LIKE %(q)s OR o.definition LIKE %(q)s
+          )
+          AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
+
+        LIMIT 50
+    """).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders, _overrides_tbl)  # nosec B608
+
+    sql_results = run_query(sql_query, params)
+
+    if sql_results is not None and not sql_results.empty:
+        if "match_type" not in sql_results.columns:
+            sql_results = sql_results.assign(match_type="Table")
+        if "name" not in sql_results.columns:
+            sql_results = sql_results.assign(name=sql_results.get("table_name", ""))
+        if "description" not in sql_results.columns:
+            _desc_src = sql_results["table_description"] if "table_description" in sql_results.columns else sql_results.get("comment", "")
+            sql_results = sql_results.assign(description=_desc_src)
+
+    term_matches = []
+    if _DEMO_GLOSSARY is not None and not _DEMO_GLOSSARY.empty and query:
+        _auth_df = get_authorized_tables(groups)
+        _allowed_fns = set(_auth_df["full_name"].tolist()) if _auth_df is not None and not _auth_df.empty else set()
+        query_lower = query.lower()
+        mask = (
+            _DEMO_GLOSSARY['term'].str.lower().str.contains(query_lower, regex=False, na=False) |
+            _DEMO_GLOSSARY['definition'].str.lower().str.contains(query_lower, regex=False, na=False)
+        )
+        glossary_df = _DEMO_GLOSSARY[mask]
+        for row in glossary_df.itertuples(index=False):
+            related_tables = getattr(row, 'related_tables', [])
+            target_table = related_tables[0] if related_tables else ""
+            if target_table and target_table not in _allowed_fns:
+                continue
+            parts = target_table.split('.')
+            term_matches.append({
+                "full_name": target_table,
+                "name": getattr(row, 'term', ''),
+                "match_type": "Glossary",
+                "description": getattr(row, 'definition', ''),
+                "table_description": "",
+                "catalog_name": parts[0] if len(parts) == 3 else "",
+                "schema_name": parts[1] if len(parts) == 3 else "",
+                "table_name": parts[2] if len(parts) == 3 else "",
+            })
+
+    if term_matches:
+        glossary_results = pd.DataFrame(term_matches)
+        combined = pd.concat([sql_results, glossary_results], ignore_index=True) if sql_results is not None and not sql_results.empty else glossary_results
+    else:
+        combined = sql_results
+
+    if combined is None or combined.empty:
+        return combined
+
+    q_lower = query.lower()
+    def _score(row):
+        name = str(row.get("name") or "").lower()
+        mtype = str(row.get("match_type") or "")
+        if mtype == "Table":
+            if name == q_lower: return 5
+            if name.startswith(q_lower): return 4
+            if q_lower in name: return 3
+            return 2
+        if mtype == "Column":
+            if name == q_lower: return 2
+            if name.startswith(q_lower): return 1
+            return 0
+        return 1  # Glossary
+
+    combined = combined.copy()
+    combined["_score"] = combined.apply(_score, axis=1)
+    return combined.sort_values("_score", ascending=False).drop(columns=["_score"]).reset_index(drop=True)
+
+
+def get_column_business_names(table_full_name: str) -> dict:
+    """Return column business name overrides for a table as a dict."""
+    if DEMO_DATA:
+        return st.session_state.get("demo_business_names", {}).get(table_full_name, {})
+    try:
+        conn = get_db_connection()
+        tbl = "user_data.business_name_overrides" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
         with conn.cursor() as cursor:
-            cursor.execute(query, params)
-            return cursor.fetchall_as_pandas()
+            cursor.execute(
+                f"SELECT column_name, business_name, definition, edited_by, edited_at "
+                f"FROM {tbl} "
+                f"WHERE table_full_name = %(table_full_name)s",
+                {"table_full_name": table_full_name},
+            )
+            rows = cursor.fetchall_as_pandas()
+            if rows is not None and not rows.empty:
+                return {
+                    str(r["column_name"]): {
+                        "business_name": str(r["business_name"]) if r["business_name"] else "",
+                        "definition":    str(r["definition"])    if r["definition"]    else "",
+                        "edited_by":     str(r["edited_by"]),
+                        "edited_at":     str(r["edited_at"]),
+                    }
+                    for _, r in rows.iterrows()
+                }
+    except Exception as e:
+        logging.warning("Could not fetch column business names for %s: %s", table_full_name, e)
+    return {}
 
-
-# ── Personalization persistence helpers ───────────────────────────────────────
 
 def _user_oid() -> str:
     """Return a stable identifier for the current user (OID or email fallback)."""
@@ -837,33 +818,6 @@ def _sync_prefs_to_session() -> None:
     st.session_state.col_bookmarks = set(col_bookmarks)
     recent = _pref_load("recent", limit=50)
     st.session_state.recent_views = recent
-
-
-def run_query(query, params=None):
-    # ── Demo mode: return hardcoded DataFrames without hitting any DB ──────────
-    if DEMO_DATA:
-        p = params or {}
-        # Detect get_authorized_tables() call: params are now group_0, group_1, ...
-        # (SQL injection fix replaced the old "groups" tuple param)
-        _has_groups = "groups" in p or any(k.startswith("group_") for k in p)
-        if "full_name" in p and _has_groups:
-            return _DEMO_RELATED.get(p["full_name"], pd.DataFrame(
-                columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"]))
-        if _has_groups:
-            return _DEMO_TABLES
-        fn = p.get("table_full_name", "")
-        if "lineage_cache" in query:
-            return _DEMO_LINEAGE.get(fn, pd.DataFrame(
-                columns=["direction", "entity_full_name", "entity_type"]))
-        if "columns_metadata" in query:
-            return _DEMO_COLUMNS.get(fn, pd.DataFrame(
-                columns=["column_name", "data_type", "comment"]))
-        return _DEMO_GRANTS.get(fn, pd.DataFrame(columns=["principal", "privilege"]))
-
-    if _duckdb_available():
-        return _run_duckdb_query(query, params)
-    return _run_databricks_query(query, params)
-
 
 
 def is_power_user() -> bool:
@@ -956,44 +910,6 @@ def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
             writer.writerow([cname, biz_name, ctype, ccomment, biz_def])
 
     return output.getvalue()
-
-
-def get_column_business_names(table_full_name: str) -> dict:
-    """Return all column business name overrides for a table as a dict.
-
-    Returns: {column_name: {"business_name": str, "edited_by": str, "edited_at": str}}
-    One bulk query — not N per-column queries.
-    In demo mode reads from session state instead of Databricks.
-    """
-    if DEMO_DATA:
-        return st.session_state.get("demo_business_names", {}).get(table_full_name, {})
-    try:
-        conn = get_db_connection()
-        tbl = "user_data.business_name_overrides" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
-        with conn.cursor() as cursor:
-            cursor.execute(
-                f"SELECT column_name, business_name, definition, edited_by, edited_at "
-                f"FROM {tbl} "
-                f"WHERE table_full_name = %(table_full_name)s",
-                {"table_full_name": table_full_name},
-            )
-            rows = cursor.fetchall_as_pandas()
-            if rows is not None and not rows.empty:
-                return {
-                    str(r["column_name"]): {
-                        "business_name": str(r["business_name"]) if r["business_name"] else "",
-                        "definition":    str(r["definition"])    if r["definition"]    else "",
-                        "edited_by":     str(r["edited_by"]),
-                        "edited_at":     str(r["edited_at"]),
-                    }
-                    for _, r in rows.iterrows()
-                }
-    except Exception as e:
-        logging.warning("Could not fetch column business names for %s: %s", table_full_name, e)
-    return {}
-
-
-_SYNC_MAX_ATTEMPTS = 3
 
 
 def enqueue_sync(sync_type: str, table_full_name: str | None, payload: dict, queued_by: str) -> None:
@@ -1644,188 +1560,6 @@ def save_comment(
     else:
         send_comment_email(steward_email, author_name, object_name, comment_text)
     log_audit_event(_event_type, object_type, object_name, "", comment_text)
-
-
-@st.cache_data(ttl="1h", show_spinner=False)
-def get_authorized_tables(groups):
-    if DEMO_DATA:
-        return _DEMO_TABLES
-    group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
-    params: dict = {}
-    if groups:
-        for i, group in enumerate(groups):
-            params[f"group_{i}"] = group
-
-    sql_query = ("""
-        SELECT DISTINCT
-            m.full_name,
-            m.catalog_name,
-            m.schema_name,
-            m.table_name,
-            m.comment as table_description,
-            m.table_type,
-            m.updated_at,
-            COALESCE(dq.dq_score, '') AS dq_score,
-            COALESCE(dq.last_run_status, '') AS dq_status
-        FROM {0}.{1}.tables_metadata m
-        JOIN {0}.{1}.permissions_cache p
-          ON m.full_name = p.table_full_name
-        LEFT JOIN {0}.{1}.data_quality_cache dq
-          ON m.full_name = dq.table_full_name
-        WHERE (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
-    """).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders)  # nosec B608
-
-    return run_query(sql_query, params)
-
-
-# ── Feature scaffolds (stubs — to be implemented) ─────────────────────────────
-
-@st.cache_data(ttl="1h", show_spinner=False)
-def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
-    """Fetch lineage edges up to a given depth.
-
-    TODO (feature/enhanced-lineage): Implement recursive traversal of
-    lineage_cache to support multi-hop exploration with vis-network node events.
-    """
-    return run_query(
-        ("SELECT * FROM {0}.{1}.lineage_cache WHERE table_full_name = %(fn)s").format(
-            CATALOG_CACHE, SCHEMA_CACHE
-        ),
-        {"fn": table_full_name},
-    )
-
-
-@st.cache_data(ttl="1h", show_spinner=False)
-def search_all_metadata(query: str, groups: tuple):
-    """Search across tables, columns, and descriptions using UNION."""
-    import logging
-    logging.info("GLOBAL SEARCH query=%s groups=%s", query, groups)
-
-    group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
-    params: dict = {f"group_{i}": g for i, g in enumerate(groups)} if groups else {}
-    params["q"] = f"%{query}%"
-
-    _overrides_tbl = "user_data.business_name_overrides" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
-
-    sql_query = ("""
-        SELECT DISTINCT
-            m.full_name, m.table_name AS name, 'Table' AS match_type,
-            m.comment AS description, m.catalog_name, m.schema_name, m.table_name,
-            m.comment AS table_description,
-            COALESCE(dq.dq_score, '') AS dq_score
-        FROM {0}.{1}.tables_metadata m
-        JOIN {0}.{1}.permissions_cache p ON m.full_name = p.table_full_name
-        LEFT JOIN {0}.{1}.data_quality_cache dq ON m.full_name = dq.table_full_name
-        WHERE (m.table_name LIKE %(q)s OR m.comment LIKE %(q)s)
-          AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
-
-        UNION ALL
-
-        SELECT DISTINCT
-            c.table_full_name AS full_name,
-            COALESCE(o.business_name, c.column_name) AS name,
-            'Column' AS match_type,
-            COALESCE(o.definition, c.comment) AS description,
-            t.catalog_name, t.schema_name, t.table_name, t.comment AS table_description,
-            COALESCE(dq.dq_score, '') AS dq_score
-        FROM {0}.{1}.columns_metadata c
-        JOIN {0}.{1}.permissions_cache p ON c.table_full_name = p.table_full_name
-        JOIN {0}.{1}.tables_metadata t ON c.table_full_name = t.full_name
-        LEFT JOIN {0}.{1}.data_quality_cache dq ON c.table_full_name = dq.table_full_name
-        LEFT JOIN {3} o ON o.table_full_name = c.table_full_name AND o.column_name = c.column_name
-        WHERE (
-            c.column_name LIKE %(q)s OR c.comment LIKE %(q)s
-            OR o.business_name LIKE %(q)s OR o.definition LIKE %(q)s
-          )
-          AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
-
-        LIMIT 50
-    """).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders, _overrides_tbl)  # nosec B608
-
-    sql_results = run_query(sql_query, params)
-
-    # Normalize columns — demo mode returns _DEMO_TABLES which lacks match_type/name/description
-    if sql_results is not None and not sql_results.empty:
-        if "match_type" not in sql_results.columns:
-            sql_results = sql_results.assign(match_type="Table")
-        if "name" not in sql_results.columns:
-            sql_results = sql_results.assign(name=sql_results.get("table_name", ""))
-        if "description" not in sql_results.columns:
-            _desc_src = sql_results["table_description"] if "table_description" in sql_results.columns else sql_results.get("comment", "")
-            sql_results = sql_results.assign(description=_desc_src)
-
-    # Process glossary terms
-    term_matches = []
-    if _DEMO_GLOSSARY is not None and not _DEMO_GLOSSARY.empty and query:
-        # Security: only show glossary terms whose related tables are visible to the user
-        _auth_df = get_authorized_tables(groups)
-        _allowed_fns = set(_auth_df["full_name"].tolist()) if _auth_df is not None and not _auth_df.empty else set()
-
-        query_lower = query.lower()
-        mask = (
-            _DEMO_GLOSSARY['term'].str.lower().str.contains(query_lower, regex=False, na=False) |
-            _DEMO_GLOSSARY['definition'].str.lower().str.contains(query_lower, regex=False, na=False)
-        )
-        glossary_df = _DEMO_GLOSSARY[mask]
-
-        for row in glossary_df.itertuples(index=False):
-            related_tables = getattr(row, 'related_tables', [])
-            target_table = related_tables[0] if related_tables else ""
-            
-            # Security filter: skip if user cannot see the primary related table
-            if target_table and target_table not in _allowed_fns:
-                continue
-
-            parts = target_table.split('.')
-            term_matches.append({
-                "full_name": target_table,
-                "name": getattr(row, 'term', ''),
-                "match_type": "Glossary",
-                "description": getattr(row, 'definition', ''),
-                "table_description": "",
-                "catalog_name": parts[0] if len(parts) == 3 else "",
-                "schema_name": parts[1] if len(parts) == 3 else "",
-                "table_name": parts[2] if len(parts) == 3 else "",
-            })
-
-    import pandas as pd
-    if term_matches:
-        glossary_results = pd.DataFrame(term_matches)
-        if sql_results is not None and not sql_results.empty:
-            combined = pd.concat([sql_results, glossary_results], ignore_index=True)
-        else:
-            combined = glossary_results
-    else:
-        combined = sql_results
-
-    if combined is None or combined.empty:
-        return combined
-
-    # Rank results: exact table name > prefix > partial table > exact column > partial column > glossary/description
-    q_lower = query.lower()
-    def _score(row):
-        name = str(row.get("name") or "").lower()
-        mtype = str(row.get("match_type") or "")
-        if mtype == "Table":
-            if name == q_lower:
-                return 5
-            if name.startswith(q_lower):
-                return 4
-            if q_lower in name:
-                return 3
-            return 2  # description-only match
-        if mtype == "Column":
-            if name == q_lower:
-                return 2
-            if name.startswith(q_lower):
-                return 1
-            return 0
-        return 1  # Glossary
-
-    combined = combined.copy()
-    combined["_score"] = combined.apply(_score, axis=1)
-    combined = combined.sort_values("_score", ascending=False).drop(columns=["_score"]).reset_index(drop=True)
-    return combined
 
 
 def _viewport_height(fallback: int = 800) -> int:
