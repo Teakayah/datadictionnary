@@ -1,110 +1,179 @@
-# 🏗️ Business Data Dictionary: Architectural Overview
+# Architecture overview
 
-This document provides a technical and structural overview of the Business Data Dictionary solution for Databricks Unity Catalog.
-
-## 🌟 Executive Summary
-The Business Data Dictionary is a Python-native, high-performance search interface designed for business users. It leverages **Microsoft Entra ID (Active Directory)** for authentication and uses a **"Synced Search Engine"** pattern to provide a fast, secure, and permission-aware view of your organization's data assets.
+Business Data Dictionary for Databricks Unity Catalog. This document describes the system design, component responsibilities, data flows, and key architectural decisions.
 
 ---
 
-## 🏗️ System Architecture
+## System architecture
 
-The solution architecture consists of four distinct layers working in harmony to deliver a secure and responsive user experience.
+The solution has four layers: identity, compute/UI, local cache, and the Databricks Unity Catalog source of truth.
 
 ```mermaid
 graph TD
-    subgraph "Identity Layer (Azure)"
-        A[Business User] -->|1. OIDC Login| B[Microsoft Entra ID]
-        B -->|2. JWT Token + Group Claims| C[Streamlit Application]
+    subgraph "Identity layer (Azure)"
+        A[Business user] -->|OIDC login| B[Microsoft Entra ID]
+        B -->|JWT token + group claims| C[Streamlit application]
     end
 
-    subgraph "Compute & UI Layer"
-        C -->|3. Permission-Filtered SQL| D[Databricks Serverless SQL Warehouse]
+    subgraph "Compute and UI layer"
+        C -->|Permission-filtered SQL| D[DuckDB local cache]
+        C -->|Fallback| E[Databricks SQL Warehouse]
     end
 
-    subgraph "Metadata & Cache Layer"
-        D -->|4. Query| E[(Dictionary Cache Schema)]
-        F[Metadata Sync Job] -->|5. Upsert| E
+    subgraph "Local cache layer"
+        D -->|Atomic file replace on sync| F[(dict.duckdb — catalog file)]
+        G[(dict_user_data.duckdb — user file)] -->|ATTACHed at startup| D
     end
 
-    subgraph "Unity Catalog (Source of Truth)"
-        F -->|6. Extract Metadata & ACLs| G[Catalogs / Schemas / Tables]
+    subgraph "Background workers"
+        H[Nightly sync job] -->|Writes catalog file| F
+        I[DR resync worker thread] -->|Fills gaps on demand| F
+    end
+
+    subgraph "Unity Catalog (source of truth)"
+        H -->|Crawl metadata and ACLs| J[Catalogs / schemas / tables]
     end
 ```
 
 ---
 
-## 🧩 Core Components
+## Core components
 
-### 1. The Identity & Security Layer (Microsoft Entra ID)
-*   **Mechanism:** Standard OAuth 2.0 / OpenID Connect (OIDC) flow.
-*   **Authentication:** Authenticates the corporate identity of the user.
-*   **Authorization:** The application extracts the **Security Group Object IDs** directly from the user's `groups` claim in the Identity Token.
-*   **Zero Latency:** No call to an external database is required to check user roles; the token itself proves their group memberships.
+### Identity and security layer
 
-### 2. The Engine (Python Metadata Sync Job)
-*   **Technology:** Python script utilizing the `databricks-sdk`.
-*   **Function:** A background "crawler" that traverses the Unity Catalog hierarchy.
-*   **Data Extraction:**
-    *   **Structural:** Catalog, Schema, Table, and Column names.
-    *   **Business Context:** Comments, Tags, and Data Quality statistics.
-    *   **Permission Mapping:** Every `GRANT` permission in Unity Catalog is extracted to build an ACL (Access Control List) mapping tables to AD Groups.
+Authentication uses the OAuth 2.0 / OpenID Connect flow against Microsoft Entra ID. The app extracts Security Group Object IDs from the `groups` claim in the ID token. No additional database lookup is needed to resolve group membership — the signed token is the proof.
 
-### 3. The Performance Layer (Databricks SQL Warehouse)
-*   **Role:** Acts as the search-optimized "Index" for the Data Dictionary.
-*   **Database:** A dedicated schema (`data_governance.dictionary_cache`) within Unity Catalog.
-*   **Optimized Tables:**
-    *   `tables_metadata`: Physical path, type, and primary `COMMENT`.
-    *   `columns_metadata`: Detailed column-level definitions for technical clarity.
-    *   `permissions_cache`: A high-performance mapping of `Table_Name` ↔ `AD_Group_Principal`.
-    *   `lineage_cache`: 1-hop table-to-table lineage edges.
-    *   `object_tags`: Key-value properties extracted from Catalogs, Schemas, and Tables (used for Glossary and Stewardship).
-*   **Efficiency:** Using a **Serverless SQL Warehouse** ensures sub-second query latency and automatic scaling.
+In local development, setting `ENABLE_MOCK_AUTH=true` and `ENVIRONMENT=development` replaces the Entra ID redirect with department-specific mock login buttons (finance, research, hr, it).
 
----
+### Metadata sync job
 
-## 🏷️ Glossary & Business Semantics Mapping
+`scripts/sync_metadata.py` uses the `databricks-sdk` (`WorkspaceClient`) to crawl the Unity Catalog hierarchy: catalogs → schemas → tables → columns → grants → lineage edges.
 
-The Business Glossary is dynamically generated by mapping Unity Catalog metadata properties to business concepts:
+Output is written to:
 
-| Glossary Field | Unity Catalog Implementation | Cache Table |
-| :--- | :--- | :--- |
-| **Term Name** | Table or Column Name | `tables_metadata` |
-| **Definition** | Primary `COMMENT` property | `tables_metadata` |
-| **Calculation** | Table Tag with key: `calculation` | `object_tags` |
-| **Domain** | Schema Tag with key: `domain` | `object_tags` |
-| **Steward** | Table Tag with key: `steward` | `object_tags` |
-| **Linked Tables** | Natively provided by Table Lineage | `lineage_cache` |
+- The Databricks `data_governance.dictionary_cache` schema (truncate-and-reload via SQL Warehouse)
+- A local DuckDB file at `DUCKDB_PATH` (atomic swap via `os.replace` so in-flight reads are never interrupted)
 
----
+A separate script, `scripts/nightly_sync.py`, is the entry point for the CronJob container. The in-app DR resync worker is a different, lighter process (see below).
 
-## 📊 Metadata Health & Discovery
+### DuckDB local cache layer
 
-Beyond search, the application provides governance insights and personalized discovery:
+When `DUCKDB_PATH` is set, the app serves all read queries from a local DuckDB file instead of routing them across the network to the SQL Warehouse. This reduces median query latency from ~300 ms (network round-trip) to under 5 ms for typical search queries on the 800-table reference dataset.
 
-### Metadata Health Dashboard
-The **Health** tab provides an automated documentation audit:
-- **Table/Column Coverage:** Real-time calculation of what percentage of assets have business descriptions.
-- **Schema Scorecards:** Breakdown of documentation completeness by business unit or domain.
-- **Priority Actions:** Automated identification of high-traffic or "upstream" tables that lack documentation.
+Two files are used:
 
-### Personalized Discovery
-The **Discovery** tab leverages the user's Entra ID group membership to personalize the experience:
-- **New & Notable:** A feed of the most recently updated tables that the user's specific department (AD Group) has access to.
-- **Permission-Trimmed Feed:** Discovery highlights are calculated at the SQL level to ensure no sensitive data exposure.
+| File | Owner | Contents |
+|------|-------|----------|
+| `DUCKDB_PATH` (e.g. `dict.duckdb`) | Sync job | `tables_metadata`, `columns_metadata`, `permissions_cache`, `lineage_cache`, `object_tags`, `audit_log` — rebuilt atomically on each sync |
+| `USER_DATA_PATH` (auto-derived as `dict_user_data.duckdb`) | App | `user_data.comments`, `user_data.business_name_overrides`, `user_data.audit_log` — append-only, never touched by the sync job |
+
+At startup the app opens the catalog file and `ATTACH`es the user data file as the `user_data` schema. This enables cross-file JOINs (e.g. joining `tables_metadata` with `user_data.business_name_overrides`). All writes are serialized through a singleton connection and a `threading.Lock`.
+
+The `_to_duckdb_sql()` function translates Databricks SQL dialect to DuckDB SQL (parameter style `%s` → `?`, function aliases, etc.) so the same query strings work against both backends.
+
+### Background DR resync worker
+
+A daemon thread (`_run_dr_resync`) runs inside the Streamlit process and monitors the DuckDB cache for staleness. When it detects that a table's metadata is missing or out of date — and the nightly sync has not yet run — it fetches the missing records from the SQL Warehouse and writes them into the local cache. This is a best-effort gap-filler, not a replacement for the nightly sync job.
+
+UI activity is tracked via `_mark_ui_activity()`. The worker backs off during active user sessions to avoid competing for DuckDB write locks.
+
+### Streamlit frontend
+
+`app.py` is the Streamlit entry point. It implements five tabs (search, catalog, discovery, health, glossary) and an admin panel, all within a single-page layout using custom tab-based navigation.
+
+The design system CSS is injected via `st.markdown('<style>...</style>')` at startup. All Unity Catalog identifiers (`catalog.schema.table`) are rendered in `JetBrains Mono`. The only accent color is oxidized red `#B8362A` (CSS variable `--accent`).
 
 ---
 
-### 4. The UI Layer (Streamlit Frontend)
-*   **Framework:** [Streamlit](https://streamlit.io/), a Python-native web framework.
-*   **Dynamic Security Enforcement:** Every search query executed by the frontend includes a mandatory `JOIN` with the `permissions_cache` table.
-*   **Privacy by Design:** If a user does not belong to the AD group authorized for a specific table, that table is mathematically excluded from the SQL results before they even reach the browser.
+## Security model
+
+### Push-down SQL authorization
+
+Permission enforcement happens inside the SQL engine, not in Python. Every user-facing query that returns tables JOINs `tables_metadata` with `permissions_cache WHERE principal IN ($user_groups)`. Rows for tables the user is not authorized to see are excluded before they reach the application layer.
+
+The sentinel value `SELECT_ALL_USERS` in `permissions_cache.principal` marks publicly accessible tables. These rows appear in search results for all authenticated users regardless of group membership.
+
+The `_to_duckdb_sql()` function ensures parameter substitution is correctly translated between backends. Named parameters in Databricks SQL (`%(name)s`) are converted to positional parameters (`?`) for DuckDB, preserving the parameterized-query pattern in both modes and avoiding SQL injection via concatenation.
+
+### Feature-level access control
+
+- `EDITOR_GROUPS`: comma-separated group IDs allowed to save business name overrides and comments.
+- `ADMIN_GROUPS`: comma-separated group IDs allowed to access the admin dashboard and audit logs. There is no demo bypass for admin access.
+
+User-supplied display names are HTML-escaped before rendering. SMTP headers are sanitized to prevent header injection in comment notification emails.
 
 ---
 
-## 🛡️ Strategic Benefits
+## Personalisation persistence
 
-1.  **Unified Governance:** Permissions are defined once in Unity Catalog and automatically honored by the Data Dictionary.
-2.  **Enterprise Performance:** By caching metadata, the UI remains lightning-fast regardless of the size or complexity of the underlying data platform.
-3.  **Low Maintenance:** The entire stack is built with managed, serverless components and maintained with standard Python/SQL skillsets.
-4.  **Business Digestibility:** Transforms technical database objects into a searchable business glossary by highlighting comments and data tags.
+User personalisation data (bookmarks, recently viewed tables, column bookmarks) is stored in a separate DuckDB file (`USER_DATA_PATH`). This file is append-only from the app's perspective and is never modified by the sync job.
+
+The user is identified by their Entra ID Object ID (`oid` claim), stored as `user_oid` on every preference row. Preferences are loaded into `st.session_state` at session start via `_sync_prefs_to_session()` and written back immediately on user action through `_pref_upsert()` / `_pref_delete()`.
+
+---
+
+## Internationalisation (i18n)
+
+The app supports English and French. Locale files live in `locale/`:
+
+```
+locale/
+  en.json    English strings (default)
+  fr.json    French strings
+```
+
+The active locale is stored in `st.session_state.locale` and defaults to `"en"`. Users toggle it with the `EN / FR` control in the header.
+
+All user-visible strings are retrieved through the `t(key)` function:
+
+```python
+# Dot-separated key addressing nested JSON structure
+label = t("search.placeholder")           # "Search tables or columns..."
+msg   = t("search.results_count", count=n) # "{count} results" → "42 results"
+```
+
+`t()` looks up the key in the active locale dict, falls back to English if the key is missing in the French file, and performs `str.format_map()` substitution for `{placeholder}` tokens. See `docs/api/locale-keys.md` for the full key reference with EN and FR values side by side.
+
+---
+
+## Glossary and business semantics
+
+The business glossary is generated dynamically from Unity Catalog metadata properties:
+
+| Glossary field | Unity Catalog source | Cache table |
+|---------------|---------------------|-------------|
+| Term name | Table or column name | `tables_metadata` |
+| Definition | Primary `COMMENT` | `tables_metadata` |
+| Calculation | Tag with key `calculation` | `object_tags` |
+| Domain | Schema tag with key `domain` | `object_tags` |
+| Steward | Table tag with key `steward` | `object_tags` |
+| Linked tables | Table lineage edges | `lineage_cache` |
+
+---
+
+## Cache tables reference
+
+All tables live in `data_governance.dictionary_cache` on Databricks and in the root schema of the DuckDB file.
+
+| Table | Grain | Key columns |
+|-------|-------|-------------|
+| `tables_metadata` | One row per table | `full_name`, `description`, `table_type` |
+| `columns_metadata` | One row per column | `full_name`, `column_name`, `data_type`, `description` |
+| `permissions_cache` | One row per (table, principal, privilege) | `full_name`, `principal`, `privilege` |
+| `lineage_cache` | One row per lineage edge | `source_table`, `target_table`, `hop` |
+| `object_tags` | One row per (object, tag key) | `full_name`, `tag_key`, `tag_value` |
+
+`setup_cache_tables()` in `scripts/sync_metadata.py` creates all tables with `IF NOT EXISTS`. It is safe to run repeatedly and is called at the start of every sync.
+
+---
+
+## Deployment topology
+
+In Kubernetes the solution runs as:
+
+- A `Deployment` (`dd-app`) with 2–10 replicas managed by an HPA. Probes target `/_stcore/health` on port 8501.
+- A `CronJob` (`dd-sync`) that runs `scripts/sync_metadata.py` nightly at 03:00 UTC.
+- A `PersistentVolumeClaim` (`dd-data`) mounted at `/data` in both the app and the sync job, sharing the DuckDB cache files.
+- A `NetworkPolicy` restricting ingress to the ingress controller namespace and egress to HTTPS only.
+
+See `DEPLOYMENT.md` for the full operations runbook and `docs/runbooks/secret-rotation.md` for credential rotation procedures.
