@@ -2854,16 +2854,35 @@ def _viewport_height(fallback: int = 800) -> int:
 
 
 _VIS_WIDE_CSS = """<style>
+/* ── Dialog shell ── */
 [data-testid="stDialog"] > div > div[role="dialog"] {
     max-width: 92vw !important;
     width: 92vw !important;
     max-height: 95vh !important;
     height: 95vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
 }
-[data-testid="stDialog"] > div > div[role="dialog"] > div[data-testid="stDialogContent"] {
-    max-height: calc(95vh - 60px) !important;
-    overflow-y: auto !important;
+/* Content area grows to fill remaining dialog height */
+[data-testid="stDialog"] > div > div[role="dialog"] > div:not([class*="header"]) {
     flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+}
+/* ── Dataframe: stretch to dialog interior (95vh minus title+padding+subtitle ≈ 190px) ── */
+[data-testid="stDialog"] [data-testid="stDataFrame"] {
+    height: calc(95vh - 190px) !important;
+}
+[data-testid="stDialog"] [data-testid="stDataFrame"] > div,
+[data-testid="stDialog"] [data-testid="stDataFrame"] iframe {
+    height: 100% !important;
+    min-height: 100% !important;
+}
+/* ── Components iframe (vis.js lineage graph) ── */
+[data-testid="stDialog"] iframe:not([title*="streamlit"]) {
+    height: calc(95vh - 190px) !important;
+    min-height: calc(95vh - 190px) !important;
 }
 </style>"""
 
@@ -2946,9 +2965,12 @@ def _lineage_vis_html(graph_nodes: list, graph_links: list, height: int = 350, c
 def render_lineage_fullscreen(graph_nodes: list, graph_links: list, full_name: str):
     st.markdown(_VIS_WIDE_CSS, unsafe_allow_html=True)
     st.markdown(f"**{full_name}** — {t('detail.lineage_graph_subtitle').format(table=full_name.split('.')[-1])}")
-    _graph_h = int(_viewport_height(800) * 0.95) - 124
+    # Use a large fixed canvas — CSS in _VIS_WIDE_CSS stretches the iframe to
+    # calc(95vh - 190px), so the vis.js div just needs to be big enough that
+    # the graph isn't clipped before CSS takes over.
+    _graph_h = 1800
     graph_html = _lineage_vis_html(graph_nodes, graph_links, height=_graph_h, container_id="mynetwork_full", spring_length=220)
-    components.html(graph_html, height=_graph_h + 20)
+    components.html(graph_html, height=_graph_h + 20, scrolling=False)
 
 
 @st.dialog(t("detail.edit_table"), width="large")
@@ -3013,12 +3035,11 @@ def render_data_sample(table_full_name: str):
             query = f"SELECT * FROM {table_full_name} LIMIT 100"  # nosec B608
             df = run_query(query)
         if df is not None and not df.empty:
-            # Always fill the dialog interior — dialog is 95vh, subtract chrome
-            # (title bar 56px + padding 32px + table-name row 36px) ≈ 124px.
-            # Don't shrink for small tables; the grid renders empty rows to fill.
-            _screen_h = _viewport_height(800)
-            _h = max(int(_screen_h * 0.95) - 124, 400)
-            st.dataframe(df, use_container_width=True, height=_h)
+            # Height is controlled by _VIS_WIDE_CSS (calc(95vh - 190px)) so
+            # the grid always fills the dialog regardless of viewport size.
+            # Pass a generous fixed height so Streamlit allocates enough iframe
+            # space; CSS then stretches it to the actual available area.
+            st.dataframe(df, use_container_width=True, height=2000)
         else:
             st.info(t("detail.preview_needs_data"))
     except Exception as e:
