@@ -66,7 +66,12 @@
     "table_description": "Table description",
     "steward_email": "Data steward email",
     "unauthorized": "You do not have permission to access this asset.",
-    "data_sample": "Data Sample"
+    "data_sample": "Data sample",
+    "lineage_graph": "Lineage graph",
+    "lineage_graph_subtitle": "{table} — full lineage",
+    "preview_not_available": "Preview not available for this table in local mode.",
+    "preview_needs_data": "No row data found. Regenerate the test dataset with --with-data to enable preview.",
+    "preview_error": "Could not fetch data sample. You may not have permission to view the underlying data."
   },
   "comment": {
     "add_comment": "Add a comment",

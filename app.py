@@ -2935,11 +2935,11 @@ def _lineage_vis_html(graph_nodes: list, graph_links: list, height: int = 350, c
     )
 
 
-@st.dialog("Lineage graph", width="large")
+@st.dialog(t("detail.lineage_graph"), width="large")
 def render_lineage_fullscreen(graph_nodes: list, graph_links: list, full_name: str):
     st.markdown(_VIS_WIDE_CSS, unsafe_allow_html=True)
-    st.markdown(f"**{full_name}** — full lineage graph")
-    _graph_h = int(_viewport_height(800) * 0.88)
+    st.markdown(f"**{full_name}** — {t('detail.lineage_graph_subtitle').format(table=full_name.split('.')[-1])}")
+    _graph_h = int(_viewport_height(800) * 0.92)
     graph_html = _lineage_vis_html(graph_nodes, graph_links, height=_graph_h, container_id="mynetwork_full", spring_length=220)
     components.html(graph_html, height=_graph_h + 20)
 
@@ -2967,7 +2967,7 @@ def render_table_metadata_editor(table_full_name: str, current_desc: str, curren
             st.rerun()
 
 
-@st.dialog("Data Sample", width="large")
+@st.dialog(t("detail.data_sample"), width="large")
 def render_data_sample(table_full_name: str):
     import re
     import logging
@@ -2987,7 +2987,7 @@ def render_data_sample(table_full_name: str):
 
     try:
         if not re.match(r"^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$", table_full_name):
-            st.error("Invalid table name format.")
+            st.error(t("common.error"))
             return
         if os.getenv("DEMO_DATA", "false").lower() == "true":
             df = pd.DataFrame({"id": [1, 2, 3], "status": ["NEW", "SHIPPED", "CLOSED"]})
@@ -3000,23 +3000,24 @@ def render_data_sample(table_full_name: str):
                 _sample_query = f'SELECT * FROM {CATALOG_CACHE}."{_sch}"."{_tbl}" LIMIT 100'  # nosec B608
                 df = run_query(_sample_query)
             else:
-                st.info("Preview not available for this table in local mode.")
+                st.info(t("detail.preview_not_available"))
                 return
         else:
             query = f"SELECT * FROM {table_full_name} LIMIT 100"  # nosec B608
             df = run_query(query)
         if df is not None and not df.empty:
-            # Fill ~82% of the user's screen; row-count cap prevents a tiny table from over-allocating.
+            # Fill 92% of the user's screen height; row-count cap prevents tiny
+            # tables from over-allocating, minimum 400px so the grid feels usable.
             _screen_h = _viewport_height(800)
-            _max_h = int(_screen_h * 0.88)
+            _max_h = int(_screen_h * 0.92)
             _row_h = len(df) * 35 + 38
-            _h = max(min(_row_h, _max_h), 300)
+            _h = max(min(_row_h, _max_h), 400)
             st.dataframe(df, use_container_width=True, height=_h)
         else:
-            st.info("Preview data not available. Regenerate the dataset with --with-data to enable this feature.")
+            st.info(t("detail.preview_needs_data"))
     except Exception as e:
         logging.error("Error fetching data sample for %s: %s", table_full_name, e, exc_info=True)
-        st.error("Could not fetch data sample. You may not have permission to view the underlying data.")
+        st.error(t("detail.preview_error"))
 
 
 # ── Page renderers ─────────────────────────────────────────────────────────────
