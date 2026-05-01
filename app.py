@@ -9,11 +9,12 @@ import streamlit.components.v1 as components
 from streamlit_js_eval import streamlit_js_eval
 from databricks import sql
 import os
-import msal
 import html as _html
-import secrets
 import pandas as pd
 from dotenv import load_dotenv
+
+from src.auth import check_auth, is_power_user, is_admin, render_signin_page
+from src.ui.header import render_footer, LOGO_MARK_SVG
 
 load_dotenv()
 
@@ -195,27 +196,6 @@ from src.db.queries import _get_write_connection
 # get_multi_hop_lineage — defined below in app.py (Phase 4b: deferred until
 # _DEMO_* fixtures are moved to src/demo.py to avoid circular re-import)
 
-# ── Logo SVG (inlined) ─────────────────────────────────────────────────────────
-LOGO_MARK_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" height="30">
-  <rect x="4.5" y="6.5" width="55" height="51" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1.5"/>
-  <line x1="4.5" y1="19" x2="59.5" y2="19" stroke="#14110C" stroke-width="1.25"/>
-  <circle cx="11" cy="12.75" r="2.5" fill="#B8362A"/>
-  <line x1="10" y1="28" x2="54" y2="28" stroke="#C9C2B4" stroke-width="1.25"/>
-  <line x1="10" y1="36" x2="54" y2="36" stroke="#C9C2B4" stroke-width="1.25"/>
-  <line x1="10" y1="44" x2="40" y2="44" stroke="#C9C2B4" stroke-width="1.25"/>
-</svg>"""
-
-MS_LOGO_SVG = """<svg width="16" height="16" viewBox="0 0 23 23" fill="none">
-  <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
-  <rect x="12" y="1" width="10" height="10" fill="#7FBA00"/>
-  <rect x="1" y="12" width="10" height="10" fill="#00A4EF"/>
-  <rect x="12" y="12" width="10" height="10" fill="#FFB900"/>
-</svg>"""
-
-SEARCH_ICON_SVG = """<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B645A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-  <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
-</svg>"""
-
 
 
 
@@ -338,185 +318,7 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
     """, height=0)
 
 
-def render_footer():
-    st.markdown(f"""
-    <div class="dd-footer">
-      <div class="dd-footer-inner">
-        <span>{t('footer.built_with')}</span>
-        <span>main.data_governance.dictionary_cache</span>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-# ── Authentication helpers ─────────────────────────────────────────────────────
-@st.cache_resource(show_spinner=False)
-def get_msal_app():
-    return msal.ConfidentialClientApplication(
-        CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET
-    )
-
-
-def render_signin_page(auth_url: str | None = None, mock: bool = False):
-    """Render the editorial two-column sign-in layout."""
-    col_hero, col_card = st.columns([1.1, 0.9], gap="large")
-
-    with col_hero:
-        st.markdown(f"""
-        <div class="dd-signin-hero">
-          <div class="dd-eyebrow">§ Business Data Dictionary</div>
-          <h1>{t('auth.title')}</h1>
-          <p class="lead">{t('auth.subtitle')}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown('<hr class="dd-rule"/>', unsafe_allow_html=True)
-        st.markdown("""
-        <div class="dd-stats-row">
-          <div>
-            <div class="dd-stat-n">—</div>
-            <div class="dd-stat-l">tables indexed</div>
-          </div>
-          <div>
-            <div class="dd-stat-n">—</div>
-            <div class="dd-stat-l">schemas</div>
-          </div>
-          <div>
-            <div class="dd-stat-n">nightly</div>
-            <div class="dd-stat-l">sync cadence</div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col_card:
-        st.markdown("""
-        <div class="dd-signin-card">
-          <div class="dd-eyebrow">Sign in</div>
-          <h3>Use your corporate account</h3>
-          <p class="body">The catalog is permission-trimmed by Microsoft Entra ID —
-          you'll only see data your Unity Catalog grants allow.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if mock:
-            _MOCK_DEPTS = {
-                "Finance":  (["finance_group",  "SELECT_ALL_USERS"], "finance.user@research-org.ca"),
-                "Research": (["research_group", "SELECT_ALL_USERS"], "research.user@research-org.ca"),
-                "HR":       (["hr_group",        "SELECT_ALL_USERS"], "hr.user@research-org.ca"),
-                "IT":       (["it_group",        "SELECT_ALL_USERS"], "it.user@research-org.ca"),
-                "Admin":    (["finance_group", "research_group", "hr_group", "it_group",
-                              "SELECT_ALL_USERS", "finance_dept_id", "all_employees_id"],
-                             "admin@research-org.ca"),
-            }
-            _default_dept = MOCK_DEPT
-            _dept_opts = list(_MOCK_DEPTS.keys())
-            _dept_sel = st.selectbox(
-                "Department",
-                _dept_opts,
-                index=_dept_opts.index(_default_dept) if _default_dept in _dept_opts else 0,
-                label_visibility="collapsed",
-            )
-            if st.button("Sign in", use_container_width=True, type="primary"):
-                _groups, _email = _MOCK_DEPTS[_dept_sel]
-                st.session_state.authenticated = True
-                st.session_state.user_groups   = _groups
-                st.session_state.user_name     = f"{_dept_sel} User"
-                st.session_state.user_email    = _email
-                st.rerun()
-            st.markdown(
-                '<p class="dd-meta">Mock authentication — select a department to filter by its grants.</p>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(f"""
-            <a href="{auth_url}" style="
-              display:flex;align-items:center;justify-content:center;gap:10px;
-              width:100%;padding:14px 18px;font-size:15px;
-              background:var(--ink);color:var(--paper);
-              border:1px solid var(--ink);border-radius:2px;
-              font-family:var(--font-sans);font-weight:500;
-              text-decoration:none;box-sizing:border-box;
-              transition:background 120ms var(--ease);
-            ">{MS_LOGO_SVG} {t('auth.sign_in_button')}</a>
-            <p class="dd-meta" style="margin-top:12px">By signing in you agree to the data access policy.</p>
-            """, unsafe_allow_html=True)
-
-
-def check_auth():
-    if "auth_token" not in st.session_state:
-        st.session_state.auth_token = None
-
-    if st.session_state.get("auth_token") is None:
-        msal_app = get_msal_app()
-        query_params = st.query_params
-
-        # If a code is present, handle the callback logic first
-        if "code" in query_params:
-            # Verify the state matches what we expect
-            state = query_params.get("state")
-            expected_state = st.session_state.get("oauth_state")
-
-            if not state or not expected_state or state != expected_state:
-                logging.error("OAuth state mismatch or missing.")
-                st.error("Authentication failed: Security verification (state mismatch). Please try again.")
-                # Clear the potentially compromised state
-                if "oauth_state" in st.session_state:
-                    del st.session_state["oauth_state"]
-                if "oauth_nonce" in st.session_state:
-                    del st.session_state["oauth_nonce"]
-                st.stop()
-
-            # The state is valid; proceed with exchanging the code
-            expected_nonce = st.session_state.get("oauth_nonce")
-            result = msal_app.acquire_token_by_authorization_code(
-                query_params["code"], scopes=SCOPE, redirect_uri=REDIRECT_URI, nonce=expected_nonce
-            )
-
-            # Clear the state and nonce once it's used
-            if "oauth_state" in st.session_state:
-                del st.session_state["oauth_state"]
-            if "oauth_nonce" in st.session_state:
-                del st.session_state["oauth_nonce"]
-
-            if "access_token" in result:
-                claims = result.get("id_token_claims", {})
-                if expected_nonce and claims.get("nonce") != expected_nonce:
-                    logging.error("OAuth nonce mismatch or missing.")
-                    st.error("Authentication failed: Security verification (nonce mismatch).")
-                    st.stop()
-
-                st.session_state.auth_token = result
-                st.session_state.user_groups = claims.get("groups", [])
-                st.session_state.user_name   = claims.get("name")
-                st.session_state.user_email  = claims.get("email") or claims.get("preferred_username", "")
-                st.session_state.user_oid    = claims.get("oid", "")
-                # Seed personalization from DuckDB on first real login
-                _sync_prefs_to_session()
-                st.session_state["_prefs_loaded"] = True
-                # Clear query params and rerun
-                st.query_params.clear()
-                st.rerun()
-            else:
-                logging.error(f"Failed to acquire token: {result.get('error_description', 'Unknown error')}")
-                st.error("Authentication failed. Please try again.")
-                st.stop()
-
-        # If no code is present, we need to generate auth URL and render the signin page
-        # Generate a new state and nonce and save them in session
-        if "oauth_state" not in st.session_state:
-            st.session_state.oauth_state = secrets.token_urlsafe(16)
-        if "oauth_nonce" not in st.session_state:
-            st.session_state.oauth_nonce = secrets.token_urlsafe(16)
-
-        auth_url = msal_app.get_authorization_request_url(
-            SCOPE,
-            redirect_uri=REDIRECT_URI,
-            state=st.session_state.oauth_state,
-            nonce=st.session_state.oauth_nonce
-        )
-
-        render_signin_page(auth_url=auth_url, mock=False)
-        render_footer()
-        st.stop()
+# render_footer imported from src.ui.header
 
 # ── Databricks query helper ────────────────────────────────────────────────────
 # ── DuckDB local-cache adapter ────────────────────────────────────────────────
@@ -818,26 +620,6 @@ def _sync_prefs_to_session() -> None:
     st.session_state.col_bookmarks = set(col_bookmarks)
     recent = _pref_load("recent", limit=50)
     st.session_state.recent_views = recent
-
-
-def is_power_user() -> bool:
-    """True if the current user belongs to at least one EDITOR_GROUPS group."""
-    editor_groups = {g.strip() for g in os.getenv("EDITOR_GROUPS", "").split(",") if g.strip()}
-    if not editor_groups:
-        return False
-    return bool(editor_groups & set(st.session_state.get("user_groups", [])))
-
-
-def is_admin() -> bool:
-    """True if the current user belongs to at least one ADMIN_GROUPS group.
-
-    No demo-mode bypass — admins must be in the real Entra group even in
-    demo/development mode, unlike is_power_user() which has a mock shortcut.
-    """
-    admin_groups = {g.strip() for g in os.getenv("ADMIN_GROUPS", "").split(",") if g.strip()}
-    if not admin_groups:
-        return False
-    return bool(admin_groups & set(st.session_state.get("user_groups", [])))
 
 
 import csv
@@ -2459,9 +2241,6 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
         st.session_state["_prefs_loaded"] = True
     
     # Auto-login from a URL param — used by screenshot scripts and load tests
-    # that navigate directly to a URL without an existing session.
-    # Only fires when the user is NOT already authenticated so that a nav click
-    # (which re-adds mock_login=true to the URL) cannot overwrite the session.
     if st.query_params.get("mock_login") == "true" and not st.session_state.authenticated:
         _ql_dept = st.query_params.get("mock_dept", MOCK_DEPT).lower()
         _dept_group_map = {
@@ -2473,7 +2252,6 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
         if _ql_dept in _dept_group_map:
             _ql_groups, _ql_name, _ql_email = _dept_group_map[_ql_dept]
         else:
-            # Default: all groups (admin view — used by screenshot script & load tests)
             _ql_groups = ["finance_group", "research_group", "hr_group", "it_group",
                           "SELECT_ALL_USERS", "finance_dept_id", "all_employees_id"]
             _ql_name, _ql_email = "Admin User", "admin@research-org.ca"
@@ -2481,8 +2259,8 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
         st.session_state.user_groups   = _ql_groups
         st.session_state.user_name     = _ql_name
         st.session_state.user_email    = _ql_email
+
     if not st.session_state.get("authenticated"):
-        # Slim logo-only header for the sign-in page — avoids nav JS wiring on unauthenticated renders
         st.html(f'''
 <div class="dd-header">
   <div class="dd-header-inner">
@@ -2500,7 +2278,7 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
         render_footer()
         st.stop()
 else:
-    check_auth()
+    check_auth(sync_prefs_callback=_sync_prefs_to_session)
 
 # ── Authenticated: header with user ───────────────────────────────────────────
 current_tab = st.query_params.get("tab", "search")
