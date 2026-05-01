@@ -38,3 +38,7 @@ USER_DATA_PATH = (
 # here. They are read inline via os.getenv() in app.py so that test suites
 # can temporarily override them per-test without hitting the module-level cache.
 MOCK_DEPT = os.getenv("MOCK_DEPT", "Finance")
+
+def is_demo_mode() -> bool:
+    """Return True if demo mode is enabled via environment variable."""
+    return os.getenv("DEMO_DATA", "false").lower() == "true"
