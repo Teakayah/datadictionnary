@@ -1,0 +1,928 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+    --paper:        #FAF7F0;
+    --paper-rgb:    250, 247, 240;
+    --paper-deep:   #F2EDE1;
+    --paper-ink:    #E8E1D0;
+    --ink:          #14110C;
+    --ink-90:       #2A2620;
+    --ink-80:       #3D3830;
+    --ink-60:       #6B645A;
+    --ink-40:       #6B645A; /* raised from #9A9388 (~2.8:1) to pass WCAG AA 4.5:1 on --paper */
+    --ink-subtle:   #9A9388; /* decorative only — borders, dividers, never text */
+    --ink-20:       #C9C2B4;
+    --ink-10:       #DCD6C8;
+    --accent:       #B8362A;
+    --accent-ink:   #8C271E;
+    --accent-wash:  #F3DFD9;
+    --forest:       #3F5E3A;
+    --ochre:        #9A6D1C;
+    --ochre-wash:   #FEF3D7;
+    --ochre-ink:    #92400E;
+    --amber-wash:   #FEF9C3;
+    --amber-ink:    #92400E;
+    --deepblue:     #2B4A6B;
+    --deepblue-wash:#DDE4EC;
+    --font-display: "Fraunces", "Cormorant Garamond", serif;
+    --font-sans:    "Manrope", -apple-system, system-ui, sans-serif;
+    --font-mono:    "JetBrains Mono", ui-monospace, monospace;
+    --ease:         cubic-bezier(0.2, 0, 0, 1);
+    --dur-hover:    120ms;
+    --dur-state:    180ms;
+}
+
+/* ── Hide Streamlit chrome ── */
+#MainMenu,
+header[data-testid="stHeader"],
+footer,
+[data-testid="stSidebar"],
+[data-testid="stToolbar"],
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"] {
+    display: none !important;
+}
+
+/* ── Global surface ── */
+html, body, .stApp, [data-testid="stAppViewContainer"] {
+    background: var(--paper) !important;
+    font-family: var(--font-sans);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Smooth fade-in on rerun to prevent white flash */
+@keyframes ddFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+.stApp {
+    animation: ddFadeIn 0.25s ease-out;
+}
+
+/* Remove default Streamlit top padding so our fixed header sits flush */
+[data-testid="stMainBlockContainer"] {
+    padding-top: 56px !important;
+    padding-left: 48px !important;
+    padding-right: 48px !important;
+    padding-bottom: 96px !important;
+    max-width: 1200px !important;
+    margin: 0 auto !important;
+}
+
+/* Inner content wrapper — applied via .dd-content divs */
+.dd-page {
+    /* No longer needed as a wrapper since we constrain stMainBlockContainer, 
+       but kept for any inner markdown sections if necessary */
+}
+
+/* ── Inputs ── */
+.stTextInput input {
+    border: 1px solid var(--ink) !important;
+    border-radius: 2px !important;
+    background: var(--paper) !important;
+    font-family: var(--font-sans) !important;
+    padding: 12px 14px !important;
+    font-size: 16px !important;
+    color: var(--ink) !important;
+    box-shadow: none !important;
+    transition: outline var(--dur-hover) var(--ease);
+}
+.stTextInput input:focus {
+    outline: 2px solid var(--accent) !important;
+    outline-offset: 3px !important;
+}
+.stTextInput label,
+[data-testid="stSelectbox"] label {
+    font-family: var(--font-sans) !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.14em !important;
+    text-transform: uppercase !important;
+    color: var(--ink-60) !important;
+}
+
+/* ── Buttons ── */
+.stButton > button {
+    font-family: var(--font-sans) !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    padding: 10px 18px !important;
+    border-radius: 2px !important;
+    border: 1px solid var(--ink) !important;
+    background: var(--ink) !important;
+    color: var(--paper) !important;
+    letter-spacing: -0.005em !important;
+    transition: background var(--dur-hover) var(--ease) !important;
+    box-shadow: none !important;
+}
+.stButton > button:hover {
+    background: var(--ink-90) !important;
+    border-color: var(--ink-90) !important;
+    color: var(--paper) !important;
+}
+.stDownloadButton > button {
+    font-family: var(--font-sans) !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    padding: 10px 18px !important;
+    border-radius: 2px !important;
+    border: 1px solid var(--ink) !important;
+    background: var(--ink) !important;
+    color: var(--paper) !important;
+    letter-spacing: -0.005em !important;
+    transition: background var(--dur-hover) var(--ease) !important;
+    box-shadow: none !important;
+}
+.stDownloadButton > button:hover {
+    background: var(--ink-90) !important;
+    border-color: var(--ink-90) !important;
+    color: var(--paper) !important;
+}
+
+/* Selectbox */
+[data-testid="stSelectbox"] > div > div {
+    border: 1px solid var(--ink-20) !important;
+    border-radius: 2px !important;
+    background: var(--paper) !important;
+    font-family: var(--font-sans) !important;
+    font-size: 16px !important;
+    color: var(--ink) !important;
+}
+[data-testid="stSelectbox"] input {
+    color: var(--ink) !important;
+}
+
+/* Dataframe */
+[data-testid="stDataFrame"] {
+    border-top: 1px solid var(--ink) !important;
+    border-radius: 0 !important;
+}
+[data-testid="stDataFrame"] th {
+    font-family: var(--font-mono) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    color: var(--ink-60) !important;
+    background: var(--paper-deep) !important;
+    border-bottom: 1px solid var(--ink-20) !important;
+}
+[data-testid="stDataFrame"] td {
+    font-family: var(--font-mono) !important;
+    font-size: 13px !important;
+    color: var(--ink-80) !important;
+}
+
+/* Alerts */
+.stAlert {
+    border-radius: 2px !important;
+    border-left: 3px solid var(--accent) !important;
+    background: var(--paper-deep) !important;
+    font-family: var(--font-sans) !important;
+}
+
+/* Headings */
+h1, h2, h3 {
+    font-family: var(--font-display) !important;
+    font-weight: 400 !important;
+    letter-spacing: -0.02em !important;
+    line-height: 1.1 !important;
+    color: var(--ink) !important;
+}
+
+code, pre, .stCode {
+    font-family: var(--font-mono) !important;
+    font-size: 13px !important;
+}
+
+::selection { background: var(--accent-wash); color: var(--ink); }
+
+/* ── Fixed header ── */
+.dd-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: rgba(var(--paper-rgb), 0.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--ink-20);
+}
+.dd-header-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 14px 48px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+.dd-logo-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+}
+.dd-logo-text {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+}
+.dd-pill {
+    font-family: var(--font-sans);
+    font-size: 10px;
+    padding: 2px 8px;
+    border: 1px solid var(--ink);
+    border-radius: 999px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--ink);
+    margin-left: 4px;
+}
+.dd-nav {
+    margin-left: auto;
+    display: flex;
+    gap: 22px;
+    align-items: center;
+}
+.dd-nav a {
+    font-size: 14px;
+    color: var(--ink-80);
+    text-decoration: none;
+    transition: color var(--dur-hover) var(--ease);
+}
+.dd-nav a:hover { color: var(--accent); }
+.dd-nav-sep {
+    width: 1px;
+    height: 20px;
+    background: var(--ink-20);
+    display: inline-block;
+}
+.dd-nav-user {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-80); /* was ink-40 (~2.8:1); ink-80 gives ~5.5:1 — WCAG AA */
+}
+
+/* ── Eyebrow ── */
+.dd-eyebrow {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-60);
+    margin-bottom: 18px;
+}
+
+/* ── Rule ── */
+.dd-rule {
+    border: 0;
+    border-top: 1px solid var(--ink-20);
+    margin: 32px 0;
+}
+.dd-rule-ink {
+    border: 0;
+    border-top: 1px solid var(--ink);
+    margin-bottom: 10px;
+}
+
+/* ── Sign-in page ── */
+.dd-signin-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 64px;
+    align-items: center;
+    min-height: calc(100vh - 160px);
+    padding: 0;
+}
+.dd-signin-hero h1 {
+    font-family: var(--font-display) !important;
+    font-size: 64px !important;
+    font-weight: 400 !important;
+    line-height: 1.1 !important;
+    letter-spacing: -0.02em !important;
+    margin: 0 0 24px !important;
+    color: var(--ink) !important;
+}
+.dd-signin-hero .lead {
+    font-family: var(--font-sans);
+    font-size: 18px;
+    line-height: 1.5;
+    color: var(--ink-80);
+    max-width: 46ch;
+    margin-bottom: 32px;
+}
+.dd-stats-row {
+    display: flex;
+    gap: 48px;
+    margin-top: 8px;
+}
+.dd-stat-n {
+    font-family: var(--font-display);
+    font-size: 40px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+}
+.dd-stat-l {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    color: var(--ink-40);
+    margin-top: 6px;
+}
+.dd-signin-card {
+    border-top: 1px solid var(--ink);
+    padding-top: 32px;
+}
+.dd-signin-card h3 {
+    font-family: var(--font-display) !important;
+    font-size: 28px !important;
+    font-weight: 500 !important;
+    margin: 0 0 12px !important;
+    letter-spacing: -0.015em !important;
+}
+.dd-signin-card .body {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    color: var(--ink-80);
+    line-height: 1.5;
+    margin-bottom: 28px;
+    max-width: 38ch;
+}
+.dd-meta {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    color: var(--ink-40);
+    margin-top: 12px;
+}
+
+/* ── DQ grade badges ── */
+.dd-dq-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+.dq-a { background: var(--accent-wash); color: var(--forest); }
+.dq-b { background: var(--amber-wash);  color: var(--amber-ink); }
+.dq-c { background: var(--ochre-wash);  color: var(--ochre); }
+.dq-d { background: var(--accent-wash); color: var(--accent); }
+
+/* ── Search page ── */
+.dd-search-hero {
+    margin-top: 0;
+}
+.dd-search-hero h1 {
+    font-family: var(--font-display) !important;
+    font-size: 64px !important;
+    font-weight: 400 !important;
+    line-height: 1.1 !important;
+    letter-spacing: -0.02em !important;
+    margin: 0 0 10px !important;
+}
+.dd-search-hero .lead {
+    font-family: var(--font-sans);
+    font-size: 18px;
+    line-height: 1.5;
+    color: var(--ink-80);
+    margin-bottom: 32px;
+}
+
+/* ── Results section ── */
+.dd-results-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--ink);
+    margin-bottom: 0;
+    margin-top: 40px;
+}
+.dd-results-count {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-40);
+    margin-left: 12px;
+}
+
+/* ── Detail section ── */
+.dd-detail-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--ink);
+    margin-top: 32px;
+    margin-bottom: 16px;
+}
+.dd-detail-table-name {
+    font-family: var(--font-mono) !important;
+    font-size: 28px !important;
+    font-weight: 500 !important;
+    margin: 0 0 6px !important;
+    letter-spacing: -0.01em !important;
+    color: var(--ink) !important;
+}
+.dd-detail-desc {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    color: var(--ink-80);
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+
+/* ── Secondary / ghost nav buttons (used in lineage + related sections) ── */
+button[data-testid="stBaseButton-secondary"] {
+    background: transparent !important;
+    color: var(--ink-60) !important;
+    border: 1px solid var(--ink-20) !important;
+    font-size: 12px !important;
+    font-family: var(--font-mono) !important;
+    padding: 5px 10px !important;
+    letter-spacing: 0 !important;
+}
+button[data-testid="stBaseButton-secondary"]:hover {
+    color: var(--ink) !important;
+    border-color: var(--ink) !important;
+    background: transparent !important;
+}
+
+/* ── Lineage flow ── */
+.dd-lineage-dir {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-40);
+    margin-bottom: 8px;
+}
+.dd-lineage-node {
+    border: 1px solid var(--ink-10);
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: var(--paper);
+}
+.dd-lineage-node.dd-lineage-locked {
+    opacity: 0.45;
+    background: var(--paper-deep);
+}
+.dd-lineage-node-name {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--ink);
+}
+.dd-lineage-node-schema {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+    margin-top: 2px;
+}
+.dd-lineage-center {
+    border: 2px solid var(--accent);
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: var(--paper);
+}
+.dd-lineage-center-name {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+}
+.dd-lineage-center-schema {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+    margin-top: 2px;
+}
+.dd-lineage-empty {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    color: var(--ink-40);
+    padding: 8px 0;
+    font-style: italic;
+}
+
+/* ── Related tables cards ── */
+.dd-related-card {
+    border: 1px solid var(--ink-10);
+    padding: 12px;
+    background: var(--paper);
+    margin-bottom: 4px;
+    transition: border-color var(--dur-hover) var(--ease);
+}
+.dd-related-card:hover { border-color: var(--ink-40); }
+.dd-related-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-40);
+    margin-bottom: 4px;
+}
+.dd-related-name {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 500;
+}
+.dd-related-schema {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+    margin-top: 2px;
+}
+
+/* ── Detail: section sub-headers (§ columns, § grants, …) ── */
+/* Tighten default Streamlit vertical rhythm inside the detail column */
+[data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stVerticalBlock"] > div > [data-testid="element-container"] {
+    margin-bottom: 0 !important;
+}
+
+.dd-section-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--ink);
+    margin-top: 20px;
+    margin-bottom: 0;
+}
+.dd-section-count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+}
+
+/* ── Columns list (Streamlit-column-based rows) ── */
+.dd-col-name {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.5;
+}
+.dd-col-type {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+    line-height: 1.5;
+}
+.dd-col-desc {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink-60);
+    line-height: 1.4;
+}
+.dd-col-biz-name {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 500;
+    line-height: 1.4;
+    display: block;
+}
+.dd-col-tech-sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+    display: block;
+    line-height: 1.3;
+    margin-top: 2px;
+}
+.dd-col-desc-faded {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--ink-40);
+    display: block;
+    line-height: 1.3;
+    margin-top: 2px;
+}
+.dd-col-divider {
+    border: none;
+    border-top: 1px solid var(--ink-10);
+    margin: 2px 0;
+}
+
+/* ── Grants list ── */
+.dd-grant-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-top: 1px solid var(--ink-10);
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+.dd-grant-who { color: var(--ink); }
+.dd-grant-what { color: var(--ink-60); }
+
+/* ── External link (Open in Databricks) ── */
+.dd-link-external {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-60);
+    text-decoration: none;
+    border-bottom: 1px solid var(--ink-20);
+    transition: color var(--dur-hover) var(--ease), border-color var(--dur-hover) var(--ease);
+    display: inline-block;
+    margin-top: 4px;
+    margin-bottom: 20px;
+}
+.dd-link-external:hover { color: var(--ink); border-color: var(--ink); }
+
+/* ── Footer ── */
+.dd-footer {
+    border-top: 1px solid var(--ink-10);
+    padding: 32px 48px;
+    margin-top: 96px;
+}
+.dd-footer-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-60); /* was ink-40 (~2.8:1); ink-60 gives ~5.5:1 — WCAG AA */
+}
+
+/* ── Select / multiselect placeholder contrast fix ───────────────────────────
+   Streamlit renders Base Web select placeholder as a div overlay (#818186 by
+   default). Target the value/placeholder container directly.                  */
+input::placeholder,
+textarea::placeholder {
+    color: var(--ink-60) !important;
+    opacity: 1 !important;
+}
+[data-testid="stSelectbox"]   [data-baseweb="select"] > div > div,
+[data-testid="stSelectbox"]   [data-baseweb="select"] > div > div > div,
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div > div,
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div > div > div {
+    color: var(--ink-60) !important;
+}
+
+/* ── Alert / success text contrast fix ──────────────────────────────────────
+   Streamlit's st.success() green (#158237) gives 4.18:1 on --paper, below
+   the 4.5:1 WCAG AA threshold. Override to near-black.                       */
+[data-testid="stAlert"] p,
+[data-testid="stAlert"] li,
+[data-testid="stAlert"] span:not([class*="icon"]) {
+    color: var(--ink) !important;
+}
+
+.dd-nav a.active {
+    color: var(--accent) !important;
+    font-weight: 600 !important;
+}
+
+/* ── Language toggle ── */
+.dd-lang-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.dd-lang-opt {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--ink-40);
+    text-decoration: none;
+    transition: color var(--dur-hover) var(--ease);
+}
+.dd-lang-opt:hover { color: var(--ink); }
+.dd-lang-opt.dd-lang-active {
+    color: var(--ink) !important;
+    font-weight: 600;
+}
+.dd-lang-sep {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-20);
+}
+
+/* Hide the zero-height JS bridge iframe */
+iframe[height="0"] { display: none !important; }
+
+/* ── Business name editor ── */
+.dd-edit-banner {
+    background: var(--ochre);
+    color: var(--paper);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px 14px;
+    border-radius: 2px;
+    margin-bottom: 16px;
+    letter-spacing: -0.005em;
+}
+.dd-business-name {
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.1;
+    margin: 4px 0 4px 0;
+}
+.dd-tech-name-sub {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-40);
+    margin-bottom: 12px;
+}
+.dd-biz-audit {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--ink-40);
+    margin-top: -8px;
+    margin-bottom: 12px;
+    letter-spacing: -0.003em;
+}
+
+/* ── Comments ── */
+.dd-comment-row {
+    border-top: 1px solid var(--ink-10);
+    padding: 10px 0;
+}
+.dd-comment-author {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+}
+.dd-comment-date {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-40);
+}
+.dd-comment-text {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink-60);
+    line-height: 1.5;
+    margin-top: 4px;
+    white-space: pre-wrap;
+}
+.dd-comment-no-steward {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--ink-40);
+    font-style: italic;
+    margin-top: 4px;
+}
+.dd-comment-reply {
+    border-top: none;
+    padding: 6px 0 6px 12px;
+    border-left: 2px solid var(--ink-10);
+    margin-top: 4px;
+}
+
+/* ── Expanders ── */
+[data-testid="stExpander"] {
+    border: 1px solid var(--ink-20) !important;
+    border-radius: 2px !important;
+    background: var(--paper) !important;
+}
+[data-testid="stExpander"] details {
+    background: var(--paper) !important;
+}
+[data-testid="stExpander"] details summary {
+    background: var(--paper-deep) !important;
+    color: var(--ink) !important;
+}
+[data-testid="stExpander"] details summary:hover {
+    background: var(--paper-ink) !important;
+    color: var(--ink) !important;
+}
+/* Target only the label paragraph — NOT span, which carries the Material Icons glyph */
+[data-testid="stExpander"] details summary p {
+    color: var(--ink) !important;
+    font-family: var(--font-sans) !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+}
+
+/* ── Dataframe (glide-data-grid) ── */
+[data-testid="stDataFrame"] {
+    --gdg-bg-cell:        var(--paper) !important;
+    --gdg-bg-cell-medium: var(--paper-deep) !important;
+    --gdg-bg-header:      var(--paper-deep) !important;
+    --gdg-bg-header-has-focus: var(--paper-ink) !important;
+    --gdg-text-dark:      var(--ink) !important;
+    --gdg-text-medium:    var(--ink-60) !important;
+    --gdg-text-light:     var(--ink-40) !important;
+    --gdg-border-color:   var(--ink-10) !important;
+}
+[data-testid="stDataFrame"] > div {
+    background: var(--paper) !important;
+}
+
+/* ── Streamlit tab labels — force full-ink color in all states ── */
+[data-testid="stTabs"] button[data-baseweb="tab"] {
+    color: var(--ink) !important;
+    font-family: var(--font-sans) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+}
+[data-testid="stTabs"] button[data-baseweb="tab"]:hover {
+    color: var(--ink) !important;
+}
+[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="false"] {
+    color: var(--ink) !important;
+    opacity: 0.55;
+}
+[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
+    color: var(--ink) !important;
+    opacity: 1;
+}
+
+/* ── Segmented control themed pills ── */
+.stApp [data-testid="stButtonGroup"],
+.stApp [data-testid="stButtonGroup"] > div,
+.stApp [data-testid="stButtonGroup"] [role="radiogroup"] {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+}
+
+.stApp [data-testid="stButtonGroup"] [role="radiogroup"] {
+    gap: 8px !important;
+    padding: 4px 0 !important;
+}
+
+.stApp [data-testid="stButtonGroup"] button,
+.stApp [data-testid="stButtonGroup"] [role="radiogroup"] button {
+    border-radius: 999px !important;
+    background-color: var(--paper) !important;
+    color: var(--ink-60) !important;
+    border: 1px solid var(--ink-20) !important;
+    padding: 4px 16px !important;
+    height: 32px !important;
+    transition: all 0.1s ease !important;
+    box-shadow: none !important;
+}
+
+.stApp [data-testid="stButtonGroup"] button[kind="segmented_controlActive"],
+.stApp [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] {
+    background-color: var(--accent) !important;
+    color: var(--paper) !important;
+    border: 1px solid var(--accent) !important;
+}
+
+.stApp [data-testid="stButtonGroup"] button[kind="segmented_controlActive"] *,
+.stApp [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] * {
+    color: var(--paper) !important;
+    font-weight: 600 !important;
+    pointer-events: none !important;
+}
+
+.stApp [data-testid="stButtonGroup"] button[kind="segmented_control"] *,
+.stApp [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_control"] * {
+    color: var(--ink-60) !important;
+    pointer-events: none !important;
+}
+
+.stApp [data-testid="stButtonGroup"] button:hover {
+    background-color: var(--paper-deep) !important;
+    border-color: var(--ink-40) !important;
+}
+.stApp [data-testid="stButtonGroup"] button:hover * {
+    color: var(--ink) !important;
+}
+
+/* ── Search result card / button column alignment ─────────────────────────────
+   Streamlit reserves label height above widgets even when no label is present.
+   This removes that gap so the button top-aligns with the card beside it.     */
+[data-testid="stHorizontalBlock"] > [data-testid="column"] > [data-testid="stVerticalBlock"] {
+    justify-content: flex-start;
+}
+[data-testid="stHorizontalBlock"] > [data-testid="column"]:last-child > [data-testid="stVerticalBlock"] > div:first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* ── Hide nav/lang proxy buttons immediately (before JS runs) ─────────────────
+   st.container() creates stLayoutWrapper > stVerticalBlock in the DOM.
+   Targeting the stVerticalBlock that is a direct child of stLayoutWrapper AND
+   contains #dd-proxy-anchor hits ONLY the proxy container — not the main
+   stVerticalBlock (which is the parent of stLayoutWrapper, not its child).
+   visibility:hidden (not display:none) keeps btn.click() functional for JS.  */
+[data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"]:has(#dd-proxy-anchor) {
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    pointer-events: none !important;
+}
