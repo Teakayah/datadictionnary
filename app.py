@@ -395,7 +395,7 @@ if current_tab == "search":
                         with _c_code:
                             st.code(full_name, language=None)
                         with _c_bk:
-                            if st.button("★" if _is_bookmarked else "☆", key=f"bk_{full_name}", use_container_width=True):
+                            if st.button("★" if _is_bookmarked else "☆", key=f"bk_{full_name}", help=t("personalization.remove_bookmark") if _is_bookmarked else t("personalization.add_bookmark"), use_container_width=True):
                                 if _is_bookmarked:
                                     st.session_state.get("bookmarks", set()).discard(full_name)
                                     _pref_delete(full_name, "bookmark")
@@ -478,7 +478,7 @@ if current_tab == "search":
                                     _r_desc.markdown(f'<span class="dd-col-desc">{_html.escape(_ccomment)}</span>', unsafe_allow_html=True)
 
                                 if _power and _col_edit != _edit_key:
-                                    if _r_btn.button("✎", key=f"col_edit_{_edit_key}", use_container_width=True):
+                                    if _r_btn.button("✎", key=f"col_edit_{_edit_key}", help=t("common.edit"), use_container_width=True):
                                         st.session_state["dd_col_edit_mode"] = _edit_key
                                         st.rerun()
 

@@ -68,7 +68,7 @@ def render_glossary(query_groups) -> None:
                         st.session_state["dd_nav_select"] = table_fn
                         st.rerun()
                 with _c_star:
-                    if st.button("★" if _gloss_bk else "☆", key=f"gloss_bk_{table_fn}", use_container_width=True):
+                    if st.button("★" if _gloss_bk else "☆", key=f"gloss_bk_{table_fn}", help=t("personalization.remove_bookmark") if _gloss_bk else t("personalization.add_bookmark"), use_container_width=True):
                         if _gloss_bk:
                             st.session_state.get("bookmarks", set()).discard(table_fn)
                             _pref_delete(table_fn, "bookmark")
