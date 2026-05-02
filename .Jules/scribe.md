@@ -1,0 +1,1 @@
+## 2026-05-02 - [Remove misleading text in CLAUDE.md] **Learning:** CLAUDE.md had misleading text claiming there are no tests or linters, which is wrong. Tests and ruff do exist. **Action:** Read README.md to ensure test commands are accurate and correct.

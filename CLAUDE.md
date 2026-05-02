@@ -17,9 +17,13 @@ python scripts/sync_metadata.py
 # Configure environment
 cp .env.example .env
 # Then fill in DATABRICKS_HOST, DATABRICKS_HTTP_PATH, DATABRICKS_TOKEN, TENANT_ID, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
-```
 
-There are no automated tests or linters configured yet.
+# Run tests
+python -m pytest --tb=short -q
+
+# Run linters
+ruff check .
+```
 
 ## Architecture
 
