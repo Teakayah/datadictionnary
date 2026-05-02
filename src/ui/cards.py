@@ -84,7 +84,7 @@ def _render_table_card(row: "pd.Series", key_prefix: str, _pref_delete_fn=None, 
             st.session_state["dd_nav_select"] = _full
             st.rerun()
     with _c_star:
-        if st.button("★" if _is_bk else "☆", key=f"{key_prefix}_bk_{_full}", use_container_width=True):
+        if st.button("★" if _is_bk else "☆", key=f"{key_prefix}_bk_{_full}", help=t("personalization.remove_bookmark") if _is_bk else t("personalization.add_bookmark"), use_container_width=True):
             if _is_bk:
                 st.session_state.get("bookmarks", set()).discard(_full)
                 if _pref_delete_fn:
@@ -206,7 +206,7 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
                         st.session_state["dd_nav_select"] = _bk_table
                         st.rerun()
                 with _c_star:
-                    if st.button("★", key=f"colbk_rm_{_bk_id}", use_container_width=True):
+                    if st.button("★", key=f"colbk_rm_{_bk_id}", help=t("personalization.remove_bookmark"), use_container_width=True):
                         st.session_state.col_bookmarks.discard(_bk_id)
                         if pref_delete_fn:
                             pref_delete_fn(_bk_id, "col_bookmark")
