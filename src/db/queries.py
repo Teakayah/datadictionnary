@@ -13,6 +13,8 @@ app.py because they depend on the _DEMO_* DataFrames defined there.
 
 from __future__ import annotations
 
+import csv
+import io
 import pandas as pd
 import streamlit as st
 import logging
@@ -257,3 +259,27 @@ def get_column_business_names(table_full_name: str) -> dict:
     except Exception as e:
         logging.warning("Could not fetch column business names for %s: %s", table_full_name, e)
     return {}
+
+
+def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
+    """Export table column metadata to a CSV string.
+
+    Includes business name and definition overrides if present.
+    """
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Column Name", "Business Name", "Data Type", "System Description", "Business Definition"])
+
+    if cols is not None and not cols.empty:
+        for _, c in cols.iterrows():
+            cname = str(c.get("column_name", ""))
+            ctype = str(c.get("data_type", ""))
+            ccomment = str(c.get("comment") or "")
+
+            override = col_overrides.get(cname, {})
+            biz_name = override.get("business_name", "")
+            biz_def = override.get("definition", "")
+
+            writer.writerow([cname, biz_name, ctype, ccomment, biz_def])
+
+    return output.getvalue()
