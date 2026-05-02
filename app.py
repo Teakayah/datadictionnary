@@ -1,25 +1,19 @@
 from __future__ import annotations
 
 import logging
-import uuid
-import threading
-import time
 import streamlit as st
 import streamlit.components.v1 as components
 from streamlit_js_eval import streamlit_js_eval
 import os
 import html as _html
-import pandas as pd
 from dotenv import load_dotenv
 load_dotenv()  # must run before any src.* import so os.getenv() reads .env values
 
 from src.auth import check_auth, is_power_user, is_admin, render_signin_page
-from src.ui.header import render_footer, LOGO_MARK_SVG
+from src.ui.header import render_header, render_footer, LOGO_MARK_SVG
 
 # ── Internationalisation (i18n) ───────────────────────────────────────────────
-import json            # used in sync queue (json.dumps/loads)
-import json as _json   # alias used in render_header and lineage; keep alongside i18n import
-from src.i18n import _ensure_locale, t, set_locale
+from src.i18n import t
 
 
 
@@ -39,21 +33,15 @@ st.set_page_config(
 )
 
 # ── Design system CSS ──────────────────────────────────────────────────────────
-from src.ui.css import VIS_WIDE_CSS, render_css
+from src.ui.css import render_css
 render_css()  # inject design-system CSS on every render
-from src.db.duckdb_adapter import (
-    _duckdb_available, _run_duckdb_query,
-)
-from src.db.databricks_adapter import (
-    _run_databricks_query,
-)
+from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import (
     _get_write_connection, get_db_connection,
     run_query, get_authorized_tables, search_all_metadata,
-    get_column_business_names, get_multi_hop_lineage
+    get_column_business_names, get_multi_hop_lineage,
+    export_schema_to_csv,
 )
-from src.demo.data import _DEMO_GLOSSARY
-
 from src.config import is_demo_mode
 from src.personalization import (
     _pref_upsert, _pref_delete, _sync_prefs_to_session, is_power_user
@@ -65,126 +53,7 @@ from src.audit import (
     save_table_metadata, save_business_name, get_table_steward
 )
 
-def render_header(user_name: str | None = None, active_tab: str = "search", show_admin: bool = False):
-    _ensure_locale()
-    locale = st.session_state.get("locale", "en")
-
-    user_section = ""
-    if user_name:
-        user_section = f'<span class="dd-nav-sep"></span><span class="dd-nav-user">{_html.escape(user_name)}</span>'
-
-    def link(label, tab_id):
-        active = "active" if active_tab == tab_id else ""
-        return f'<a href="#" data-tab="{tab_id}" class="dd-nav-tab {active}">{label}</a>'
-
-    admin_link = link(t("nav.admin"), "admin") if show_admin else ""
-
-    en_active = "dd-lang-active" if locale == "en" else ""
-    fr_active  = "dd-lang-active" if locale == "fr" else ""
-    title_en = t("language.switch_to_en")
-    title_fr = t("language.switch_to_fr")
-    lang_toggle = f'<span class="dd-nav-sep"></span><span class="dd-lang-toggle" aria-label="Language selector"><a href="#" data-lang="en" class="dd-lang-opt {en_active}" title="{title_en}">EN</a><span class="dd-lang-sep">/</span><a href="#" data-lang="fr" class="dd-lang-opt {fr_active}" title="{title_fr}">FR</a></span>'
-
-    st.html(f'''
-<div class="dd-header" lang="{locale}">
-  <div class="dd-header-inner">
-    <a href="#" data-tab="search" class="dd-logo-link">
-      {LOGO_MARK_SVG}
-      <span class="dd-logo-text">Data Dictionary</span>
-      <span class="dd-pill">Beta</span>
-    </a>
-    <nav class="dd-nav" role="navigation" aria-label="Main navigation">
-      {link(t("nav.search"), "search")}
-      {link(t("nav.catalog"), "catalog")}
-      {link(t("nav.glossary"), "glossary")}
-      {link(t("nav.discovery"), "discovery")}
-      {link(t("nav.health"), "health")}
-      {admin_link}
-      {lang_toggle}
-      {user_section}
-    </nav>
-  </div>
-</div>
-''')
-
-    # Hidden Streamlit nav/lang proxy buttons — JS clicks these; the container is
-    # hidden immediately via CSS :has(#dd-proxy-anchor) so they never flash.
-    _tabs = ["search", "catalog", "glossary", "discovery", "health"]
-    if show_admin:
-        _tabs.append("admin")
-    _is_mock = ENABLE_MOCK_AUTH
-    with st.container():
-        st.markdown('<div id="dd-proxy-anchor"></div>', unsafe_allow_html=True)
-        for tab_id in _tabs:
-            if st.button(t(f"nav.{tab_id}"), key=f"nav_{tab_id}"):
-                st.query_params["tab"] = tab_id
-                st.rerun()
-        # on_click fires before rerun so render_header() picks up the new locale.
-        st.button("LOCALE_EN", key="lang_btn_en", on_click=set_locale, args=("en",))
-        st.button("LOCALE_FR", key="lang_btn_fr", on_click=set_locale, args=("fr",))
-
-    # Zero-height iframe: wires nav clicks → hidden Streamlit buttons,
-    # and wires language toggle clicks → hidden lang proxy buttons.
-    _tab_map = {tid: t(f"nav.{tid}") for tid in _tabs}
-    _tab_map_js = _json.dumps(_tab_map)
-    _nav_labels_js = _json.dumps(list(_tab_map.values()))
-
-    components.html(f"""
-    <div style="display:none;">
-    <script>
-    (function() {{
-        const parentDoc = window.parent.document;
-        const NAV_LABELS = {_nav_labels_js};
-        const TAB_MAP = {_tab_map_js};
-        const iframeId = Math.random().toString(36);
-
-        function wire() {{
-            const allBtns = Array.from(parentDoc.querySelectorAll('button'));
-            
-            // 1. The proxy container is already hidden via CSS (visibility:hidden).
-            //    Nothing to do here — btn.click() works on visibility:hidden elements.
-
-            // 2. Wire Navigation
-            parentDoc.querySelectorAll('a.dd-nav-tab[data-tab], a.dd-logo-link[data-tab]').forEach(link => {{
-                if (link._wired === iframeId) return;
-                link._wired = iframeId;
-                link.addEventListener('click', function(e) {{
-                    e.preventDefault();
-                    const tabId = this.getAttribute('data-tab');
-                    const localizedLabel = TAB_MAP[tabId];
-                    const currentBtns = Array.from(parentDoc.querySelectorAll('button'));
-                    const btn = currentBtns.find(b => b.textContent.trim() === localizedLabel);
-                    if (btn) btn.click();
-                }});
-            }});
-
-            // 3. Wire Language
-            parentDoc.querySelectorAll('a.dd-lang-opt[data-lang]').forEach(link => {{
-                if (link._wired === iframeId) return;
-                link._wired = iframeId;
-                link.addEventListener('click', function(e) {{
-                    e.preventDefault();
-                    const lang = this.getAttribute('data-lang').toUpperCase();
-                    const currentBtns = Array.from(parentDoc.querySelectorAll('button'));
-                    const btn = currentBtns.find(b => b.textContent.trim() === 'LOCALE_' + lang);
-                    if (btn) btn.click();
-                }});
-            }});
-        }}
-
-        // Initial wire
-        setTimeout(wire, 150);
-
-        // Continuous monitoring for Streamlit rerenders
-        const observer = new MutationObserver(() => {{ wire(); }});
-        observer.observe(parentDoc.body, {{childList: true, subtree: true}});
-    }})();
-    </script>
-    </div>
-    """, height=0)
-
-
-# render_footer imported from src.ui.header
+# render_header, render_footer imported from src.ui.header
 
 # ── Databricks query helper ────────────────────────────────────────────────────
 # ── DuckDB local-cache adapter ────────────────────────────────────────────────
@@ -198,316 +67,21 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
 # is_admin imported from src.auth (Phase 5)
 
 
-import csv
-import io
-
-
-
-
-# _dq_grade and _compute_live_completeness moved to src/ui/cards.py (Phase 9)
-
-
-def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
-    """Export table column metadata to a CSV string.
-
-    Includes business name and definition overrides if present.
-    """
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["Column Name", "Business Name", "Data Type", "System Description", "Business Definition"])
-
-    if cols is not None and not cols.empty:
-        for _, c in cols.iterrows():
-            cname = str(c.get("column_name", ""))
-            ctype = str(c.get("data_type", ""))
-            ccomment = str(c.get("comment") or "")
-
-            override = col_overrides.get(cname, {})
-            biz_name = override.get("business_name", "")
-            biz_def = override.get("definition", "")
-
-            writer.writerow([cname, biz_name, ctype, ccomment, biz_def])
-
-    return output.getvalue()
+# export_schema_to_csv imported from src.db.queries
 
 
 from src.sync.worker import _start_sync_worker_thread, _get_dr_resync_status, _get_last_ui_activity, _set_dr_resync_status, _set_dr_resync_progress, _mark_ui_activity, _run_dr_resync
 from src.sync.push import enqueue_sync, enqueue_column_sync, _push_to_databricks, _push_definition_to_databricks, _process_sync_queue
+from src.ui.lineage import _build_lineage_graph, _lineage_vis_html, render_lineage_fullscreen
 
-
-def _viewport_height(fallback: int = 800) -> int:
-    """Return the user's viewport height in px, falling back if not yet captured."""
-    return int(st.session_state.get("viewport_height", fallback))
-
-
-# VIS_WIDE_CSS imported from src.ui.css (assets/vis_dialog.css)
-
-def _fetch_lineage_hop(node_fn: str, query_groups: list) -> "pd.DataFrame | None":
-    """Fetch direct lineage neighbors of node_fn, permission-filtered."""
-    lin_ph = ", ".join([f"%(lin_g_{i})s" for i in range(len(query_groups))]) if query_groups else "''"
-    params: dict = {"table_full_name": node_fn}
-    for i, g in enumerate(query_groups):
-        params[f"lin_g_{i}"] = g
-    q = (
-        "SELECT DISTINCT l.direction, l.entity_full_name, l.entity_type "
-        "FROM {0}.{1}.lineage_cache l "
-        "JOIN {0}.{1}.permissions_cache p ON l.entity_full_name = p.table_full_name "
-        "WHERE l.table_full_name = %(table_full_name)s "
-        "AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS') "
-        "ORDER BY l.direction, l.entity_full_name"
-    ).format(CATALOG_CACHE, SCHEMA_CACHE, lin_ph)  # nosec B608
-    return run_query(q, params)
-
-
-def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, max_depth: int = 2):
-    """BFS multi-hop lineage. Returns (graph_nodes, graph_links)."""
-    graph_nodes = [{"id": start_fn, "label": start_label, "current": True, "relationship": "Current"}]
-    graph_links: list = []
-    visited: set = {start_fn}
-    frontier = [start_fn]
-
-    for _ in range(max_depth):
-        if not frontier:
-            break
-        next_frontier: list = []
-        for node_fn in frontier:
-            result = _fetch_lineage_hop(node_fn, query_groups)
-            if result is None or result.empty or "direction" not in result.columns:
-                continue
-            for _, lr in result.iterrows():
-                efn = str(lr["entity_full_name"])
-                direction = str(lr["direction"])
-                link = {"from": efn, "to": node_fn} if direction == "UPSTREAM" else {"from": node_fn, "to": efn}
-                if link not in graph_links:
-                    graph_links.append(link)
-                if efn not in visited:
-                    visited.add(efn)
-                    next_frontier.append(efn)
-                    graph_nodes.append({"id": efn, "label": efn.split(".")[-1], "current": False, "relationship": direction.capitalize()})
-        frontier = next_frontier
-
-    return graph_nodes, graph_links
-
-
-def _lineage_vis_html(graph_nodes: list, graph_links: list, height: int = 350, container_id: str = "mynetwork", spring_length: int = 120) -> str:
-    import json as _json
-    nodes_js = _json.dumps(graph_nodes)
-    edges_js = _json.dumps(graph_links)
-    return (
-        f'<div id="{container_id}" style="width:100%;height:{height}px;background:#F2EDE1;border-radius:4px;'
-        f'border:1px solid #C9C2B4;overflow:hidden;margin-top:16px;"></div>'
-        f'<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>'
-        f'<script>'
-        f'var nodes=new vis.DataSet({nodes_js});'
-        f'var edges=new vis.DataSet({edges_js});'
-        f'var container=document.getElementById("{container_id}");'
-        f'var options={{nodes:{{shape:"box",margin:10,font:{{size:14,face:"sans-serif"}},borderWidth:1,shadow:true}},'
-        f'edges:{{arrows:"to",color:"#C9C2B4",smooth:{{type:"cubicBezier",forceDirection:"horizontal"}}}},'
-        f'physics:{{barnesHut:{{springLength:{spring_length},springConstant:0.04}},minVelocity:0.75}},'
-        f'interaction:{{hover:false,dragNodes:true,dragView:true,zoomView:true}}}}; '
-        f'var upd=[];nodes.forEach(function(n){{'
-        f'var bg=n.current?"#B8362A":(n.relationship==="Shared column"?"#DDE4EC":"#FAF7F0");'
-        f'var bdr=n.current?"#8C271E":(n.relationship==="Shared column"?"#2B4A6B":"#C9C2B4");'
-        f'var txt=n.current?"#FAF7F0":(n.relationship==="Shared column"?"#2B4A6B":"#14110C");'
-        f'upd.push({{id:n.id,color:{{background:bg,border:bdr,highlight:{{background:bg,border:bdr}}}},font:{{color:txt}}}});}});'
-        f'nodes.update(upd);'
-        f'var net=new vis.Network(container,{{nodes:nodes,edges:edges}},options);'
-        f'net.once("stabilizationIterationsDone",function(){{net.fit();}});'
-        f'</script>'
-    )
-
-
-@st.dialog(t("detail.lineage_graph"), width="large")
-def render_lineage_fullscreen(graph_nodes: list, graph_links: list, full_name: str):
-    st.markdown(VIS_WIDE_CSS, unsafe_allow_html=True)
-    st.markdown(f"**{full_name}** — {t('detail.lineage_graph_subtitle').format(table=full_name.split('.')[-1])}")
-    # Use a large fixed canvas — CSS in VIS_WIDE_CSS stretches the iframe to
-    # calc(95vh - 190px), so the vis.js div just needs to be big enough that
-    # the graph isn't clipped before CSS takes over.
-    _graph_h = 1800
-    graph_html = _lineage_vis_html(graph_nodes, graph_links, height=_graph_h, container_id="mynetwork_full", spring_length=220)
-    components.html(graph_html, height=_graph_h + 20, scrolling=False)
-
-
-@st.dialog(t("detail.edit_table"), width="large")
-def render_table_metadata_editor(table_full_name: str, current_desc: str, current_steward: str):
-    """Editor for table-level metadata (description, steward)."""
-    st.markdown(f"**{table_full_name}**")
-    
-    new_desc = st.text_area(t("detail.table_description"), value=current_desc, height=150)
-    new_stew = st.text_input(t("detail.steward_email"), value=current_steward)
-    
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        if st.button(t("common.save"), type="primary", use_container_width=True):
-            try:
-                save_table_metadata(table_full_name, description=new_desc, steward_email=new_stew)
-                st.success(t("common.saved"))
-                time.sleep(0.5)
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error: {e}")
-    with c2:
-        if st.button(t("common.cancel"), use_container_width=True):
-            st.rerun()
-
-
-@st.dialog(t("detail.data_sample"), width="large")
-def render_data_sample(table_full_name: str):
-    import re
-    import logging
-    import pandas as pd
-    st.markdown(VIS_WIDE_CSS, unsafe_allow_html=True)
-    st.markdown(f"**{table_full_name}**")
-
-    # Security: check permission even though UI usually prevents this call
-    groups = tuple(st.session_state.get("user_groups", [])) if st.session_state.get("user_groups") else ("none",)
-    active_group = st.session_state.get("group_filter")
-    query_groups = (active_group,) if active_group else groups
-    _auth_df = get_authorized_tables(query_groups)
-    _allowed = set(_auth_df["full_name"].tolist()) if _auth_df is not None and not _auth_df.empty else set()
-    if table_full_name not in _allowed:
-        st.error(t("detail.unauthorized"))
-        return
-
-    try:
-        if not re.match(r"^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$", table_full_name):
-            st.error(t("common.error"))
-            return
-        if is_demo_mode():
-            df = pd.DataFrame({"id": [1, 2, 3], "status": ["NEW", "SHIPPED", "CLOSED"]})
-        elif _duckdb_available():
-            # DuckDB file is ATTACHed as CATALOG_CACHE; actual row data lives at
-            # CATALOG_CACHE.<schema>.<table> — strip the Databricks Unity Catalog prefix.
-            _parts = table_full_name.split(".")
-            if len(_parts) == 3:
-                _, _sch, _tbl = _parts
-                _sample_query = f'SELECT * FROM {CATALOG_CACHE}."{_sch}"."{_tbl}" LIMIT 100'  # nosec B608
-                df = run_query(_sample_query)
-            else:
-                st.info(t("detail.preview_not_available"))
-                return
-        else:
-            query = f"SELECT * FROM {table_full_name} LIMIT 100"  # nosec B608
-            df = run_query(query)
-        if df is not None and not df.empty:
-            # Height is controlled by VIS_WIDE_CSS (calc(95vh - 190px)) so
-            # the grid always fills the dialog regardless of viewport size.
-            # Pass a generous fixed height so Streamlit allocates enough iframe
-            # space; CSS then stretches it to the actual available area.
-            st.dataframe(df, use_container_width=True, height=2000)
-        else:
-            st.info(t("detail.preview_needs_data"))
-    except Exception as e:
-        logging.error("Error fetching data sample for %s: %s", table_full_name, e, exc_info=True)
-        st.error(t("detail.preview_error"))
 
 
 from src.ui.cards import (
     _dq_grade, _compute_live_completeness, render_discovery, render_health, render_admin_page,
-    _mark_ui_activity,
+    _mark_ui_activity, render_table_metadata_editor, render_data_sample,
 )
 from src.pages.catalog import render_catalog_browser
-# ── Page renderers ─────────────────────────────────────────────────────────────
-
-
-def render_glossary(query_groups):
-    st.markdown(f'''
-    <div class="dd-search-hero">
-      <div class="dd-eyebrow">{t("glossary.title")}</div>
-      <h1>{t("glossary.hero_title")}</h1>
-      <p class="lead">{t("glossary.subtitle")}</p>
-    </div>
-    ''', unsafe_allow_html=True)
-    
-    # Term Selection (Autocomplete)
-    all_terms = _DEMO_GLOSSARY["term"].tolist()
-    selected_term = st.selectbox(
-        t("glossary.search_placeholder"),
-        options=all_terms,
-        placeholder="Select or type a business term...",
-        label_visibility="collapsed",
-        key="glossary_search",
-    )
-    
-    if selected_term:
-        term_row = _DEMO_GLOSSARY[_DEMO_GLOSSARY["term"] == selected_term].iloc[0]
-        
-        col_main, col_side = st.columns([7, 5], gap="large")
-        
-        with col_main:
-            st.markdown(f'''
-            <div class="dd-detail-header" style="margin-top: 0;">
-              <span class="dd-eyebrow" style="margin-bottom:0">{t("glossary.term_details")}</span>
-            </div>
-            <div class="dd-detail-table-name">{_html.escape(str(term_row["term"]))}</div>
-            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.definition")}</div>
-            <p class="dd-detail-desc" style="font-size:18px;">{_html.escape(str(term_row["definition"]))}</p>
-            
-            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:24px; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.logic_calculation")}</div>
-            <div style="background:var(--paper-deep); padding:16px; border-radius:2px; font-family:var(--font-mono); font-size:14px; color:var(--ink); border-left:3px solid var(--accent); line-height:1.5;">
-              {_html.escape(str(term_row["calculation"]))}
-            </div>
-            
-            <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:32px; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.linked_tables")}</div>
-            ''', unsafe_allow_html=True)
-            
-            _authorized_fns = set(get_authorized_tables(query_groups)["full_name"].tolist()) if query_groups else set()
-            for table_fn in term_row["related_tables"]:
-                if table_fn not in _authorized_fns:
-                    continue  # hide tables the current user cannot access
-                _gloss_bk = table_fn in st.session_state.get("bookmarks", set())
-                _c_tbl, _c_star = st.columns([11, 1], gap="small")
-                with _c_tbl:
-                    if st.button(f"→ {table_fn.split('.')[-1]}", key=f"gloss_link_{table_fn}", use_container_width=True, type="secondary"):
-                        st.query_params["tab"] = "search"
-                        st.session_state["dd_search_override"] = table_fn.split(".")[-1]
-                        st.session_state["dd_nav_select"] = table_fn
-                        st.rerun()
-                with _c_star:
-                    if st.button("★" if _gloss_bk else "☆", key=f"gloss_bk_{table_fn}", use_container_width=True):
-                        if _gloss_bk:
-                            st.session_state.get("bookmarks", set()).discard(table_fn)
-                            _pref_delete(table_fn, "bookmark")
-                        else:
-                            st.session_state.get("bookmarks", set()).add(table_fn)
-                            _pref_upsert(table_fn, "bookmark")
-                        st.rerun()
-
-        with col_side:
-            # Stewardship Section
-            st.markdown(f'''
-            <div class="dd-section-header">
-              <span class="dd-eyebrow" style="margin-bottom:0">{t("glossary.stewardship")}</span>
-            </div>
-            <div style="margin-top:16px;">
-              <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{t("glossary.business_domain")}</div>
-              <div style="font-family:var(--font-sans); font-size:16px; font-weight:600; color:var(--ink); margin-top:4px;">{_html.escape(str(term_row["domain"]))}</div>
-            </div>
-            <div style="margin-top:20px;">
-              <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{t("glossary.data_steward")}</div>
-              <div style="font-family:var(--font-sans); font-size:16px; font-weight:600; color:var(--ink); margin-top:4px;">{_html.escape(str(term_row["steward"]))}</div>
-            </div>
-            ''', unsafe_allow_html=True)
-            
-            # Concept Map (Graph)
-            st.markdown(f'''
-            <div class="dd-section-header" style="margin-top:32px;">
-              <span class="dd-eyebrow" style="margin-bottom:0">{t("glossary.concept_map")}</span>
-            </div>
-            ''', unsafe_allow_html=True)
-            
-            # Simple Graph: Term -> Tables
-            graph_nodes = [{"id": "TERM", "label": selected_term, "current": True, "relationship": "Current"}]
-            graph_links = []
-            for table_fn in term_row["related_tables"]:
-                t_label = table_fn.split(".")[-1]
-                graph_nodes.append({"id": table_fn, "label": t_label, "current": False, "relationship": "Table"})
-                graph_links.append({"from": "TERM", "to": table_fn})
-            
-            import json
-            graph_html = f'''<div id="mynetwork_glossary" style="width: 100%; height: 300px; background: #F2EDE1; border-radius: 4px; border: 1px solid #C9C2B4; overflow: hidden; margin-top: 16px;"></div><script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script><script type="text/javascript">var nodes = new vis.DataSet({json.dumps(graph_nodes)}); var edges = new vis.DataSet({json.dumps(graph_links)}); var container = document.getElementById('mynetwork_glossary'); var data = {{ nodes: nodes, edges: edges }}; var options = {{ nodes: {{ shape: 'box', margin: 10, font: {{ size: 14, face: 'sans-serif' }}, borderWidth: 1, shadow: true }}, edges: {{ arrows: 'to', color: '#C9C2B4', smooth: {{ type: 'cubicBezier', forceDirection: 'horizontal' }} }}, physics: {{ barnesHut: {{ springLength: 100, springConstant: 0.04 }}, minVelocity: 0.75 }}, interaction: {{ hover: false, dragNodes: true, dragView: true, zoomView: true }} }}; var updatedNodes = []; nodes.forEach(function(node) {{ var isCurrent = node.current; var bg = isCurrent ? '#B8362A' : '#FAF7F0'; var border = isCurrent ? '#8C271E' : '#C9C2B4'; var text = isCurrent ? '#FAF7F0' : '#14110C'; updatedNodes.push({{ id: node.id, color: {{ background: bg, border: border, highlight: {{ background: bg, border: border }} }}, font: {{ color: text }} }}); }}); nodes.update(updatedNodes); var network = new vis.Network(container, data, options); network.once("stabilizationIterationsDone", function() {{ network.fit(); }});</script>'''
-            components.html(graph_html, height=330)
+from src.pages.glossary import render_glossary
 
 
 # ── Per-render startup tasks ──────────────────────────────────────────────────
@@ -588,22 +162,12 @@ active_group = st.session_state.get("group_filter")
 query_groups = (active_group,) if active_group else groups
 
 
-def _clear_transient_edit_state() -> None:
-    """Discard any in-progress column edits or open comment forms.
-
-    Called whenever the user navigates to a different table or a different tab
-    so a half-filled form from one context never bleeds into another.
-    """
-    st.session_state.pop("dd_col_edit_mode", None)
-    stale_keys = [k for k in st.session_state if str(k).startswith("dd_comment_open_")]
-    for k in stale_keys:
-        del st.session_state[k]
-
-
 # Detect tab change — clear transient state so edits don't bleed across tabs
 _prev_tab = st.session_state.get("_dd_current_tab")
 if _prev_tab is not None and _prev_tab != current_tab:
-    _clear_transient_edit_state()
+    st.session_state.pop("dd_col_edit_mode", None)
+    for k in [k for k in st.session_state if str(k).startswith("dd_comment_open_")]:
+        del st.session_state[k]
 st.session_state["_dd_current_tab"] = current_tab
 
 if current_tab == "search":
@@ -670,7 +234,9 @@ if current_tab == "search":
     # Detect selection change — clear transient state and sticky nav anchor
     _prev_query = st.session_state.get("_dd_current_search_query")
     if _prev_query is not None and _prev_query != search_query:
-        _clear_transient_edit_state()
+        st.session_state.pop("dd_col_edit_mode", None)
+        for k in [k for k in st.session_state if str(k).startswith("dd_comment_open_")]:
+            del st.session_state[k]
         st.session_state.pop("_dd_sticky_nav", None)
     st.session_state["_dd_current_search_query"] = search_query
 
@@ -1088,7 +654,7 @@ if current_tab == "search":
                             st.markdown('<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No grants recorded.</p>', unsafe_allow_html=True)
 
                         # --- § Lineage (multi-hop BFS, permission-filtered) ---
-                        graph_nodes, graph_links = _build_lineage_graph(full_name, _tbl, query_groups, max_depth=2)
+                        graph_nodes, graph_links = _build_lineage_graph(full_name, _tbl, query_groups, run_query, max_depth=2)
 
                         # --- § Related tables ---
                         rel_group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(query_groups))]) if query_groups else "''"
