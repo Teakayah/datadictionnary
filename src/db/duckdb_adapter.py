@@ -16,7 +16,7 @@ import threading
 import pandas as pd
 import streamlit as st
 
-from src.config import DUCKDB_PATH, USER_DATA_PATH, CATALOG_CACHE, SCHEMA_CACHE
+from src.config import DUCKDB_PATH, USER_DATA_PATH, CATALOG_CACHE
 
 
 _db_write_lock = threading.Lock()
@@ -33,7 +33,6 @@ def _to_duckdb_sql(sql: str, params: dict) -> tuple:
     to ``= ANY($name)`` so the DuckDB array-contains operator is used.
     Returns (converted_sql, converted_params_dict).
     """
-    import re
     if not params:
         return sql, {}
     converted = {}

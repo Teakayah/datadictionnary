@@ -7,7 +7,6 @@ import time
 import streamlit as st
 import streamlit.components.v1 as components
 from streamlit_js_eval import streamlit_js_eval
-from databricks import sql
 import os
 import html as _html
 import pandas as pd
@@ -20,7 +19,7 @@ from src.ui.header import render_footer, LOGO_MARK_SVG
 # ── Internationalisation (i18n) ───────────────────────────────────────────────
 import json            # used in sync queue (json.dumps/loads)
 import json as _json   # alias used in render_header and lineage; keep alongside i18n import
-from src.i18n import LOCALES, get_locale, _ensure_locale, t, set_locale
+from src.i18n import _ensure_locale, t, set_locale
 
 # ── Demo data (returned in mock/dev mode instead of hitting Databricks) ────────
 _DEMO_TABLES = pd.DataFrame({
@@ -163,9 +162,7 @@ _DEMO_GLOSSARY = pd.DataFrame({
 })
 
 from src.config import (
-    TENANT_ID, CLIENT_ID, CLIENT_SECRET, AUTHORITY, REDIRECT_URI, SCOPE,
     CATALOG_CACHE, SCHEMA_CACHE, MAX_BUSINESS_NAME_LEN,
-    DUCKDB_PATH, USER_DATA_PATH,
     MOCK_DEPT,
 )
 # Runtime flags kept as inline reads so per-test env overrides are picked up
@@ -180,29 +177,25 @@ st.set_page_config(
 )
 
 # ── Design system CSS ──────────────────────────────────────────────────────────
-from src.ui.css import DESIGN_CSS, VIS_WIDE_CSS, render_css
+from src.ui.css import VIS_WIDE_CSS, render_css
 render_css()  # inject design-system CSS on every render
 from src.db.duckdb_adapter import (
-    _duckdb_available, _to_duckdb_sql, _get_shared_duckdb_connection,
-    _DuckDBCursor, _DuckDBConn, _run_duckdb_query, _db_write_lock,
+    _duckdb_available, _run_duckdb_query,
 )
 from src.db.databricks_adapter import (
-    _get_databricks_connection, _get_databricks_write_connection,
     _run_databricks_query,
 )
 from src.db.queries import _get_write_connection, get_db_connection
 
 from src.config import is_demo_mode
 from src.personalization import (
-    _user_oid, _pref_upsert, _pref_delete, _pref_load,
-    _sync_prefs_to_session, is_power_user
+    _pref_upsert, _pref_delete, _sync_prefs_to_session, is_power_user
 )
 from src.comments import (
-    get_table_comments, _build_comment_tree, save_comment,
-    send_comment_email, send_reply_email, _fetch_comment_author_email
+    get_table_comments, save_comment
 )
 from src.audit import (
-    log_audit_event, save_table_metadata, save_business_name, get_table_steward
+    save_table_metadata, save_business_name, get_table_steward
 )
 
 # run_query, get_authorized_tables, search_all_metadata, get_column_business_names,
@@ -598,7 +591,6 @@ def enqueue_sync(sync_type: str, table_full_name: str | None, payload: dict, que
     """Add an action to the Databricks write-back queue."""
     if not _duckdb_available():
         return
-    import json
     sync_id = str(uuid.uuid4())
     conn = _get_write_connection()
     payload_str = json.dumps(payload)
@@ -721,7 +713,6 @@ def _process_sync_queue() -> int:
     batch_size = 50 if is_idle else 5
     
     conn = _get_write_connection()
-    import json
     try:
         with conn.cursor() as cursor:
             # Multi-tier priority: order by sync_type weight, then by age
@@ -785,7 +776,6 @@ def _process_sync_queue() -> int:
 @st.cache_resource(show_spinner=False)
 def _start_sync_worker_thread():
     """Singleton background thread that drains pending_sync every 15 s."""
-    import threading
 
     def _loop():
         _count = 0
@@ -981,8 +971,7 @@ def render_data_sample(table_full_name: str):
 
 
 from src.ui.cards import (
-    _dq_grade, _compute_live_completeness, _render_table_card,
-    render_discovery, render_health, render_admin_page,
+    _dq_grade, _compute_live_completeness, render_discovery, render_health, render_admin_page,
     _mark_ui_activity,
 )
 from src.pages.catalog import render_catalog_browser
@@ -1018,13 +1007,13 @@ def render_glossary(query_groups):
             <div class="dd-detail-header" style="margin-top: 0;">
               <span class="dd-eyebrow" style="margin-bottom:0">{t("glossary.term_details")}</span>
             </div>
-            <div class="dd-detail-table-name">{term_row["term"]}</div>
+            <div class="dd-detail-table-name">{_html.escape(str(term_row["term"]))}</div>
             <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.definition")}</div>
-            <p class="dd-detail-desc" style="font-size:18px;">{term_row["definition"]}</p>
+            <p class="dd-detail-desc" style="font-size:18px;">{_html.escape(str(term_row["definition"]))}</p>
             
             <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:24px; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.logic_calculation")}</div>
             <div style="background:var(--paper-deep); padding:16px; border-radius:2px; font-family:var(--font-mono); font-size:14px; color:var(--ink); border-left:3px solid var(--accent); line-height:1.5;">
-              {term_row["calculation"]}
+              {_html.escape(str(term_row["calculation"]))}
             </div>
             
             <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:32px; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.linked_tables")}</div>
@@ -1060,11 +1049,11 @@ def render_glossary(query_groups):
             </div>
             <div style="margin-top:16px;">
               <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{t("glossary.business_domain")}</div>
-              <div style="font-family:var(--font-sans); font-size:16px; font-weight:600; color:var(--ink); margin-top:4px;">{term_row["domain"]}</div>
+              <div style="font-family:var(--font-sans); font-size:16px; font-weight:600; color:var(--ink); margin-top:4px;">{_html.escape(str(term_row["domain"]))}</div>
             </div>
             <div style="margin-top:20px;">
               <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{t("glossary.data_steward")}</div>
-              <div style="font-family:var(--font-sans); font-size:16px; font-weight:600; color:var(--ink); margin-top:4px;">{term_row["steward"]}</div>
+              <div style="font-family:var(--font-sans); font-size:16px; font-weight:600; color:var(--ink); margin-top:4px;">{_html.escape(str(term_row["steward"]))}</div>
             </div>
             ''', unsafe_allow_html=True)
             
@@ -1254,7 +1243,6 @@ if current_tab == "search":
 
     # When a group filter is active but no search term, show all tables for that group
     if active_group and not search_query and _all_tables is not None and not _all_tables.empty:
-        import pandas as _pd2
         _group_results = _all_tables.copy()
         if "match_type" not in _group_results.columns:
             _group_results["match_type"] = "Table"

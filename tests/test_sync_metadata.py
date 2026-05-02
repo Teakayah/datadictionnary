@@ -1,5 +1,5 @@
 import sys
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 import os
 import pytest
 
@@ -130,8 +130,8 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache" in execute_calls[3][0][0]
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags" in execute_calls[4][0][0]
     assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache" in execute_calls[5][0][0]
-    assert f"audit_log" in execute_calls[6][0][0]
-    assert f"business_name_overrides" in execute_calls[7][0][0]
+    assert "audit_log" in execute_calls[6][0][0]
+    assert "business_name_overrides" in execute_calls[7][0][0]
 
     # 5 executemany calls: tables, columns, permissions, lineage, data_quality
     # (object_tags has no data since mock_catalog has no .properties; dq data comes from mock_table.properties)
@@ -212,7 +212,6 @@ def test_main_coverage(setup_mocks):
     # we can mock `sys.argv` and run the script, checking that `WorkspaceClient`
     # from our globally mocked `databricks.sdk` in `sys.modules` was instantiated.
     import runpy
-    import sys
 
     # Reset call counts just in case
     sys.modules["databricks.sdk"].WorkspaceClient.reset_mock()

@@ -54,7 +54,7 @@ def _shot(page: Page, out: Path, name: str, *, tall: bool = False) -> None:
         page.set_viewport_size({"width": w, "height": VIEWPORT["height"]})
     else:
         page.screenshot(path=str(path), full_page=False)
-    mode = f"tall" if tall else "viewport"
+    mode = "tall" if tall else "viewport"
     print(f"  ✓  {name}.png  [{mode}]")
 
 
@@ -397,7 +397,7 @@ def capture_load_test_stats(page: Page, out: Path) -> None:
     print("\n── Load test stats card")
     csv_path = Path(__file__).resolve().parent.parent / "tests" / "load" / "results" / "run_stats.csv"
     if not csv_path.exists():
-        print(f"  ⚠  Stats CSV not found; skipping")
+        print("  ⚠  Stats CSV not found; skipping")
         return
 
     html = _load_stats_html(csv_path)
@@ -585,7 +585,7 @@ def capture_wcag(page: Page, out: Path) -> None:
         [{k: v for k, v in a.items() if k != "passes"} for a in audits],
         indent=2
     ))
-    print(f"  ✓  wcag_audit.json saved")
+    print("  ✓  wcag_audit.json saved")
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
