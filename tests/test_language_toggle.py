@@ -1,10 +1,7 @@
-import pytest
 import os
-import pandas as pd
 from unittest.mock import patch
 import streamlit as st
-from tests.test_navigation import authenticated_app, sql_returns, make_tables_df
-from tests.conftest import get_db_cursor
+from tests.test_navigation import authenticated_app
 
 class TestLanguageNavigation:
     def test_toggle_language_and_navigate(self, monkeypatch):

@@ -18,7 +18,6 @@ Run with:
 from __future__ import annotations
 
 import sys
-from unittest.mock import patch
 import os
 import re
 import pandas as pd
@@ -484,7 +483,6 @@ class TestRealAuth:
         monkeypatch.setenv("CLIENT_ID", "test_client")
         monkeypatch.setenv("TENANT_ID", "test_tenant")
 
-        from tests.conftest import _make_stub
 
         msal_mock = sys.modules["msal"]
         msal_app_instance = msal_mock.ConfidentialClientApplication.return_value

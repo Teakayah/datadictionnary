@@ -5,8 +5,6 @@ from __future__ import annotations
 
 import os
 import pandas as pd
-import pytest
-from unittest.mock import MagicMock, patch
 from streamlit.testing.v1 import AppTest
 
 from tests.conftest import get_db_cursor, sql_returns

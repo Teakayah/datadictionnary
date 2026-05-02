@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import os
 import pandas as pd
-import pytest
 from streamlit.testing.v1 import AppTest
 
 from tests.conftest import sql_returns

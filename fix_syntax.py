@@ -1,4 +1,3 @@
-import re
 with open("app.py", "r") as f:
     app_content = f.read()
 
