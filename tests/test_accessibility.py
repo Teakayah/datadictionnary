@@ -21,7 +21,6 @@ import json
 import os
 import re
 import pandas as pd
-import pytest
 from streamlit.testing.v1 import AppTest
 
 from tests.conftest import sql_returns
@@ -287,7 +286,7 @@ class TestLocaleParity:
         fr_keys = _flatten_keys(self._load("fr"))
         missing = en_keys - fr_keys
         assert not missing, (
-            f"Keys present in en.json but missing from fr.json:\n"
+            "Keys present in en.json but missing from fr.json:\n"
             + "\n".join(f"  {k}" for k in sorted(missing))
         )
 
@@ -296,7 +295,7 @@ class TestLocaleParity:
         fr_keys = _flatten_keys(self._load("fr"))
         extra = fr_keys - en_keys
         assert not extra, (
-            f"Keys present in fr.json but missing from en.json:\n"
+            "Keys present in fr.json but missing from en.json:\n"
             + "\n".join(f"  {k}" for k in sorted(extra))
         )
 
