@@ -11,12 +11,34 @@ from __future__ import annotations
 import os
 import pandas as pd
 import pytest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from streamlit.testing.v1 import AppTest
 
 from tests.conftest import get_db_cursor, sql_returns
 
 APP_PATH = os.path.join(os.path.dirname(__file__), "..", "app.py")
+
+
+def _make_mock_msal(
+    token_result: dict | None = None,
+    silent_result: dict | None = None,
+    accounts: list | None = None,
+) -> MagicMock:
+    """Return a mock MSAL app pre-configured for auth-hardening tests.
+
+    Args:
+        token_result:  Value returned by acquire_token_by_authorization_code.
+        silent_result: Value returned by acquire_token_silent.
+        accounts:      Value returned by get_accounts.
+    """
+    m = MagicMock()
+    m.get_authorization_request_url.return_value = "https://login.microsoftonline.com/auth"
+    m.get_accounts.return_value = accounts if accounts is not None else []
+    if token_result is not None:
+        m.acquire_token_by_authorization_code.return_value = token_result
+    if silent_result is not None:
+        m.acquire_token_silent.return_value = silent_result
+    return m
 
 
 # ── Sample data ───────────────────────────────────────────────────────────────
@@ -507,3 +529,93 @@ class TestSyncObjectTags:
             tag_keys = [r["tag_key"] for r in tag_rows]
             assert "env" in tag_keys
             assert "team" in tag_keys
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Redirect-loop hardening
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestAuthHardening:
+    """Verifies the three redirect-loop failure modes are handled correctly."""
+
+    def test_stale_code_cleared_on_state_mismatch(self, monkeypatch):
+        """?code= must be wiped from URL on state mismatch so no retry loop occurs."""
+        monkeypatch.setenv("ENABLE_MOCK_AUTH", "false")
+        at = AppTest.from_file(APP_PATH, default_timeout=15)
+        # Simulate Entra redirect with a code but no matching state in session
+        at.query_params["code"]  = "stale_code_xyz"
+        at.query_params["state"] = "wrong_state"
+        with patch("src.auth.get_msal_app", return_value=_make_mock_msal()):
+            at.run()
+        # URL must be cleared — no ?code= remaining after mismatch
+        assert "code" not in at.query_params
+        # An error must be shown
+        assert any("Sign-in failed" in (e.value or "") for e in at.error)
+
+    def test_stale_code_cleared_on_token_failure(self, monkeypatch):
+        """?code= must be wiped even when acquire_token_by_authorization_code fails."""
+        monkeypatch.setenv("ENABLE_MOCK_AUTH", "false")
+        monkeypatch.setenv("CLIENT_ID", "test-client")
+        monkeypatch.setenv("TENANT_ID", "test-tenant")
+        monkeypatch.setenv("CLIENT_SECRET", "test-secret")
+        at = AppTest.from_file(APP_PATH, default_timeout=15)
+        at.session_state["oauth_state"] = "good_state"
+        at.session_state["oauth_nonce"] = "good_nonce"
+        at.query_params["code"]  = "bad_code"
+        at.query_params["state"] = "good_state"
+        mock_app = _make_mock_msal(token_result={
+            "error": "invalid_grant",
+            "error_description": "AADSTS70008: Code expired.",
+        })
+        with patch("src.auth.get_msal_app", return_value=mock_app):
+            at.run()
+        assert "code" not in at.query_params
+        assert any("Sign-in failed" in (e.value or "") for e in at.error)
+
+    def test_fresh_token_skips_reauth(self, monkeypatch):
+        """A session with a fresh token must pass check_auth without calling MSAL."""
+        monkeypatch.setenv("ENABLE_MOCK_AUTH", "false")
+        sql_returns(make_tables_df())
+        at = AppTest.from_file(APP_PATH, default_timeout=15)
+        import time
+        at.session_state["auth_token"]       = {"access_token": "valid_token"}
+        at.session_state["token_expires_at"] = time.time() + 3600
+        at.session_state["authenticated"]    = True
+        at.session_state["user_groups"]      = ["SELECT_ALL_USERS"]
+        at.session_state["user_name"]        = "Test User"
+        at.session_state["user_email"]       = "test@example.com"
+        at.session_state["bookmarks"]        = set()
+        at.session_state["col_bookmarks"]    = set()
+        at.session_state["recent_views"]     = []
+        # get_msal_app must NOT be called for a fresh token — if it is, the
+        # test fails immediately (raises) so we know the early-return broke.
+        def _should_not_be_called():
+            raise AssertionError("get_msal_app() was called despite a fresh token")
+        with patch("src.auth.get_msal_app", side_effect=_should_not_be_called):
+            at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        assert at.session_state["authenticated"] is True
+
+    def test_expired_token_triggers_silent_refresh(self, monkeypatch):
+        """An expired token must attempt acquire_token_silent before clearing session."""
+        monkeypatch.setenv("ENABLE_MOCK_AUTH", "false")
+        sql_returns(make_tables_df())
+        at = AppTest.from_file(APP_PATH, default_timeout=15)
+        import time
+        at.session_state["auth_token"]       = {"access_token": "expired_token"}
+        at.session_state["token_expires_at"] = time.time() - 10  # already expired
+        at.session_state["authenticated"]    = True
+        at.session_state["user_groups"]      = ["SELECT_ALL_USERS"]
+        at.session_state["user_name"]        = "Test User"
+        at.session_state["user_email"]       = "test@example.com"
+        at.session_state["bookmarks"]        = set()
+        at.session_state["col_bookmarks"]    = set()
+        at.session_state["recent_views"]     = []
+        mock_app = _make_mock_msal(
+            accounts=[{"username": "test@example.com"}],
+            silent_result={"access_token": "refreshed_token", "expires_in": 3600},
+        )
+        with patch("src.auth.get_msal_app", return_value=mock_app):
+            at.run()
+        assert not at.exception, f"Exception: {at.exception}"
+        mock_app.acquire_token_silent.assert_called_once()

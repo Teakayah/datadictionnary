@@ -13,6 +13,21 @@ Public API:
 Dependencies: msal, streamlit, src.config, src.i18n, src.ui.header
 ENABLE_MOCK_AUTH and ENVIRONMENT are NOT imported here — they are inline
 os.getenv() reads in app.py so per-test env overrides work correctly.
+
+Redirect-loop hardening
+-----------------------
+Three failure modes are guarded against:
+
+1. Stale ?code in URL — query params are cleared on EVERY code-processing
+   attempt (success or failure) so a second render never retries a spent code.
+
+2. Token expiry — on each render the stored access token's expiry is checked.
+   If it is within TOKEN_REFRESH_BUFFER_S of expiry, acquire_token_silent() is
+   attempted first; if that fails the session is cleared for a clean re-auth.
+
+3. State/nonce mismatch on session loss — the error path now clears params
+   before stopping so the user lands on a clean sign-in page rather than an
+   error loop.
 """
 
 from __future__ import annotations
@@ -20,6 +35,7 @@ from __future__ import annotations
 import logging
 import os
 import secrets
+import time
 
 import msal
 import streamlit as st
@@ -30,6 +46,9 @@ from src.config import (
 from src.i18n import t
 from src.ui.header import render_footer, MS_LOGO_SVG
 
+# Trigger a silent token refresh this many seconds before actual expiry.
+TOKEN_REFRESH_BUFFER_S = 300  # 5 minutes
+
 
 @st.cache_resource(show_spinner=False)
 def get_msal_app():
@@ -37,6 +56,36 @@ def get_msal_app():
     return msal.ConfidentialClientApplication(
         CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET
     )
+
+
+def _clear_auth_session() -> None:
+    """Wipe all auth-related session keys so the next render starts clean."""
+    for key in ("auth_token", "token_expires_at", "authenticated",
+                "user_groups", "user_name", "user_email", "user_oid",
+                "oauth_state", "oauth_nonce", "_prefs_loaded"):
+        st.session_state.pop(key, None)
+
+
+def _try_silent_refresh() -> bool:
+    """Attempt a silent token refresh using MSAL's cached account.
+
+    Returns True if a fresh token was stored, False otherwise.
+    """
+    try:
+        msal_app = get_msal_app()
+        email = st.session_state.get("user_email", "")
+        accounts = msal_app.get_accounts(username=email) if email else msal_app.get_accounts()
+        if not accounts:
+            return False
+        result = msal_app.acquire_token_silent(SCOPE, account=accounts[0])
+        if result and "access_token" in result:
+            st.session_state.auth_token = result
+            st.session_state.token_expires_at = time.time() + result.get("expires_in", 3600)
+            logging.info("Silent token refresh succeeded for %s", email)
+            return True
+    except Exception as exc:
+        logging.warning("Silent token refresh failed: %s", exc)
+    return False
 
 
 def render_signin_page(auth_url: str | None = None, mock: bool = False):
@@ -131,73 +180,103 @@ def check_auth(sync_prefs_callback: callable | None = None):
     Args:
         sync_prefs_callback: Optional callable to seed personalisation data on
                              first login (usually _sync_prefs_to_session).
+
+    Flow:
+        1. If a valid, non-expired token is in session → return immediately.
+        2. If the token is close to expiry → try silent refresh; clear + re-auth
+           if that fails.
+        3. If ?code= is in the URL → process the OIDC callback. Query params are
+           cleared regardless of outcome so a stale code never causes a loop.
+        4. Otherwise → generate state/nonce, build auth URL, render sign-in page.
     """
-    if "auth_token" not in st.session_state:
-        st.session_state.auth_token = None
+    # ── Step 1 & 2: existing session ─────────────────────────────────────────
+    if st.session_state.get("auth_token") is not None:
+        expires_at = st.session_state.get("token_expires_at", 0)
+        if expires_at and time.time() < expires_at - TOKEN_REFRESH_BUFFER_S:
+            # Token is still fresh — nothing to do.
+            return
+        # Token is expired or expiry unknown — try silent refresh first.
+        if _try_silent_refresh():
+            return
+        # Silent refresh failed — force a clean re-auth.
+        logging.info("Token expired and silent refresh failed; clearing session for re-auth.")
+        _clear_auth_session()
+        st.query_params.clear()
+        st.rerun()
 
-    if st.session_state.get("auth_token") is None:
-        msal_app = get_msal_app()
-        query_params = st.query_params
+    # ── Step 3: OIDC callback (?code= present) ────────────────────────────────
+    msal_app = get_msal_app()
+    query_params = st.query_params
 
-        if "code" in query_params:
-            state = query_params.get("state")
-            expected_state = st.session_state.get("oauth_state")
+    if "code" in query_params:
+        # Capture all values before clearing — st.query_params.clear() makes
+        # them inaccessible and must happen before any st.stop() call.
+        code           = query_params.get("code", "")
+        state          = query_params.get("state")
+        expected_state = st.session_state.get("oauth_state")
+        expected_nonce = st.session_state.get("oauth_nonce")
 
-            if not state or not expected_state or state != expected_state:
-                logging.error("OAuth state mismatch or missing.")
-                st.error("Authentication failed: Security verification (state mismatch). Please try again.")
-                for key in ("oauth_state", "oauth_nonce"):
-                    st.session_state.pop(key, None)
-                st.stop()
+        # Always clear the code from the URL first — prevents retry loops.
+        st.query_params.clear()
 
-            expected_nonce = st.session_state.get("oauth_nonce")
-            result = msal_app.acquire_token_by_authorization_code(
-                query_params["code"], scopes=SCOPE,
-                redirect_uri=REDIRECT_URI, nonce=expected_nonce,
-            )
-
+        if not state or not expected_state or state != expected_state:
+            logging.error("OAuth state mismatch (got %s, expected %s).", state, expected_state)
             for key in ("oauth_state", "oauth_nonce"):
                 st.session_state.pop(key, None)
+            st.error("Sign-in failed: security check did not match. Please try again.")
+            st.stop()
 
-            if "access_token" in result:
-                claims = result.get("id_token_claims", {})
-                if expected_nonce and claims.get("nonce") != expected_nonce:
-                    logging.error("OAuth nonce mismatch or missing.")
-                    st.error("Authentication failed: Security verification (nonce mismatch).")
-                    st.stop()
-
-                st.session_state.auth_token  = result
-                st.session_state.user_groups = claims.get("groups", [])
-                st.session_state.user_name   = claims.get("name")
-                st.session_state.user_email  = claims.get("email") or claims.get("preferred_username", "")
-                st.session_state.user_oid    = claims.get("oid", "")
-
-                if sync_prefs_callback:
-                    sync_prefs_callback()
-                st.session_state["_prefs_loaded"] = True
-
-                st.query_params.clear()
-                st.rerun()
-            else:
-                logging.error("Failed to acquire token: %s", result.get("error_description", "Unknown"))
-                st.error("Authentication failed. Please try again.")
-                st.stop()
-
-        if "oauth_state" not in st.session_state:
-            st.session_state.oauth_state = secrets.token_urlsafe(16)
-        if "oauth_nonce" not in st.session_state:
-            st.session_state.oauth_nonce = secrets.token_urlsafe(16)
-
-        auth_url = msal_app.get_authorization_request_url(
-            SCOPE,
-            redirect_uri=REDIRECT_URI,
-            state=st.session_state.oauth_state,
-            nonce=st.session_state.oauth_nonce,
+        result = msal_app.acquire_token_by_authorization_code(
+            code, scopes=SCOPE,
+            redirect_uri=REDIRECT_URI, nonce=expected_nonce,
         )
 
-        render_signin_page(auth_url=auth_url, mock=False)
-        render_footer()
-        st.stop()
+        for key in ("oauth_state", "oauth_nonce"):
+            st.session_state.pop(key, None)
+
+        if "access_token" in result:
+            claims = result.get("id_token_claims", {})
+            if expected_nonce and claims.get("nonce") != expected_nonce:
+                logging.error("OAuth nonce mismatch.")
+                st.error("Sign-in failed: security check did not match. Please try again.")
+                st.stop()
+
+            st.session_state.auth_token       = result
+            st.session_state.token_expires_at = time.time() + result.get("expires_in", 3600)
+            st.session_state.authenticated    = True
+            st.session_state.user_groups      = claims.get("groups", [])
+            st.session_state.user_name        = claims.get("name")
+            st.session_state.user_email       = (claims.get("email")
+                                                  or claims.get("preferred_username", ""))
+            st.session_state.user_oid         = claims.get("oid", "")
+
+            if sync_prefs_callback:
+                sync_prefs_callback()
+            st.session_state["_prefs_loaded"] = True
+
+            st.rerun()
+        else:
+            err = result.get("error_description") or result.get("error") or "unknown error"
+            logging.error("Failed to acquire token: %s", err)
+            st.error("Sign-in failed. Please try again.")
+            st.stop()
+
+    # ── Step 4: no session, no code → show sign-in page ──────────────────────
+    if "oauth_state" not in st.session_state:
+        st.session_state.oauth_state = secrets.token_urlsafe(16)
+    if "oauth_nonce" not in st.session_state:
+        st.session_state.oauth_nonce = secrets.token_urlsafe(16)
+
+    auth_url = msal_app.get_authorization_request_url(
+        SCOPE,
+        redirect_uri=REDIRECT_URI,
+        state=st.session_state.oauth_state,
+        nonce=st.session_state.oauth_nonce,
+    )
+
+    render_signin_page(auth_url=auth_url, mock=False)
+    render_footer()
+    st.stop()
 
 
 def is_power_user() -> bool:
