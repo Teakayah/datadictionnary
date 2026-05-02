@@ -99,7 +99,7 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
                 index=_dept_opts.index(_default_dept) if _default_dept in _dept_opts else 0,
                 label_visibility="collapsed",
             )
-            if st.button("Sign in", use_container_width=True, type="primary"):
+            if st.button(t("auth.sign_in"), use_container_width=True, type="primary"):
                 _groups, _email = _MOCK_DEPTS[_dept_sel]
                 st.session_state.authenticated = True
                 st.session_state.user_groups   = _groups

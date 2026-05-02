@@ -512,7 +512,7 @@ if current_tab == "search":
                                     )
                                     _sc, _cc, _ = st.columns([2, 2, 4], gap="small")
                                     with _sc:
-                                        if st.button("Save", key=f"col_biz_save_{_edit_key}", use_container_width=True):
+                                        if st.button(t("editor.save"), key=f"col_biz_save_{_edit_key}", use_container_width=True):
                                             try:
                                                 save_business_name(full_name, _cname, _inp_name.strip(), _inp_def.strip())
                                                 st.session_state.pop("dd_col_edit_mode", None)
@@ -527,7 +527,7 @@ if current_tab == "search":
                                                 logging.error("Save failed for %s.%s: %s", full_name, _cname, exc, exc_info=True)
                                                 st.error(f"Save failed: {exc}")
                                     with _cc:
-                                        if st.button("Cancel", key=f"col_biz_cancel_{_edit_key}", use_container_width=True):
+                                        if st.button(t("editor.cancel"), key=f"col_biz_cancel_{_edit_key}", use_container_width=True):
                                             st.session_state.pop("dd_col_edit_mode", None)
                                             st.rerun()
                                     if _override.get("edited_by"):
@@ -564,7 +564,7 @@ if current_tab == "search":
                                 )
                                 _cs, _cc, _ = st.columns([2, 2, 4], gap="small")
                                 with _cs:
-                                    if st.button("Send", key=f"dd_comment_send_{key_suffix}", use_container_width=True):
+                                    if st.button(t("comment.send"), key=f"dd_comment_send_{key_suffix}", use_container_width=True):
                                         if _inp.strip():
                                             save_comment(
                                                 "TABLE", full_name, _inp.strip(), _steward,
@@ -576,7 +576,7 @@ if current_tab == "search":
                                         else:
                                             st.warning("Comment cannot be empty.")
                                 with _cc:
-                                    if st.button("Cancel", key=f"dd_comment_cancel_{key_suffix}", use_container_width=True):
+                                    if st.button(t("comment.cancel"), key=f"dd_comment_cancel_{key_suffix}", use_container_width=True):
                                         st.session_state.pop(_open_key, None)
                                         st.rerun()
                                 if not _steward and not parent_comment_id:

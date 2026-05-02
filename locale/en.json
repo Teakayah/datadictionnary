@@ -11,6 +11,7 @@
   "auth": {
     "title": "A card catalog for your warehouse.",
     "subtitle": "Search tables, columns, and business terms across Unity Catalog — filtered to what you have permission to see.",
+    "sign_in": "Sign in",
     "sign_in_button": "Sign in with Entra ID",
     "mock_button": "Sign in with Entra ID (mock)",
     "signed_in_as": "Signed in as"
@@ -77,6 +78,7 @@
     "add_comment": "Add a comment",
     "reply": "Reply",
     "save": "Save comment",
+    "send": "Send",
     "cancel": "Cancel",
     "steward": "Steward",
     "posted_by": "Posted by",
