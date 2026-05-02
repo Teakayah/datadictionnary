@@ -7,8 +7,9 @@ import streamlit as st
 
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, MAX_BUSINESS_NAME_LEN, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available, _db_write_lock, _get_shared_duckdb_connection
-from src.db.queries import _get_write_connection, get_db_connection
+from src.db.queries import _get_write_connection, get_db_connection, get_column_business_names, search_all_metadata, get_authorized_tables
 from src.personalization import is_power_user
+from src.sync.push import enqueue_sync, enqueue_column_sync
 
 def log_audit_event(event_type: str, object_type: str, object_name: str, old_value: str, new_value: str) -> None:
     """Record an audit event for admin review and enqueue for Databricks sync."""
@@ -23,7 +24,6 @@ def log_audit_event(event_type: str, object_type: str, object_name: str, old_val
         "old_value":   old_value,
         "new_value":   new_value,
     }
-    from app import enqueue_sync
     try:
         if is_demo_mode():
             st.session_state.setdefault("demo_audit_log", []).append({
@@ -53,8 +53,6 @@ def save_table_metadata(table_full_name: str, description: str = None, steward_e
         raise PermissionError("Only power users can update table metadata.")
 
     user_name = st.session_state.get("user_name", "unknown")
-    from app import enqueue_sync, search_all_metadata, get_authorized_tables
-
     # Update local cache (DuckDB)
     if _duckdb_available():
         conn = _get_write_connection()
@@ -101,8 +99,6 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
             f"(got {len(definition)})."
         )
     user_name = st.session_state.get("user_name", "unknown")
-    from app import get_column_business_names, enqueue_column_sync, search_all_metadata
-
     if is_demo_mode():
         old_override = {}
         if "demo_business_names" in st.session_state and table_full_name in st.session_state["demo_business_names"]:
