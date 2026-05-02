@@ -11,6 +11,7 @@
   "auth": {
     "title": "Un catalogue pour votre entrepôt.",
     "subtitle": "Recherchez des tables, des colonnes et des termes métier dans Unity Catalog — filtrés selon vos accès.",
+    "sign_in": "Se connecter",
     "sign_in_button": "Se connecter avec Entra ID",
     "mock_button": "Se connecter avec Entra ID (démo)",
     "signed_in_as": "Connecté en tant que"
@@ -77,6 +78,7 @@
     "add_comment": "Ajouter un commentaire",
     "reply": "Répondre",
     "save": "Enregistrer le commentaire",
+    "send": "Envoyer",
     "cancel": "Annuler",
     "steward": "Responsable",
     "posted_by": "Posté par",
