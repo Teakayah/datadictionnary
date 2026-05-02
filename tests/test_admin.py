@@ -117,31 +117,28 @@ class TestAdminNav:
     """Verifies the Admin tab appears only for admin users."""
 
     def test_admin_tab_appears_for_admins(self, monkeypatch):
-        """Admin nav link must be injected into the header HTML for admin users."""
+        """Admin nav proxy button must be present for admin users."""
         monkeypatch.setenv("ADMIN_GROUPS", ADMIN_GROUP)
         at = _admin_app()
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
-        html = _html(*at.markdown)
-        assert 'data-tab="admin"' in html
+        assert any(b.key == "nav_admin" for b in at.button)
 
     def test_admin_tab_hidden_for_non_admins(self, monkeypatch):
-        """Admin nav link must NOT appear for users outside ADMIN_GROUPS."""
+        """Admin nav proxy button must NOT be present for non-admin users."""
         monkeypatch.setenv("ADMIN_GROUPS", ADMIN_GROUP)
         at = _standard_app()
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
-        html = _html(*at.markdown)
-        assert 'data-tab="admin"' not in html
+        assert not any(b.key == "nav_admin" for b in at.button)
 
     def test_admin_tab_hidden_when_no_admin_group_configured(self, monkeypatch):
-        """If ADMIN_GROUPS is empty the Admin link is never shown."""
+        """If ADMIN_GROUPS is empty the Admin nav button is never shown."""
         monkeypatch.setenv("ADMIN_GROUPS", "")
         at = _admin_app()
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
-        html = _html(*at.markdown)
-        assert 'data-tab="admin"' not in html
+        assert not any(b.key == "nav_admin" for b in at.button)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -194,13 +191,13 @@ class TestAdminPage:
         assert "Total comments" in metrics
         assert "Business name overrides" in metrics
 
-    def test_expanders_present(self, monkeypatch):
-        """Both change-log expanders are rendered."""
+    def test_log_expand_buttons_present(self, monkeypatch):
+        """Both change-log expand buttons are rendered (replaced expanders in 7b0abc2)."""
         at = self._run_admin(monkeypatch)
         assert not at.exception, f"Exception: {at.exception}"
-        labels = [e.label for e in at.expander]
-        assert any("Business name change log" in lbl for lbl in labels)
-        assert any("Comment log" in lbl for lbl in labels)
+        button_keys = [b.key for b in at.button]
+        assert "admin_biz_log_expand" in button_keys
+        assert "admin_comment_log_expand" in button_keys
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -296,9 +293,8 @@ class TestAuditLog:
         ]
         at = self._run_demo_admin(monkeypatch, pre_state={"demo_audit_log": pre_audit})
         assert not at.exception, f"Exception: {at.exception}"
-        # Both expanders must be present
-        labels = [e.label for e in at.expander]
-        assert any("Comment log" in lbl for lbl in labels)
+        button_keys = [b.key for b in at.button]
+        assert "admin_comment_log_expand" in button_keys
 
     def test_log_audit_event_demo_write(self, monkeypatch):
         """log_audit_event in demo mode appends to st.session_state['demo_audit_log']."""

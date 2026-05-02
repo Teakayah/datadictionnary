@@ -8,6 +8,7 @@ import streamlit as st
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import _get_write_connection, get_db_connection
+from src.sync.push import enqueue_sync
 
 def get_table_comments(object_name: str) -> list:
     """Fetch all comments for an object, returned as a tree (parent comments
@@ -164,7 +165,6 @@ def save_comment(
 
     _event_type = "comment_reply" if parent_comment_id else "comment_added"
 
-    from app import enqueue_sync
     from src.audit import log_audit_event
 
     if is_demo_mode():

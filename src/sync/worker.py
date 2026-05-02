@@ -9,7 +9,7 @@ import pandas as pd
 
 from src.config import CATALOG_CACHE, SCHEMA_CACHE
 from src.db.duckdb_adapter import _duckdb_available
-from src.db.queries import _get_write_connection
+from src.db.queries import _get_write_connection, run_query
 
 _worker_state_lock = threading.Lock()
 _LAST_UI_ACTIVITY = time.time()
@@ -50,8 +50,6 @@ def _run_dr_resync():
         conn = _get_write_connection()
         # 1. Check for newest records in Databricks vs Local
         # We check comments, audit_log, and overrides
-        from app import run_query
-
         tables_to_check = [
             ("comments", "created_at", "comment_id"),
             ("audit_log", "created_at", "event_id"),
