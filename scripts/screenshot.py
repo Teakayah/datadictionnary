@@ -134,10 +134,33 @@ def capture_search(page: Page, out: Path) -> None:
     preview_btn = page.locator('button:has-text("Preview data")').first
     if preview_btn.is_visible():
         preview_btn.click()
-        _wait(page)
+        _wait(page, 1500)
         _shot(page, out, "07_search_data_preview_dialog")
         page.keyboard.press("Escape")
         _wait(page, 500)
+
+    # Lineage graph — rendered in a Streamlit component iframe; scroll to it,
+    # grab the canvas through the frame, click a neighbour node, screenshot.
+    print("  ── Lineage graph interactivity")
+    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+    _wait(page, 1500)
+    _shot(page, out, "08a_lineage_graph_initial")
+    # Find the vis-network canvas inside any component iframe
+    for frame in page.frames:
+        canvas = frame.locator("canvas").first
+        try:
+            canvas.wait_for(state="visible", timeout=2000)
+            box = canvas.bounding_box()
+            if box:
+                cx = box["x"] + box["width"] * 0.65
+                cy = box["y"] + box["height"] * 0.38
+                page.mouse.click(cx, cy)
+                _wait(page, 1000)
+                _shot(page, out, "08b_lineage_graph_node_selected")
+                print("  ✓  lineage graph node selected")
+                break
+        except Exception:
+            continue
 
     # Bookmark the table so Discovery can show a populated bookmarks tab
     page.evaluate("window.scrollTo(0, 0)")

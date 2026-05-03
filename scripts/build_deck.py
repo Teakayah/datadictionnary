@@ -167,6 +167,35 @@ def slide_detail(prs):
          Inches(0.3), Inches(1.75), width=Inches(12.73))
 
 
+def slide_data_preview(prs):
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _bg(slide, PAPER)
+    _eyebrow(slide, "Data preview")
+    _box(slide, Inches(0.6), Inches(0.9), Inches(9), Inches(0.7),
+         text="Real rows. Permission-checked. One click.", font_size=28, bold=True, color=INK)
+    _accent_bar(slide, Inches(0.6), Inches(0.08), Inches(4.5), Inches(0.06))
+    _img(slide, SCREENSHOTS / "07_search_data_preview_dialog.png",
+         Inches(0.3), Inches(1.75), width=Inches(12.73))
+
+
+def slide_lineage(prs):
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _bg(slide, PAPER)
+    _eyebrow(slide, "Lineage & related tables")
+    _box(slide, Inches(0.6), Inches(0.9), Inches(9), Inches(0.7),
+         text="Interactive graph. Click any node to explore.", font_size=28, bold=True, color=INK)
+    _accent_bar(slide, Inches(0.6), Inches(0.08), Inches(5), Inches(0.06))
+    # Two-up: initial graph + node selected state
+    _img(slide, SCREENSHOTS / "08a_lineage_graph_initial.png",
+         Inches(0.3), Inches(1.75), width=Inches(6.3))
+    _img(slide, SCREENSHOTS / "08b_lineage_graph_node_selected.png",
+         Inches(6.8), Inches(1.75), width=Inches(6.3))
+    _box(slide, Inches(0.3), Inches(6.9), Inches(6.3), Inches(0.35),
+         text="Initial state — physics-settled layout", font_size=9, color=INK_40, align=PP_ALIGN.CENTER)
+    _box(slide, Inches(6.8), Inches(6.9), Inches(6.3), Inches(0.35),
+         text="After clicking a neighbour node", font_size=9, color=INK_40, align=PP_ALIGN.CENTER)
+
+
 def slide_features(prs):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     _bg(slide, PAPER)
@@ -340,6 +369,8 @@ def build(out: Path):
     slide_problem(prs)
     slide_solution(prs)
     slide_detail(prs)
+    slide_data_preview(prs)
+    slide_lineage(prs)
     slide_features(prs)
     slide_security(prs)
     slide_performance(prs)
