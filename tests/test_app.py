@@ -369,6 +369,12 @@ def _read_app_source() -> str:
         return f.read()
 
 
+def _read_locale_strings() -> str:
+    locale_path = os.path.join(os.path.dirname(__file__), "..", "locale", "en.json")
+    with open(locale_path, encoding="utf-8") as f:
+        return f.read()
+
+
 def _extract_design_css(src: str) -> str:
     # Phase 3: DESIGN_CSS was moved from app.py into assets/design.css.
     # Try the asset file first; fall back to the old inline literal for safety.
@@ -429,7 +435,7 @@ class TestDesignSystem:
 
     def test_section_headers_use_section_symbol(self):
         """Section eyebrow labels must use the § prefix."""
-        src = _read_app_source()
+        src = _read_locale_strings()
         assert "§ Catalog search" in src, "Missing 'Search' eyebrow"
         assert ("§ Table detail" in src or "§ Columns" in src), \
             "Missing § prefix on table detail/columns section header"
@@ -439,7 +445,7 @@ class TestDesignSystem:
 
         Known proper nouns (product names, brands) are excluded from the check.
         """
-        src = _read_app_source()
+        src = _read_locale_strings()
         section_labels = re.findall(r'§\s+([^\n<"]+)', src)
         for label in section_labels:
             words = label.strip().split()
