@@ -544,7 +544,7 @@ def render_search_page(query_groups: tuple) -> None:
             _gr["description"] = _gr[_desc_col] if _desc_col else ""
         st.markdown(
             f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);margin-bottom:12px">'
-            f'{len(_gr)} {t("search.results_count") if len(_gr) != 1 else "table"}</p>',
+            f'{t("search.results_count", count=len(_gr))}</p>',
             unsafe_allow_html=True,
         )
         for _i, (_, _row) in enumerate(_gr.iterrows()):
@@ -584,7 +584,7 @@ def render_search_page(query_groups: tuple) -> None:
                         return "" if _pd.isna(v) else str(v)
                     st.markdown(
                         f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);margin-bottom:12px">'
-                        f'{len(results)} matches</p>',
+                        f'{t("search.results_count", count=len(results))}</p>',
                         unsafe_allow_html=True,
                     )
                     for _sr_i, (_, _sr) in enumerate(results.iterrows()):
