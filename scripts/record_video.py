@@ -127,10 +127,43 @@ def capture_search(page: Page, out: Path) -> None:
     preview_btn = page.locator('button:has-text("Preview data")').first
     if preview_btn.is_visible():
         preview_btn.click()
-        _wait(page)
+        _wait(page, 1500)
         _shot(page, out, "07_search_data_preview_dialog")
         page.keyboard.press("Escape")
         _wait(page, 500)
+
+    # Lineage graph interactivity — vis-network renders inside a component iframe.
+    # Scroll to bottom, find the canvas through page.frames, interact.
+    print("  ── Lineage graph interactivity")
+    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+    _wait(page, 1500)
+    _shot(page, out, "08a_lineage_graph_initial")
+    _graph_box = None
+    for frame in page.frames:
+        canvas = frame.locator("canvas").first
+        try:
+            canvas.wait_for(state="visible", timeout=2000)
+            _graph_box = canvas.bounding_box()
+            if _graph_box:
+                # Click a neighbour node (offset from centre toward top-right)
+                cx = _graph_box["x"] + _graph_box["width"] * 0.65
+                cy = _graph_box["y"] + _graph_box["height"] * 0.38
+                page.mouse.click(cx, cy)
+                _wait(page, 1000)
+                _shot(page, out, "08b_lineage_graph_node_selected")
+                # Drag to pan
+                page.mouse.move(_graph_box["x"] + _graph_box["width"] * 0.5,
+                                 _graph_box["y"] + _graph_box["height"] * 0.5)
+                page.mouse.down()
+                page.mouse.move(_graph_box["x"] + _graph_box["width"] * 0.5 - 80,
+                                 _graph_box["y"] + _graph_box["height"] * 0.5 - 40, steps=20)
+                page.mouse.up()
+                _wait(page, 600)
+                _shot(page, out, "08c_lineage_graph_panned")
+                print("  ✓  lineage graph interaction recorded")
+                break
+        except Exception:
+            continue
 
     # Bookmark the table so Discovery can show a populated bookmarks tab
     page.evaluate("window.scrollTo(0, 0)")
