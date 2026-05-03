@@ -88,6 +88,31 @@ def _try_silent_refresh() -> bool:
     return False
 
 
+def _get_catalog_stats() -> tuple[str, str]:
+    """Return (n_tables, n_schemas) as strings for the sign-in hero stats row.
+
+    Works in demo mode and with a live DuckDB/Databricks cache. Falls back to
+    '—' on any error so the sign-in page always renders.
+    """
+    try:
+        from src.config import is_demo_mode, CATALOG_CACHE, SCHEMA_CACHE  # noqa: PLC0415
+        if is_demo_mode():
+            from src.demo.data import _DEMO_TABLES  # noqa: PLC0415
+            return str(len(_DEMO_TABLES)), str(_DEMO_TABLES["schema_name"].nunique())
+        from src.db.queries import run_query  # noqa: PLC0415
+        _t = run_query(
+            f"SELECT COUNT(*) AS n FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata", {}
+        )
+        _s = run_query(
+            f"SELECT COUNT(DISTINCT schema_name) AS n FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata", {}
+        )
+        n_t = str(int(_t.iloc[0]["n"])) if _t is not None and not _t.empty else "—"
+        n_s = str(int(_s.iloc[0]["n"])) if _s is not None and not _s.empty else "—"
+        return n_t, n_s
+    except Exception:
+        return "—", "—"
+
+
 def render_signin_page(auth_url: str | None = None, mock: bool = False):
     """Render the editorial two-column sign-in layout."""
     col_hero, col_card = st.columns([1.1, 0.9], gap="large")
@@ -100,19 +125,20 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
           <p class="lead">{t('auth.subtitle')}</p>
         </div>
         """, unsafe_allow_html=True)
+        _n_tables, _n_schemas = _get_catalog_stats()
         st.markdown('<hr class="dd-rule"/>', unsafe_allow_html=True)
-        st.markdown("""
+        st.markdown(f"""
         <div class="dd-stats-row">
           <div>
-            <div class="dd-stat-n">—</div>
+            <div class="dd-stat-n">{_n_tables}</div>
             <div class="dd-stat-l">tables indexed</div>
           </div>
           <div>
-            <div class="dd-stat-n">—</div>
+            <div class="dd-stat-n">{_n_schemas}</div>
             <div class="dd-stat-l">schemas</div>
           </div>
           <div>
-            <div class="dd-stat-n">nightly</div>
+            <div class="dd-stat-n" style="font-size:20px;font-family:var(--font-sans);font-weight:700;letter-spacing:0;">nightly</div>
             <div class="dd-stat-l">sync cadence</div>
           </div>
         </div>
