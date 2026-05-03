@@ -28,9 +28,11 @@ def render_glossary(query_groups) -> None:
     selected_term = st.selectbox(
         t("glossary.search_placeholder"),
         options=all_terms,
-        placeholder="Select or type a business term...",
+        index=None,
+        placeholder=t("glossary.search_placeholder"),
         label_visibility="collapsed",
         key="glossary_search",
+        help=t("glossary.search_placeholder"),
     )
 
     if selected_term:
