@@ -20,6 +20,7 @@ from __future__ import annotations
 import sys
 import os
 import re
+import json
 import pandas as pd
 import pytest
 from streamlit.testing.v1 import AppTest
@@ -429,10 +430,10 @@ class TestDesignSystem:
 
     def test_section_headers_use_section_symbol(self):
         """Section eyebrow labels must use the § prefix."""
-        src = _read_app_source()
-        assert "§ Catalog search" in src, "Missing 'Search' eyebrow"
-        assert ("§ Table detail" in src or "§ Columns" in src), \
-            "Missing § prefix on table detail/columns section header"
+        with open(os.path.join(os.path.dirname(__file__), "..", "locale", "en.json"), encoding="utf-8") as f:
+            locale = json.load(f)
+        assert "§" in locale.get("search", {}).get("eyebrow", ""), "Missing 'Search' eyebrow in locale"
+        assert "§" in locale.get("detail", {}).get("title", ""), "Missing § prefix on table detail section header in locale"
 
     def test_no_title_case_in_section_headers(self):
         """Section headers must use sentence case, not Title Case.
