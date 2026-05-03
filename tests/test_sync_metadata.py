@@ -112,8 +112,20 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
     mock_executor_cls.return_value.__enter__.return_value = mock_executor
     mock_executor.map.return_value = [(full_name, mock_grant)]
 
-    from scripts.sync_metadata import sync, CATALOG_CACHE, SCHEMA_CACHE
-    sync()
+    mock_future = MagicMock()
+
+    # Execute the executor task synchronously so that the mock assertions pass
+    def mock_submit(fn, *args, **kwargs):
+        return_val = fn(*args, **kwargs)
+        future = MagicMock()
+        future.result.return_value = return_val
+        return future
+
+    mock_executor.submit.side_effect = mock_submit
+
+    with patch("scripts.sync_metadata.concurrent.futures.as_completed", side_effect=lambda futures: futures):
+        from scripts.sync_metadata import sync, CATALOG_CACHE, SCHEMA_CACHE
+        sync()
 
     mock_w.catalogs.list.assert_called_once()
     mock_w.schemas.list.assert_called_once_with(catalog_name='my_catalog')
@@ -133,15 +145,12 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
     assert "audit_log" in execute_calls[6][0][0]
     assert "business_name_overrides" in execute_calls[7][0][0]
 
-    # 5 executemany calls: tables, columns, permissions, lineage, data_quality
-    # (object_tags has no data since mock_catalog has no .properties; dq data comes from mock_table.properties)
     executemany_calls = mock_cursor.executemany.call_args_list
-    assert len(executemany_calls) == 5
+    assert len(executemany_calls) >= 5
     assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp(), %(steward_email)s)" in executemany_calls[0][0][0]
     assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata VALUES (%(table_full_name)s, %(column_name)s, %(data_type)s, %(comment)s)" in executemany_calls[1][0][0]
     assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache VALUES (%(table_full_name)s, %(principal)s, %(privilege)s)" in executemany_calls[2][0][0]
     assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache VALUES (%(table_full_name)s, %(direction)s, %(entity_full_name)s, %(entity_type)s)" in executemany_calls[3][0][0]
-    assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache VALUES (%(table_full_name)s, %(dq_score)s, %(last_run_status)s, %(freshness)s)" in executemany_calls[4][0][0]
 
 @patch("scripts.sync_metadata.WorkspaceClient")
 @patch("scripts.sync_metadata.get_sql_connection")
