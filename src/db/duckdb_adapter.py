@@ -39,7 +39,14 @@ def _to_duckdb_sql(sql: str, params: dict) -> tuple:
     result = sql
     for name, value in params.items():
         if isinstance(value, (list, tuple)):
-            # IN %(name)s  →  = ANY($name)
+            # Explain the regex:
+            # \b         - Word boundary to ensure we match 'IN' as a whole word
+            # IN\s+      - Matches 'IN' followed by one or more whitespace characters
+            # %\(        - Matches the literal string '%('
+            # {name}     - Interpolates the parameter name
+            # \)s        - Matches the literal string ')s'
+            #
+            # Example translation: "IN %(groups)s" -> "= ANY($groups)"
             result = re.sub(
                 rf"\bIN\s+%\({re.escape(name)}\)s",
                 f"= ANY(${name})",
