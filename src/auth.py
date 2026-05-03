@@ -138,7 +138,7 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
             <div class="dd-stat-l">schemas</div>
           </div>
           <div>
-            <div class="dd-stat-n" style="font-size:20px;font-family:var(--font-sans);font-weight:700;letter-spacing:0;">nightly</div>
+            <div class="dd-stat-n">nightly</div>
             <div class="dd-stat-l">sync cadence</div>
           </div>
         </div>
