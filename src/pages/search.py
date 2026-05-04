@@ -31,7 +31,6 @@ def _render_comment_form(
     steward: str,
     key_suffix: str,
     parent_comment_id: str = None,
-    parent_author_email: str = "",
 ) -> None:
     """Render a text-area + Send/Cancel for a new comment or reply."""
     _open_key = f"dd_comment_open_{key_suffix}"
@@ -55,7 +54,6 @@ def _render_comment_form(
                     save_comment(
                         "TABLE", full_name, _inp.strip(), steward,
                         parent_comment_id=parent_comment_id,
-                        parent_author_email=parent_author_email,
                     )
                     st.session_state.pop(_open_key, None)
                     st.rerun()
@@ -338,7 +336,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                     )
             _, _reply_form_col = st.columns([1, 11])
             with _reply_form_col:
-                _render_comment_form(full_name, _steward_email, f"{full_name}_{_cid}", _cid, _cemail)
+                _render_comment_form(full_name, _steward_email, f"{full_name}_{_cid}", _cid)
 
         _render_comment_form(full_name, _steward_email, full_name)
 
@@ -537,8 +535,10 @@ def render_search_page(query_groups: tuple) -> None:
     # Group-filter browse: show all authorized tables when filter is active
     if active_group and not search_query and _all_tables is not None and not _all_tables.empty:
         _gr = _all_tables.copy()
-        if "match_type"   not in _gr.columns: _gr["match_type"]   = "Table"
-        if "name"         not in _gr.columns: _gr["name"]         = _gr["table_name"]
+        if "match_type" not in _gr.columns:
+            _gr["match_type"] = "Table"
+        if "name" not in _gr.columns:
+            _gr["name"] = _gr["table_name"]
         if "description"  not in _gr.columns:
             _desc_col = next((c for c in ("table_description", "comment") if c in _gr.columns), None)
             _gr["description"] = _gr[_desc_col] if _desc_col else ""

@@ -133,6 +133,12 @@ def send_reply_email(
 
 def _fetch_comment_author_email(comment_id: str) -> str:
     """Look up the author_email of a comment from the DB."""
+    if is_demo_mode():
+        for comments in st.session_state.get("demo_comments", {}).values():
+            for c in comments:
+                if c.get("comment_id") == comment_id:
+                    return str(c.get("author_email") or "")
+        return ""
     try:
         conn = get_db_connection()
         tbl = "user_data.comments" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
@@ -156,7 +162,6 @@ def save_comment(
     comment_text: str,
     steward_email: str,
     parent_comment_id: str = None,
-    parent_author_email: str = "",
 ) -> None:
     """Persist a comment (or reply) and trigger notification emails."""
     comment_id   = str(uuid.uuid4())
@@ -178,7 +183,8 @@ def save_comment(
             "parent_comment_id": parent_comment_id,
         })
         if parent_comment_id:
-            send_reply_email(parent_author_email, author_name, object_name, comment_text, steward_email)
+            verified_parent_email = _fetch_comment_author_email(parent_comment_id)
+            send_reply_email(verified_parent_email, author_name, object_name, comment_text, steward_email)
         else:
             send_comment_email(steward_email, author_name, object_name, comment_text)
         log_audit_event(_event_type, object_type, object_name, "", comment_text)
