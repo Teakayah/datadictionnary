@@ -130,8 +130,10 @@ jobs:
 
       - name: Substitute image tag in deployment manifest
         run: |
-          IMAGE_TAG="${{ needs.build.outputs.image_tag }}"
-          sed -i "s|image: .*data-dictionary.*|image: ${{ env.IMAGE_NAME }}:${IMAGE_TAG}|g" k8s/deployment.yaml
+          export IMAGE_TAG="${{ needs.build.outputs.image_tag }}"
+          for file in k8s/*.yaml; do
+            envsubst '${IMAGE_TAG}' < "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+          done
           echo "Deploying image: ${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
 
       - name: Apply Kubernetes manifests
