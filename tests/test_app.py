@@ -368,6 +368,22 @@ def _read_app_source() -> str:
     with open(APP_PATH) as f:
         return f.read()
 
+def _get_all_locale_strings(d: dict) -> list[str]:
+    strings = []
+    for k, v in d.items():
+        if isinstance(v, dict):
+            strings.extend(_get_all_locale_strings(v))
+        elif isinstance(v, str):
+            strings.append(v)
+    return strings
+
+def _read_locale_strings() -> list[str]:
+    import json
+    locale_path = os.path.join(os.path.dirname(__file__), "..", "locale", "en.json")
+    with open(locale_path, encoding="utf-8") as f:
+        locale_data = json.load(f)
+    return _get_all_locale_strings(locale_data)
+
 
 def _extract_design_css(src: str) -> str:
     # Phase 3: DESIGN_CSS was moved from app.py into assets/design.css.
@@ -429,9 +445,9 @@ class TestDesignSystem:
 
     def test_section_headers_use_section_symbol(self):
         """Section eyebrow labels must use the § prefix."""
-        src = _read_app_source()
-        assert "§ Catalog search" in src, "Missing 'Search' eyebrow"
-        assert ("§ Table detail" in src or "§ Columns" in src), \
+        strings = _read_locale_strings()
+        assert "§ Catalog search" in strings, "Missing 'Search' eyebrow"
+        assert ("§ Table detail" in strings or "§ Columns" in strings), \
             "Missing § prefix on table detail/columns section header"
 
     def test_no_title_case_in_section_headers(self):
@@ -439,8 +455,14 @@ class TestDesignSystem:
 
         Known proper nouns (product names, brands) are excluded from the check.
         """
-        src = _read_app_source()
-        section_labels = re.findall(r'§\s+([^\n<"]+)', src)
+        strings = _read_locale_strings()
+        section_labels = []
+        for s in strings:
+            if "§" in s:
+                match = re.search(r'§\s+([^\n<"]+)', s)
+                if match:
+                    section_labels.append(match.group(1))
+
         for label in section_labels:
             words = label.strip().split()
             if len(words) > 1:
