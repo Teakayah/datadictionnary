@@ -433,7 +433,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                 unsafe_allow_html=True,
             )
         with _lin_btn_col:
-            if st.button("⤢", key=f"expand_lin_{full_name}", help="Expand lineage graph", use_container_width=True):
+            if st.button("⤢", key=f"expand_lin_{full_name}", help=t("detail.expand_lineage"), use_container_width=True):
                 render_lineage_fullscreen(graph_nodes, graph_links, full_name)
 
         components.html(_lineage_vis_html(graph_nodes, graph_links, height=350), height=380)
