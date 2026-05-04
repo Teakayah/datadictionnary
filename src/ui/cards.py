@@ -573,6 +573,42 @@ def _mark_ui_activity():
         _LAST_UI_ACTIVITY = time.time()
 
 
+def _get_max_local_timestamp(conn, tbl: str, ts_col: str):
+    """Fetch the max timestamp for a table locally."""
+    with conn.cursor() as cursor:
+        cursor.execute(f"SELECT MAX({ts_col}) FROM user_data.{tbl}")
+        return cursor.fetchall()[0][0]
+
+def _fetch_remote_delta(tbl: str, ts_col: str, local_max):
+    """Query Databricks for any records AFTER local_max."""
+    remote_q = f"SELECT * FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.{tbl}"
+    params = {}
+    if local_max:
+        remote_q += f" WHERE {ts_col} > %(local_max)s"
+        params["local_max"] = local_max
+    return run_query(remote_q, params)
+
+def _merge_delta_into_local(conn, tbl: str, delta_df: pd.DataFrame):
+    """Merge delta DataFrame records into DuckDB."""
+    with conn.cursor() as cursor:
+        for row_dict in delta_df.to_dict("records"):
+            # Simple append for logs/comments (guaranteed unique IDs)
+            if tbl in ("comments", "audit_log"):
+                cols = ", ".join(delta_df.columns)
+                placeholders = ", ".join([f"%({c})s" for c in delta_df.columns])
+                cursor.execute_write(
+                    f"INSERT OR IGNORE INTO user_data.{tbl} ({cols}) VALUES ({placeholders})",
+                    row_dict
+                )
+            else:
+                # Merge for overrides
+                cursor.execute_write(
+                    f"INSERT OR REPLACE INTO user_data.{tbl} ({', '.join(delta_df.columns)}) "
+                    f"VALUES ({', '.join([f'%({c})s' for c in delta_df.columns])})",
+                    row_dict
+                )
+
+
 def _run_dr_resync():
     """Background task to pull missing records from Databricks to DuckDB."""
     if not _duckdb_available():
@@ -590,40 +626,12 @@ def _run_dr_resync():
         ]
 
         for tbl, ts_col, pk in tables_to_check:
-            # Get max local timestamp
-            with conn.cursor() as cursor:
-                cursor.execute(f"SELECT MAX({ts_col}) FROM user_data.{tbl}")
-                local_max = cursor.fetchall()[0][0]
+            local_max = _get_max_local_timestamp(conn, tbl, ts_col)
+            delta_df = _fetch_remote_delta(tbl, ts_col, local_max)
 
-            # Query Databricks for any records AFTER local_max
-            # Note: run_query handles the Databricks connection
-            remote_q = f"SELECT * FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.{tbl}"
-            params = {}
-            if local_max:
-                remote_q += f" WHERE {ts_col} > %(local_max)s"
-                params["local_max"] = local_max
-
-            delta_df = run_query(remote_q, params)
             if delta_df is not None and not delta_df.empty:
                 _set_dr_resync_status(f"Syncing {tbl}")
-                # Merge into DuckDB
-                with conn.cursor() as cursor:
-                    for _, row in delta_df.iterrows():
-                        # Simple append for logs/comments (guaranteed unique IDs)
-                        if tbl in ("comments", "audit_log"):
-                            cols = ", ".join(delta_df.columns)
-                            placeholders = ", ".join([f"%({c})s" for c in delta_df.columns])
-                            cursor.execute_write(
-                                f"INSERT OR IGNORE INTO user_data.{tbl} ({cols}) VALUES ({placeholders})",
-                                row.to_dict()
-                            )
-                        else:
-                            # Merge for overrides
-                            cursor.execute_write(
-                                f"INSERT OR REPLACE INTO user_data.{tbl} ({', '.join(delta_df.columns)}) "
-                                f"VALUES ({', '.join([f'%({c})s' for c in delta_df.columns])})",
-                                row.to_dict()
-                            )
+                _merge_delta_into_local(conn, tbl, delta_df)
 
         _set_dr_resync_status("Up-to-date")
         _set_dr_resync_progress(100.0)
