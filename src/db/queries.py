@@ -107,16 +107,36 @@ def get_authorized_tables(groups):
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
-    """Fetch lineage edges up to a given depth.
+    """Fetch lineage edges up to a given depth."""
+    sql_query = ("""
+        WITH RECURSIVE lineage_cte AS (
+            SELECT
+                table_full_name,
+                direction,
+                entity_full_name,
+                entity_type,
+                1 AS depth
+            FROM {0}.{1}.lineage_cache
+            WHERE table_full_name = %(fn)s
 
-    TODO (feature/enhanced-lineage): Implement recursive traversal.
-    """
-    return run_query(
-        ("SELECT * FROM {0}.{1}.lineage_cache WHERE table_full_name = %(fn)s").format(
-            CATALOG_CACHE, SCHEMA_CACHE
-        ),
-        {"fn": table_full_name},
-    )
+            UNION ALL
+
+            SELECT
+                lc.table_full_name,
+                lc.direction,
+                lc.entity_full_name,
+                lc.entity_type,
+                cte.depth + 1
+            FROM {0}.{1}.lineage_cache lc
+            JOIN lineage_cte cte
+              ON lc.table_full_name = cte.entity_full_name
+             AND lc.direction = cte.direction
+            WHERE cte.depth < %(depth)s
+        )
+        SELECT * FROM lineage_cte
+    """).format(CATALOG_CACHE, SCHEMA_CACHE)
+
+    return run_query(sql_query, {"fn": table_full_name, "depth": depth})
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def search_all_metadata(query: str, groups: tuple):
