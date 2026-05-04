@@ -84,8 +84,8 @@ def save_table_metadata(table_full_name: str, description: str = None, steward_e
     get_authorized_tables.clear()
 
 
-def save_business_name(table_full_name: str, column_name: str, business_name: str, definition: str = "") -> None:
-    """Atomically upsert a column override (business name + definition) using MERGE INTO."""
+
+def _validate_business_name_inputs(business_name: str, definition: str) -> None:
     if not is_power_user():
         raise PermissionError("Only power users can save business name overrides.")
     if business_name and len(business_name) > MAX_BUSINESS_NAME_LEN:
@@ -98,22 +98,29 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
             f"Definition must be {MAX_BUSINESS_NAME_LEN} characters or fewer "
             f"(got {len(definition)})."
         )
-    user_name = st.session_state.get("user_name", "unknown")
+
+def _get_old_business_name(table_full_name: str, column_name: str) -> str:
     if is_demo_mode():
         old_override = {}
         if "demo_business_names" in st.session_state and table_full_name in st.session_state["demo_business_names"]:
             old_override = st.session_state["demo_business_names"][table_full_name].get(column_name, {})
     else:
         old_override = get_column_business_names(table_full_name).get(column_name, {})
-    old_value = old_override.get("business_name", "")
-    if is_demo_mode():
-        if "demo_business_names" not in st.session_state:
-            st.session_state["demo_business_names"] = {}
-        tbl = st.session_state["demo_business_names"].setdefault(table_full_name, {})
-        tbl[column_name] = {"business_name": business_name, "definition": definition, "edited_by": user_name, "edited_at": "just now"}
-        log_audit_event("business_name_change", "COLUMN", f"{table_full_name}.{column_name}", old_value, business_name)
-        return
-    # Use DuckDB if available, otherwise Databricks
+    return old_override.get("business_name", "")
+
+def _save_business_name_demo(table_full_name: str, column_name: str, business_name: str, definition: str, user_name: str, old_value: str) -> None:
+    if "demo_business_names" not in st.session_state:
+        st.session_state["demo_business_names"] = {}
+    tbl = st.session_state["demo_business_names"].setdefault(table_full_name, {})
+    tbl[column_name] = {
+        "business_name": business_name,
+        "definition": definition,
+        "edited_by": user_name,
+        "edited_at": "just now"
+    }
+    log_audit_event("business_name_change", "COLUMN", f"{table_full_name}.{column_name}", old_value, business_name)
+
+def _save_business_name_db(table_full_name: str, column_name: str, business_name: str, definition: str, user_name: str, old_value: str) -> None:
     conn = _get_write_connection()
     with conn.cursor() as cursor:
         if _duckdb_available():
@@ -145,9 +152,14 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
                 f"ON target.table_full_name = source.table_full_name AND target.column_name = source.column_name "
                 f"WHEN MATCHED THEN UPDATE SET target.business_name = source.business_name, target.definition = source.definition, target.edited_by = source.edited_by, target.edited_at = current_timestamp() "
                 f"WHEN NOT MATCHED THEN INSERT (table_full_name, column_name, business_name, definition, edited_by, edited_at) VALUES (source.table_full_name, source.column_name, source.business_name, source.definition, source.edited_by, current_timestamp())",
-                {"table_full_name": table_full_name, "column_name": column_name, "business_name": business_name, "definition": definition, "edited_by": user_name},
+                {
+                    "table_full_name": table_full_name,
+                    "column_name": column_name,
+                    "business_name": business_name,
+                    "definition": definition,
+                    "edited_by": user_name
+                },
             )
-    # Flush write to disk so it's immediately visible to all sessions sharing the same file.
     if _duckdb_available():
         try:
             with _db_write_lock:
@@ -157,6 +169,17 @@ def save_business_name(table_full_name: str, column_name: str, business_name: st
         enqueue_column_sync(table_full_name, column_name, definition, user_name)
     log_audit_event("business_name_change", "COLUMN", f"{table_full_name}.{column_name}", old_value, business_name)
     search_all_metadata.clear()
+
+def save_business_name(table_full_name: str, column_name: str, business_name: str, definition: str = "") -> None:
+    """Atomically upsert a column override (business name + definition) using MERGE INTO."""
+    _validate_business_name_inputs(business_name, definition)
+    user_name = st.session_state.get("user_name", "unknown")
+    old_value = _get_old_business_name(table_full_name, column_name)
+
+    if is_demo_mode():
+        _save_business_name_demo(table_full_name, column_name, business_name, definition, user_name, old_value)
+    else:
+        _save_business_name_db(table_full_name, column_name, business_name, definition, user_name, old_value)
 
 
 def get_table_steward(table_full_name: str) -> str:
