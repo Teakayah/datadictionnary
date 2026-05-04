@@ -302,24 +302,26 @@ def sync():
 
     # 2. Fetch permission grants and lineage concurrently
     print("🔐 Fetching permission grants...")
-
-    def fetch_grants(full_name):
-        try:
-            return full_name, w.grants.get('TABLE', full_name)
-        except Exception as e:
-            print(f"    Could not fetch grants for {full_name}: {e}")
-            return full_name, None
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        for full_name, grants in executor.map(fetch_grants, table_full_names):
-            if grants and grants.privilege_assignments:
-                for assignment in grants.privilege_assignments:
-                    for priv in assignment.privileges:
+    table_full_names_set = set(table_full_names)
+    try:
+        with get_sql_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT table_catalog || '.' || table_schema || '.' || table_name as table_full_name,
+                           grantee as principal,
+                           privilege_type as privilege
+                    FROM system.information_schema.table_privileges
+                """)
+                df = cursor.fetchall_as_pandas()
+                for row in df.itertuples(index=False):
+                    if getattr(row, 'table_full_name', None) in table_full_names_set:
                         permissions_data.append({
-                            "table_full_name": full_name,
-                            "principal": assignment.principal,
-                            "privilege": str(priv)
+                            "table_full_name": row.table_full_name,
+                            "principal": row.principal,
+                            "privilege": row.privilege
                         })
+    except Exception as e:
+        print(f"    Could not fetch grants in bulk: {e}")
 
     print("🔗 Fetching lineage...")
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
