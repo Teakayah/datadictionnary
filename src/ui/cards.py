@@ -673,6 +673,7 @@ def render_data_sample(table_full_name: str):
         return
 
     try:
+        # Validate Unity Catalog 3-level namespace format (catalog.schema.table) to prevent SQL injection
         if not re.match(r"^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$", table_full_name):
             st.error(t("common.error"))
             return
