@@ -324,7 +324,7 @@ class TestTableDetail:
     def test_column_query_targets_columns_metadata(self, monkeypatch):
         """SQL must query the columns_metadata table after table selection."""
         monkeypatch.setenv("DEMO_DATA", "false")
-        at = self._run_with_table_selected(
+        self._run_with_table_selected(
             make_tables_df(), make_tables_df(), TestTableDetail._EMPTY_OVERRIDES(), make_columns_df(),
             TestTableDetail._EMPTY_STEWARD(), TestTableDetail._EMPTY_COMMENTS(),
             make_grants_df(), make_lineage_df(), make_related_df(),
@@ -343,7 +343,7 @@ class TestTableDetail:
         # 4: search_all_metadata (details)
         # 5: get_column_business_names
         # 6: columns_metadata
-        at = self._run_with_table_selected(
+        self._run_with_table_selected(
             make_tables_df(), make_tables_df(), make_tables_df(), make_tables_df(),
             TestTableDetail._EMPTY_OVERRIDES(), make_columns_df(),
             TestTableDetail._EMPTY_STEWARD(), TestTableDetail._EMPTY_COMMENTS(),
@@ -366,6 +366,12 @@ class TestTableDetail:
 
 def _read_app_source() -> str:
     with open(APP_PATH) as f:
+        return f.read()
+
+
+def _read_locale_source() -> str:
+    locale_path = os.path.join(os.path.dirname(__file__), "..", "locale", "en.json")
+    with open(locale_path, encoding="utf-8") as f:
         return f.read()
 
 
@@ -429,7 +435,7 @@ class TestDesignSystem:
 
     def test_section_headers_use_section_symbol(self):
         """Section eyebrow labels must use the § prefix."""
-        src = _read_app_source()
+        src = _read_locale_source()
         assert "§ Catalog search" in src, "Missing 'Search' eyebrow"
         assert ("§ Table detail" in src or "§ Columns" in src), \
             "Missing § prefix on table detail/columns section header"
@@ -439,7 +445,7 @@ class TestDesignSystem:
 
         Known proper nouns (product names, brands) are excluded from the check.
         """
-        src = _read_app_source()
+        src = _read_locale_source()
         section_labels = re.findall(r'§\s+([^\n<"]+)', src)
         for label in section_labels:
             words = label.strip().split()

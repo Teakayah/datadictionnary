@@ -690,7 +690,6 @@ def generate(
             common_sample = rng.sample(available_common, n_common)
 
             col_list = mandatory + always_common + dept_sample + common_sample
-            col_set   = {c[0] for c in col_list}
 
             # 4. Pad to n_cols with synthetic columns
             pad_i = 0

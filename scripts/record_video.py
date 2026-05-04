@@ -661,7 +661,6 @@ def main() -> None:
         ctx.close()
         browser.close()
 
-    files = sorted(out.glob("*.webm"))
     print(f"\n✅  Video saved to {out}/")
 
 
