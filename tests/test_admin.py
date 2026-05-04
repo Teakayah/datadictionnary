@@ -319,3 +319,22 @@ class TestAuditLog:
         # (just verify no crash — the save path is covered by test_business_name_save)
         monkeypatch.setenv("DEMO_DATA", "false")
         assert not at.exception, f"Exception: {at.exception}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Admin Stats — Unit Tests
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from unittest.mock import patch
+from src.ui.cards import get_admin_stats
+
+@patch("src.ui.cards.run_query")
+@patch("src.ui.cards.is_demo_mode", return_value=False)
+@patch("src.ui.cards._duckdb_available", return_value=False)
+def test_get_admin_stats_exception(mock_duckdb, mock_demo, mock_run_query):
+    """get_admin_stats should return all zero values when run_query raises an Exception."""
+    mock_run_query.side_effect = Exception("Database connection failed")
+
+    stats = get_admin_stats()
+
+    assert stats == {"tables": 0, "columns": 0, "comments": 0, "overrides": 0}
