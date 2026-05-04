@@ -170,6 +170,32 @@ class TestSendCommentEmail:
         sql_calls = [str(c) for c in cursor.execute.call_args_list]
         assert any("INSERT" in s and "comments" in s for s in sql_calls)
 
+    def test_send_reply_email_exception_logs_error(self, monkeypatch, caplog):
+        """Exception during SMTP send for reply email must be logged as an error."""
+        import logging
+        from src.comments import send_reply_email
+        import smtplib
+
+        monkeypatch.setenv("DEMO_DATA", "false")
+        monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+
+        def mock_smtp(*args, **kwargs):
+            raise smtplib.SMTPException("Simulated SMTP error")
+
+        monkeypatch.setattr(smtplib, "SMTP", mock_smtp)
+
+        with caplog.at_level(logging.ERROR):
+            send_reply_email(
+                parent_author_email="parent@example.com",
+                reply_author_name="Replier User",
+                object_name="table_xyz",
+                reply_text="This is a test reply",
+                steward_email="steward@example.com"
+            )
+
+        assert "Failed to send reply email to" in caplog.text
+        assert "Simulated SMTP error" in caplog.text
+
 
 class TestSaveComment:
     """Persistence: demo writes to session state; production INSERTs to DB."""
