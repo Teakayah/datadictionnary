@@ -529,7 +529,7 @@ def render_admin_page():
     with _biz_h:
         st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow">§ {t("admin.biz_log_title")}</span></div>', unsafe_allow_html=True)
     with _biz_btn:
-        if st.button("⤢", key="admin_biz_log_expand", help="Expand log", use_container_width=True):
+        if st.button("⤢", key="admin_biz_log_expand", help=t("admin.expand_log"), use_container_width=True):
             _show_biz_log_dialog()
 
     st.markdown('<div style="margin-top:24px;"></div>', unsafe_allow_html=True)
@@ -539,7 +539,7 @@ def render_admin_page():
     with _cmt_h:
         st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow">§ {t("admin.comment_log_title")}</span></div>', unsafe_allow_html=True)
     with _cmt_btn:
-        if st.button("⤢", key="admin_comment_log_expand", help="Expand log", use_container_width=True):
+        if st.button("⤢", key="admin_comment_log_expand", help=t("admin.expand_log"), use_container_width=True):
             _show_comment_log_dialog()
 
 
