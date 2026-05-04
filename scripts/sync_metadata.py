@@ -146,10 +146,10 @@ def push_business_name_overrides():
 
     with get_sql_connection() as conn:
         with conn.cursor() as cursor:
-            for _, row in overrides.iterrows():
-                raw_full_name = str(row["table_full_name"])
-                raw_col_name  = str(row["column_name"])
-                raw_biz_name  = str(row["business_name"])
+            for row in overrides.itertuples(index=False):
+                raw_full_name = str(getattr(row, "table_full_name", ""))
+                raw_col_name  = str(getattr(row, "column_name", ""))
+                raw_biz_name  = str(getattr(row, "business_name", ""))
                 full_name_q = ".".join(
                     f"`{p.replace('`', '``')}`" for p in raw_full_name.split(".")
                 )

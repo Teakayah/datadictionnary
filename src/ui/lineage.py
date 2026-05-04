@@ -49,9 +49,9 @@ def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, ru
             result = _fetch_lineage_hop(node_fn, query_groups, run_query)
             if result is None or result.empty or "direction" not in result.columns:
                 continue
-            for _, lr in result.iterrows():
-                efn = str(lr["entity_full_name"])
-                direction = str(lr["direction"])
+            for lr in result.itertuples(index=False):
+                efn = str(getattr(lr, "entity_full_name", ""))
+                direction = str(getattr(lr, "direction", ""))
                 link = {"from": efn, "to": node_fn} if direction == "UPSTREAM" else {"from": node_fn, "to": efn}
                 if link not in graph_links:
                     graph_links.append(link)

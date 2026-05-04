@@ -429,18 +429,23 @@ class TestDesignSystem:
 
     def test_section_headers_use_section_symbol(self):
         """Section eyebrow labels must use the § prefix."""
-        src = _read_app_source()
-        assert "§ Catalog search" in src, "Missing 'Search' eyebrow"
-        assert ("§ Table detail" in src or "§ Columns" in src), \
-            "Missing § prefix on table detail/columns section header"
+        import json
+        with open("locale/en.json", "r") as f:
+            en = json.load(f)
+        assert "§ Catalog search" in en.get("search", {}).get("eyebrow", ""), "Missing 'Search' eyebrow in locale"
+        assert ("§ Table detail" in en.get("detail", {}).get("title", "") or "§ Columns" in en.get("detail", {}).get("section_columns", "")), \
+            "Missing § prefix on table detail/columns section header in locale"
 
     def test_no_title_case_in_section_headers(self):
         """Section headers must use sentence case, not Title Case.
 
         Known proper nouns (product names, brands) are excluded from the check.
         """
-        src = _read_app_source()
-        section_labels = re.findall(r'§\s+([^\n<"]+)', src)
+        import json
+        with open("locale/en.json", "r") as f:
+            en_str = f.read()
+        section_labels = re.findall(r'§\s+([^"\n]+)', en_str)
+
         for label in section_labels:
             words = label.strip().split()
             if len(words) > 1:

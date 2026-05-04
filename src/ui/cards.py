@@ -61,21 +61,21 @@ def _compute_live_completeness(table_full_name: str) -> float:
         return 0.0
 
 
-def _render_table_card(row: "pd.Series", key_prefix: str, _pref_delete_fn=None, _pref_upsert_fn=None) -> None:
+def _render_table_card(row, key_prefix: str, _pref_delete_fn=None, _pref_upsert_fn=None) -> None:
     """Discovery card: table name is clickable, star toggles bookmark."""
-    _ts = row.get("updated_at")
+    _ts = getattr(row, "updated_at", None)
     _time_str = _ts.strftime(t("discovery.date_format")) if isinstance(_ts, pd.Timestamp) else (str(_ts) if _ts else "")
-    _full      = str(row.get("full_name", ""))
-    _tname     = str(row.get("table_name", ""))
+    _full      = str(getattr(row, "full_name", ""))
+    _tname     = str(getattr(row, "table_name", ""))
     _is_bk     = _full in st.session_state.get("bookmarks", set())
 
     st.markdown(f'''
     <div style="background:var(--paper); border:1px solid var(--ink-10); padding:16px 20px 4px; margin-bottom:4px; border-radius:2px;">
         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
-            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(row.get("catalog_name","")))} · {_html.escape(str(row.get("schema_name","")))}</div>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(getattr(row, "catalog_name", "")))} · {_html.escape(str(getattr(row, "schema_name", "")))}</div>
             <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{t("discovery.updated")} {_time_str}</div>
         </div>
-        <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:4px 0 8px;">{_html.escape(str(row.get("table_description","")))}</p>
+        <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:4px 0 8px;">{_html.escape(str(getattr(row, "table_description", "")))}</p>
     </div>
     ''', unsafe_allow_html=True)
 
@@ -150,7 +150,7 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
                 all_authorized = get_authorized_tables_fn((primary_group,))
                 if not all_authorized.empty and "updated_at" in all_authorized.columns:
                     recent_tables = all_authorized.sort_values(by="updated_at", ascending=False).head(10)
-                    for _, row in recent_tables.iterrows():
+                    for row in recent_tables.itertuples(index=False):
                         _render_table_card(row, "notable", pref_delete_fn, pref_upsert_fn)
                 else:
                     st.info(t("discovery.no_updates"))
@@ -173,7 +173,7 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
                 if bk_df.empty:
                     st.info(t("personalization.no_bookmarks"))
                 else:
-                    for _, row in bk_df.iterrows():
+                    for row in bk_df.itertuples(index=False):
                         _render_table_card(row, "bk", pref_delete_fn, pref_upsert_fn)
             except Exception as e:
                 logging.error("Error loading bookmarks: %s", e)
@@ -232,7 +232,7 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
                 if rv_df.empty:
                     st.info(t("personalization.no_recent"))
                 else:
-                    for _, row in rv_df.iterrows():
+                    for row in rv_df.itertuples(index=False):
                         _render_table_card(row, "rv", pref_delete_fn, pref_upsert_fn)
             except Exception as e:
                 logging.error("Error loading recent views: %s", e)
@@ -329,11 +329,11 @@ def render_health(groups, get_authorized_tables_fn):
 
             if not undocumented.empty:
                 st.warning(t("health.missing_descriptions"))
-                for _, row in undocumented.iterrows():
-                    if st.button(f"📄 {row['table_name']}", key=f"health_fix_{row['full_name']}", use_container_width=True):
+                for row in undocumented.itertuples(index=False):
+                    if st.button(f"📄 {getattr(row, 'table_name')}", key=f"health_fix_{getattr(row, 'full_name')}", use_container_width=True):
                         st.query_params["tab"] = "search"
-                        st.session_state["dd_search_override"] = row["table_name"]
-                        st.session_state["dd_nav_select"] = row["full_name"]
+                        st.session_state["dd_search_override"] = getattr(row, "table_name")
+                        st.session_state["dd_nav_select"] = getattr(row, "full_name")
                         st.rerun()
             else:
                 st.success(t("health.all_documented"))
@@ -608,21 +608,21 @@ def _run_dr_resync():
                 _set_dr_resync_status(f"Syncing {tbl}")
                 # Merge into DuckDB
                 with conn.cursor() as cursor:
-                    for _, row in delta_df.iterrows():
+                    for row_dict in delta_df.to_dict("records"):
                         # Simple append for logs/comments (guaranteed unique IDs)
                         if tbl in ("comments", "audit_log"):
                             cols = ", ".join(delta_df.columns)
                             placeholders = ", ".join([f"%({c})s" for c in delta_df.columns])
                             cursor.execute_write(
                                 f"INSERT OR IGNORE INTO user_data.{tbl} ({cols}) VALUES ({placeholders})",
-                                row.to_dict()
+                                row_dict
                             )
                         else:
                             # Merge for overrides
                             cursor.execute_write(
                                 f"INSERT OR REPLACE INTO user_data.{tbl} ({', '.join(delta_df.columns)}) "
                                 f"VALUES ({', '.join([f'%({c})s' for c in delta_df.columns])})",
-                                row.to_dict()
+                                row_dict
                             )
 
         _set_dr_resync_status("Up-to-date")

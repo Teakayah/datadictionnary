@@ -204,10 +204,10 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         _col_edit = st.session_state.get("dd_col_edit_mode", "")
 
         if n_cols > 0:
-            for _, c in cols.iterrows():
-                _cname    = str(c.get("column_name", ""))
-                _ctype    = str(c.get("data_type", ""))
-                _ccomment = str(c.get("comment") or "")
+            for c in cols.itertuples(index=False):
+                _cname    = str(getattr(c, "column_name", ""))
+                _ctype    = str(getattr(c, "data_type", ""))
+                _ccomment = str(getattr(c, "comment", "") or "")
                 _edit_key = f"{full_name}__{_cname}"
                 _override = col_overrides.get(_cname, {})
                 _col_biz  = _override.get("business_name", "")
@@ -364,9 +364,9 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             unsafe_allow_html=True,
         )
         if n_grants > 0:
-            for _, g in grants.iterrows():
-                principal = str(g.get("principal", ""))
-                privilege = str(g.get("privilege", ""))
+            for g in grants.itertuples(index=False):
+                principal = str(getattr(g, "principal", ""))
+                privilege = str(getattr(g, "privilege", ""))
                 st.markdown('<div style="border-top: 1px solid var(--ink-10); margin: 8px 0 4px 0;"></div>', unsafe_allow_html=True)
                 if principal == "SELECT_ALL_USERS":
                     if st.button(t("detail.browse_public_tables", privilege=privilege), key=f"grant_{full_name}_public_{privilege}", use_container_width=True):
@@ -409,10 +409,10 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         n_related = len(related) if related is not None and not related.empty else 0
 
         if n_related > 0:
-            for _, rel in related.iterrows():
-                _rel_full      = str(rel.get("full_name", ""))
-                _rel_name      = _html.escape(str(rel.get("table_name", "")))
-                _rel_raw_badge = str(rel.get("relationship", ""))
+            for rel in related.itertuples(index=False):
+                _rel_full      = str(getattr(rel, "full_name", ""))
+                _rel_name      = _html.escape(str(getattr(rel, "table_name", "")))
+                _rel_raw_badge = str(getattr(rel, "relationship", ""))
                 _rel_badge = (
                     t("detail.same_schema") if _rel_raw_badge == "Same schema"
                     else t("detail.shared_column") if _rel_raw_badge == "Shared column"
@@ -441,12 +441,12 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         if n_related > 0:
             st.markdown('<div style="margin-top: 16px;"></div>', unsafe_allow_html=True)
             _cols = st.columns(min(3, n_related), gap="small")
-            for i, (_, rel) in enumerate(related.iterrows()):
+            for i, rel in enumerate(related.itertuples(index=False)):
                 with _cols[i % 3]:
-                    _rel_full      = str(rel.get("full_name", ""))
-                    _rel_name      = _html.escape(str(rel.get("table_name", "")))
-                    _rel_sch       = _html.escape(f"{rel.get('catalog_name','')}.{rel.get('schema_name','')}")
-                    _rel_raw_badge = str(rel.get("relationship", ""))
+                    _rel_full      = str(getattr(rel, "full_name", ""))
+                    _rel_name      = _html.escape(str(getattr(rel, "table_name", "")))
+                    _rel_sch       = _html.escape(f"{getattr(rel, 'catalog_name', '')}.{getattr(rel, 'schema_name', '')}")
+                    _rel_raw_badge = str(getattr(rel, "relationship", ""))
                     _rel_badge = (
                         t("detail.same_schema") if _rel_raw_badge == "Same schema"
                         else t("detail.shared_column") if _rel_raw_badge == "Shared column"
@@ -547,13 +547,13 @@ def render_search_page(query_groups: tuple) -> None:
             f'{t("search.results_count", count=len(_gr))}</p>',
             unsafe_allow_html=True,
         )
-        for _i, (_, _row) in enumerate(_gr.iterrows()):
-            _fn = str(_row.get("full_name", ""))
+        for _i, _row in enumerate(_gr.itertuples(index=False)):
+            _fn = str(getattr(_row, "full_name", ""))
             if not _fn:
                 continue
             _gc, _gb = st.columns([5, 1], gap="small", vertical_alignment="top")
             with _gc:
-                _render_result_card(_fn, str(_row.get("name") or _row.get("table_name", "")), str(_row.get("description", "") or ""), "Table", str(_row.get("dq_score", "") or ""))
+                _render_result_card(_fn, str(getattr(_row, "name", "") or getattr(_row, "table_name", "")), str(getattr(_row, "description", "") or ""), "Table", str(getattr(_row, "dq_score", "") or ""))
             with _gb:
                 if st.button(f"{t('search.view_details')} →", key=f"gview_{_fn}_{_i}", use_container_width=True):
                     _auth_df = get_authorized_tables(query_groups)
@@ -587,13 +587,13 @@ def render_search_page(query_groups: tuple) -> None:
                         f'{t("search.results_count", count=len(results))}</p>',
                         unsafe_allow_html=True,
                     )
-                    for _sr_i, (_, _sr) in enumerate(results.iterrows()):
-                        _fn = _s(_sr.get("full_name"))
+                    for _sr_i, _sr in enumerate(results.itertuples(index=False)):
+                        _fn = _s(getattr(_sr, "full_name", None))
                         if not _fn:
                             continue
                         _card_col, _btn_col = st.columns([5, 1], gap="small", vertical_alignment="top")
                         with _card_col:
-                            _render_result_card(_fn, _s(_sr.get("name")), _s(_sr.get("description")), _s(_sr.get("match_type")), _s(_sr.get("dq_score", "")))
+                            _render_result_card(_fn, _s(getattr(_sr, "name", None)), _s(getattr(_sr, "description", None)), _s(getattr(_sr, "match_type", None)), _s(getattr(_sr, "dq_score", "")))
                         with _btn_col:
                             if st.button(f"{t('search.view_details')} →", key=f"view_{_fn}_{_sr_i}", use_container_width=True):
                                 _auth_df = get_authorized_tables(query_groups)

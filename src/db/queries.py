@@ -248,13 +248,13 @@ def get_column_business_names(table_full_name: str) -> dict:
             rows = cursor.fetchall_as_pandas()
             if rows is not None and not rows.empty:
                 return {
-                    str(r["column_name"]): {
-                        "business_name": str(r["business_name"]) if r["business_name"] else "",
-                        "definition":    str(r["definition"])    if r["definition"]    else "",
-                        "edited_by":     str(r["edited_by"]),
-                        "edited_at":     str(r["edited_at"]),
+                    str(getattr(r, "column_name", "")): {
+                        "business_name": str(getattr(r, "business_name", "")) if getattr(r, "business_name", None) else "",
+                        "definition":    str(getattr(r, "definition", ""))    if getattr(r, "definition", None)    else "",
+                        "edited_by":     str(getattr(r, "edited_by", "")),
+                        "edited_at":     str(getattr(r, "edited_at", "")),
                     }
-                    for _, r in rows.iterrows()
+                    for r in rows.itertuples(index=False)
                 }
     except Exception as e:
         logging.warning("Could not fetch column business names for %s: %s", table_full_name, e)
@@ -271,10 +271,10 @@ def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
     writer.writerow(["Column Name", "Business Name", "Data Type", "System Description", "Business Definition"])
 
     if cols is not None and not cols.empty:
-        for _, c in cols.iterrows():
-            cname = str(c.get("column_name", ""))
-            ctype = str(c.get("data_type", ""))
-            ccomment = str(c.get("comment") or "")
+        for c in cols.itertuples(index=False):
+            cname = str(getattr(c, "column_name", ""))
+            ctype = str(getattr(c, "data_type", ""))
+            ccomment = str(getattr(c, "comment", "") or "")
 
             override = col_overrides.get(cname, {})
             biz_name = override.get("business_name", "")
