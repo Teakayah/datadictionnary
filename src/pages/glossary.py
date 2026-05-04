@@ -62,7 +62,7 @@ def render_glossary(query_groups) -> None:
                 _gloss_bk = table_fn in st.session_state.get("bookmarks", set())
                 _c_tbl, _c_star = st.columns([11, 1], gap="small")
                 with _c_tbl:
-                    if st.button(f"→ {table_fn.split('.')[-1]}", key=f"gloss_link_{table_fn}", use_container_width=True, type="secondary"):
+                    if st.button(f"→ {table_fn.split('.')[-1]}", key=f"gloss_link_{table_fn}", help=t("search.view_details_help"), use_container_width=True, type="secondary"):
                         st.query_params["tab"] = "search"
                         st.session_state["dd_search_override"] = table_fn.split(".")[-1]
                         st.session_state["dd_nav_select"] = table_fn
