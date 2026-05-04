@@ -1,0 +1,3 @@
+## 2024-05-17 - Pandas Iteration Performance
+**Learning:** Found widespread use of `iterrows()` in this app, which caused bottlenecks when repeatedly rendering Streamlit components or performing database inserts. Using `iterrows()` forces pandas to box every row into a Series, introducing significant overhead.
+**Action:** Always replace `iterrows()` with `itertuples(index=False)` for loop iteration (using `getattr` instead of `dict.get` for safe access), and use `df.to_dict('records')` when directly mapping DataFrames for database batch executions like `cursor.execute_write`. This pattern significantly increases loop speeds and reduces memory overhead.

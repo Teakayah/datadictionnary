@@ -75,21 +75,21 @@ def _run_dr_resync():
                 _set_dr_resync_status(f"Syncing {tbl}")
                 # Merge into DuckDB
                 with conn.cursor() as cursor:
-                    for _, row in delta_df.iterrows():
+                    for row_dict in delta_df.to_dict("records"):
                         # Simple append for logs/comments (guaranteed unique IDs)
                         if tbl in ("comments", "audit_log"):
                             cols = ", ".join(delta_df.columns)
                             placeholders = ", ".join([f"%({c})s" for c in delta_df.columns])
                             cursor.execute_write(
                                 f"INSERT OR IGNORE INTO user_data.{tbl} ({cols}) VALUES ({placeholders})",
-                                row.to_dict()
+                                row_dict
                             )
                         else:
                             # Merge for overrides
                             cursor.execute_write(
                                 f"INSERT OR REPLACE INTO user_data.{tbl} ({', '.join(delta_df.columns)}) "
                                 f"VALUES ({', '.join([f'%({c})s' for c in delta_df.columns])})",
-                                row.to_dict()
+                                row_dict
                             )
 
         _set_dr_resync_status("Up-to-date")
