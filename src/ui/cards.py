@@ -82,7 +82,7 @@ def _render_table_card(row: "pd.Series", key_prefix: str, _pref_delete_fn=None, 
     # Table name button (navigates to detail) + star bookmark — flush below the card
     _c_name, _c_star = st.columns([11, 1], gap="small")
     with _c_name:
-        if st.button(f"→ {_tname}", key=f"{key_prefix}_open_{_full}", use_container_width=True, type="secondary"):
+        if st.button(f"→ {_tname}", key=f"{key_prefix}_open_{_full}", help=t("search.view_details_help"), use_container_width=True, type="secondary"):
             st.query_params["tab"] = "search"
             st.session_state["dd_search_override"] = _tname
             st.session_state["dd_nav_select"] = _full
@@ -204,7 +204,7 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
                         f'</div>',
                         unsafe_allow_html=True,
                     )
-                    if st.button(f"→ {_bk_tbl_label}", key=f"colbk_open_{_bk_id}", use_container_width=True, type="secondary"):
+                    if st.button(f"→ {_bk_tbl_label}", key=f"colbk_open_{_bk_id}", help=t("search.view_details_help"), use_container_width=True, type="secondary"):
                         st.query_params["tab"] = "search"
                         st.session_state["dd_search_override"] = _bk_tbl_label
                         st.session_state["dd_nav_select"] = _bk_table
@@ -330,7 +330,7 @@ def render_health(groups, get_authorized_tables_fn):
             if not undocumented.empty:
                 st.warning(t("health.missing_descriptions"))
                 for _, row in undocumented.iterrows():
-                    if st.button(f"📄 {row['table_name']}", key=f"health_fix_{row['full_name']}", use_container_width=True):
+                    if st.button(f"📄 {row['table_name']}", key=f"health_fix_{row['full_name']}", help=t("catalog.tree_help"), use_container_width=True):
                         st.query_params["tab"] = "search"
                         st.session_state["dd_search_override"] = row["table_name"]
                         st.session_state["dd_nav_select"] = row["full_name"]
