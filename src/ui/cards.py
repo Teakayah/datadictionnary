@@ -8,7 +8,6 @@ import time
 
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 
 from src.audit import save_table_metadata
 from src.auth import is_admin
@@ -238,6 +237,86 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
                 logging.error("Error loading recent views: %s", e)
                 st.error(t("discovery.load_error"))
 
+def _calculate_health_metrics(all_data):
+    n_tables = len(all_data)
+    n_desc = (all_data['table_description'].str.strip().str.len() > 0).sum()
+    table_coverage = (n_desc / n_tables * 100) if n_tables > 0 else 0
+
+    if is_demo_mode():
+        n_cols = 0
+        n_col_desc = 0
+    else:
+        cols_stats_query = f"SELECT count(*) as total, count(comment) as with_desc FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata"
+        stats = run_query(cols_stats_query)
+        n_cols = stats.iloc[0]['total']
+        n_col_desc = stats.iloc[0]['with_desc']
+
+    col_coverage = (n_col_desc / n_cols * 100) if n_cols > 0 else 0
+    return table_coverage, n_desc, n_tables, col_coverage, n_col_desc, n_cols
+
+def _render_health_hero_metrics(table_coverage, n_desc, n_tables, col_coverage, n_col_desc, n_cols):
+    c1, c2, c3 = st.columns(3, gap="large")
+    with c1:
+        st.markdown(f'''
+        <div style="background:var(--paper); border-top:3px solid var(--accent); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+            <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.table_coverage")}</div>
+            <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{table_coverage:.0f}%</div>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.tables_described", n_desc=n_desc, n_tables=n_tables)}</div>
+        </div>
+        ''', unsafe_allow_html=True)
+    with c2:
+        st.markdown(f'''
+        <div style="background:var(--paper); border-top:3px solid var(--deepblue); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+            <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.column_coverage")}</div>
+            <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{col_coverage:.0f}%</div>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.columns_defined", n_col_desc=n_col_desc, n_cols=n_cols)}</div>
+        </div>
+        ''', unsafe_allow_html=True)
+    with c3:
+        st.markdown(f'''
+        <div style="background:var(--paper); border-top:3px solid var(--ochre); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+            <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.freshness_index")}</div>
+            <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">A</div>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.last_sync")}</div>
+        </div>
+        ''', unsafe_allow_html=True)
+
+def _render_schema_coverage(all_data):
+    st.markdown('<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Coverage by Schema</span></div>', unsafe_allow_html=True)
+    schema_stats = all_data.groupby('schema_name').agg(
+        total=('table_name', 'count'),
+        described=('table_description', lambda x: x.apply(lambda y: len(str(y).strip()) > 0).sum())
+    ).reset_index()
+    schema_stats['coverage'] = (schema_stats['described'] / schema_stats['total'] * 100).round(0)
+
+    st.dataframe(
+        schema_stats.sort_values(by='coverage', ascending=False),
+        column_config={
+            "schema_name": "Schema",
+            "total": "Tables",
+            "described": "With Desc",
+            "coverage": st.column_config.ProgressColumn("Coverage", format="%d%%", min_value=0, max_value=100)
+        },
+        use_container_width=True,
+        hide_index=True
+    )
+
+def _render_priority_actions(all_data):
+    st.markdown('<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Priority Actions</span></div>', unsafe_allow_html=True)
+    undocumented = all_data[all_data['table_description'].apply(lambda x: len(str(x).strip()) == 0)].head(5)
+
+    if not undocumented.empty:
+        st.warning(t("health.missing_descriptions"))
+        for _, row in undocumented.iterrows():
+            if st.button(f"📄 {row['table_name']}", key=f"health_fix_{row['full_name']}", use_container_width=True):
+                st.query_params["tab"] = "search"
+                st.session_state["dd_search_override"] = row["table_name"]
+                st.session_state["dd_nav_select"] = row["full_name"]
+                st.rerun()
+    else:
+        st.success(t("health.all_documented"))
+
+
 def render_health(groups, get_authorized_tables_fn):
     st.markdown(f'''
     <div class="dd-search-hero">
@@ -253,90 +332,19 @@ def render_health(groups, get_authorized_tables_fn):
             st.info(t("health.no_data"))
             return
 
-        # 1. Calculation Logic
-        n_tables = len(all_data)
-        n_desc = (all_data['table_description'].str.strip().str.len() > 0).sum()
-        table_coverage = (n_desc / n_tables * 100) if n_tables > 0 else 0
+        table_coverage, n_desc, n_tables, col_coverage, n_col_desc, n_cols = _calculate_health_metrics(all_data)
 
-        # For columns, we need to query the cache (or use mock)
-        if is_demo_mode():
-            # Demo mode: _DEMO_COLUMNS lives in app.py until Phase 4b; show zeroes here
-            n_cols = 0
-            n_col_desc = 0
-        else:
-            cols_stats_query = f"SELECT count(*) as total, count(comment) as with_desc FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata"
-            stats = run_query(cols_stats_query)
-            n_cols = stats.iloc[0]['total']
-            n_col_desc = stats.iloc[0]['with_desc']
-
-        col_coverage = (n_col_desc / n_cols * 100) if n_cols > 0 else 0
-
-        # 2. Hero Metrics
-        c1, c2, c3 = st.columns(3, gap="large")
-        with c1:
-            st.markdown(f'''
-            <div style="background:var(--paper); border-top:3px solid var(--accent); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-                <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.table_coverage")}</div>
-                <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{table_coverage:.0f}%</div>
-                <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.tables_described", n_desc=n_desc, n_tables=n_tables)}</div>
-            </div>
-            ''', unsafe_allow_html=True)
-        with c2:
-            st.markdown(f'''
-            <div style="background:var(--paper); border-top:3px solid var(--deepblue); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-                <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.column_coverage")}</div>
-                <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{col_coverage:.0f}%</div>
-                <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.columns_defined", n_col_desc=n_col_desc, n_cols=n_cols)}</div>
-            </div>
-            ''', unsafe_allow_html=True)
-        with c3:
-            st.markdown(f'''
-            <div style="background:var(--paper); border-top:3px solid var(--ochre); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-                <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.freshness_index")}</div>
-                <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">A</div>
-                <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.last_sync")}</div>
-            </div>
-            ''', unsafe_allow_html=True)
+        _render_health_hero_metrics(table_coverage, n_desc, n_tables, col_coverage, n_col_desc, n_cols)
 
         st.markdown('<div style="margin-top:48px;"></div>', unsafe_allow_html=True)
 
-        # 3. Bottom breakdown
         col_left, col_right = st.columns([6, 4], gap="large")
 
         with col_left:
-            st.markdown('<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Coverage by Schema</span></div>', unsafe_allow_html=True)
-            schema_stats = all_data.groupby('schema_name').agg(
-                total=('table_name', 'count'),
-                described=('table_description', lambda x: x.apply(lambda y: len(str(y).strip()) > 0).sum())
-            ).reset_index()
-            schema_stats['coverage'] = (schema_stats['described'] / schema_stats['total'] * 100).round(0)
-
-            st.dataframe(
-                schema_stats.sort_values(by='coverage', ascending=False),
-                column_config={
-                    "schema_name": "Schema",
-                    "total": "Tables",
-                    "described": "With Desc",
-                    "coverage": st.column_config.ProgressColumn("Coverage", format="%d%%", min_value=0, max_value=100)
-                },
-                use_container_width=True,
-                hide_index=True
-            )
+            _render_schema_coverage(all_data)
 
         with col_right:
-            st.markdown('<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0">§ Priority Actions</span></div>', unsafe_allow_html=True)
-            undocumented = all_data[all_data['table_description'].apply(lambda x: len(str(x).strip()) == 0)].head(5)
-
-            if not undocumented.empty:
-                st.warning(t("health.missing_descriptions"))
-                for _, row in undocumented.iterrows():
-                    if st.button(f"📄 {row['table_name']}", key=f"health_fix_{row['full_name']}", use_container_width=True):
-                        st.query_params["tab"] = "search"
-                        st.session_state["dd_search_override"] = row["table_name"]
-                        st.session_state["dd_nav_select"] = row["full_name"]
-                        st.rerun()
-            else:
-                st.success(t("health.all_documented"))
+            _render_priority_actions(all_data)
 
     except Exception as e:
         logging.error("Error in health dashboard: %s", e)
@@ -375,7 +383,7 @@ def get_admin_stats() -> dict:
 def get_business_name_change_log() -> pd.DataFrame:
     """Return the last 200 business name change events for the admin log."""
     if is_demo_mode():
-        logs = [l for l in st.session_state.get("demo_audit_log", []) if l["event_type"] == "business_name_change"]
+        logs = [log for log in st.session_state.get("demo_audit_log", []) if log["event_type"] == "business_name_change"]
         if not logs:
             return pd.DataFrame(columns=["event_id", "object_name", "old_value", "new_value", "actor_email", "created_at"])
         return pd.DataFrame(logs).sort_values("created_at", ascending=False).head(200)
@@ -391,8 +399,8 @@ def get_business_name_change_log() -> pd.DataFrame:
 def get_comment_log() -> pd.DataFrame:
     """Return the last 200 comment/reply events for the admin log."""
     if is_demo_mode():
-        logs = [l for l in st.session_state.get("demo_audit_log", [])
-                if l["event_type"] in ("comment_added", "comment_reply")]
+        logs = [log for log in st.session_state.get("demo_audit_log", [])
+                if log["event_type"] in ("comment_added", "comment_reply")]
         if not logs:
             return pd.DataFrame(columns=["event_id", "object_name", "comment_preview", "actor_email", "created_at"])
         df = pd.DataFrame(logs).rename(columns={"new_value": "comment_preview"})
