@@ -12,6 +12,10 @@ load_dotenv()  # must run before any src.* import so os.getenv() reads .env valu
 from src.auth import check_auth, is_power_user, is_admin, render_signin_page
 from src.ui.header import render_header, render_footer, LOGO_MARK_SVG
 
+def is_demo_mode() -> bool:
+    """Check if the application is running in demo mode."""
+    return os.getenv("DEMO_DATA", "false").lower() == "true"
+
 # ── Internationalisation (i18n) ───────────────────────────────────────────────
 from src.i18n import t
 
