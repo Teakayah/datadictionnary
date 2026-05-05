@@ -20,6 +20,7 @@ from __future__ import annotations
 import sys
 import os
 import re
+import json
 import pandas as pd
 import pytest
 from streamlit.testing.v1 import AppTest
