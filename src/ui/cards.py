@@ -690,7 +690,7 @@ def render_table_metadata_editor(table_full_name: str, current_desc: str, curren
     with c1:
         if st.button(t("common.save"), type="primary", use_container_width=True):
             if new_stew.strip() and "@" not in new_stew:
-                st.error("Please enter a valid email address.")
+                st.error(t("detail.invalid_email"))
             else:
                 try:
                     save_table_metadata(table_full_name, description=new_desc, steward_email=new_stew)
@@ -698,7 +698,7 @@ def render_table_metadata_editor(table_full_name: str, current_desc: str, curren
                     time.sleep(0.5)
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    st.error(t("common.error_with_details", error=str(e)))
     with c2:
         if st.button(t("common.cancel"), use_container_width=True):
             st.rerun()
