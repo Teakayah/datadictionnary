@@ -300,7 +300,6 @@ class TestAuditLog:
         """log_audit_event in demo mode appends to st.session_state['demo_audit_log']."""
         monkeypatch.setenv("DEMO_DATA", "true")
         monkeypatch.setenv("EDITOR_GROUPS", STANDARD_GROUP)
-        FULL_NAME = "main.analytics.customers"
 
         at = AppTest.from_file(APP_PATH, default_timeout=15)
         at.session_state["authenticated"] = True
