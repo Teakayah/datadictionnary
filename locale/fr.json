@@ -72,7 +72,8 @@
     "lineage_graph_subtitle": "{table} — lignage complet",
     "preview_not_available": "Aperçu non disponible pour cette table en mode local.",
     "preview_needs_data": "Aucune donnée trouvée. Régénérez le jeu de test avec --with-data pour activer l'aperçu.",
-    "preview_error": "Impossible de récupérer l'échantillon. Vous n'avez peut-être pas la permission d'accéder aux données."
+    "preview_error": "Impossible de récupérer l'échantillon. Vous n'avez peut-être pas la permission d'accéder aux données.",
+    "expand_lineage": "Agrandir le graphe de lignage"
   },
   "comment": {
     "add_comment": "Ajouter un commentaire",
@@ -104,7 +105,8 @@
     "comment_log_title": "Historique des commentaires",
     "sync_title": "État de la synchronisation",
     "no_data": "Aucune donnée d’audit disponible.",
-    "access_denied": "Accès administrateur requis."
+    "access_denied": "Accès administrateur requis.",
+    "expand_log": "Agrandir le journal"
   },
   "health": {
     "title": "§ Santé du catalogue",
