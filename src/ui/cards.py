@@ -60,21 +60,21 @@ def _compute_live_completeness(table_full_name: str) -> float:
         return 0.0
 
 
-def _render_table_card(row: "pd.Series", key_prefix: str, _pref_delete_fn=None, _pref_upsert_fn=None) -> None:
+def _render_table_card(row, key_prefix: str, _pref_delete_fn=None, _pref_upsert_fn=None) -> None:
     """Discovery card: table name is clickable, star toggles bookmark."""
-    _ts = row.get("updated_at")
+    _ts = getattr(row, "updated_at", None)
     _time_str = _ts.strftime(t("discovery.date_format")) if isinstance(_ts, pd.Timestamp) else (str(_ts) if _ts else "")
-    _full      = str(row.get("full_name", ""))
-    _tname     = str(row.get("table_name", ""))
+    _full      = str(getattr(row, "full_name", ""))
+    _tname     = str(getattr(row, "table_name", ""))
     _is_bk     = _full in st.session_state.get("bookmarks", set())
 
     st.markdown(f'''
     <div style="background:var(--paper); border:1px solid var(--ink-10); padding:16px 20px 4px; margin-bottom:4px; border-radius:2px;">
         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
-            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(row.get("catalog_name","")))} · {_html.escape(str(row.get("schema_name","")))}</div>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(getattr(row, "catalog_name", "")))} · {_html.escape(str(getattr(row, "schema_name", "")))}</div>
             <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{t("discovery.updated")} {_time_str}</div>
         </div>
-        <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:4px 0 8px;">{_html.escape(str(row.get("table_description","")))}</p>
+        <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:4px 0 8px;">{_html.escape(str(getattr(row, "table_description", "")))}</p>
     </div>
     ''', unsafe_allow_html=True)
 
