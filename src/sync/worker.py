@@ -5,7 +5,6 @@ import threading
 import time
 
 import streamlit as st
-import pandas as pd
 
 from src.config import CATALOG_CACHE, SCHEMA_CACHE
 from src.db.duckdb_adapter import _duckdb_available

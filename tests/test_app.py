@@ -297,9 +297,12 @@ class TestTableDetail:
       8. related tables            → related_df
     """
 
-    _EMPTY_OVERRIDES = lambda: pd.DataFrame(columns=["column_name", "business_name", "definition", "edited_by", "edited_at"])
-    _EMPTY_STEWARD   = lambda: pd.DataFrame(columns=["steward_email"])
-    _EMPTY_COMMENTS  = lambda: pd.DataFrame(columns=["comment_id", "comment_text", "author_name", "author_email", "created_at"])
+    def _EMPTY_OVERRIDES():
+        return pd.DataFrame(columns=["column_name", "business_name", "definition", "edited_by", "edited_at"])
+    def _EMPTY_STEWARD():
+        return pd.DataFrame(columns=["steward_email"])
+    def _EMPTY_COMMENTS():
+        return pd.DataFrame(columns=["comment_id", "comment_text", "author_name", "author_email", "created_at"])
 
     def _run_with_table_selected(self, *dataframes) -> AppTest:
         """Run app with SQL mocks (DataFrames in call order), then type 'customers'."""
@@ -379,7 +382,6 @@ def _get_all_locale_strings(d: dict) -> list[str]:
     return strings
 
 def _read_locale_strings() -> list[str]:
-    import json
     locale_path = os.path.join(os.path.dirname(__file__), "..", "locale", "en.json")
     with open(locale_path, encoding="utf-8") as f:
         locale_data = json.load(f)

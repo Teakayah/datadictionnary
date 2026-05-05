@@ -1,6 +1,7 @@
 """
 Tests for the commenting feature.
 """
+
 from __future__ import annotations
 
 import os
@@ -13,24 +14,57 @@ APP_PATH = os.path.join(os.path.dirname(__file__), "..", "app.py")
 
 # Matches _DEMO_TABLES in app.py
 TABLE_NAME = "customers"
-FULL_NAME  = "main.analytics.customers"
+FULL_NAME = "main.analytics.customers"
 
-def _EMPTY_OVERRIDES(cursor=None): return pd.DataFrame(columns=["column_name", "business_name", "definition", "edited_by", "edited_at"])
-def _EMPTY_LINEAGE(cursor=None): return pd.DataFrame(columns=["direction", "entity_full_name", "entity_type"])
-def _EMPTY_RELATED(cursor=None): return pd.DataFrame(columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"])
-def _EMPTY_COMMENTS(cursor=None): return pd.DataFrame(columns=["comment_id", "author_name", "author_email", "comment_text", "created_at"])
-def _EMPTY_STEWARD(cursor=None): return pd.DataFrame(columns=["steward_email"])
+
+def _EMPTY_OVERRIDES(cursor=None):
+    return pd.DataFrame(
+        columns=["column_name", "business_name", "definition", "edited_by", "edited_at"]
+    )
+
+
+def _EMPTY_LINEAGE(cursor=None):
+    return pd.DataFrame(columns=["direction", "entity_full_name", "entity_type"])
+
+
+def _EMPTY_RELATED(cursor=None):
+    return pd.DataFrame(
+        columns=[
+            "full_name",
+            "table_name",
+            "catalog_name",
+            "schema_name",
+            "relationship",
+        ]
+    )
+
+
+def _EMPTY_COMMENTS(cursor=None):
+    return pd.DataFrame(
+        columns=[
+            "comment_id",
+            "author_name",
+            "author_email",
+            "comment_text",
+            "created_at",
+        ]
+    )
+
+
+def _EMPTY_STEWARD(cursor=None):
+    return pd.DataFrame(columns=["steward_email"])
 
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
+
 def authenticated_app() -> AppTest:
     at = AppTest.from_file(APP_PATH, default_timeout=15)
     at.session_state["authenticated"] = True
-    at.session_state["user_groups"]   = ["finance_dept_id", "all_employees_id"]
-    at.session_state["user_name"]     = "Finance User"
-    at.session_state["user_email"]    = "finance.user@example.com"
-    at.session_state["bookmarks"]     = set()
+    at.session_state["user_groups"] = ["finance_dept_id", "all_employees_id"]
+    at.session_state["user_name"] = "Finance User"
+    at.session_state["user_email"] = "finance.user@example.com"
+    at.session_state["bookmarks"] = set()
     at.session_state["_prefs_loaded"] = True
     return at
 
@@ -49,46 +83,80 @@ def _at_detail(monkeypatch) -> AppTest:
         next(b for b in at.button if "View details" in b.label).click().run()
     return at
 
+
 def _make_tables_df() -> pd.DataFrame:
-    return pd.DataFrame({
-        "full_name":         [FULL_NAME],
-        "catalog_name":      ["main"],
-        "schema_name":       ["analytics"],
-        "table_name":        [TABLE_NAME],
-        "name":              [TABLE_NAME],
-        "match_type":        ["Table"],
-        "table_description": ["test"],
-        "table_type":        ["TABLE"],
-        "updated_at":        [pd.Timestamp.now()],
-    })
+    return pd.DataFrame(
+        {
+            "full_name": [FULL_NAME],
+            "catalog_name": ["main"],
+            "schema_name": ["analytics"],
+            "table_name": [TABLE_NAME],
+            "name": [TABLE_NAME],
+            "match_type": ["Table"],
+            "table_description": ["test"],
+            "table_type": ["TABLE"],
+            "updated_at": [pd.Timestamp.now()],
+        }
+    )
+
 
 def _make_columns_df() -> pd.DataFrame:
-    return pd.DataFrame({
-        "column_name": ["customer_id", "email"],
-        "data_type":   ["BIGINT", "STRING"],
-        "comment":     ["Primary key", "Email address"],
-    })
+    return pd.DataFrame(
+        {
+            "column_name": ["customer_id", "email"],
+            "data_type": ["BIGINT", "STRING"],
+            "comment": ["Primary key", "Email address"],
+        }
+    )
+
 
 def _make_grants_df() -> pd.DataFrame:
     return pd.DataFrame({"principal": ["SELECT_ALL_USERS"], "privilege": ["SELECT"]})
 
-def _at_production_detail(monkeypatch, tables_df=None, columns_df=None, grants_df=None, 
-                         lineage_df=None, related_df=None, steward_df=None, 
-                         comments_df=None) -> AppTest:
+
+def _at_production_detail(
+    monkeypatch,
+    tables_df=None,
+    columns_df=None,
+    grants_df=None,
+    lineage_df=None,
+    related_df=None,
+    steward_df=None,
+    comments_df=None,
+) -> AppTest:
     monkeypatch.setenv("DEMO_DATA", "false")
+
     def detail_side_effect(*args, **kwargs):
         cursor = get_db_cursor()
-        sql = cursor.execute.call_args_list[-1][0][0] if cursor.execute.call_args_list else ""
-        if "permissions_cache" in sql and "tables_metadata" in sql: return tables_df if tables_df is not None else _make_tables_df()
-        if "tables_metadata" in sql and "steward_email" in sql: return steward_df if steward_df is not None else pd.DataFrame({"steward_email": ["steward@example.com"]})
-        if "tables_metadata" in sql: return tables_df if tables_df is not None else _make_tables_df()
-        if "columns_metadata" in sql and "JOIN" not in sql: return columns_df if columns_df is not None else _make_columns_df()
-        if "permissions_cache" in sql: return grants_df if grants_df is not None else _make_grants_df()
-        if "lineage_cache" in sql: return lineage_df if lineage_df is not None else _EMPTY_LINEAGE()
-        if "UNION" in sql and "columns_metadata" in sql: return related_df if related_df is not None else _EMPTY_RELATED()
-        if "business_name_overrides" in sql: return _EMPTY_OVERRIDES()
-        if "comments" in sql: return comments_df if comments_df is not None else _EMPTY_COMMENTS()
+        sql = (
+            cursor.execute.call_args_list[-1][0][0]
+            if cursor.execute.call_args_list
+            else ""
+        )
+        if "permissions_cache" in sql and "tables_metadata" in sql:
+            return tables_df if tables_df is not None else _make_tables_df()
+        if "tables_metadata" in sql and "steward_email" in sql:
+            return (
+                steward_df
+                if steward_df is not None
+                else pd.DataFrame({"steward_email": ["steward@example.com"]})
+            )
+        if "tables_metadata" in sql:
+            return tables_df if tables_df is not None else _make_tables_df()
+        if "columns_metadata" in sql and "JOIN" not in sql:
+            return columns_df if columns_df is not None else _make_columns_df()
+        if "permissions_cache" in sql:
+            return grants_df if grants_df is not None else _make_grants_df()
+        if "lineage_cache" in sql:
+            return lineage_df if lineage_df is not None else _EMPTY_LINEAGE()
+        if "UNION" in sql and "columns_metadata" in sql:
+            return related_df if related_df is not None else _EMPTY_RELATED()
+        if "business_name_overrides" in sql:
+            return _EMPTY_OVERRIDES()
+        if "comments" in sql:
+            return comments_df if comments_df is not None else _EMPTY_COMMENTS()
         return pd.DataFrame()
+
     sql_returns(side_effect=detail_side_effect)
     at = authenticated_app()
     at.run()
@@ -123,13 +191,15 @@ class TestGetTableComments:
         monkeypatch.setenv("DEMO_DATA", "true")
         at = authenticated_app()
         at.session_state["demo_comments"] = {
-            FULL_NAME: [{
-                "comment_id":   "abc-123",
-                "author_name":  "Alice",
-                "author_email": "alice@corp.com",
-                "comment_text": "Great table!",
-                "created_at":   "2026-04-24T09:00",
-            }]
+            FULL_NAME: [
+                {
+                    "comment_id": "abc-123",
+                    "author_name": "Alice",
+                    "author_email": "alice@corp.com",
+                    "comment_text": "Great table!",
+                    "created_at": "2026-04-24T09:00",
+                }
+            ]
         }
         at.run()
         at.selectbox(key="catalog_search").select(TABLE_NAME).run()
@@ -155,7 +225,9 @@ class TestSendCommentEmail:
         """In demo mode, send_comment_email must not try to connect to SMTP."""
         at = _at_detail(monkeypatch)
         next(b for b in at.button if b.label == "Leave a comment").click().run()
-        at.text_area(key=f"dd_comment_text_{FULL_NAME}").set_value("Demo comment.").run()
+        at.text_area(key=f"dd_comment_text_{FULL_NAME}").set_value(
+            "Demo comment."
+        ).run()
         next(b for b in at.button if b.label == "Send").click().run()
         assert not at.exception
 
@@ -164,7 +236,9 @@ class TestSendCommentEmail:
         monkeypatch.delenv("SMTP_HOST", raising=False)
         at = _at_production_detail(monkeypatch)
         next(b for b in at.button if b.label == "Leave a comment").click().run()
-        at.text_area(key=f"dd_comment_text_{FULL_NAME}").set_value("No SMTP test.").run()
+        at.text_area(key=f"dd_comment_text_{FULL_NAME}").set_value(
+            "No SMTP test."
+        ).run()
         next(b for b in at.button if b.label == "Send").click().run()
         cursor = get_db_cursor()
         sql_calls = [str(c) for c in cursor.execute.call_args_list]
@@ -190,7 +264,7 @@ class TestSendCommentEmail:
                 reply_author_name="Replier User",
                 object_name="table_xyz",
                 reply_text="This is a test reply",
-                steward_email="steward@example.com"
+                steward_email="steward@example.com",
             )
 
         assert "Failed to send reply email to" in caplog.text

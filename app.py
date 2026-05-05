@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-import logging
 import streamlit as st
-import streamlit.components.v1 as components
 from streamlit_js_eval import streamlit_js_eval
 import os
-import html as _html
 from dotenv import load_dotenv
 load_dotenv()  # must run before any src.* import so os.getenv() reads .env values
 
-from src.auth import check_auth, is_power_user, is_admin, render_signin_page
+from src.auth import check_auth, is_admin, render_signin_page
 from src.ui.header import render_header, render_footer, LOGO_MARK_SVG
 
 def is_demo_mode() -> bool:
@@ -17,12 +14,10 @@ def is_demo_mode() -> bool:
     return os.getenv("DEMO_DATA", "false").lower() == "true"
 
 # ── Internationalisation (i18n) ───────────────────────────────────────────────
-from src.i18n import t
 
 
 
 from src.config import (
-    CATALOG_CACHE, SCHEMA_CACHE, MAX_BUSINESS_NAME_LEN,
     MOCK_DEPT,
 )
 # Runtime flags kept as inline reads so per-test env overrides are picked up
@@ -41,20 +36,10 @@ from src.ui.css import render_css
 render_css()  # inject design-system CSS on every render
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import (
-    _get_write_connection, get_db_connection,
-    run_query, get_authorized_tables, search_all_metadata,
-    get_column_business_names, get_multi_hop_lineage,
-    export_schema_to_csv,
+    get_authorized_tables,
 )
-from src.config import is_demo_mode
 from src.personalization import (
-    _pref_upsert, _pref_delete, _sync_prefs_to_session, is_power_user
-)
-from src.comments import (
-    get_table_comments, save_comment
-)
-from src.audit import (
-    save_table_metadata, save_business_name, get_table_steward
+    _pref_upsert, _pref_delete, _sync_prefs_to_session
 )
 
 # render_header, render_footer imported from src.ui.header
@@ -74,15 +59,13 @@ from src.audit import (
 # export_schema_to_csv imported from src.db.queries
 
 
-from src.sync.worker import _start_sync_worker_thread, _get_dr_resync_status, _get_last_ui_activity, _set_dr_resync_status, _set_dr_resync_progress, _mark_ui_activity, _run_dr_resync
-from src.sync.push import enqueue_sync, enqueue_column_sync, _push_to_databricks, _push_definition_to_databricks, _process_sync_queue
-from src.ui.lineage import _build_lineage_graph, _lineage_vis_html, render_lineage_fullscreen
+from src.sync.worker import _start_sync_worker_thread, _mark_ui_activity
 
 
 
 from src.ui.cards import (
-    _dq_grade, _compute_live_completeness, render_discovery, render_health, render_admin_page,
-    _mark_ui_activity, render_table_metadata_editor, render_data_sample,
+    render_discovery, render_health, render_admin_page,
+    _mark_ui_activity,
 )
 from src.pages.catalog import render_catalog_browser
 from src.pages.glossary import render_glossary
