@@ -684,18 +684,21 @@ def render_table_metadata_editor(table_full_name: str, current_desc: str, curren
     st.markdown(f"**{table_full_name}**")
 
     new_desc = st.text_area(t("detail.table_description"), value=current_desc, height=150)
-    new_stew = st.text_input(t("detail.steward_email"), value=current_steward)
+    new_stew = st.text_input(t("detail.steward_email"), value=current_steward, placeholder="e.g. data.steward@example.com")
 
     c1, c2 = st.columns([1, 1])
     with c1:
         if st.button(t("common.save"), type="primary", use_container_width=True):
-            try:
-                save_table_metadata(table_full_name, description=new_desc, steward_email=new_stew)
-                st.success(t("common.saved"))
-                time.sleep(0.5)
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error: {e}")
+            if new_stew.strip() and "@" not in new_stew:
+                st.error("Please enter a valid email address.")
+            else:
+                try:
+                    save_table_metadata(table_full_name, description=new_desc, steward_email=new_stew)
+                    st.success(t("common.saved"))
+                    time.sleep(0.5)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error: {e}")
     with c2:
         if st.button(t("common.cancel"), use_container_width=True):
             st.rerun()

@@ -45,6 +45,8 @@ def _render_comment_form(
             "Your comment" if not parent_comment_id else "Your reply",
             placeholder=_placeholder,
             max_chars=1000,
+            label_visibility="collapsed",
+            help="Maximum 1000 characters.",
             key=f"dd_comment_text_{key_suffix}",
         )
         _cs, _cc, _ = st.columns([2, 2, 4], gap="small")
@@ -498,7 +500,7 @@ def render_search_page(query_groups: tuple) -> None:
             else:
                 st.info(t("search.group_filter_active", group=active_group))
         with c2:
-            if st.button(t("common.back"), use_container_width=True):
+            if st.button(f"← {t('common.back')}", use_container_width=True, type="secondary"):
                 st.session_state.pop("group_filter", None)
                 st.rerun()
 
@@ -522,6 +524,7 @@ def render_search_page(query_groups: tuple) -> None:
         placeholder=t("search.placeholder"),
         label_visibility="collapsed",
         key="catalog_search",
+        help=t("search.placeholder"),
     )
 
     _prev_query = st.session_state.get("_dd_current_search_query")
@@ -608,7 +611,7 @@ def render_search_page(query_groups: tuple) -> None:
                 if _nav_idx is not None:
                     _row     = _table_results[_table_results["table_name"] == _table_names[_nav_idx]].iloc[0]
                     full_name = f"{_row['catalog_name']}.{_row['schema_name']}.{_row['table_name']}"
-                    if st.button(f"← {t('search.back_to_results')}", key="search_back"):
+                    if st.button(f"← {t('search.back_to_results')}", key="search_back", type="secondary"):
                         st.session_state.pop("_dd_sticky_nav", None)
                         st.rerun()
                     _render_detail_panel(_row, full_name, query_groups)
