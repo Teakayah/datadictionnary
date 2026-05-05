@@ -138,104 +138,114 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
 
     # ── New & Notable ────────────────────────────────────────────────────────────
     if _disc_active == _disc_tab_labels[0]:
-        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">{t("personalization.tab_notable")}</span></div>', unsafe_allow_html=True)
-        primary_group = st.session_state.get("group_filter")
-        if not primary_group and groups:
-            primary_group = groups[0]
-
-        if primary_group:
-            st.info(t("discovery.group_highlights", group=primary_group))
-            try:
-                all_authorized = get_authorized_tables_fn((primary_group,))
-                if not all_authorized.empty and "updated_at" in all_authorized.columns:
-                    recent_tables = all_authorized.sort_values(by="updated_at", ascending=False).head(10)
-                    for _, row in recent_tables.iterrows():
-                        _render_table_card(row, "notable", pref_delete_fn, pref_upsert_fn)
-                else:
-                    st.info(t("discovery.no_updates"))
-            except Exception as e:
-                logging.error("Error in discovery tab: %s", e)
-                st.error(t("discovery.load_error"))
-        else:
-            st.warning(t("discovery.sign_in_prompt"))
-
+        _render_notable_tab(groups, get_authorized_tables_fn, pref_delete_fn, pref_upsert_fn)
     # ── My Bookmarks ─────────────────────────────────────────────────────────────
     elif _disc_active == _disc_tab_labels[1]:
-        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">{t("personalization.tab_bookmarks")}</span></div>', unsafe_allow_html=True)
-        bookmarks = st.session_state.get("bookmarks", set())
-        if not bookmarks:
-            st.info(t("personalization.no_bookmarks"))
-        else:
-            try:
-                all_tables = get_authorized_tables_fn(groups)
-                bk_df = all_tables[all_tables["full_name"].isin(bookmarks)]
-                if bk_df.empty:
-                    st.info(t("personalization.no_bookmarks"))
-                else:
-                    for _, row in bk_df.iterrows():
-                        _render_table_card(row, "bk", pref_delete_fn, pref_upsert_fn)
-            except Exception as e:
-                logging.error("Error loading bookmarks: %s", e)
-                st.error(t("discovery.load_error"))
-
-        # ── Bookmarked columns ────────────────────────────────────────────────
-        col_bookmarks = st.session_state.get("col_bookmarks", set())
-        st.markdown(f'<div class="dd-section-header" style="margin-top:32px"><span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">{t("personalization.bookmarked_columns")}</span></div>', unsafe_allow_html=True)
-        if not col_bookmarks:
-            st.info(t("personalization.no_col_bookmarks"))
-        else:
-            _col_bk_auth_fns = set(get_authorized_tables_fn(groups)["full_name"].tolist()) if groups else set()
-            for _bk_id in sorted(col_bookmarks):
-                if "::" not in _bk_id:
-                    continue
-                _bk_table, _bk_col = _bk_id.split("::", 1)
-                if _bk_table not in _col_bk_auth_fns:
-                    continue  # column's parent table no longer authorized — hide silently
-                _bk_tbl_parts = _bk_table.split(".")
-                _bk_tbl_label = _bk_tbl_parts[-1] if _bk_tbl_parts else _bk_table
-                _bk_path = " · ".join(_bk_tbl_parts[:-1]) if len(_bk_tbl_parts) > 1 else ""
-                _c_col, _c_star = st.columns([11, 1], gap="small")
-                with _c_col:
-                    st.markdown(
-                        f'<div style="background:var(--paper);border:1px solid var(--ink-10);padding:10px 16px;border-radius:2px;margin-bottom:4px;">'
-                        f'<div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);margin-bottom:4px;">{_html.escape(_bk_path)} · {_html.escape(_bk_tbl_label)}</div>'
-                        f'<div style="font-family:var(--font-mono);font-size:14px;color:var(--ink);">{_html.escape(_bk_col)}</div>'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
-                    if st.button(f"→ {_bk_tbl_label}", key=f"colbk_open_{_bk_id}", use_container_width=True, type="secondary"):
-                        st.query_params["tab"] = "search"
-                        st.session_state["dd_search_override"] = _bk_tbl_label
-                        st.session_state["dd_nav_select"] = _bk_table
-                        st.rerun()
-                with _c_star:
-                    if st.button("★", key=f"colbk_rm_{_bk_id}", help=t("personalization.remove_bookmark"), use_container_width=True):
-                        st.session_state.col_bookmarks.discard(_bk_id)
-                        if pref_delete_fn:
-                            pref_delete_fn(_bk_id, "col_bookmark")
-                        st.rerun()
-
+        _render_bookmarks_tab(groups, get_authorized_tables_fn, pref_delete_fn, pref_upsert_fn)
     # ── Recently Viewed ──────────────────────────────────────────────────────────
     elif _disc_active == _disc_tab_labels[2]:
-        st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">{t("personalization.tab_recent")}</span></div>', unsafe_allow_html=True)
-        recent_views = st.session_state.get("recent_views", [])
-        if not recent_views:
-            st.info(t("personalization.no_recent"))
-        else:
-            try:
-                all_tables = get_authorized_tables_fn(groups)
-                # Preserve recency order
-                rv_df = all_tables[all_tables["full_name"].isin(recent_views)].copy()
-                rv_df["_order"] = rv_df["full_name"].map({fn: i for i, fn in enumerate(recent_views)})
-                rv_df = rv_df.sort_values("_order").drop(columns=["_order"])
-                if rv_df.empty:
-                    st.info(t("personalization.no_recent"))
-                else:
-                    for _, row in rv_df.iterrows():
-                        _render_table_card(row, "rv", pref_delete_fn, pref_upsert_fn)
-            except Exception as e:
-                logging.error("Error loading recent views: %s", e)
-                st.error(t("discovery.load_error"))
+        _render_recent_tab(groups, get_authorized_tables_fn, pref_delete_fn, pref_upsert_fn)
+
+
+def _render_notable_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, pref_upsert_fn=None):
+    st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">{t("personalization.tab_notable")}</span></div>', unsafe_allow_html=True)
+    primary_group = st.session_state.get("group_filter")
+    if not primary_group and groups:
+        primary_group = groups[0]
+
+    if primary_group:
+        st.info(t("discovery.group_highlights", group=primary_group))
+        try:
+            all_authorized = get_authorized_tables_fn((primary_group,))
+            if not all_authorized.empty and "updated_at" in all_authorized.columns:
+                recent_tables = all_authorized.sort_values(by="updated_at", ascending=False).head(10)
+                for _, row in recent_tables.iterrows():
+                    _render_table_card(row, "notable", pref_delete_fn, pref_upsert_fn)
+            else:
+                st.info(t("discovery.no_updates"))
+        except Exception as e:
+            logging.error("Error in discovery tab: %s", e)
+            st.error(t("discovery.load_error"))
+    else:
+        st.warning(t("discovery.sign_in_prompt"))
+
+
+def _render_bookmarks_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, pref_upsert_fn=None):
+    st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">{t("personalization.tab_bookmarks")}</span></div>', unsafe_allow_html=True)
+    bookmarks = st.session_state.get("bookmarks", set())
+    if not bookmarks:
+        st.info(t("personalization.no_bookmarks"))
+    else:
+        try:
+            all_tables = get_authorized_tables_fn(groups)
+            bk_df = all_tables[all_tables["full_name"].isin(bookmarks)]
+            if bk_df.empty:
+                st.info(t("personalization.no_bookmarks"))
+            else:
+                for _, row in bk_df.iterrows():
+                    _render_table_card(row, "bk", pref_delete_fn, pref_upsert_fn)
+        except Exception as e:
+            logging.error("Error loading bookmarks: %s", e)
+            st.error(t("discovery.load_error"))
+
+    # ── Bookmarked columns ────────────────────────────────────────────────
+    col_bookmarks = st.session_state.get("col_bookmarks", set())
+    st.markdown(f'<div class="dd-section-header" style="margin-top:32px"><span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">{t("personalization.bookmarked_columns")}</span></div>', unsafe_allow_html=True)
+    if not col_bookmarks:
+        st.info(t("personalization.no_col_bookmarks"))
+    else:
+        _col_bk_auth_fns = set(get_authorized_tables_fn(groups)["full_name"].tolist()) if groups else set()
+        for _bk_id in sorted(col_bookmarks):
+            if "::" not in _bk_id:
+                continue
+            _bk_table, _bk_col = _bk_id.split("::", 1)
+            if _bk_table not in _col_bk_auth_fns:
+                continue  # column's parent table no longer authorized — hide silently
+            _bk_tbl_parts = _bk_table.split(".")
+            _bk_tbl_label = _bk_tbl_parts[-1] if _bk_tbl_parts else _bk_table
+            _bk_path = " · ".join(_bk_tbl_parts[:-1]) if len(_bk_tbl_parts) > 1 else ""
+            _c_col, _c_star = st.columns([11, 1], gap="small")
+            with _c_col:
+                st.markdown(
+                    f'<div style="background:var(--paper);border:1px solid var(--ink-10);padding:10px 16px;border-radius:2px;margin-bottom:4px;">'
+                    f'<div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);margin-bottom:4px;">{_html.escape(_bk_path)} · {_html.escape(_bk_tbl_label)}</div>'
+                    f'<div style="font-family:var(--font-mono);font-size:14px;color:var(--ink);">{_html.escape(_bk_col)}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                if st.button(f"→ {_bk_tbl_label}", key=f"colbk_open_{_bk_id}", use_container_width=True, type="secondary"):
+                    st.query_params["tab"] = "search"
+                    st.session_state["dd_search_override"] = _bk_tbl_label
+                    st.session_state["dd_nav_select"] = _bk_table
+                    st.rerun()
+            with _c_star:
+                if st.button("★", key=f"colbk_rm_{_bk_id}", help=t("personalization.remove_bookmark"), use_container_width=True):
+                    st.session_state.col_bookmarks.discard(_bk_id)
+                    if pref_delete_fn:
+                        pref_delete_fn(_bk_id, "col_bookmark")
+                    st.rerun()
+
+
+def _render_recent_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, pref_upsert_fn=None):
+    st.markdown(f'<div class="dd-section-header"><span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">{t("personalization.tab_recent")}</span></div>', unsafe_allow_html=True)
+    recent_views = st.session_state.get("recent_views", [])
+    if not recent_views:
+        st.info(t("personalization.no_recent"))
+    else:
+        try:
+            all_tables = get_authorized_tables_fn(groups)
+            # Preserve recency order
+            rv_df = all_tables[all_tables["full_name"].isin(recent_views)].copy()
+            rv_df["_order"] = rv_df["full_name"].map({fn: i for i, fn in enumerate(recent_views)})
+            rv_df = rv_df.sort_values("_order").drop(columns=["_order"])
+            if rv_df.empty:
+                st.info(t("personalization.no_recent"))
+            else:
+                for _, row in rv_df.iterrows():
+                    _render_table_card(row, "rv", pref_delete_fn, pref_upsert_fn)
+        except Exception as e:
+            logging.error("Error loading recent views: %s", e)
+            st.error(t("discovery.load_error"))
 
 def _calculate_health_metrics(all_data):
     n_tables = len(all_data)
