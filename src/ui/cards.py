@@ -589,11 +589,17 @@ def _run_dr_resync():
             ("business_name_overrides", "edited_at", "table_full_name, column_name")
         ]
 
+        # Get all max local timestamps in a single query
+        with conn.cursor() as cursor:
+            union_query = " UNION ALL ".join(
+                [f"SELECT '{tbl}' as tbl, MAX({ts_col}) as max_ts FROM user_data.{tbl}" for tbl, ts_col, _ in tables_to_check]
+            )
+            cursor.execute(union_query)
+            max_ts_results = cursor.fetchall()
+            max_ts_map = {row[0]: row[1] for row in max_ts_results}
+
         for tbl, ts_col, pk in tables_to_check:
-            # Get max local timestamp
-            with conn.cursor() as cursor:
-                cursor.execute(f"SELECT MAX({ts_col}) FROM user_data.{tbl}")
-                local_max = cursor.fetchall()[0][0]
+            local_max = max_ts_map.get(tbl)
 
             # Query Databricks for any records AFTER local_max
             # Note: run_query handles the Databricks connection
@@ -608,21 +614,21 @@ def _run_dr_resync():
                 _set_dr_resync_status(f"Syncing {tbl}")
                 # Merge into DuckDB
                 with conn.cursor() as cursor:
-                    for _, row in delta_df.iterrows():
+                    for row_dict in delta_df.to_dict('records'):
                         # Simple append for logs/comments (guaranteed unique IDs)
                         if tbl in ("comments", "audit_log"):
                             cols = ", ".join(delta_df.columns)
                             placeholders = ", ".join([f"%({c})s" for c in delta_df.columns])
                             cursor.execute_write(
                                 f"INSERT OR IGNORE INTO user_data.{tbl} ({cols}) VALUES ({placeholders})",
-                                row.to_dict()
+                                row_dict
                             )
                         else:
                             # Merge for overrides
                             cursor.execute_write(
                                 f"INSERT OR REPLACE INTO user_data.{tbl} ({', '.join(delta_df.columns)}) "
                                 f"VALUES ({', '.join([f'%({c})s' for c in delta_df.columns])})",
-                                row.to_dict()
+                                row_dict
                             )
 
         _set_dr_resync_status("Up-to-date")
