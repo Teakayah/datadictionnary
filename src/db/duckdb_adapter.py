@@ -56,6 +56,69 @@ def _to_duckdb_sql(sql: str, params: dict) -> tuple:
     return result, converted
 
 
+def _initialize_schema(con):
+    """Initialize user data tables with primary keys (if they don't exist)."""
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS user_data.comments (
+            comment_id        VARCHAR PRIMARY KEY,
+            object_type       VARCHAR,
+            object_name       VARCHAR,
+            comment_text      VARCHAR,
+            author_name       VARCHAR,
+            author_email      VARCHAR,
+            created_at        TIMESTAMP,
+            steward_email     VARCHAR,
+            parent_comment_id VARCHAR
+        )
+    """)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS user_data.business_name_overrides (
+            table_full_name VARCHAR,
+            column_name     VARCHAR,
+            business_name   VARCHAR,
+            definition      VARCHAR,
+            edited_by       VARCHAR,
+            edited_at       TIMESTAMP,
+            PRIMARY KEY (table_full_name, column_name)
+        )
+    """)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS user_data.audit_log (
+            event_id        VARCHAR PRIMARY KEY,
+            event_type      VARCHAR,
+            object_type     VARCHAR,
+            object_name     VARCHAR,
+            actor_email     VARCHAR,
+            old_value       VARCHAR,
+            new_value       VARCHAR,
+            created_at      TIMESTAMP
+        )
+    """)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS user_data.user_preferences (
+            user_oid        VARCHAR NOT NULL,
+            table_full_name VARCHAR NOT NULL,
+            pref_type       VARCHAR NOT NULL,
+            last_interacted TIMESTAMP NOT NULL,
+            PRIMARY KEY (user_oid, table_full_name, pref_type)
+        )
+    """)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS user_data.pending_sync (
+            sync_id         VARCHAR PRIMARY KEY,
+            sync_type       VARCHAR NOT NULL, -- COLUMN_DEF, TABLE_DESC, AUDIT, COMMENT, TAG, STEWARD
+            table_full_name VARCHAR,
+            payload_json    VARCHAR, -- Store type-specific data (e.g., tag key/value, comment author)
+            queued_by       VARCHAR,
+            queued_at       TIMESTAMP NOT NULL,
+            status          VARCHAR NOT NULL DEFAULT 'pending',
+            attempts        INTEGER  NOT NULL DEFAULT 0,
+            last_error      VARCHAR,
+            completed_at    TIMESTAMP
+        )
+    """)
+
+
 @st.cache_resource(show_spinner=False, validate=lambda c: c is not None)
 def _get_shared_duckdb_connection():
     """Singleton connection shared across all Streamlit sessions/threads."""
@@ -73,65 +136,8 @@ def _get_shared_duckdb_connection():
             con.execute(f"ATTACH IF NOT EXISTS '{USER_DATA_PATH}' AS user_data")
 
             # Initialize user data tables with primary keys (if they don't exist)
-            con.execute("""
-                CREATE TABLE IF NOT EXISTS user_data.comments (
-                    comment_id        VARCHAR PRIMARY KEY,
-                    object_type       VARCHAR,
-                    object_name       VARCHAR,
-                    comment_text      VARCHAR,
-                    author_name       VARCHAR,
-                    author_email      VARCHAR,
-                    created_at        TIMESTAMP,
-                    steward_email     VARCHAR,
-                    parent_comment_id VARCHAR
-                )
-            """)
-            con.execute("""
-                CREATE TABLE IF NOT EXISTS user_data.business_name_overrides (
-                    table_full_name VARCHAR,
-                    column_name     VARCHAR,
-                    business_name   VARCHAR,
-                    definition      VARCHAR,
-                    edited_by       VARCHAR,
-                    edited_at       TIMESTAMP,
-                    PRIMARY KEY (table_full_name, column_name)
-                )
-            """)
-            con.execute("""
-                CREATE TABLE IF NOT EXISTS user_data.audit_log (
-                    event_id        VARCHAR PRIMARY KEY,
-                    event_type      VARCHAR,
-                    object_type     VARCHAR,
-                    object_name     VARCHAR,
-                    actor_email     VARCHAR,
-                    old_value       VARCHAR,
-                    new_value       VARCHAR,
-                    created_at      TIMESTAMP
-                )
-            """)
-            con.execute("""
-                CREATE TABLE IF NOT EXISTS user_data.user_preferences (
-                    user_oid        VARCHAR NOT NULL,
-                    table_full_name VARCHAR NOT NULL,
-                    pref_type       VARCHAR NOT NULL,
-                    last_interacted TIMESTAMP NOT NULL,
-                    PRIMARY KEY (user_oid, table_full_name, pref_type)
-                )
-            """)
-            con.execute("""
-                CREATE TABLE IF NOT EXISTS user_data.pending_sync (
-                    sync_id         VARCHAR PRIMARY KEY,
-                    sync_type       VARCHAR NOT NULL, -- COLUMN_DEF, TABLE_DESC, AUDIT, COMMENT, TAG, STEWARD
-                    table_full_name VARCHAR,
-                    payload_json    VARCHAR, -- Store type-specific data (e.g., tag key/value, comment author)
-                    queued_by       VARCHAR,
-                    queued_at       TIMESTAMP NOT NULL,
-                    status          VARCHAR NOT NULL DEFAULT 'pending',
-                    attempts        INTEGER  NOT NULL DEFAULT 0,
-                    last_error      VARCHAR,
-                    completed_at    TIMESTAMP
-                )
-            """)
+            _initialize_schema(con)
+
             return con
         except Exception as e:
             logging.error("Failed to initialize shared DuckDB connection: %s", e)
