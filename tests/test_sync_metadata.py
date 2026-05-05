@@ -99,18 +99,23 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
     mock_table.columns = [mock_col]
     mock_w.tables.list.return_value = [mock_table]
 
-    # Simulate concurrent grant fetching returning one grant
-    mock_grant = MagicMock()
-    mock_assignment = MagicMock()
-    mock_assignment.principal = 'user@test.com'
-    mock_assignment.privileges = ['SELECT', 'MODIFY']
-    mock_grant.privilege_assignments = [mock_assignment]
+    import pandas as pd
+    grants_df = pd.DataFrame({
+        "table_full_name": ["my_catalog.my_schema.my_table", "my_catalog.my_schema.my_table"],
+        "principal": ["user@test.com", "user@test.com"],
+        "privilege": ["SELECT", "MODIFY"]
+    })
+    mock_cursor.fetchall_as_pandas.side_effect = [
+        grants_df,            # 1. Grants query
+        pd.DataFrame(),       # 2. Audit log query
+        pd.DataFrame()        # 3. Business overrides query
+    ]
 
-    # Mock ThreadPoolExecutor.map to return (full_name, grants) pairs synchronously
+    # Mock ThreadPoolExecutor.map to return empty for lineage (since we aren't testing lineage specifically here)
     full_name = 'my_catalog.my_schema.my_table'
     mock_executor = MagicMock()
     mock_executor_cls.return_value.__enter__.return_value = mock_executor
-    mock_executor.map.return_value = [(full_name, mock_grant)]
+    mock_executor.map.return_value = []
 
     from scripts.sync_metadata import sync, CATALOG_CACHE, SCHEMA_CACHE
     sync()
@@ -119,19 +124,21 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
     mock_w.schemas.list.assert_called_once_with(catalog_name='my_catalog')
     mock_w.tables.list.assert_called_once_with(catalog_name='my_catalog', schema_name='my_schema')
 
-    # 5 truncates via execute (tables, columns, permissions, lineage, object_tags)
-    # + 1 SELECT from push_business_name_overrides (no overrides to push → returns empty)
+    # 6 truncates via execute (tables, columns, permissions, lineage, object_tags, dq_cache)
+    # + 1 SELECT from permissions bulk fetch
     # + 1 SELECT from audit_log fetch for DuckDB export
+    # + 1 SELECT from push_business_name_overrides (no overrides to push → returns empty)
     execute_calls = mock_cursor.execute.call_args_list
-    assert len(execute_calls) == 8
-    assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata" in execute_calls[0][0][0]
-    assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata" in execute_calls[1][0][0]
-    assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache" in execute_calls[2][0][0]
-    assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache" in execute_calls[3][0][0]
-    assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags" in execute_calls[4][0][0]
-    assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache" in execute_calls[5][0][0]
-    assert "audit_log" in execute_calls[6][0][0]
-    assert "business_name_overrides" in execute_calls[7][0][0]
+    assert len(execute_calls) == 9
+    assert "system.information_schema.table_privileges" in execute_calls[0][0][0]
+    assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata" in execute_calls[1][0][0]
+    assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata" in execute_calls[2][0][0]
+    assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache" in execute_calls[3][0][0]
+    assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache" in execute_calls[4][0][0]
+    assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags" in execute_calls[5][0][0]
+    assert f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache" in execute_calls[6][0][0]
+    assert "audit_log" in execute_calls[7][0][0]
+    assert "business_name_overrides" in execute_calls[8][0][0]
 
     # 5 executemany calls: tables, columns, permissions, lineage, data_quality
     # (object_tags has no data since mock_catalog has no .properties; dq data comes from mock_table.properties)
@@ -196,13 +203,24 @@ def test_sync_grants_error(mock_print, mock_get_sql_connection, mock_workspace_c
     mock_table.columns = []
     mock_w.tables.list.return_value = [mock_table]
 
-    # Simulate an error when fetching grants by making side_effect an exception class directly
-    mock_w.grants.get.side_effect = Exception("Grants error")
+    # Simulate an error when fetching grants by throwing on execute
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_get_sql_connection.return_value.__enter__.return_value = mock_conn
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+    # We want it to fail on the very first query which is the grants query
+    mock_cursor.execute.side_effect = Exception("Grants error")
 
     from scripts.sync_metadata import sync
+    # We wrap in try except since the sync function catches the grant error but later queries like TRUNCATE will fail
+    # because side_effect raises on every execute call.
+    # Alternatively we can supply a list to side_effect to only fail on the first
+    mock_cursor.execute.side_effect = [Exception("Grants error")] + [MagicMock()] * 10
+
     sync()
 
-    mock_print.assert_any_call("    Could not fetch grants for test_catalog.test_schema.test_table: Grants error")
+    mock_print.assert_any_call("    Could not fetch grants in bulk: Grants error")
 
 
 
