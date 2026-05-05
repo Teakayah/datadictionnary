@@ -28,14 +28,17 @@
     "public_tables_filter": "Showing publicly accessible tables",
     "group_filter_active": "Filtered by group: {group}",
     "view_details": "View details",
-    "back_to_results": "Back to results"
+    "back_to_results": "Back to results",
+    "view_details_help": "View details for this table",
+    "back_to_results_help": "Back to search results"
   },
   "catalog": {
     "eyebrow": "§ Catalog browser",
     "hero_title": "Explore the hierarchy.",
     "hero_subtitle": "Drill down from catalogs to schemas and tables.",
     "no_catalogs": "No catalogs accessible.",
-    "load_error": "Could not load catalog hierarchy."
+    "load_error": "Could not load catalog hierarchy.",
+    "tree_help": "Open table in catalog"
   },
   "table": {
     "columns": "Columns",
@@ -73,6 +76,7 @@
     "preview_not_available": "Preview not available for this table in local mode.",
     "preview_needs_data": "No row data found. Regenerate the test dataset with --with-data to enable preview.",
     "preview_error": "Could not fetch data sample. You may not have permission to view the underlying data.",
+    "edit_table_help": "Edit table metadata",
     "expand_lineage": "Expand lineage graph"
   },
   "comment": {

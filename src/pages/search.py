@@ -138,7 +138,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         )
 
         if is_power_user():
-            if st.button(f"✎ {t('detail.edit_table')}", key=f"edit_tbl_{full_name}", type="secondary"):
+            if st.button(f"✎ {t('detail.edit_table')}", key=f"edit_tbl_{full_name}", help=t("detail.edit_table_help"), type="secondary"):
                 render_table_metadata_editor(full_name, _raw_desc, _steward)
 
         # Bookmark + full_name row
@@ -243,7 +243,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
 
                 _col_bk_id = f"{full_name}::{_cname}"
                 _is_col_bk = _col_bk_id in st.session_state.get("col_bookmarks", set())
-                if _r_star.button("★" if _is_col_bk else "☆", key=f"colbk_{_edit_key}", use_container_width=True):
+                if _r_star.button("★" if _is_col_bk else "☆", key=f"colbk_{_edit_key}", help=t("personalization.remove_bookmark") if _is_col_bk else t("personalization.add_bookmark"), use_container_width=True):
                     if _is_col_bk:
                         st.session_state.get("col_bookmarks", set()).discard(_col_bk_id)
                         _pref_delete(_col_bk_id, "col_bookmark")
@@ -558,7 +558,7 @@ def render_search_page(query_groups: tuple) -> None:
             with _gc:
                 _render_result_card(_fn, str(getattr(_row, "name", "") or getattr(_row, "table_name", "")), str(getattr(_row, "description", "") or ""), "Table", str(getattr(_row, "dq_score", "") or ""))
             with _gb:
-                if st.button(f"{t('search.view_details')} →", key=f"gview_{_fn}_{_i}", use_container_width=True):
+                if st.button(f"{t('search.view_details')} →", key=f"gview_{_fn}_{_i}", help=t("search.view_details_help"), use_container_width=True):
                     _auth_df = get_authorized_tables(query_groups)
                     _allowed = set(_auth_df["full_name"].tolist()) if _auth_df is not None and not _auth_df.empty else set()
                     if _fn in _allowed:
@@ -598,7 +598,7 @@ def render_search_page(query_groups: tuple) -> None:
                         with _card_col:
                             _render_result_card(_fn, _s(getattr(_sr, "name", None)), _s(getattr(_sr, "description", None)), _s(getattr(_sr, "match_type", None)), _s(getattr(_sr, "dq_score", "")))
                         with _btn_col:
-                            if st.button(f"{t('search.view_details')} →", key=f"view_{_fn}_{_sr_i}", use_container_width=True):
+                            if st.button(f"{t('search.view_details')} →", key=f"view_{_fn}_{_sr_i}", help=t("search.view_details_help"), use_container_width=True):
                                 _auth_df = get_authorized_tables(query_groups)
                                 _allowed = set(_auth_df["full_name"].tolist()) if _auth_df is not None and not _auth_df.empty else set()
                                 if _fn in _allowed:
@@ -611,7 +611,7 @@ def render_search_page(query_groups: tuple) -> None:
                 if _nav_idx is not None:
                     _row     = _table_results[_table_results["table_name"] == _table_names[_nav_idx]].iloc[0]
                     full_name = f"{_row['catalog_name']}.{_row['schema_name']}.{_row['table_name']}"
-                    if st.button(f"← {t('search.back_to_results')}", key="search_back", type="secondary"):
+                    if st.button(f"← {t('search.back_to_results')}", key="search_back", help=t("search.back_to_results_help")):
                         st.session_state.pop("_dd_sticky_nav", None)
                         st.rerun()
                     _render_detail_panel(_row, full_name, query_groups)

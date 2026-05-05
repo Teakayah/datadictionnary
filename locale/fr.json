@@ -28,14 +28,17 @@
     "public_tables_filter": "Affichage des tables accessibles à tous",
     "group_filter_active": "Filtré par groupe : {group}",
     "view_details": "Voir les détails",
-    "back_to_results": "Retour aux résultats"
+    "back_to_results": "Retour aux résultats",
+    "view_details_help": "Afficher les détails de cette table",
+    "back_to_results_help": "Retour aux résultats de recherche"
   },
   "catalog": {
     "eyebrow": "§ Navigateur de catalogue",
     "hero_title": "Explorez la hiérarchie.",
     "hero_subtitle": "Naviguez des catalogues aux schémas et aux tables.",
     "no_catalogs": "Aucun catalogue accessible.",
-    "load_error": "Impossible de charger la hiérarchie du catalogue."
+    "load_error": "Impossible de charger la hiérarchie du catalogue.",
+    "tree_help": "Ouvrir la table dans le catalogue"
   },
   "table": {
     "columns": "Colonnes",
@@ -73,7 +76,8 @@
     "preview_not_available": "Aperçu non disponible pour cette table en mode local.",
     "preview_needs_data": "Aucune donnée trouvée. Régénérez le jeu de test avec --with-data pour activer l'aperçu.",
     "preview_error": "Impossible de récupérer l'échantillon. Vous n'avez peut-être pas la permission d'accéder aux données.",
-    "expand_lineage": "Agrandir le graphe de lignage"
+    "edit_table_help": "Modifier les métadonnées de la table",
+    "expand_lineage": "Développer le graphe de lignage"
   },
   "comment": {
     "add_comment": "Ajouter un commentaire",
@@ -106,7 +110,7 @@
     "sync_title": "État de la synchronisation",
     "no_data": "Aucune donnée d’audit disponible.",
     "access_denied": "Accès administrateur requis.",
-    "expand_log": "Agrandir le journal"
+    "expand_log": "Développer le journal"
   },
   "health": {
     "title": "§ Santé du catalogue",
