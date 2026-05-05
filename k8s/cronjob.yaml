@@ -31,8 +31,8 @@ spec:
 
           containers:
             - name: sync
-              image: ghcr.io/org/data-dictionary:latest
-              imagePullPolicy: Always
+              image: ghcr.io/org/data-dictionary:${IMAGE_TAG}
+              imagePullPolicy: IfNotPresent
               command: ["python", "scripts/nightly_sync.py"]
 
               securityContext:
