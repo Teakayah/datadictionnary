@@ -471,19 +471,8 @@ def _show_comment_log_dialog():
     )
 
 
-def render_admin_page():
-    if not is_admin():
-        st.error(t("admin.access_denied"))
-        st.stop()
 
-    st.markdown(f'''
-    <div class="dd-search-hero">
-      <div class="dd-eyebrow">{t("admin.title")}</div>
-      <h1>Administration.</h1>
-      <p class="lead">{t("admin.subtitle")}</p>
-    </div>
-    ''', unsafe_allow_html=True)
-
+def _render_admin_stats_section():
     stats = get_admin_stats()
     c1, c2, c3, c4 = st.columns(4)
     with c1:
@@ -495,6 +484,7 @@ def render_admin_page():
     with c4:
         st.metric(t("admin.stats_overrides"), f"{stats.get('overrides', 0):,}")
 
+def _render_admin_sync_section():
     # --- § Synchronization status ---
     st.markdown(f'<div class="dd-section-header" style="margin-top:32px;"><span class="dd-eyebrow">§ {t("admin.sync_title")}</span></div>', unsafe_allow_html=True)
 
@@ -532,6 +522,7 @@ def render_admin_page():
 
     st.markdown('<div style="margin-top:32px;"></div>', unsafe_allow_html=True)
 
+def _render_admin_biz_log_section():
     # --- § Business name change log ---
     _biz_h, _biz_btn = st.columns([9, 1], gap="small")
     with _biz_h:
@@ -542,6 +533,7 @@ def render_admin_page():
 
     st.markdown('<div style="margin-top:24px;"></div>', unsafe_allow_html=True)
 
+def _render_admin_comment_log_section():
     # --- § Comment log ---
     _cmt_h, _cmt_btn = st.columns([9, 1], gap="small")
     with _cmt_h:
@@ -549,6 +541,24 @@ def render_admin_page():
     with _cmt_btn:
         if st.button("⤢", key="admin_comment_log_expand", help="Expand log", use_container_width=True):
             _show_comment_log_dialog()
+
+def render_admin_page():
+    if not is_admin():
+        st.error(t("admin.access_denied"))
+        st.stop()
+
+    st.markdown(f'''
+    <div class="dd-search-hero">
+      <div class="dd-eyebrow">{t("admin.title")}</div>
+      <h1>Administration.</h1>
+      <p class="lead">{t("admin.subtitle")}</p>
+    </div>
+    ''', unsafe_allow_html=True)
+
+    _render_admin_stats_section()
+    _render_admin_sync_section()
+    _render_admin_biz_log_section()
+    _render_admin_comment_log_section()
 
 
 # ── Global State for Background Workers ──────────────────────────────────────
