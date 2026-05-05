@@ -17,6 +17,7 @@ Coverage:
 All UI tests run with DEMO_DATA=true to avoid SQL mock sequencing complexity.
 The DB write-path tests are the exception — they use the production mock path.
 """
+
 from __future__ import annotations
 
 import os
@@ -29,20 +30,21 @@ from tests.conftest import get_db_cursor, sql_returns
 APP_PATH = os.path.join(os.path.dirname(__file__), "..", "app.py")
 
 # Matches _DEMO_TABLES and _DEMO_COLUMNS in app.py demo data.
-TABLE_NAME  = "customers"
-FULL_NAME   = "main.analytics.customers"
+TABLE_NAME = "customers"
+FULL_NAME = "main.analytics.customers"
 COLUMN_NAME = "customer_id"
-EDIT_KEY    = f"{FULL_NAME}__{COLUMN_NAME}"
+EDIT_KEY = f"{FULL_NAME}__{COLUMN_NAME}"
 
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
+
 def authenticated_app() -> AppTest:
     at = AppTest.from_file(APP_PATH, default_timeout=15)
     at.session_state["authenticated"] = True
-    at.session_state["user_groups"]   = ["finance_dept_id", "all_employees_id"]
-    at.session_state["user_name"]     = "Finance User"
-    at.session_state["bookmarks"]     = set()
+    at.session_state["user_groups"] = ["finance_dept_id", "all_employees_id"]
+    at.session_state["user_name"] = "Finance User"
+    at.session_state["bookmarks"] = set()
     at.session_state["_prefs_loaded"] = True
     return at
 
@@ -53,45 +55,83 @@ def _html(*markdowns) -> str:
 
 # DataFrames used by the production-mode DB tests (non-demo path).
 def make_tables_df() -> pd.DataFrame:
-    return pd.DataFrame({
-        "full_name":         [FULL_NAME],
-        "catalog_name":      ["main"],
-        "schema_name":       ["analytics"],
-        "table_name":        [TABLE_NAME],
-        "name":              [TABLE_NAME],
-        "match_type":        ["Table"],
-        "description":       ["test"],
-        "table_description": ["test"],
-        "table_type":        ["TABLE"],
-        "updated_at":        [pd.Timestamp("2026-04-22 10:00")],
-    })
+    return pd.DataFrame(
+        {
+            "full_name": [FULL_NAME],
+            "catalog_name": ["main"],
+            "schema_name": ["analytics"],
+            "table_name": [TABLE_NAME],
+            "name": [TABLE_NAME],
+            "match_type": ["Table"],
+            "description": ["test"],
+            "table_description": ["test"],
+            "table_type": ["TABLE"],
+            "updated_at": [pd.Timestamp("2026-04-22 10:00")],
+        }
+    )
 
 
 def make_columns_df() -> pd.DataFrame:
-    return pd.DataFrame({
-        "column_name": [COLUMN_NAME, "email"],
-        "data_type":   ["BIGINT",    "STRING"],
-        "comment":     ["Primary key", "Email address"],
-    })
+    return pd.DataFrame(
+        {
+            "column_name": [COLUMN_NAME, "email"],
+            "data_type": ["BIGINT", "STRING"],
+            "comment": ["Primary key", "Email address"],
+        }
+    )
 
 
 def make_grants_df() -> pd.DataFrame:
-    return pd.DataFrame({
-        "principal": ["SELECT_ALL_USERS"],
-        "privilege":  ["SELECT"],
-    })
+    return pd.DataFrame(
+        {
+            "principal": ["SELECT_ALL_USERS"],
+            "privilege": ["SELECT"],
+        }
+    )
 
 
-def _EMPTY_LINEAGE(cursor=None): return pd.DataFrame(columns=["direction", "entity_full_name", "entity_type"])
-def _EMPTY_RELATED(cursor=None): return pd.DataFrame(columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"])
-def _EMPTY_OVERRIDES(cursor=None): return pd.DataFrame(columns=["column_name", "business_name", "definition", "edited_by", "edited_at"])
-def _EMPTY_STEWARD(cursor=None): return pd.DataFrame(columns=["steward_email"])
-def _EMPTY_COMMENTS(cursor=None): return pd.DataFrame(columns=["comment_id", "comment_text", "author_name", "author_email", "created_at"])
+def _EMPTY_LINEAGE(cursor=None):
+    return pd.DataFrame(columns=["direction", "entity_full_name", "entity_type"])
+
+
+def _EMPTY_RELATED(cursor=None):
+    return pd.DataFrame(
+        columns=[
+            "full_name",
+            "table_name",
+            "catalog_name",
+            "schema_name",
+            "relationship",
+        ]
+    )
+
+
+def _EMPTY_OVERRIDES(cursor=None):
+    return pd.DataFrame(
+        columns=["column_name", "business_name", "definition", "edited_by", "edited_at"]
+    )
+
+
+def _EMPTY_STEWARD(cursor=None):
+    return pd.DataFrame(columns=["steward_email"])
+
+
+def _EMPTY_COMMENTS(cursor=None):
+    return pd.DataFrame(
+        columns=[
+            "comment_id",
+            "comment_text",
+            "author_name",
+            "author_email",
+            "created_at",
+        ]
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. Access control — EDITOR_GROUPS gating
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestBusinessNameAccess:
     """✎ button must appear only for users whose groups are in EDITOR_GROUPS."""
@@ -104,7 +144,7 @@ class TestBusinessNameAccess:
             at.selectbox(key="catalog_search").select(TABLE_NAME).run()
         elif len(at.selectbox) > 0:
             at.selectbox[0].select(TABLE_NAME).run()
-        
+
         if len(at.button) > 0 and any("View details" in b.label for b in at.button):
             next(b for b in at.button if "View details" in b.label).click().run()
         return at
@@ -146,12 +186,13 @@ class TestBusinessNameAccess:
 # 2. Edit mode UI — per-column form lifecycle
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestBusinessNameEditorUI:
     """Form rendering, banner, and cancel lifecycle in demo mode."""
 
     def _at_detail(self, monkeypatch) -> AppTest:
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
-        monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("DEMO_DATA", "true")
         monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
         at = authenticated_app()
         at.run()
@@ -166,7 +207,7 @@ class TestBusinessNameEditorUI:
         next(b for b in at.button if b.label == "✎").click().run()
 
         labels = [b.label for b in at.button]
-        assert "Save" in labels,   f"Save button missing. Buttons: {labels}"
+        assert "Save" in labels, f"Save button missing. Buttons: {labels}"
         assert "Cancel" in labels, f"Cancel button missing. Buttons: {labels}"
 
     def test_clicking_pencil_shows_text_input(self, monkeypatch):
@@ -194,7 +235,7 @@ class TestBusinessNameEditorUI:
         Uses pre-seeded session state to avoid AppTest+st.rerun() quirk.
         """
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
-        monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("DEMO_DATA", "true")
         monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
         at = authenticated_app()
         at.session_state["dd_col_edit_mode"] = EDIT_KEY
@@ -244,13 +285,14 @@ class TestBusinessNameEditorUI:
 # 3. Save behavior — demo mode persistence and display
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestBusinessNameSave:
     """Save interaction, session state persistence, and display changes in demo mode."""
 
     def _save_name(self, monkeypatch, name: str) -> AppTest:
         """Go to detail, click the pencil on the first column, type a name, save."""
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
-        monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("DEMO_DATA", "true")
         monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
         at = authenticated_app()
         at.run()
@@ -272,7 +314,7 @@ class TestBusinessNameSave:
             "demo_business_names key not found after Save"
         )
         names = at.session_state["demo_business_names"]
-        assert FULL_NAME in names,              f"Table key not saved. names={names}"
+        assert FULL_NAME in names, f"Table key not saved. names={names}"
         assert COLUMN_NAME in names[FULL_NAME], f"Column key not saved. names={names}"
         assert names[FULL_NAME][COLUMN_NAME]["business_name"] == "Customer ID"
 
@@ -298,12 +340,19 @@ class TestBusinessNameSave:
     def test_preexisting_override_renders_without_editing(self, monkeypatch):
         """A name already in session state must render immediately on first load."""
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
-        monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("DEMO_DATA", "true")
         monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
 
         at = authenticated_app()
         at.session_state["demo_business_names"] = {
-            FULL_NAME: {COLUMN_NAME: {"business_name": "Customer ID", "definition": "", "edited_by": "alice", "edited_at": "just now"}}
+            FULL_NAME: {
+                COLUMN_NAME: {
+                    "business_name": "Customer ID",
+                    "definition": "",
+                    "edited_by": "alice",
+                    "edited_at": "just now",
+                }
+            }
         }
         at.run()
         at.selectbox(key="catalog_search").select(TABLE_NAME).run()
@@ -321,7 +370,7 @@ class TestBusinessNameSave:
         name alone cannot be used because it always appears in the <style> block.
         """
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
-        monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("DEMO_DATA", "true")
         monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
 
         at = authenticated_app()
@@ -343,18 +392,26 @@ class TestBusinessNameSave:
 # 4. Edge cases — XSS injection
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestBusinessNameEdgeCases:
     """XSS injection escape."""
 
     def test_xss_in_business_name_is_escaped(self, monkeypatch):
         """HTML injected as a business name must be escaped before render."""
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
-        monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("DEMO_DATA", "true")
         monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
 
         at = authenticated_app()
         at.session_state["demo_business_names"] = {
-            FULL_NAME: {COLUMN_NAME: {"business_name": '<script>alert("xss")</script>', "definition": "", "edited_by": "x", "edited_at": "now"}}
+            FULL_NAME: {
+                COLUMN_NAME: {
+                    "business_name": '<script>alert("xss")</script>',
+                    "definition": "",
+                    "edited_by": "x",
+                    "edited_at": "now",
+                }
+            }
         }
         at.run()
         at.selectbox(key="catalog_search").select(TABLE_NAME).run()
@@ -371,28 +428,33 @@ class TestBusinessNameEdgeCases:
 # 5. Validation — character limit and permission re-check
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestBusinessNameValidation:
     """save_business_name enforces character limit and re-checks power-user status."""
 
     def test_save_shows_error_for_name_over_255_chars(self, monkeypatch):
         """Entering > MAX_BUSINESS_NAME_LEN chars must show st.error."""
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
-        monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("DEMO_DATA", "true")
 
         at = authenticated_app()
         at.run()
         at.selectbox(key="catalog_search").select(TABLE_NAME).run()
         if len(at.button) > 0 and any("View details" in b.label for b in at.button):
             next(b for b in at.button if "View details" in b.label).click().run()
-        
+
         next(b for b in at.button if b.label == "✎").click().run()
         inp = next(t for t in at.text_input if "col_biz_name" in t.key)
-        assert inp.max_chars == 255, f"Expected text_input max_chars to be 255, got {inp.max_chars}"
+        assert inp.max_chars == 255, (
+            f"Expected text_input max_chars to be 255, got {inp.max_chars}"
+        )
 
     def test_save_shows_permission_error_for_non_power_user(self, monkeypatch):
         """save_business_name must show st.error if user is not in EDITOR_GROUPS."""
-        monkeypatch.setenv("EDITOR_GROUPS", "data_stewards_only_id")  # not in user_groups
-        monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv(
+            "EDITOR_GROUPS", "data_stewards_only_id"
+        )  # not in user_groups
+        monkeypatch.setenv("DEMO_DATA", "true")
         monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
 
         at = authenticated_app()
@@ -412,18 +474,26 @@ class TestBusinessNameValidation:
 # 6. Audit trail — 'Last edited by' display in edit mode
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestBusinessNameAudit:
     """Audit trail shown inside the edit form when an override already exists."""
 
     def test_audit_shown_in_edit_form_when_override_exists(self, monkeypatch):
         """When a column already has an override, 'Last edited by' must show in edit mode."""
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
-        monkeypatch.setenv("DEMO_DATA",     "true")
+        monkeypatch.setenv("DEMO_DATA", "true")
         monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
 
         at = authenticated_app()
         at.session_state["demo_business_names"] = {
-            FULL_NAME: {COLUMN_NAME: {"business_name": "Customer ID", "definition": "", "edited_by": "alice@example.com", "edited_at": "2026-04-24"}}
+            FULL_NAME: {
+                COLUMN_NAME: {
+                    "business_name": "Customer ID",
+                    "definition": "",
+                    "edited_by": "alice@example.com",
+                    "edited_at": "2026-04-24",
+                }
+            }
         }
         at.session_state["dd_col_edit_mode"] = EDIT_KEY
         at.run()
@@ -432,13 +502,14 @@ class TestBusinessNameAudit:
             next(b for b in at.button if "View details" in b.label).click().run()
 
         html = _html(*at.markdown)
-        assert "Last edited by" in html,         "Audit trail 'Last edited by' not rendered"
-        assert "alice@example.com" in html,      "Audit trail editor name not rendered"
+        assert "Last edited by" in html, "Audit trail 'Last edited by' not rendered"
+        assert "alice@example.com" in html, "Audit trail editor name not rendered"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 7. DB write path — production mock (no DEMO_DATA)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestBusinessNameEditorDB:
     """Verify the correct SQL is issued by save_business_name in production mode.
@@ -459,24 +530,36 @@ class TestBusinessNameEditorDB:
 
     def _at_after_save(self, monkeypatch, name: str = "Customer ID") -> AppTest:
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
-        monkeypatch.setenv("DEMO_DATA",     "false")
+        monkeypatch.setenv("DEMO_DATA", "false")
 
         def detail_side_effect(*args, **kwargs):
             cursor = get_db_cursor()
-            sql = cursor.execute.call_args_list[-1][0][0] if cursor.execute.call_args_list else ""
-            if "permissions_cache" in sql and "tables_metadata" in sql: return make_tables_df()
-            if "tables_metadata" in sql: return make_tables_df()
-            if "columns_metadata" in sql and "JOIN" not in sql: return make_columns_df()
-            if "permissions_cache" in sql: return make_grants_df()
-            if "lineage_cache" in sql: return _EMPTY_LINEAGE()
-            if "UNION" in sql and "columns_metadata" in sql: return _EMPTY_RELATED()
-            if "business_name_overrides" in sql: return _EMPTY_OVERRIDES()
-            if "comments" in sql: return _EMPTY_COMMENTS()
+            sql = (
+                cursor.execute.call_args_list[-1][0][0]
+                if cursor.execute.call_args_list
+                else ""
+            )
+            if "permissions_cache" in sql and "tables_metadata" in sql:
+                return make_tables_df()
+            if "tables_metadata" in sql:
+                return make_tables_df()
+            if "columns_metadata" in sql and "JOIN" not in sql:
+                return make_columns_df()
+            if "permissions_cache" in sql:
+                return make_grants_df()
+            if "lineage_cache" in sql:
+                return _EMPTY_LINEAGE()
+            if "UNION" in sql and "columns_metadata" in sql:
+                return _EMPTY_RELATED()
+            if "business_name_overrides" in sql:
+                return _EMPTY_OVERRIDES()
+            if "comments" in sql:
+                return _EMPTY_COMMENTS()
             return pd.DataFrame()
 
         sql_returns(side_effect=detail_side_effect)
         at = authenticated_app()
-        at.session_state["catalog_search"]   = TABLE_NAME
+        at.session_state["catalog_search"] = TABLE_NAME
         at.session_state["dd_col_edit_mode"] = EDIT_KEY
         at.run()
         if len(at.button) > 0 and any("View details" in b.label for b in at.button):
@@ -502,7 +585,12 @@ class TestBusinessNameEditorDB:
 
         sqls = [c[0][0] for c in get_db_cursor().execute.call_args_list]
         merge_sql = next(
-            (s for s in sqls if "MERGE" in s.upper() and "business_name_overrides" in s), None
+            (
+                s
+                for s in sqls
+                if "MERGE" in s.upper() and "business_name_overrides" in s
+            ),
+            None,
         )
         assert merge_sql, "MERGE call not found"
         assert "WHEN MATCHED" in merge_sql.upper()
@@ -514,8 +602,13 @@ class TestBusinessNameEditorDB:
 
         cursor = get_db_cursor()
         merge_call = next(
-            (c for c in cursor.execute.call_args_list
-             if len(c[0]) >= 1 and "MERGE" in c[0][0].upper() and "business_name_overrides" in c[0][0]),
+            (
+                c
+                for c in cursor.execute.call_args_list
+                if len(c[0]) >= 1
+                and "MERGE" in c[0][0].upper()
+                and "business_name_overrides" in c[0][0]
+            ),
             None,
         )
         assert merge_call is not None, "MERGE call not found in execute history"
@@ -527,15 +620,27 @@ class TestBusinessNameEditorDB:
 
         def detail_side_effect(*args, **kwargs):
             cursor = get_db_cursor()
-            sql = cursor.execute.call_args_list[-1][0][0] if cursor.execute.call_args_list else ""
-            if "permissions_cache" in sql and "tables_metadata" in sql: return make_tables_df()
-            if "tables_metadata" in sql: return make_tables_df()
-            if "columns_metadata" in sql and "JOIN" not in sql: return make_columns_df()
-            if "permissions_cache" in sql: return make_grants_df()
-            if "lineage_cache" in sql: return _EMPTY_LINEAGE()
-            if "UNION" in sql and "columns_metadata" in sql: return _EMPTY_RELATED()
-            if "business_name_overrides" in sql: return _EMPTY_OVERRIDES()
-            if "comments" in sql: return _EMPTY_COMMENTS()
+            sql = (
+                cursor.execute.call_args_list[-1][0][0]
+                if cursor.execute.call_args_list
+                else ""
+            )
+            if "permissions_cache" in sql and "tables_metadata" in sql:
+                return make_tables_df()
+            if "tables_metadata" in sql:
+                return make_tables_df()
+            if "columns_metadata" in sql and "JOIN" not in sql:
+                return make_columns_df()
+            if "permissions_cache" in sql:
+                return make_grants_df()
+            if "lineage_cache" in sql:
+                return _EMPTY_LINEAGE()
+            if "UNION" in sql and "columns_metadata" in sql:
+                return _EMPTY_RELATED()
+            if "business_name_overrides" in sql:
+                return _EMPTY_OVERRIDES()
+            if "comments" in sql:
+                return _EMPTY_COMMENTS()
             return pd.DataFrame()
 
         sql_returns(side_effect=detail_side_effect)
@@ -557,43 +662,58 @@ class TestBusinessNameEditorDB:
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
         monkeypatch.setenv("DEMO_DATA", "false")
 
-        audit_overrides = pd.DataFrame({
-            "column_name":   [COLUMN_NAME],
-            "business_name": ["Customer ID"],
-            "definition":    [""],
-            "edited_by":     ["bob@example.com"],
-            "edited_at":     ["2026-04-24 10:00:00"],
-        })
+        audit_overrides = pd.DataFrame(
+            {
+                "column_name": [COLUMN_NAME],
+                "business_name": ["Customer ID"],
+                "definition": [""],
+                "edited_by": ["bob@example.com"],
+                "edited_at": ["2026-04-24 10:00:00"],
+            }
+        )
 
         def detail_side_effect(*args, **kwargs):
             cursor = get_db_cursor()
-            sql = cursor.execute.call_args_list[-1][0][0] if cursor.execute.call_args_list else ""
-            if "permissions_cache" in sql and "tables_metadata" in sql: return make_tables_df()
-            if "tables_metadata" in sql: return make_tables_df()
-            if "columns_metadata" in sql and "JOIN" not in sql: return make_columns_df()
-            if "permissions_cache" in sql: return make_grants_df()
-            if "lineage_cache" in sql: return _EMPTY_LINEAGE()
-            if "UNION" in sql and "columns_metadata" in sql: return _EMPTY_RELATED()
-            if "business_name_overrides" in sql: return audit_overrides
-            if "comments" in sql: return _EMPTY_COMMENTS()
+            sql = (
+                cursor.execute.call_args_list[-1][0][0]
+                if cursor.execute.call_args_list
+                else ""
+            )
+            if "permissions_cache" in sql and "tables_metadata" in sql:
+                return make_tables_df()
+            if "tables_metadata" in sql:
+                return make_tables_df()
+            if "columns_metadata" in sql and "JOIN" not in sql:
+                return make_columns_df()
+            if "permissions_cache" in sql:
+                return make_grants_df()
+            if "lineage_cache" in sql:
+                return _EMPTY_LINEAGE()
+            if "UNION" in sql and "columns_metadata" in sql:
+                return _EMPTY_RELATED()
+            if "business_name_overrides" in sql:
+                return audit_overrides
+            if "comments" in sql:
+                return _EMPTY_COMMENTS()
             return pd.DataFrame()
 
         sql_returns(side_effect=detail_side_effect)
         at = authenticated_app()
-        at.session_state["catalog_search"]   = TABLE_NAME
+        at.session_state["catalog_search"] = TABLE_NAME
         at.session_state["dd_col_edit_mode"] = EDIT_KEY
         at.run()
         if len(at.button) > 0 and any("View details" in b.label for b in at.button):
             next(b for b in at.button if "View details" in b.label).click().run()
 
         html = _html(*at.markdown)
-        assert "Last edited by" in html,    "Audit trail not rendered"
-        assert "bob@example.com" in html,   "Audit trail editor name not rendered"
+        assert "Last edited by" in html, "Audit trail not rendered"
+        assert "bob@example.com" in html, "Audit trail editor name not rendered"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 8. Sync script — business_name_overrides DDL and write-back
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestBusinessNameSync:
     """setup_cache_tables creates the table with column_name; push writes ALTER COLUMN."""
@@ -601,11 +721,12 @@ class TestBusinessNameSync:
     @pytest.fixture(autouse=True)
     def _patch_deps(self):
         from unittest.mock import MagicMock, patch
+
         mocks = {
-            "databricks":     MagicMock(),
+            "databricks": MagicMock(),
             "databricks.sdk": MagicMock(),
             "databricks.sql": MagicMock(),
-            "dotenv":         MagicMock(),
+            "dotenv": MagicMock(),
         }
         with patch.dict("sys.modules", mocks):
             yield
@@ -614,33 +735,43 @@ class TestBusinessNameSync:
         """setup_cache_tables must CREATE business_name_overrides with column_name."""
         from unittest.mock import MagicMock, patch
 
-        mock_conn   = MagicMock()
+        mock_conn = MagicMock()
         mock_cursor = MagicMock()
         with patch("scripts.sync_metadata.get_sql_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__.return_value = mock_conn
             mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
             from scripts.sync_metadata import setup_cache_tables
+
             setup_cache_tables()
 
         all_sql = " ".join(c[0][0] for c in mock_cursor.execute.call_args_list)
         assert "business_name_overrides" in all_sql
-        assert "column_name" in all_sql, "business_name_overrides DDL must include column_name"
-        assert "definition" in all_sql,  "business_name_overrides DDL must include definition"
+        assert "column_name" in all_sql, (
+            "business_name_overrides DDL must include column_name"
+        )
+        assert "definition" in all_sql, (
+            "business_name_overrides DDL must include definition"
+        )
 
     def test_push_overrides_issues_alter_column_for_each_row(self):
         """push_business_name_overrides must issue ALTER TABLE ... ALTER COLUMN ... COMMENT."""
         import pandas as pd
         from unittest.mock import MagicMock, patch
 
-        overrides_df = pd.DataFrame({
-            "table_full_name": ["main.analytics.customers", "main.analytics.orders"],
-            "column_name":     ["customer_id",              "order_date"],
-            "business_name":   ["Customer ID",              "Order Placed Date"],
-            "definition":      ["A unique customer ID",     "The date the order was placed"],
-        })
+        overrides_df = pd.DataFrame(
+            {
+                "table_full_name": [
+                    "main.analytics.customers",
+                    "main.analytics.orders",
+                ],
+                "column_name": ["customer_id", "order_date"],
+                "business_name": ["Customer ID", "Order Placed Date"],
+                "definition": ["A unique customer ID", "The date the order was placed"],
+            }
+        )
 
-        mock_conn   = MagicMock()
+        mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_cursor.fetchall_as_pandas.return_value = overrides_df
 
@@ -649,20 +780,27 @@ class TestBusinessNameSync:
             mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
             from scripts.sync_metadata import push_business_name_overrides
+
             push_business_name_overrides()
 
         sqls = [c[0][0] for c in mock_cursor.execute.call_args_list]
-        alter_sqls = [s for s in sqls if "ALTER TABLE" in s.upper() and "ALTER COLUMN" in s.upper()]
-        assert len(alter_sqls) == 2, f"Expected 2 ALTER COLUMN calls, got {len(alter_sqls)}: {alter_sqls}"
+        alter_sqls = [
+            s
+            for s in sqls
+            if "ALTER TABLE" in s.upper() and "ALTER COLUMN" in s.upper()
+        ]
+        assert len(alter_sqls) == 2, (
+            f"Expected 2 ALTER COLUMN calls, got {len(alter_sqls)}: {alter_sqls}"
+        )
         assert any("customer_id" in s for s in alter_sqls)
-        assert any("order_date"  in s for s in alter_sqls)
+        assert any("order_date" in s for s in alter_sqls)
 
     def test_push_overrides_no_calls_when_table_empty(self):
         """push_business_name_overrides must issue no ALTER calls when overrides is empty."""
         import pandas as pd
         from unittest.mock import MagicMock, patch
 
-        mock_conn   = MagicMock()
+        mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_cursor.fetchall_as_pandas.return_value = pd.DataFrame(
             columns=["table_full_name", "column_name", "business_name", "definition"]
@@ -673,6 +811,7 @@ class TestBusinessNameSync:
             mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
             from scripts.sync_metadata import push_business_name_overrides
+
             push_business_name_overrides()
 
         sqls = [c[0][0] for c in mock_cursor.execute.call_args_list]

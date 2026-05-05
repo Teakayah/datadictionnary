@@ -10,6 +10,7 @@ from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import _get_write_connection
 from src.config import CATALOG_CACHE, SCHEMA_CACHE
 
+_SYNC_MAX_ATTEMPTS = 3
 # Needs _get_last_ui_activity
 from src.sync.worker import _get_last_ui_activity
 
@@ -17,7 +18,6 @@ def enqueue_sync(sync_type: str, table_full_name: str | None, payload: dict, que
     """Add an action to the Databricks write-back queue."""
     if not _duckdb_available():
         return
-    import json
     sync_id = str(uuid.uuid4())
     conn = _get_write_connection()
     payload_str = json.dumps(payload)
@@ -131,7 +131,6 @@ def _process_sync_queue() -> int:
     batch_size = 50 if is_idle else 5
 
     conn = _get_write_connection()
-    import json
     try:
         with conn.cursor() as cursor:
             # Multi-tier priority: order by sync_type weight, then by age
