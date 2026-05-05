@@ -31,8 +31,17 @@ ADMIN_GROUP    = "admin_group_id"
 STANDARD_GROUP = "finance_dept_id"
 
 
-def _html(*markdowns) -> str:
-    return " ".join(m.value for m in markdowns)
+def _html(at: AppTest) -> str:
+    """Extracts raw HTML from AppTest markdown and st.html() nodes in the main container."""
+    parts = []
+    # 1. Standard markdown
+    if hasattr(at, "markdown"):
+        parts.extend(m.value for m in at.markdown)
+    # 2. Extract st.html injections which are stored as UnknownElement (html)
+    for el in getattr(at, "main", []):
+        if type(el).__name__ == "UnknownElement" and el.type == "html":
+            parts.append(getattr(el.proto, "body", ""))
+    return " ".join(parts)
 
 
 def _signed_in_app(*, groups: list[str] | None = None) -> AppTest:
@@ -54,7 +63,7 @@ class TestLanguageAttribute:
         at = _signed_in_app()
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
-        html = _html(*at.markdown)
+        html = _html(at)
         assert re.search(r'lang=["\'](?:en|fr)["\']', html), \
             "No lang= attribute found in rendered header HTML"
 
@@ -131,7 +140,7 @@ class TestLandmarkRegions:
         at = _signed_in_app()
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
-        html = _html(*at.markdown)
+        html = _html(at)
         has_nav = (
             "<nav" in html
             or 'role="navigation"' in html
@@ -143,7 +152,7 @@ class TestLandmarkRegions:
         at = _signed_in_app()
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "aria-label" in html, \
             "Navigation element missing aria-label attribute"
 
@@ -157,7 +166,7 @@ class TestHeadingHierarchy:
         at = _signed_in_app()
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
-        html = _html(*at.markdown)
+        html = _html(at)
         has_h3 = bool(re.search(r"<h3|^### ", html, re.MULTILINE))
         has_h1 = bool(re.search(r"<h1|^# ", html, re.MULTILINE))
         if has_h3:
@@ -173,7 +182,7 @@ class TestLanguageToggle:
         at = _signed_in_app()
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "EN" in html and "FR" in html, \
             "Language toggle (EN / FR) not found in rendered header HTML"
 
@@ -181,7 +190,7 @@ class TestLanguageToggle:
         at = _signed_in_app()
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
-        html = _html(*at.markdown)
+        html = _html(at)
         # Gemini-designed toggle renders title= on each lang link
         assert "switch_to" in html.lower() or "switch to" in html.lower() \
             or "passer en" in html.lower() or "title=" in html, \
@@ -193,7 +202,7 @@ class TestLanguageToggle:
         at.session_state["locale"] = "fr"
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
-        html = _html(*at.markdown)
+        html = _html(at)
         # French nav label must appear somewhere in the header
         assert "Recherche" in html or "Glossaire" in html or "Santé" in html, \
             "French locale not applied to navigation labels"
@@ -203,7 +212,7 @@ class TestLanguageToggle:
         at = _signed_in_app()
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "Search" in html or "Glossary" in html, \
             "Default English locale not applied to navigation labels"
 
@@ -218,7 +227,7 @@ class TestColorNotSoleIndicator:
         at = _signed_in_app()
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
-        html = _html(*at.markdown)
+        html = _html(at)
         # The active class 'active' is added to the current tab link
         assert 'class="dd-nav-tab active"' in html or "dd-nav-tab active" in html, \
             "Active tab not indicated by a CSS class (color-only would fail WCAG 1.4.1)"
@@ -313,7 +322,7 @@ class TestAriaLive:
         at = _signed_in_app()
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
-        html = _html(*at.markdown)
+        html = _html(at)
         assert 'aria-live' in html, \
             "Main content wrapper missing aria-live attribute (WCAG SC 4.1.3)"
 
@@ -321,6 +330,6 @@ class TestAriaLive:
         at = _signed_in_app()
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
-        html = _html(*at.markdown)
+        html = _html(at)
         assert 'role="main"' in html, \
             "Main content wrapper missing role='main' landmark (WCAG SC 1.3.6)"
