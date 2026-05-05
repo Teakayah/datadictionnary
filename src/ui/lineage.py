@@ -17,20 +17,27 @@ def _viewport_height(fallback: int = 800) -> int:
     return int(st.session_state.get("viewport_height", fallback))
 
 
-def _fetch_lineage_hop(node_fn: str, query_groups: list, run_query) -> "pd.DataFrame | None":
-    """Fetch direct lineage neighbors of node_fn, permission-filtered."""
+def _fetch_lineage_hops(node_fns: list[str], query_groups: list, run_query) -> "pd.DataFrame | None":
+    """Fetch direct lineage neighbors of multiple node_fns, permission-filtered."""
+    if not node_fns:
+        return None
     lin_ph = ", ".join([f"%(lin_g_{i})s" for i in range(len(query_groups))]) if query_groups else "''"
-    params: dict = {"table_full_name": node_fn}
+
+    node_ph = ", ".join([f"%(node_fn_{i})s" for i in range(len(node_fns))])
+    params: dict = {}
+    for i, node in enumerate(node_fns):
+        params[f"node_fn_{i}"] = node
+
     for i, g in enumerate(query_groups):
         params[f"lin_g_{i}"] = g
     q = (
-        "SELECT DISTINCT l.direction, l.entity_full_name, l.entity_type "
+        "SELECT DISTINCT l.table_full_name, l.direction, l.entity_full_name, l.entity_type "
         "FROM {0}.{1}.lineage_cache l "
         "JOIN {0}.{1}.permissions_cache p ON l.entity_full_name = p.table_full_name "
-        "WHERE l.table_full_name = %(table_full_name)s "
-        "AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS') "
-        "ORDER BY l.direction, l.entity_full_name"
-    ).format(CATALOG_CACHE, SCHEMA_CACHE, lin_ph)  # nosec B608
+        "WHERE l.table_full_name IN ({2}) "
+        "AND (p.principal IN ({3}) OR p.principal = 'SELECT_ALL_USERS') "
+        "ORDER BY l.table_full_name, l.direction, l.entity_full_name"
+    ).format(CATALOG_CACHE, SCHEMA_CACHE, node_ph, lin_ph)  # nosec B608
     return run_query(q, params)
 
 
@@ -45,13 +52,13 @@ def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, ru
         if not frontier:
             break
         next_frontier: list = []
-        for node_fn in frontier:
-            result = _fetch_lineage_hop(node_fn, query_groups, run_query)
-            if result is None or result.empty or "direction" not in result.columns:
-                continue
-            for _, lr in result.iterrows():
-                efn = str(lr["entity_full_name"])
-                direction = str(lr["direction"])
+
+        result = _fetch_lineage_hops(frontier, query_groups, run_query)
+        if result is not None and not result.empty and "direction" in result.columns and "table_full_name" in result.columns:
+            for lr in result.itertuples(index=False):
+                node_fn = str(getattr(lr, "table_full_name"))
+                efn = str(getattr(lr, "entity_full_name"))
+                direction = str(getattr(lr, "direction"))
                 link = {"from": efn, "to": node_fn} if direction == "UPSTREAM" else {"from": node_fn, "to": efn}
                 if link not in graph_links:
                     graph_links.append(link)
