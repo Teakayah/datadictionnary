@@ -103,7 +103,7 @@ class TestGetTableSteward:
 
     def test_production_queries_tables_metadata(self, monkeypatch):
         """Production mode must query tables_metadata for steward_email."""
-        at = _at_production_detail(monkeypatch)
+        _at_production_detail(monkeypatch)
         cursor = get_db_cursor()
         executed = [str(c) for c in cursor.execute.call_args_list]
         assert any("tables_metadata" in q and "steward_email" in q for q in executed)
@@ -142,7 +142,7 @@ class TestGetTableComments:
 
     def test_production_queries_comments_table(self, monkeypatch):
         """Production mode must query the comments table."""
-        at = _at_production_detail(monkeypatch)
+        _at_production_detail(monkeypatch)
         cursor = get_db_cursor()
         executed = [str(c) for c in cursor.execute.call_args_list]
         assert any("comments" in q and "object_name" in q for q in executed)

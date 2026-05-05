@@ -9,7 +9,6 @@ def check_db(path, name):
         return
     try:
         con = duckdb.connect(path, read_only=True)
-        tables = con.execute("SHOW ALL TABLES").df()
         if name == "Main Cache":
             print("\nColumns in tables_metadata:")
             print(con.execute("PRAGMA table_info('dictionary_cache.tables_metadata')").df())

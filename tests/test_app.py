@@ -324,7 +324,7 @@ class TestTableDetail:
     def test_column_query_targets_columns_metadata(self, monkeypatch):
         """SQL must query the columns_metadata table after table selection."""
         monkeypatch.setenv("DEMO_DATA", "false")
-        at = self._run_with_table_selected(
+        self._run_with_table_selected(
             make_tables_df(), make_tables_df(), TestTableDetail._EMPTY_OVERRIDES(), make_columns_df(),
             TestTableDetail._EMPTY_STEWARD(), TestTableDetail._EMPTY_COMMENTS(),
             make_grants_df(), make_lineage_df(), make_related_df(),
@@ -343,7 +343,7 @@ class TestTableDetail:
         # 4: search_all_metadata (details)
         # 5: get_column_business_names
         # 6: columns_metadata
-        at = self._run_with_table_selected(
+        self._run_with_table_selected(
             make_tables_df(), make_tables_df(), make_tables_df(), make_tables_df(),
             TestTableDetail._EMPTY_OVERRIDES(), make_columns_df(),
             TestTableDetail._EMPTY_STEWARD(), TestTableDetail._EMPTY_COMMENTS(),
@@ -383,6 +383,12 @@ def _read_locale_strings() -> list[str]:
     with open(locale_path, encoding="utf-8") as f:
         locale_data = json.load(f)
     return _get_all_locale_strings(locale_data)
+
+
+def _read_locale_source() -> str:
+    locale_path = os.path.join(os.path.dirname(__file__), "..", "locale", "en.json")
+    with open(locale_path, encoding="utf-8") as f:
+        return f.read()
 
 
 def _extract_design_css(src: str) -> str:
@@ -462,6 +468,7 @@ class TestDesignSystem:
                 match = re.search(r'§\s+([^\n<"]+)', s)
                 if match:
                     section_labels.append(match.group(1))
+
 
         for label in section_labels:
             words = label.strip().split()
