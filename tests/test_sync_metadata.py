@@ -160,16 +160,16 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
     assert "audit_log" in execute_calls[7][0][0]
     assert "business_name_overrides" in execute_calls[8][0][0]
 
-    # 6 executemany calls: tables, columns, permissions, lineage, data_quality, object_tags
+    # 5 executemany calls: tables, columns, permissions, data_quality, object_tags
     # (object_tags has 1 data row from table tags; dq data comes from mock_table.properties)
+    # lineage is empty because we mock the future result for it.
     executemany_calls = mock_cursor.executemany.call_args_list
-    assert len(executemany_calls) == 6
+    assert len(executemany_calls) == 5
     assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp(), %(steward_email)s)" in executemany_calls[0][0][0]
     assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata VALUES (%(table_full_name)s, %(column_name)s, %(data_type)s, %(comment)s)" in executemany_calls[1][0][0]
     assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache VALUES (%(table_full_name)s, %(principal)s, %(privilege)s)" in executemany_calls[2][0][0]
-    assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache VALUES (%(table_full_name)s, %(direction)s, %(entity_full_name)s, %(entity_type)s)" in executemany_calls[3][0][0]
-    assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags VALUES (%(object_type)s, %(object_full_name)s, %(tag_key)s, %(tag_value)s)" in executemany_calls[4][0][0]
-    assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache VALUES (%(table_full_name)s, %(dq_score)s, %(last_run_status)s, %(freshness)s)" in executemany_calls[5][0][0]
+    assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags VALUES (%(object_type)s, %(object_full_name)s, %(tag_key)s, %(tag_value)s)" in executemany_calls[3][0][0]
+    assert f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache VALUES (%(table_full_name)s, %(dq_score)s, %(last_run_status)s, %(freshness)s)" in executemany_calls[4][0][0]
 
 @patch("scripts.sync_metadata.WorkspaceClient")
 @patch("scripts.sync_metadata.get_sql_connection")
