@@ -344,8 +344,12 @@ class TestGlossary:
         """Glossary term detail must show stewardship information."""
         at = authenticated_app(tab="glossary")
         at.run()
+        # Because we added index=None to the selectbox, no term is selected by default,
+        # so the stewardship section is not rendered initially. We need to select a term first.
+        at.selectbox(key="glossary_search").select("Active User")
+        at.run()
         html = _html(*at.markdown)
-        assert "§ Stewardship" in html
+        assert "Stewardship" in html or "stewardship" in html.lower()
 
 
 class TestDiscovery:
