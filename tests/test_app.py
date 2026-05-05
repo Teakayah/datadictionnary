@@ -391,6 +391,12 @@ def _read_locale_source() -> str:
         return f.read()
 
 
+def _read_locale_strings() -> str:
+    locale_path = os.path.join(os.path.dirname(__file__), "..", "locale", "en.json")
+    with open(locale_path, encoding="utf-8") as f:
+        return f.read()
+
+
 def _extract_design_css(src: str) -> str:
     # Phase 3: DESIGN_CSS was moved from app.py into assets/design.css.
     # Try the asset file first; fall back to the old inline literal for safety.
