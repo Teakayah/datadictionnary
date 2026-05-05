@@ -81,7 +81,7 @@ def _render_table_card(row, key_prefix: str, _pref_delete_fn=None, _pref_upsert_
     # Table name button (navigates to detail) + star bookmark — flush below the card
     _c_name, _c_star = st.columns([11, 1], gap="small")
     with _c_name:
-        if st.button(f"→ {_tname}", key=f"{key_prefix}_open_{_full}", use_container_width=True, type="secondary"):
+        if st.button(f"→ {_tname}", key=f"{key_prefix}_open_{_full}", help=t("search.view_details_help"), use_container_width=True, type="secondary"):
             st.query_params["tab"] = "search"
             st.session_state["dd_search_override"] = _tname
             st.session_state["dd_nav_select"] = _full
