@@ -90,7 +90,13 @@
     "steward": "Responsable",
     "posted_by": "Posté par",
     "no_comments": "Aucun commentaire pour le moment.",
-    "leave_a_comment": "Laisser un commentaire"
+    "leave_a_comment": "Laisser un commentaire",
+    "placeholder_reply": "Écrivez une réponse…",
+    "placeholder_new": "Posez une question ou signalez un problème concernant cette table.",
+    "your_comment": "Votre commentaire",
+    "your_reply": "Votre réponse",
+    "max_chars": "Maximum 1000 caractères.",
+    "empty_error": "Le commentaire ne peut pas être vide."
   },
   "editor": {
     "edit_business_name": "Modifier le nom métier",
@@ -98,7 +104,10 @@
     "definition_label": "Définition",
     "save": "Enregistrer",
     "cancel": "Annuler",
-    "saved_by": "Enregistré par {user}"
+    "saved_by": "Enregistré par {user}",
+    "placeholder_biz_name": "ex. Identifiant Client",
+    "placeholder_biz_def": "ex. Identifiant unique attribué à chaque client lors de son inscription.",
+    "permission_error": "Vous n’avez pas la permission de modifier les noms métier."
   },
   "admin": {
     "title": "§ Admin",
