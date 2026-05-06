@@ -79,8 +79,64 @@ def _sync_prefs_to_session() -> None:
     st.session_state.recent_views = recent
 
 
+_EDITING_ENABLED_KEY = "editing_enabled"
+
+
+def is_editing_enabled() -> bool:
+    """Return True if inline metadata editing is globally enabled (admin toggle)."""
+    # Cached in session state to avoid a DB hit on every render.
+    if "_editing_enabled_cache" in st.session_state:
+        return st.session_state["_editing_enabled_cache"]
+
+    enabled = True  # default
+    if _duckdb_available():
+        try:
+            from src.db.queries import get_db_connection
+            conn = get_db_connection()
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT value FROM user_data.site_settings WHERE key = ?",
+                    [_EDITING_ENABLED_KEY],
+                )
+                rows = cur.fetchall()
+                if rows:
+                    enabled = rows[0][0] == "1"
+        except Exception as _e:
+            logging.warning("Could not read editing_enabled flag: %s", _e)
+
+    st.session_state["_editing_enabled_cache"] = enabled
+    return enabled
+
+
+def set_editing_enabled(enabled: bool, actor_email: str = "admin") -> None:
+    """Persist the global editing toggle and invalidate the session cache."""
+    value = "1" if enabled else "0"
+    if _duckdb_available():
+        try:
+            from src.db.queries import _get_write_connection
+            conn = _get_write_connection()
+            with _db_write_lock:
+                conn.execute(
+                    """
+                    INSERT INTO user_data.site_settings (key, value, updated_at, updated_by)
+                    VALUES (?, ?, current_localtimestamp(), ?)
+                    ON CONFLICT (key) DO UPDATE
+                        SET value = excluded.value,
+                            updated_at = excluded.updated_at,
+                            updated_by = excluded.updated_by
+                    """,
+                    [_EDITING_ENABLED_KEY, value, actor_email],
+                )
+        except Exception as _e:
+            logging.warning("Could not persist editing_enabled flag: %s", _e)
+    # Always update cache so the toggle feels instant
+    st.session_state["_editing_enabled_cache"] = enabled
+
+
 def is_power_user() -> bool:
-    """True if the current user belongs to at least one EDITOR_GROUPS group."""
+    """True if editing is globally enabled AND the user belongs to an EDITOR_GROUPS group."""
+    if not is_editing_enabled():
+        return False
     editor_groups = {g.strip() for g in os.getenv("EDITOR_GROUPS", "").split(",") if g.strip()}
     if not editor_groups:
         return False

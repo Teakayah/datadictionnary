@@ -111,6 +111,54 @@ def _initialize_schema(con):
         )
     """)
     con.execute("""
+        CREATE TABLE IF NOT EXISTS user_data.pipeline_definitions (
+            pipeline_id         VARCHAR PRIMARY KEY,
+            title               VARCHAR NOT NULL,
+            description         VARCHAR,
+            backend             VARCHAR NOT NULL,
+            databricks_job_id   VARCHAR,
+            adf_subscription_id VARCHAR,
+            adf_resource_group  VARCHAR,
+            adf_factory_name    VARCHAR,
+            adf_pipeline_name   VARCHAR,
+            ado_organization    VARCHAR,
+            ado_project         VARCHAR,
+            ado_pipeline_id     VARCHAR,
+            created_by          VARCHAR,
+            created_at          TIMESTAMP NOT NULL
+        )
+    """)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS user_data.pipeline_runs (
+            pipeline_id    VARCHAR PRIMARY KEY,
+            backend_run_id VARCHAR NOT NULL,
+            triggered_by   VARCHAR,
+            triggered_at   TIMESTAMP NOT NULL,
+            status         VARCHAR,
+            last_checked   TIMESTAMP
+        )
+    """)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS user_data.cms_posts (
+            post_id      VARCHAR PRIMARY KEY,
+            post_type    VARCHAR NOT NULL,
+            title        VARCHAR NOT NULL,
+            body         VARCHAR,
+            table_ref    VARCHAR,
+            author_email VARCHAR NOT NULL,
+            created_at   TIMESTAMP NOT NULL,
+            expires_at   TIMESTAMP
+        )
+    """)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS user_data.site_settings (
+            key        VARCHAR PRIMARY KEY,
+            value      VARCHAR NOT NULL,
+            updated_at TIMESTAMP,
+            updated_by VARCHAR
+        )
+    """)
+    con.execute("""
         CREATE TABLE IF NOT EXISTS user_data.pending_sync (
             sync_id         VARCHAR PRIMARY KEY,
             sync_type       VARCHAR NOT NULL, -- COLUMN_DEF, TABLE_DESC, AUDIT, COMMENT, TAG, STEWARD
