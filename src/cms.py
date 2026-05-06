@@ -24,7 +24,11 @@ _EXPIRY_DAYS: dict[str, int | None] = {
 def get_active_posts() -> list[dict]:
     """Return all non-expired CMS posts, newest first."""
     if not _duckdb_available():
-        return st.session_state.get("_demo_cms_posts", [])
+        now = datetime.utcnow()
+        return [
+            p for p in st.session_state.get("_demo_cms_posts", [])
+            if p.get("expires_at") is None or p["expires_at"] > now
+        ]
     try:
         conn = get_db_connection()
         with conn.cursor() as cur:
