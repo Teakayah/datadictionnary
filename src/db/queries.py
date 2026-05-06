@@ -19,26 +19,40 @@ import pandas as pd
 import streamlit as st
 import logging
 from src.config import is_demo_mode, CATALOG_CACHE, SCHEMA_CACHE
-from src.demo.data import _DEMO_TABLES, _DEMO_RELATED, _DEMO_LINEAGE, _DEMO_COLUMNS, _DEMO_GRANTS, _DEMO_GLOSSARY
+from src.demo.data import (
+    _DEMO_TABLES,
+    _DEMO_RELATED,
+    _DEMO_LINEAGE,
+    _DEMO_COLUMNS,
+    _DEMO_GRANTS,
+    _DEMO_GLOSSARY,
+)
 
 
 from src.db.duckdb_adapter import _duckdb_available, _DuckDBConn, _run_duckdb_query
-from src.db.databricks_adapter import _get_databricks_write_connection, _run_databricks_query
+from src.db.databricks_adapter import (
+    _get_databricks_write_connection,
+    _run_databricks_query,
+)
 
 
 def _get_write_connection():
     """Return a DB connection for write operations (DuckDB → Databricks fallback)."""
     if _duckdb_available():
         from src.config import DUCKDB_PATH
+
         return _DuckDBConn(DUCKDB_PATH)
     return _get_databricks_write_connection()
+
 
 def get_db_connection():
     """Return a DB connection for read queries (DuckDB → Databricks fallback)."""
     if _duckdb_available():
         from src.config import DUCKDB_PATH
+
         return _DuckDBConn(DUCKDB_PATH)
     from src.db.databricks_adapter import _get_databricks_connection
+
     return _get_databricks_connection()
 
 
@@ -73,20 +87,34 @@ def run_query(query, params=None):
         p = params or {}
         _has_groups = "groups" in p or any(k.startswith("group_") for k in p)
         if "full_name" in p and _has_groups:
-            return _DEMO_RELATED.get(p["full_name"], pd.DataFrame(
-                columns=["full_name", "table_name", "catalog_name", "schema_name", "relationship"]))
+            return _DEMO_RELATED.get(
+                p["full_name"],
+                pd.DataFrame(
+                    columns=[
+                        "full_name",
+                        "table_name",
+                        "catalog_name",
+                        "schema_name",
+                        "relationship",
+                    ]
+                ),
+            )
         if _has_groups:
             return _DEMO_TABLES
         fn = p.get("table_full_name", "")
         if "lineage_cache" in query:
-            return _DEMO_LINEAGE.get(fn, pd.DataFrame(
-                columns=["direction", "entity_full_name", "entity_type"]))
+            return _DEMO_LINEAGE.get(
+                fn,
+                pd.DataFrame(columns=["direction", "entity_full_name", "entity_type"]),
+            )
         if "columns_metadata" in query:
-            return _DEMO_COLUMNS.get(fn, pd.DataFrame(
-                columns=["column_name", "data_type", "comment"]))
+            return _DEMO_COLUMNS.get(
+                fn, pd.DataFrame(columns=["column_name", "data_type", "comment"])
+            )
         return _DEMO_GRANTS.get(fn, pd.DataFrame(columns=["principal", "privilege"]))
 
     return _base_run_query(query, params)
+
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def get_authorized_tables(groups):
@@ -102,12 +130,15 @@ def get_authorized_tables(groups):
     """
     if is_demo_mode():
         return _DEMO_TABLES
-    group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
+    group_placeholders = (
+        ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
+    )
     params: dict = {}
     if groups:
         for i, group in enumerate(groups):
             params[f"group_{i}"] = group
-    sql_query = ("""
+    sql_query = (
+        """
         SELECT DISTINCT
             m.full_name,
             m.catalog_name,
@@ -124,13 +155,16 @@ def get_authorized_tables(groups):
         LEFT JOIN {0}.{1}.data_quality_cache dq
           ON m.full_name = dq.table_full_name
         WHERE (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
-    """).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders)  # nosec B608
+    """
+    ).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders)  # nosec B608
     return run_query(sql_query, params)
+
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
     """Fetch lineage edges up to a given depth."""
-    sql_query = ("""
+    sql_query = (
+        """
         WITH RECURSIVE lineage_cte AS (
             SELECT
                 table_full_name,
@@ -156,23 +190,33 @@ def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
             WHERE cte.depth < %(depth)s
         )
         SELECT * FROM lineage_cte
-    """).format(CATALOG_CACHE, SCHEMA_CACHE)
+    """
+    ).format(CATALOG_CACHE, SCHEMA_CACHE)
 
     return run_query(sql_query, {"fn": table_full_name, "depth": depth})
+
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def search_all_metadata(query: str, groups: tuple):
     """Search across tables, columns, and descriptions using UNION."""
     import logging
+
     logging.info("GLOBAL SEARCH query=%s groups=%s", query, groups)
 
-    group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
+    group_placeholders = (
+        ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
+    )
     params: dict = {f"group_{i}": g for i, g in enumerate(groups)} if groups else {}
     params["q"] = f"%{query}%"
 
-    _overrides_tbl = "user_data.business_name_overrides" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
+    _overrides_tbl = (
+        "user_data.business_name_overrides"
+        if _duckdb_available()
+        else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
+    )
 
-    sql_query = ("""
+    sql_query = (
+        """
         SELECT DISTINCT
             m.full_name, m.table_name AS name, 'Table' AS match_type,
             m.comment AS description, m.catalog_name, m.schema_name, m.table_name,
@@ -205,7 +249,8 @@ def search_all_metadata(query: str, groups: tuple):
           AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
 
         LIMIT 50
-    """).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders, _overrides_tbl)  # nosec B608
+    """
+    ).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders, _overrides_tbl)  # nosec B608
 
     sql_results = run_query(sql_query, params)
 
@@ -215,39 +260,54 @@ def search_all_metadata(query: str, groups: tuple):
         if "name" not in sql_results.columns:
             sql_results = sql_results.assign(name=sql_results.get("table_name", ""))
         if "description" not in sql_results.columns:
-            _desc_src = sql_results["table_description"] if "table_description" in sql_results.columns else sql_results.get("comment", "")
+            _desc_src = (
+                sql_results["table_description"]
+                if "table_description" in sql_results.columns
+                else sql_results.get("comment", "")
+            )
             sql_results = sql_results.assign(description=_desc_src)
 
     term_matches = []
     if _DEMO_GLOSSARY is not None and not _DEMO_GLOSSARY.empty and query:
         _auth_df = get_authorized_tables(groups)
-        _allowed_fns = set(_auth_df["full_name"].tolist()) if _auth_df is not None and not _auth_df.empty else set()
+        _allowed_fns = (
+            set(_auth_df["full_name"].tolist())
+            if _auth_df is not None and not _auth_df.empty
+            else set()
+        )
         query_lower = query.lower()
-        mask = (
-            _DEMO_GLOSSARY['term'].str.lower().str.contains(query_lower, regex=False, na=False) |
-            _DEMO_GLOSSARY['definition'].str.lower().str.contains(query_lower, regex=False, na=False)
+        mask = _DEMO_GLOSSARY["term"].str.lower().str.contains(
+            query_lower, regex=False, na=False
+        ) | _DEMO_GLOSSARY["definition"].str.lower().str.contains(
+            query_lower, regex=False, na=False
         )
         glossary_df = _DEMO_GLOSSARY[mask]
         for row in glossary_df.itertuples(index=False):
-            related_tables = getattr(row, 'related_tables', [])
+            related_tables = getattr(row, "related_tables", [])
             target_table = related_tables[0] if related_tables else ""
             if target_table and target_table not in _allowed_fns:
                 continue
-            parts = target_table.split('.')
-            term_matches.append({
-                "full_name": target_table,
-                "name": getattr(row, 'term', ''),
-                "match_type": "Glossary",
-                "description": getattr(row, 'definition', ''),
-                "table_description": "",
-                "catalog_name": parts[0] if len(parts) == 3 else "",
-                "schema_name": parts[1] if len(parts) == 3 else "",
-                "table_name": parts[2] if len(parts) == 3 else "",
-            })
+            parts = target_table.split(".")
+            term_matches.append(
+                {
+                    "full_name": target_table,
+                    "name": getattr(row, "term", ""),
+                    "match_type": "Glossary",
+                    "description": getattr(row, "definition", ""),
+                    "table_description": "",
+                    "catalog_name": parts[0] if len(parts) == 3 else "",
+                    "schema_name": parts[1] if len(parts) == 3 else "",
+                    "table_name": parts[2] if len(parts) == 3 else "",
+                }
+            )
 
     if term_matches:
         glossary_results = pd.DataFrame(term_matches)
-        combined = pd.concat([sql_results, glossary_results], ignore_index=True) if sql_results is not None and not sql_results.empty else glossary_results
+        combined = (
+            pd.concat([sql_results, glossary_results], ignore_index=True)
+            if sql_results is not None and not sql_results.empty
+            else glossary_results
+        )
     else:
         combined = sql_results
 
@@ -255,6 +315,7 @@ def search_all_metadata(query: str, groups: tuple):
         return combined
 
     q_lower = query.lower()
+
     def _score(row):
         name = str(row.get("name") or "").lower()
         mtype = str(row.get("match_type") or "")
@@ -276,7 +337,12 @@ def search_all_metadata(query: str, groups: tuple):
 
     combined = combined.copy()
     combined["_score"] = combined.apply(_score, axis=1)
-    return combined.sort_values("_score", ascending=False).drop(columns=["_score"]).reset_index(drop=True)
+    return (
+        combined.sort_values("_score", ascending=False)
+        .drop(columns=["_score"])
+        .reset_index(drop=True)
+    )
+
 
 def get_column_business_names(table_full_name: str) -> dict:
     """Return column business name overrides for a table as a dict."""
@@ -284,7 +350,11 @@ def get_column_business_names(table_full_name: str) -> dict:
         return st.session_state.get("demo_business_names", {}).get(table_full_name, {})
     try:
         conn = get_db_connection()
-        tbl = "user_data.business_name_overrides" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
+        tbl = (
+            "user_data.business_name_overrides"
+            if _duckdb_available()
+            else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
+        )
         with conn.cursor() as cursor:
             cursor.execute(
                 f"SELECT column_name, business_name, definition, edited_by, edited_at "
@@ -296,15 +366,21 @@ def get_column_business_names(table_full_name: str) -> dict:
             if rows is not None and not rows.empty:
                 return {
                     str(getattr(r, "column_name", "")): {
-                        "business_name": str(getattr(r, "business_name", "")) if getattr(r, "business_name", None) else "",
-                        "definition":    str(getattr(r, "definition", ""))    if getattr(r, "definition", None)    else "",
-                        "edited_by":     str(getattr(r, "edited_by", "")),
-                        "edited_at":     str(getattr(r, "edited_at", "")),
+                        "business_name": str(getattr(r, "business_name", ""))
+                        if getattr(r, "business_name", None)
+                        else "",
+                        "definition": str(getattr(r, "definition", ""))
+                        if getattr(r, "definition", None)
+                        else "",
+                        "edited_by": str(getattr(r, "edited_by", "")),
+                        "edited_at": str(getattr(r, "edited_at", "")),
                     }
                     for r in rows.itertuples(index=False)
                 }
     except Exception as e:
-        logging.warning("Could not fetch column business names for %s: %s", table_full_name, e)
+        logging.warning(
+            "Could not fetch column business names for %s: %s", table_full_name, e
+        )
     return {}
 
 
@@ -315,7 +391,15 @@ def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
     """
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Column Name", "Business Name", "Data Type", "System Description", "Business Definition"])
+    writer.writerow(
+        [
+            "Column Name",
+            "Business Name",
+            "Data Type",
+            "System Description",
+            "Business Definition",
+        ]
+    )
 
     if cols is not None and not cols.empty:
         for c in cols.itertuples(index=False):
