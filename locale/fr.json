@@ -6,6 +6,7 @@
     "health": "Santé",
     "glossary": "Glossaire",
     "admin": "Admin",
+    "pipelines": "Pipelines",
     "sign_out": "Déconnexion"
   },
   "auth": {
@@ -101,7 +102,7 @@
   },
   "admin": {
     "title": "§ Admin",
-    "subtitle": "Santé du système, statistiques d'utilisation et journaux de synchronisation.",
+    "subtitle": "Santé du système, statistiques d’utilisation et journaux de synchronisation.",
     "stats_tables": "Total tables",
     "stats_columns": "Total colonnes",
     "stats_comments": "Total commentaires",
@@ -111,7 +112,12 @@
     "sync_title": "État de la synchronisation",
     "no_data": "Aucune donnée d’audit disponible.",
     "access_denied": "Accès administrateur requis.",
-    "expand_log": "Développer le journal"
+    "expand_log": "Développer le journal",
+    "editing_title": "Édition en ligne",
+    "editing_toggle": "Autoriser les utilisateurs avancés à modifier les métadonnées",
+    "editing_help": "Quand désactivé, les boutons de modification sont masqués pour tous — utile lors de migrations ou d’audits.",
+    "editing_enabled": "L’édition est activée.",
+    "editing_disabled": "L’édition est verrouillée."
   },
   "health": {
     "title": "§ Santé du catalogue",
@@ -161,6 +167,53 @@
     "date_format": "%d %b, %H:%M UTC",
     "explore_button": "Explorer {name} →",
     "updated": "Mis à jour"
+  },
+  "pipelines": {
+    "eyebrow": "§ Pipelines",
+    "hero_title": "Exécuter des pipelines.",
+    "hero_subtitle": "Déclenchez et surveillez vos pipelines Databricks, ADF et Azure DevOps.",
+    "admin_title": "Gestion des pipelines",
+    "new_pipeline": "Nouveau pipeline",
+    "no_pipelines": "Aucun pipeline configuré.",
+    "access_denied": "Accès aux pipelines requis.",
+    "delete": "Supprimer le pipeline",
+    "create_title": "Nouveau pipeline",
+    "backend": "Système",
+    "field_title": "Titre",
+    "field_desc": "Description",
+    "field_job_id": "ID du job Databricks",
+    "field_adf_sub": "ID d'abonnement Azure",
+    "field_adf_rg": "Groupe de ressources",
+    "field_adf_fact": "Nom de la fabrique",
+    "field_adf_pipe": "Nom du pipeline",
+    "field_ado_org": "Organisation",
+    "field_ado_proj": "Projet",
+    "field_ado_pid": "ID du pipeline",
+    "start": "▶ Démarrer",
+    "stop": "■ Arrêter",
+    "stopped": "Exécution annulée.",
+    "start_error": "Impossible de démarrer le pipeline",
+    "stop_error": "Impossible d'arrêter le pipeline",
+    "error_title": "Le titre est requis."
+  },
+  "cms": {
+    "section_title": "Gestion de contenu",
+    "new_post": "Nouvelle publication",
+    "create_title": "Nouvelle publication",
+    "post_type": "Type",
+    "type_announcement": "Annonce",
+    "type_featured": "Jeu de données en vedette",
+    "type_guide": "Guide",
+    "post_title": "Titre",
+    "post_body": "Corps",
+    "post_table_ref": "Table (nom complet)",
+    "post_expiry": "Durée d'affichage",
+    "delete_post": "Supprimer",
+    "no_posts": "Aucune publication pour le moment.",
+    "expires": "expire",
+    "no_expiry": "jamais",
+    "error_title_required": "Le titre est requis.",
+    "error_table_ref_required": "La référence de table est requise pour une publication en vedette."
   },
   "footer": {
     "built_with": "Data Dictionary · v0.1.0 · synchronisé chaque nuit depuis Unity Catalog"

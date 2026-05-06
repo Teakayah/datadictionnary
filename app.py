@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()  # must run before any src.* import so os.getenv() reads .env values
 
-from src.auth import check_auth, is_admin, render_signin_page
+from src.auth import check_auth, is_admin, is_pipeline_user, render_signin_page
 from src.ui.header import render_header, render_footer, LOGO_MARK_SVG
 
 def is_demo_mode() -> bool:
@@ -64,7 +64,7 @@ from src.sync.worker import _start_sync_worker_thread, _mark_ui_activity
 
 
 from src.ui.cards import (
-    render_discovery, render_health, render_admin_page,
+    render_discovery, render_health, render_admin_page, render_pipelines_page,
     _mark_ui_activity,
 )
 from src.pages.catalog import render_catalog_browser
@@ -113,7 +113,8 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
             _ql_groups, _ql_name, _ql_email = _dept_group_map[_ql_dept]
         else:
             _ql_groups = ["finance_group", "research_group", "hr_group", "it_group",
-                          "SELECT_ALL_USERS", "finance_dept_id", "all_employees_id"]
+                          "SELECT_ALL_USERS", "finance_dept_id", "all_employees_id",
+                          "mock_admin_group"]
             _ql_name, _ql_email = "Admin User", "admin@research-org.ca"
         st.session_state.authenticated = True
         st.session_state.user_groups   = _ql_groups
@@ -142,7 +143,12 @@ else:
 
 # ── Authenticated: header with user ───────────────────────────────────────────
 current_tab = st.query_params.get("tab", "search")
-render_header(user_name=st.session_state.get("user_name", ""), active_tab=current_tab, show_admin=is_admin())
+render_header(
+    user_name=st.session_state.get("user_name", ""),
+    active_tab=current_tab,
+    show_admin=is_admin(),
+    show_pipelines=is_pipeline_user() or is_admin(),
+)
 st.markdown('<div class="dd-page" role="main" aria-live="polite">', unsafe_allow_html=True)
 
 groups = tuple(st.session_state.get("user_groups", [])) if st.session_state.get("user_groups") else ("none",)
@@ -168,6 +174,8 @@ elif current_tab == "discovery":
     render_discovery(query_groups, get_authorized_tables, _pref_delete, _pref_upsert)
 elif current_tab == "health":
     render_health(query_groups, get_authorized_tables)
+elif current_tab == "pipelines":
+    render_pipelines_page()
 elif current_tab == "admin":
     render_admin_page()
 
