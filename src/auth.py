@@ -162,7 +162,8 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
                 "IT":       (["it_group",        "SELECT_ALL_USERS"], "it.user@research-org.ca"),
                 "Admin":    (
                     ["finance_group", "research_group", "hr_group", "it_group",
-                     "SELECT_ALL_USERS", "finance_dept_id", "all_employees_id"],
+                     "SELECT_ALL_USERS", "finance_dept_id", "all_employees_id",
+                     "mock_admin_group"],
                     "admin@research-org.ca",
                 ),
             }
@@ -311,6 +312,14 @@ def is_power_user() -> bool:
     if not editor_groups:
         return False
     return bool(editor_groups & set(st.session_state.get("user_groups", [])))
+
+
+def is_pipeline_user() -> bool:
+    """True if the current user belongs to at least one PIPELINE_GROUPS group."""
+    pipeline_groups = {g.strip() for g in os.getenv("PIPELINE_GROUPS", "").split(",") if g.strip()}
+    if not pipeline_groups:
+        return False
+    return bool(pipeline_groups & set(st.session_state.get("user_groups", [])))
 
 
 def is_admin() -> bool:

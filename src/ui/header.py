@@ -44,7 +44,7 @@ SEARCH_ICON_SVG = """<svg width="18" height="18" viewBox="0 0 24 24" fill="none"
 </svg>"""
 
 
-def render_header(user_name: str | None = None, active_tab: str = "search", show_admin: bool = False):
+def render_header(user_name: str | None = None, active_tab: str = "search", show_admin: bool = False, show_pipelines: bool = False):
     _ensure_locale()
     locale = st.session_state.get("locale", "en")
 
@@ -56,7 +56,8 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
         active = "active" if active_tab == tab_id else ""
         return f'<a href="#" data-tab="{tab_id}" class="dd-nav-tab {active}">{label}</a>'
 
-    admin_link = link(t("nav.admin"), "admin") if show_admin else ""
+    admin_link     = link(t("nav.admin"),     "admin")     if show_admin     else ""
+    pipelines_link = link(t("nav.pipelines"), "pipelines") if show_pipelines else ""
 
     en_active = "dd-lang-active" if locale == "en" else ""
     fr_active  = "dd-lang-active" if locale == "fr" else ""
@@ -78,6 +79,7 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
       {link(t("nav.glossary"), "glossary")}
       {link(t("nav.discovery"), "discovery")}
       {link(t("nav.health"), "health")}
+      {pipelines_link}
       {admin_link}
       {lang_toggle}
       {user_section}
@@ -89,6 +91,8 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
     # Hidden Streamlit nav/lang proxy buttons — JS clicks these; the container is
     # hidden immediately via CSS :has(#dd-proxy-anchor) so they never flash.
     _tabs = ["search", "catalog", "glossary", "discovery", "health"]
+    if show_pipelines:
+        _tabs.append("pipelines")
     if show_admin:
         _tabs.append("admin")
     with st.container():
