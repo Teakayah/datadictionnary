@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dd-sync-network-policy
+  namespace: data-dictionary
+  labels:
+    app.kubernetes.io/name: data-dictionary
+    app.kubernetes.io/component: network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: dd-sync
+
+  policyTypes:
+    - Ingress
+    - Egress
+
+  ingress: [] # Deny all ingress
+
+  egress:
+    # Allow HTTPS egress only (covers Databricks SQL Warehouse and Entra ID).
+    - ports:
+        - protocol: TCP
+          port: 443
+    # Allow DNS resolution so the app can resolve external hostnames.
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
