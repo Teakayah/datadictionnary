@@ -56,6 +56,18 @@ def _base_run_query(query: str, params=None) -> pd.DataFrame:
 
 
 def run_query(query, params=None):
+    """Execute a read query against the configured database.
+
+    This is the primary public entry point for data fetching in the application.
+    It implements a 3-tier routing architecture:
+    1. Demo mode (mock data): Returns static DataFrames without hitting any database.
+    2. DuckDB cache: If available, routes the query to the local file for speed.
+    3. Databricks SQL Warehouse: Fallback if DuckDB cache is unavailable.
+
+    @param query: The SQL query to execute.
+    @param params: Optional dictionary of parameters to substitute into the query.
+    @returns: A pandas DataFrame containing the query results.
+    """
     # ── Demo mode: return hardcoded DataFrames without hitting any DB ──────────
     if is_demo_mode():
         p = params or {}
@@ -78,6 +90,16 @@ def run_query(query, params=None):
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def get_authorized_tables(groups):
+    """Retrieve metadata for tables the user is authorized to access.
+
+    Implements row-level access control by joining the tables metadata with
+    a permissions cache. A table is returned only if the user's Entra ID groups
+    intersect with the table's allowed principals, or if the table is marked
+    public with the sentinel value `SELECT_ALL_USERS`.
+
+    @param groups: A list or tuple of Entra ID group object IDs for the user.
+    @returns: A pandas DataFrame containing authorized table metadata.
+    """
     if is_demo_mode():
         return _DEMO_TABLES
     group_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
@@ -237,13 +259,18 @@ def search_all_metadata(query: str, groups: tuple):
         name = str(row.get("name") or "").lower()
         mtype = str(row.get("match_type") or "")
         if mtype == "Table":
-            if name == q_lower: return 5
-            if name.startswith(q_lower): return 4
-            if q_lower in name: return 3
+            if name == q_lower:
+                return 5
+            if name.startswith(q_lower):
+                return 4
+            if q_lower in name:
+                return 3
             return 2
         if mtype == "Column":
-            if name == q_lower: return 2
-            if name.startswith(q_lower): return 1
+            if name == q_lower:
+                return 2
+            if name.startswith(q_lower):
+                return 1
             return 0
         return 1  # Glossary
 
