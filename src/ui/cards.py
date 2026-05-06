@@ -10,11 +10,17 @@ import pandas as pd
 import streamlit as st
 
 from src.audit import save_table_metadata
-from src.auth import is_admin
+from src.auth import is_admin, is_pipeline_user
+from src.cms import POST_TYPES, _EXPIRY_DAYS, create_post, delete_post, get_active_posts, get_all_posts
+from src.pipelines import (
+    BACKENDS, cancel_run, create_pipeline_def, delete_pipeline_def,
+    get_active_run, get_pipelines, poll_run_status, trigger_pipeline,
+)
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import _get_write_connection, run_query, get_authorized_tables
 from src.i18n import t
+from src.personalization import is_editing_enabled, set_editing_enabled
 from src.ui.css import VIS_WIDE_CSS
 _DQ_GRADES = [
     (90, "A", "dq-a"),
@@ -100,6 +106,181 @@ def _render_table_card(row, key_prefix: str, _pref_delete_fn=None, _pref_upsert_
     st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
 
 
+_POST_COLOR = {
+    "announcement":  "var(--accent)",
+    "featured_table": "var(--deepblue)",
+    "guide":         "var(--forest)",
+}
+
+
+def render_cms_banner() -> None:
+    """Render pinned CMS posts above the Discovery sub-tabs."""
+    posts = get_active_posts()
+    if not posts:
+        return
+
+    for post in posts:
+        color     = _POST_COLOR.get(post["post_type"], "var(--ink-40)")
+        type_key  = f"cms.type_{post['post_type']}"
+        lbl       = t(type_key)
+        created   = post["created_at"]
+        date_str  = created.strftime("%b %d") if hasattr(created, "strftime") else str(created)[:10]
+        body_safe = _html.escape(post["body"] or "")
+        title_safe = _html.escape(post["title"])
+        body_html = (
+            f'<div style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);'
+            f'margin-top:4px;line-height:var(--lh-body);">{body_safe}</div>'
+        ) if body_safe else ""
+
+        card_html = (
+            f'<div style="border-left:3px solid {color};padding:12px 16px;'
+            f'background:var(--paper-deep);border-radius:0 4px 4px 0;margin-bottom:4px;">'
+            f'<span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;'
+            f'color:{color};letter-spacing:.08em;">{lbl}</span>'
+            f'<div style="font-family:var(--font-display);font-size:18px;color:var(--ink);margin-top:2px;">'
+            f'{title_safe}</div>'
+            f'{body_html}'
+            f'<div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);margin-top:8px;">'
+            f'{_html.escape(post["author_email"])} · {date_str}</div>'
+            f'</div>'
+        )
+
+        if is_admin():
+            _post_col, _del_col = st.columns([11, 1], gap="small")
+            with _post_col:
+                st.markdown(card_html, unsafe_allow_html=True)
+            with _del_col:
+                st.markdown("<div style='margin-top:20px'></div>", unsafe_allow_html=True)
+                if st.button("✕", key=f"cms_del_{post['post_id']}", help=t("cms.delete_post"), use_container_width=True):
+                    delete_post(post["post_id"])
+                    st.rerun()
+        else:
+            st.markdown(card_html, unsafe_allow_html=True)
+
+        if post["post_type"] == "featured_table" and post.get("table_ref"):
+            _tref = post["table_ref"]
+            if st.button(f"→ {_tref}", key=f"cms_nav_{post['post_id']}", type="secondary"):
+                st.query_params["tab"] = "search"
+                st.session_state["dd_search_override"] = _tref.split(".")[-1]
+                st.session_state["dd_nav_select"] = _tref
+                st.rerun()
+
+    st.markdown("<div style='margin-bottom:16px'></div>", unsafe_allow_html=True)
+
+
+@st.dialog(t("cms.create_title"), width="large")
+def _show_cms_create_dialog():
+    type_labels = {
+        "announcement":  t("cms.type_announcement"),
+        "featured_table": t("cms.type_featured"),
+        "guide":         t("cms.type_guide"),
+    }
+    sel_type = st.radio(
+        t("cms.post_type"),
+        options=list(type_labels.values()),
+        horizontal=True,
+        key="cms_create_type",
+    )
+    post_type = next(k for k, v in type_labels.items() if v == sel_type)
+
+    title = st.text_input(t("cms.post_title"), max_chars=120, key="cms_create_title")
+    body  = st.text_area(t("cms.post_body"),  max_chars=500, height=100, key="cms_create_body")
+
+    table_ref = None
+    if post_type == "featured_table":
+        table_ref = st.text_input(
+            t("cms.post_table_ref"),
+            placeholder="catalog.schema.table_name",
+            key="cms_create_tableref",
+        )
+
+    expiry_label = st.selectbox(
+        t("cms.post_expiry"),
+        options=list(_EXPIRY_DAYS.keys()),
+        index=0,
+        key="cms_create_expiry",
+    )
+    expiry_days = _EXPIRY_DAYS[expiry_label]
+
+    _save, _cancel = st.columns([1, 1], gap="small")
+    with _save:
+        if st.button(t("common.save"), type="primary", use_container_width=True, key="cms_save_btn"):
+            if not title.strip():
+                st.error(t("cms.error_title_required"))
+                return
+            if post_type == "featured_table" and not (table_ref or "").strip():
+                st.error(t("cms.error_table_ref_required"))
+                return
+            actor = st.session_state.get("user_email", "admin")
+            create_post(post_type, title.strip(), body.strip(), (table_ref or "").strip() or None, actor, expiry_days)
+            st.rerun()
+    with _cancel:
+        if st.button(t("common.cancel"), use_container_width=True, key="cms_cancel_btn"):
+            st.rerun()
+
+
+def _render_admin_cms_section():
+    _cms_h, _cms_btn = st.columns([9, 1], gap="small")
+    with _cms_h:
+        st.markdown(
+            f'<div class="dd-section-header" style="margin-top:32px;">'
+            f'<span class="dd-eyebrow">§ {t("cms.section_title")}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    with _cms_btn:
+        st.markdown("<div style='margin-top:28px'></div>", unsafe_allow_html=True)
+        if st.button("＋", key="cms_new_post", help=t("cms.new_post"), use_container_width=True):
+            _show_cms_create_dialog()
+
+    posts = get_all_posts()
+    if not posts:
+        st.caption(t("cms.no_posts"))
+        return
+
+    type_labels = {
+        "announcement":  t("cms.type_announcement"),
+        "featured_table": t("cms.type_featured"),
+        "guide":         t("cms.type_guide"),
+    }
+
+    for post in posts:
+        color    = _POST_COLOR.get(post["post_type"], "var(--ink-40)")
+        lbl      = type_labels.get(post["post_type"], post["post_type"])
+        created  = post["created_at"]
+        expires  = post["expires_at"]
+        date_str = created.strftime("%b %d, %Y") if hasattr(created, "strftime") else str(created)[:10]
+        exp_str  = (
+            expires.strftime("%b %d, %Y") if hasattr(expires, "strftime")
+            else str(expires)[:10] if expires else t("cms.no_expiry")
+        )
+        from datetime import datetime
+        is_expired = expires is not None and (expires < datetime.utcnow() if hasattr(expires, "utcnow") else False)
+
+        row_html = (
+            f'<div style="border-left:3px solid {color};padding:8px 12px;'
+            f'background:var(--paper-deep);border-radius:0 4px 4px 0;opacity:{"0.5" if is_expired else "1"};">'
+            f'<span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;'
+            f'color:{color};letter-spacing:.08em;">{lbl}</span>'
+            f'<span style="font-family:var(--font-sans);font-size:14px;color:var(--ink);margin-left:10px;">'
+            f'{_html.escape(post["title"])}</span>'
+            f'<span style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);margin-left:10px;">'
+            f'{date_str} → {t("cms.expires")} {exp_str}</span>'
+            f'</div>'
+        )
+
+        _row_col, _del_col = st.columns([11, 1], gap="small")
+        with _row_col:
+            st.markdown(row_html, unsafe_allow_html=True)
+        with _del_col:
+            st.markdown("<div style='margin-top:4px'></div>", unsafe_allow_html=True)
+            if st.button("✕", key=f"cms_admin_del_{post['post_id']}", help=t("cms.delete_post"), use_container_width=True):
+                delete_post(post["post_id"])
+                st.rerun()
+
+    st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)
+
+
 def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref_upsert_fn=None):
     st.markdown(f'''
     <div class="dd-search-hero">
@@ -108,6 +289,8 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
       <p class="lead">{t("discovery.hero_subtitle")}</p>
     </div>
     ''', unsafe_allow_html=True)
+
+    render_cms_banner()
 
     _disc_tab_labels = [
         t("personalization.tab_notable"),
@@ -552,6 +735,35 @@ def _render_admin_comment_log_section():
         if st.button("⤢", key="admin_comment_log_expand", help=t("admin.expand_log"), use_container_width=True):
             _show_comment_log_dialog()
 
+
+def _render_admin_editing_section():
+    st.markdown(
+        f'<div class="dd-section-header" style="margin-top:32px;">'
+        f'<span class="dd-eyebrow">§ {t("admin.editing_title")}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    enabled = is_editing_enabled()
+    new_val = st.toggle(
+        t("admin.editing_toggle"),
+        value=enabled,
+        key="admin_editing_toggle",
+        help=t("admin.editing_help"),
+    )
+    if new_val != enabled:
+        actor = st.session_state.get("user_email", "admin")
+        set_editing_enabled(new_val, actor)
+        st.rerun()
+
+    status_color = "var(--accent)" if enabled else "var(--ink-40)"
+    status_label = t("admin.editing_enabled") if enabled else t("admin.editing_disabled")
+    st.markdown(
+        f'<p style="font-family:var(--font-mono); font-size:11px; color:{status_color}; margin-top:4px;">'
+        f'{status_label}</p>',
+        unsafe_allow_html=True,
+    )
+
+
 def render_admin_page():
     if not is_admin():
         st.error(t("admin.access_denied"))
@@ -566,6 +778,9 @@ def render_admin_page():
     ''', unsafe_allow_html=True)
 
     _render_admin_stats_section()
+    _render_admin_cms_section()
+    _render_admin_pipelines_section()
+    _render_admin_editing_section()
     _render_admin_sync_section()
     _render_admin_biz_log_section()
     _render_admin_comment_log_section()
@@ -746,3 +961,218 @@ def render_data_sample(table_full_name: str):
     except Exception as e:
         logging.error("Error fetching data sample for %s: %s", table_full_name, e, exc_info=True)
         st.error(t("detail.preview_error"))
+
+
+# ── Pipelines ─────────────────────────────────────────────────────────────────
+
+_BACKEND_LABEL = {
+    "databricks": "Databricks",
+    "adf":        "Azure Data Factory",
+    "ado":        "Azure DevOps",
+}
+_BACKEND_COLOR = {
+    "databricks": "var(--accent)",
+    "adf":        "var(--deepblue)",
+    "ado":        "var(--forest)",
+}
+
+_STATUS_SUCCESS = frozenset({"SUCCESS", "Succeeded", "succeeded"})
+_STATUS_FAILED  = frozenset({"FAILED", "Failed", "failed",
+                              "INTERNAL_ERROR", "TIMEDOUT", "CANCELED", "Cancelled", "canceled"})
+
+
+def _pipeline_status_color(status: str) -> str:
+    if status in _STATUS_SUCCESS:
+        return "var(--forest)"
+    if status in _STATUS_FAILED:
+        return "var(--accent)"
+    return "var(--ochre)"
+
+
+@st.dialog(t("pipelines.create_title"), width="large")
+def _show_pipeline_create_dialog():
+    backend_opts = [_BACKEND_LABEL[b] for b in BACKENDS]
+    sel_label = st.radio(t("pipelines.backend"), options=backend_opts, horizontal=True, key="pl_create_backend")
+    backend = next(b for b in BACKENDS if _BACKEND_LABEL[b] == sel_label)
+
+    title = st.text_input(t("pipelines.field_title"), max_chars=120, key="pl_create_title")
+    desc  = st.text_area(t("pipelines.field_desc"),  max_chars=300, height=80, key="pl_create_desc")
+
+    db_job_id = adf_sub = adf_rg = adf_fact = adf_pipe = ado_org = ado_proj = ado_pid = None
+    if backend == "databricks":
+        db_job_id = st.text_input(t("pipelines.field_job_id"), placeholder="1234", key="pl_db_job")
+    elif backend == "adf":
+        adf_sub  = st.text_input(t("pipelines.field_adf_sub"),  key="pl_adf_sub")
+        adf_rg   = st.text_input(t("pipelines.field_adf_rg"),   key="pl_adf_rg")
+        adf_fact = st.text_input(t("pipelines.field_adf_fact"),  key="pl_adf_fact")
+        adf_pipe = st.text_input(t("pipelines.field_adf_pipe"),  key="pl_adf_pipe")
+    elif backend == "ado":
+        ado_org  = st.text_input(t("pipelines.field_ado_org"),  key="pl_ado_org")
+        ado_proj = st.text_input(t("pipelines.field_ado_proj"), key="pl_ado_proj")
+        ado_pid  = st.text_input(t("pipelines.field_ado_pid"),  placeholder="42", key="pl_ado_pid")
+
+    _s, _c = st.columns(2)
+    with _s:
+        if st.button(t("common.save"), type="primary", use_container_width=True, key="pl_save"):
+            if not title.strip():
+                st.error(t("pipelines.error_title"))
+                return
+            actor = st.session_state.get("user_email", "admin")
+            create_pipeline_def(
+                title.strip(), (desc or "").strip(), backend,
+                db_job_id, adf_sub, adf_rg, adf_fact, adf_pipe,
+                ado_org, ado_proj, ado_pid, actor,
+            )
+            st.rerun()
+    with _c:
+        if st.button(t("common.cancel"), use_container_width=True, key="pl_cancel"):
+            st.rerun()
+
+
+def _render_admin_pipelines_section():
+    _h, _btn = st.columns([9, 1], gap="small")
+    with _h:
+        st.markdown(
+            f'<div class="dd-section-header" style="margin-top:32px;">'
+            f'<span class="dd-eyebrow">§ {t("pipelines.admin_title")}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    with _btn:
+        st.markdown("<div style='margin-top:28px'></div>", unsafe_allow_html=True)
+        if st.button("＋", key="pl_admin_new", help=t("pipelines.new_pipeline"), use_container_width=True):
+            _show_pipeline_create_dialog()
+
+    pipelines = get_pipelines()
+    if not pipelines:
+        st.caption(t("pipelines.no_pipelines"))
+        return
+
+    for pl in pipelines:
+        color = _BACKEND_COLOR.get(pl["backend"], "var(--ink-40)")
+        lbl   = _BACKEND_LABEL.get(pl["backend"], pl["backend"])
+        row_html = (
+            f'<div style="border-left:3px solid {color};padding:8px 12px;'
+            f'background:var(--paper-deep);border-radius:0 4px 4px 0;">'
+            f'<span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;'
+            f'color:{color};letter-spacing:.08em;">{lbl}</span>'
+            f'<span style="font-family:var(--font-sans);font-size:14px;color:var(--ink);margin-left:10px;">'
+            f'{_html.escape(pl["title"])}</span>'
+            f'</div>'
+        )
+        _row, _del = st.columns([11, 1], gap="small")
+        with _row:
+            st.markdown(row_html, unsafe_allow_html=True)
+        with _del:
+            st.markdown("<div style='margin-top:4px'></div>", unsafe_allow_html=True)
+            if st.button("✕", key=f"pl_del_{pl['pipeline_id']}", help=t("pipelines.delete"), use_container_width=True):
+                delete_pipeline_def(pl["pipeline_id"])
+                st.rerun()
+
+
+def render_pipelines_page():
+    if not is_pipeline_user() and not is_admin():
+        st.error(t("pipelines.access_denied"))
+        st.stop()
+
+    st.markdown(f'''
+    <div class="dd-search-hero">
+      <div class="dd-eyebrow">{t("pipelines.eyebrow")}</div>
+      <h1>{t("pipelines.hero_title")}</h1>
+      <p class="lead">{t("pipelines.hero_subtitle")}</p>
+    </div>
+    ''', unsafe_allow_html=True)
+
+    pipelines = get_pipelines()
+    if not pipelines:
+        st.info(t("pipelines.no_pipelines"))
+        return
+
+    _any_active = False
+    actor = st.session_state.get("user_email", "user")
+
+    for pl in pipelines:
+        pid    = pl["pipeline_id"]
+        color  = _BACKEND_COLOR.get(pl["backend"], "var(--ink-40)")
+        blabel = _BACKEND_LABEL.get(pl["backend"], pl["backend"])
+        run    = get_active_run(pid)
+
+        with st.container():
+            # Card header
+            _pl_desc_html = (
+                f'<div style="font-family:var(--font-sans);font-size:13px;'
+                f'color:var(--ink-60);margin-top:4px;">{_html.escape(pl["description"])}</div>'
+            ) if pl.get("description") else ""
+            st.markdown(
+                f'<div style="border-left:3px solid {color};padding:12px 16px;'
+                f'background:var(--paper-deep);border-radius:0 4px 4px 0;margin-bottom:8px;">'
+                f'<span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;'
+                f'color:{color};letter-spacing:.08em;">{blabel}</span>'
+                f'<div style="font-family:var(--font-display);font-size:20px;color:var(--ink);margin-top:2px;">'
+                f'{_html.escape(pl["title"])}</div>'
+                f'{_pl_desc_html}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+            if run:
+                _any_active = True
+                # Poll the live status
+                result = poll_run_status(pl, run)
+                status   = result["status"]
+                progress = result["progress"] / 100.0
+                message  = result["message"]
+                is_term  = result["is_terminal"]
+                st_color = _pipeline_status_color(status)
+
+                st.progress(progress, text="")
+                _stat_col, _stop_col = st.columns([8, 2], gap="small")
+                with _stat_col:
+                    triggered_str = (
+                        run["triggered_at"].strftime("%b %d %H:%M UTC")
+                        if hasattr(run.get("triggered_at"), "strftime")
+                        else str(run.get("triggered_at", ""))[:16]
+                    )
+                    _msg_html = (
+                        f'<div style="color:var(--ink-60);margin-top:2px;">{_html.escape(message)}</div>'
+                    ) if message else ""
+                    st.markdown(
+                        f'<div style="font-family:var(--font-mono);font-size:11px;">'
+                        f'<span style="color:{st_color};">{status}</span>'
+                        f'<span style="color:var(--ink-40);margin-left:10px;">'
+                        f'started by {_html.escape(run.get("triggered_by","?"))} · {triggered_str}</span>'
+                        f'{_msg_html}'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+                with _stop_col:
+                    if not is_term and st.button(
+                        t("pipelines.stop"), key=f"pl_stop_{pid}",
+                        type="primary", use_container_width=True,
+                    ):
+                        try:
+                            cancel_run(pl, run)
+                            st.success(t("pipelines.stopped"))
+                        except Exception as _e:
+                            st.error(f"{t('pipelines.stop_error')}: {_e}")
+                        st.rerun()
+
+            else:
+                # No active run — show Start button
+                if st.button(
+                    t("pipelines.start"), key=f"pl_start_{pid}",
+                    type="secondary", use_container_width=False,
+                ):
+                    try:
+                        trigger_pipeline(pl, actor)
+                        st.rerun()
+                    except Exception as _e:
+                        st.error(f"{t('pipelines.start_error')}: {_e}")
+
+            st.markdown("<div style='margin-bottom:16px'></div>", unsafe_allow_html=True)
+
+    # Auto-poll every 3 s while any run is active
+    if _any_active:
+        import time
+        time.sleep(3)
+        st.rerun()

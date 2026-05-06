@@ -6,6 +6,7 @@
     "health": "Health",
     "glossary": "Glossary",
     "admin": "Admin",
+    "pipelines": "Pipelines",
     "sign_out": "Sign out"
   },
   "auth": {
@@ -111,7 +112,12 @@
     "sync_title": "Synchronization status",
     "no_data": "No audit data available.",
     "access_denied": "Admin access required.",
-    "expand_log": "Expand log"
+    "expand_log": "Expand log",
+    "editing_title": "Inline editing",
+    "editing_toggle": "Allow power users to edit metadata",
+    "editing_help": "When off, edit buttons are hidden for all users — useful during data migrations or audits.",
+    "editing_enabled": "Editing is enabled.",
+    "editing_disabled": "Editing is locked."
   },
   "health": {
     "title": "§ Catalog health",
@@ -161,6 +167,53 @@
     "date_format": "%b %d, %H:%M UTC",
     "explore_button": "Explore {name} →",
     "updated": "Updated"
+  },
+  "pipelines": {
+    "eyebrow": "§ Pipelines",
+    "hero_title": "Run pipelines.",
+    "hero_subtitle": "Trigger and monitor Databricks, ADF, and Azure DevOps pipelines.",
+    "admin_title": "Pipeline management",
+    "new_pipeline": "New pipeline",
+    "no_pipelines": "No pipelines configured.",
+    "access_denied": "Pipeline access required.",
+    "delete": "Delete pipeline",
+    "create_title": "New pipeline",
+    "backend": "Backend",
+    "field_title": "Title",
+    "field_desc": "Description",
+    "field_job_id": "Databricks job ID",
+    "field_adf_sub": "Azure subscription ID",
+    "field_adf_rg": "Resource group",
+    "field_adf_fact": "Factory name",
+    "field_adf_pipe": "Pipeline name",
+    "field_ado_org": "Organization",
+    "field_ado_proj": "Project",
+    "field_ado_pid": "Pipeline ID",
+    "start": "▶ Start",
+    "stop": "■ Stop",
+    "stopped": "Run cancelled.",
+    "start_error": "Could not start pipeline",
+    "stop_error": "Could not stop pipeline",
+    "error_title": "Title is required."
+  },
+  "cms": {
+    "section_title": "Content management",
+    "new_post": "New post",
+    "create_title": "New post",
+    "post_type": "Type",
+    "type_announcement": "Announcement",
+    "type_featured": "Featured dataset",
+    "type_guide": "Guide",
+    "post_title": "Title",
+    "post_body": "Body",
+    "post_table_ref": "Table (full name)",
+    "post_expiry": "Pin duration",
+    "delete_post": "Delete post",
+    "no_posts": "No posts published yet.",
+    "expires": "expires",
+    "no_expiry": "never",
+    "error_title_required": "Title is required.",
+    "error_table_ref_required": "Table reference is required for featured dataset posts."
   },
   "footer": {
     "built_with": "Data Dictionary · v0.1.0 · synced nightly from Unity Catalog"

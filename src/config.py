@@ -33,6 +33,12 @@ USER_DATA_PATH = (
     else DUCKDB_PATH + "_user_data.duckdb"
 ) if DUCKDB_PATH else ""
 
+# ── Pipeline execution service principal ─────────────────────────────────────
+PIPELINE_SP_TENANT_ID     = os.getenv("PIPELINE_SP_TENANT_ID", "")
+PIPELINE_SP_CLIENT_ID     = os.getenv("PIPELINE_SP_CLIENT_ID", "")
+PIPELINE_SP_CLIENT_SECRET = os.getenv("PIPELINE_SP_CLIENT_SECRET", "")
+DATABRICKS_HOST_URL       = os.getenv("DATABRICKS_HOST", "")
+
 # ── Mock auth department default ─────────────────────────────────────────────
 # ENABLE_MOCK_AUTH, ENVIRONMENT, and DEMO_DATA are intentionally NOT defined
 # here. They are read inline via os.getenv() in app.py so that test suites
