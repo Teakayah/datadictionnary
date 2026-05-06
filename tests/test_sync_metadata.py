@@ -227,6 +227,7 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
 
     # 6 executemany calls: tables, columns, permissions, lineage, data_quality, object_tags
     # (object_tags has 1 data row from table tags; dq data comes from mock_table.properties)
+    # lineage is empty because we mock the future result for it.
     executemany_calls = mock_cursor.executemany.call_args_list
     assert len(executemany_calls) == 6
     assert (
@@ -253,7 +254,6 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
         f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache VALUES (%(table_full_name)s, %(dq_score)s, %(last_run_status)s, %(freshness)s)"
         in executemany_calls[5][0][0]
     )
-
 
 @patch("scripts.sync_metadata.WorkspaceClient")
 @patch("scripts.sync_metadata.get_sql_connection")
