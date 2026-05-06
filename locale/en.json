@@ -90,7 +90,13 @@
     "steward": "Steward",
     "posted_by": "Posted by",
     "no_comments": "No comments yet.",
-    "leave_a_comment": "Leave a comment"
+    "leave_a_comment": "Leave a comment",
+    "placeholder_reply": "Write a reply…",
+    "placeholder_new": "Ask a question or flag an issue about this table.",
+    "your_comment": "Your comment",
+    "your_reply": "Your reply",
+    "max_chars": "Maximum 1000 characters.",
+    "empty_error": "Comment cannot be empty."
   },
   "editor": {
     "edit_business_name": "Edit business name",
@@ -98,7 +104,10 @@
     "definition_label": "Definition",
     "save": "Save",
     "cancel": "Cancel",
-    "saved_by": "Saved by {user}"
+    "saved_by": "Saved by {user}",
+    "placeholder_biz_name": "e.g. Customer ID",
+    "placeholder_biz_def": "e.g. Unique identifier assigned to each customer at registration.",
+    "permission_error": "You do not have permission to edit business names."
   },
   "admin": {
     "title": "§ Admin",
