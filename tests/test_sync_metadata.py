@@ -176,8 +176,6 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
 
     mock_executor.submit.side_effect = side_effect_submit
 
-
-
     def mock_as_completed(fs):
         for f in fs:
             yield f
