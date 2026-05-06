@@ -40,13 +40,13 @@ def _render_comment_form(
             st.session_state[_open_key] = True
             st.rerun()
     else:
-        _placeholder = "Write a reply…" if parent_comment_id else "Ask a question or flag an issue about this table."
+        _placeholder = t("comment.placeholder_reply") if parent_comment_id else t("comment.placeholder_new")
         _inp = st.text_area(
-            "Your comment" if not parent_comment_id else "Your reply",
+            t("comment.your_comment") if not parent_comment_id else t("comment.your_reply"),
             placeholder=_placeholder,
             max_chars=1000,
             label_visibility="collapsed",
-            help="Maximum 1000 characters.",
+            help=t("comment.max_chars"),
             key=f"dd_comment_text_{key_suffix}",
         )
         _cs, _cc, _ = st.columns([2, 2, 4], gap="small")
@@ -60,7 +60,7 @@ def _render_comment_form(
                     st.session_state.pop(_open_key, None)
                     st.rerun()
                 else:
-                    st.warning("Comment cannot be empty.")
+                    st.warning(t("comment.empty_error"))
         with _cc:
             if st.button(t("comment.cancel"), key=f"dd_comment_cancel_{key_suffix}", use_container_width=True):
                 st.session_state.pop(_open_key, None)
@@ -258,16 +258,16 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                         unsafe_allow_html=True,
                     )
                     _inp_name = st.text_input(
-                        "Business name",
+                        t("editor.business_name_label"),
                         value=_col_biz,
-                        placeholder="e.g. Customer ID",
+                        placeholder=t("editor.placeholder_biz_name"),
                         max_chars=None if os.getenv("TESTING_NO_MAX_CHARS") else MAX_BUSINESS_NAME_LEN,
                         key=f"col_biz_name_{_edit_key}",
                     )
                     _inp_def = st.text_input(
-                        "Definition",
+                        t("editor.definition_label"),
                         value=_col_def,
-                        placeholder="e.g. Unique identifier assigned to each customer at registration.",
+                        placeholder=t("editor.placeholder_biz_def"),
                         max_chars=None if os.getenv("TESTING_NO_MAX_CHARS") else MAX_BUSINESS_NAME_LEN,
                         key=f"col_biz_def_{_edit_key}",
                     )
@@ -280,7 +280,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                                 st.session_state.pop(f"_live_completeness_{full_name}", None)
                                 st.rerun()
                             except PermissionError:
-                                st.error("You do not have permission to edit business names.")
+                                st.error(t("editor.permission_error"))
                             except ValueError as exc:
                                 st.error(str(exc))
                             except Exception as exc:
