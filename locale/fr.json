@@ -66,6 +66,7 @@
     "load_error": "Erreur lors de l’affichage des détails.",
     "preview_data": "Aperçu des données",
     "export_dictionary": "Exporter le dictionnaire",
+    "invalid_email": "Veuillez entrer une adresse e-mail valide.",
     "edit_table": "Modifier les métadonnées",
     "table_description": "Description de la table",
     "steward_email": "Email du responsable",
@@ -167,6 +168,7 @@
   "common": {
     "loading": "Chargement…",
     "error": "Une erreur est survenue.",
+    "error_with_details": "Erreur : {error}",
     "empty": "Aucune donnée.",
     "save": "Enregistrer",
     "cancel": "Annuler",
