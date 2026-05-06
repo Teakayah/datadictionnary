@@ -11,7 +11,7 @@ import streamlit as st
 
 from src.audit import save_table_metadata
 from src.auth import is_admin, is_pipeline_user
-from src.cms import POST_TYPES, _EXPIRY_DAYS, create_post, delete_post, get_active_posts, get_all_posts
+from src.cms import _EXPIRY_DAYS, create_post, delete_post, get_active_posts, get_all_posts
 from src.pipelines import (
     BACKENDS, cancel_run, create_pipeline_def, delete_pipeline_def,
     get_active_run, get_pipelines, poll_run_status, trigger_pipeline,
@@ -342,7 +342,7 @@ def _render_notable_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, p
             all_authorized = get_authorized_tables_fn((primary_group,))
             if not all_authorized.empty and "updated_at" in all_authorized.columns:
                 recent_tables = all_authorized.sort_values(by="updated_at", ascending=False).head(10)
-                for _, row in recent_tables.iterrows():
+                for row in recent_tables.itertuples(index=False):
                     _render_table_card(row, "notable", pref_delete_fn, pref_upsert_fn)
             else:
                 st.info(t("discovery.no_updates"))
@@ -365,7 +365,7 @@ def _render_bookmarks_tab(groups, get_authorized_tables_fn, pref_delete_fn=None,
             if bk_df.empty:
                 st.info(t("personalization.no_bookmarks"))
             else:
-                for _, row in bk_df.iterrows():
+                for row in bk_df.itertuples(index=False):
                     _render_table_card(row, "bk", pref_delete_fn, pref_upsert_fn)
         except Exception as e:
             logging.error("Error loading bookmarks: %s", e)
@@ -424,7 +424,7 @@ def _render_recent_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, pr
             if rv_df.empty:
                 st.info(t("personalization.no_recent"))
             else:
-                for _, row in rv_df.iterrows():
+                for row in rv_df.itertuples(index=False):
                     _render_table_card(row, "rv", pref_delete_fn, pref_upsert_fn)
         except Exception as e:
             logging.error("Error loading recent views: %s", e)
@@ -500,11 +500,11 @@ def _render_priority_actions(all_data):
 
     if not undocumented.empty:
         st.warning(t("health.missing_descriptions"))
-        for _, row in undocumented.iterrows():
-            if st.button(f"📄 {row['table_name']}", key=f"health_fix_{row['full_name']}", use_container_width=True):
+        for row in undocumented.itertuples(index=False):
+            if st.button(f"📄 {getattr(row, 'table_name', '')}", key=f"health_fix_{getattr(row, 'full_name', '')}", use_container_width=True):
                 st.query_params["tab"] = "search"
-                st.session_state["dd_search_override"] = row["table_name"]
-                st.session_state["dd_nav_select"] = row["full_name"]
+                st.session_state["dd_search_override"] = getattr(row, 'table_name', '')
+                st.session_state["dd_nav_select"] = getattr(row, 'full_name', '')
                 st.rerun()
     else:
         st.success(t("health.all_documented"))
