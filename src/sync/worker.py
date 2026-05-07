@@ -99,7 +99,12 @@ def _run_dr_resync():
 
 @st.cache_resource(show_spinner=False)
 def _start_sync_worker_thread():
-    """Singleton background thread that drains pending_sync every 15 s."""
+    """Singleton background thread that drains pending_sync.
+
+    Uses dynamic polling (5s if idle, 30s if active). We poll *less* frequently
+    when users are active to prevent the background worker from competing
+    with the UI for the DuckDB process-wide write lock.
+    """
     import threading
 
     def _loop():
