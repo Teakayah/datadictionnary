@@ -66,6 +66,31 @@ def _clear_auth_session() -> None:
         st.session_state.pop(key, None)
 
 
+def _resolve_user_groups(claims: dict, access_token: str) -> list[str]:
+    """Return the user's security-group membership list.
+
+    Three branches:
+      1. ID token has inline ``groups`` claim → use it (the common case).
+      2. ID token signals overage (``_claim_names.groups`` set, no inline
+         list) → fetch via Graph getMemberObjects. Affects users in
+         >~150 groups; without this they would see zero tables.
+      3. Neither → empty list. Logged once at INFO so a tenant misconfig
+         (no groups at all) is visible in logs.
+    """
+    inline = claims.get("groups")
+    if inline is not None:
+        return list(inline)
+
+    from src.auth_graph import fetch_member_groups, has_groups_overage  # noqa: PLC0415
+    if has_groups_overage(claims):
+        oid = claims.get("oid", "")
+        logging.info("Groups overage detected for %s; fetching from Graph.", oid or "<no oid>")
+        return fetch_member_groups(access_token, oid)
+
+    logging.info("ID token contained no groups claim and no overage indicator.")
+    return []
+
+
 def _try_silent_refresh() -> bool:
     """Attempt a silent token refresh using MSAL's cached account.
 
@@ -271,7 +296,7 @@ def check_auth(sync_prefs_callback: callable | None = None):
             st.session_state.auth_token       = result
             st.session_state.token_expires_at = time.time() + result.get("expires_in", 3600)
             st.session_state.authenticated    = True
-            st.session_state.user_groups      = claims.get("groups", [])
+            st.session_state.user_groups      = _resolve_user_groups(claims, result["access_token"])
             st.session_state.user_name        = claims.get("name")
             st.session_state.user_email       = (claims.get("email")
                                                   or claims.get("preferred_username", ""))

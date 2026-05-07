@@ -58,28 +58,29 @@ separate ticket if write contention shows up.
 
 ### 2. Entra ID groups overage handling
 
-**Why:** `claims.get("groups", [])` (`src/auth.py:274`) silently returns
-`[]` when Entra ships a `_claim_names`/`_claim_sources` pointer instead of
-inline groups (>~150 groups). Affected users see zero tables. Invisible in
-dev, hard production failure for enterprise tenants.
+**Status:** done (branch `feat/entra-groups-overage`).
 
-**Target shape:**
-- New `src/auth_graph.py` with `fetch_member_groups(access_token)` calling
-  `POST graph.microsoft.com/v1.0/me/getMemberObjects`
-  `{"securityEnabledOnly": true}`.
-- `@st.cache_data(ttl="1h")` keyed on user OID.
-- In `check_auth` after token acquisition: if `groups` is missing AND
-  `_claim_names.groups` is present, call the Graph helper.
+- `src/auth_graph.py` — `has_groups_overage(claims)` and
+  `fetch_member_groups(access_token, user_oid)` calling
+  `POST /v1.0/me/getMemberObjects {"securityEnabledOnly": true}`. Follows
+  `@odata.nextLink` pagination, capped at 50 pages.
+- Process-level cache keyed on user OID, 1h TTL, lock-protected. Chosen
+  over `@st.cache_data` because the latter is session-scoped (one Graph
+  call per browser tab).
+- `src/auth.py::_resolve_user_groups` is the single decision point: inline
+  groups → use them; overage → fetch via Graph; neither → `[]` (logged
+  INFO so a tenant misconfig is visible).
+- Failure mode: any error (5xx, 403, network) returns `[]` and logs a
+  WARNING. Fail-closed — never silently grants wider access.
+- `src/config.py::SCOPE` documented inline so future readers know
+  `GroupMember.Read.All` is load-bearing.
+- `tests/test_auth_graph.py` — 19 tests covering overage detection,
+  pagination, 5xx / 403 / network errors, cache hit/miss, empty-OID path,
+  and the three branches of `_resolve_user_groups`.
 
-**Acceptance:**
-- `tests/test_auth_graph.py` covers: inline groups path, overage path, Graph
-  5xx (degrade to empty groups + warning, do not silently grant access),
-  cache hit on second call within TTL.
-- `SCOPE` in `src/config.py` documented with a comment that
-  `GroupMember.Read.All` is required by the overage path.
-
-**Out of scope:** SSO logout / silent re-auth on group membership change.
-Group changes will be picked up at next token refresh (≤1h).
+**Out of scope (still open):** SSO logout / silent re-auth on group
+membership change. Group changes are picked up at next token refresh
+(≤1h, then ≤1h cache TTL).
 
 ### 3. Split `src/ui/cards.py` (1,178 lines)
 
