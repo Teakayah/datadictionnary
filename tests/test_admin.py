@@ -327,9 +327,9 @@ class TestAuditLog:
 from unittest.mock import patch
 from src.ui.cards import get_admin_stats
 
-@patch("src.ui.cards.run_query")
-@patch("src.ui.cards.is_demo_mode", return_value=False)
-@patch("src.ui.cards._duckdb_available", return_value=False)
+@patch("src.ui.cards.admin.run_query")
+@patch("src.ui.cards.admin.is_demo_mode", return_value=False)
+@patch("src.ui.cards.admin._duckdb_available", return_value=False)
 def test_get_admin_stats_exception(mock_duckdb, mock_demo, mock_run_query):
     """get_admin_stats should return all zero values when run_query raises an Exception."""
     mock_run_query.side_effect = Exception("Database connection failed")

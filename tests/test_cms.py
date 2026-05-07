@@ -12,7 +12,7 @@ Coverage:
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -53,7 +53,7 @@ class TestGetActivePosts:
     def test_filters_expired_posts(self):
         """get_active_posts excludes posts whose expires_at is in the past."""
         import streamlit as st
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         st.session_state["_demo_cms_posts"] = [
             {"post_id": "1", "post_type": "announcement", "title": "Live",
              "body": "", "table_ref": None, "author_email": "a@b.com",
@@ -72,7 +72,7 @@ class TestGetActivePosts:
     def test_returns_never_expiry_posts(self):
         """get_active_posts includes posts with expires_at=None."""
         import streamlit as st
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         st.session_state["_demo_cms_posts"] = [
             {"post_id": "3", "post_type": "guide", "title": "Permanent",
              "body": "", "table_ref": None, "author_email": "a@b.com",
@@ -91,10 +91,10 @@ class TestDeletePost:
         st.session_state["_demo_cms_posts"] = [
             {"post_id": "abc", "title": "Keep", "post_type": "guide",
              "body": "", "table_ref": None, "author_email": "x",
-             "created_at": datetime.utcnow(), "expires_at": None},
+             "created_at": datetime.now(UTC), "expires_at": None},
             {"post_id": "xyz", "title": "Remove", "post_type": "guide",
              "body": "", "table_ref": None, "author_email": "x",
-             "created_at": datetime.utcnow(), "expires_at": None},
+             "created_at": datetime.now(UTC), "expires_at": None},
         ]
         with patch("src.cms._duckdb_available", return_value=False):
             from src.cms import delete_post
@@ -115,7 +115,7 @@ class TestCmsBannerUI:
         at.session_state["user_name"] = "Test User"
         at.session_state["user_email"] = "user@test.com"
         if with_post:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
             at.session_state["_demo_cms_posts"] = [{
                 "post_id": "test-post",
                 "post_type": "announcement",

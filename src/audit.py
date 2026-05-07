@@ -5,7 +5,7 @@ import logging
 import pandas as pd
 import streamlit as st
 
-from src.config import CATALOG_CACHE, SCHEMA_CACHE, MAX_BUSINESS_NAME_LEN, is_demo_mode
+from src.config import CATALOG_CACHE, SCHEMA_CACHE, MAX_BUSINESS_NAME_LEN, MAX_DEFINITION_LEN, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available, _db_write_lock, _get_shared_duckdb_connection
 from src.db.queries import _get_write_connection, get_db_connection, get_column_business_names, search_all_metadata, get_authorized_tables
 from src.personalization import is_power_user
@@ -93,9 +93,9 @@ def _validate_business_name_inputs(business_name: str, definition: str) -> None:
             f"Business name must be {MAX_BUSINESS_NAME_LEN} characters or fewer "
             f"(got {len(business_name)})."
         )
-    if definition and len(definition) > MAX_BUSINESS_NAME_LEN:
+    if definition and len(definition) > MAX_DEFINITION_LEN:
         raise ValueError(
-            f"Definition must be {MAX_BUSINESS_NAME_LEN} characters or fewer "
+            f"Definition must be {MAX_DEFINITION_LEN} characters or fewer "
             f"(got {len(definition)})."
         )
 
