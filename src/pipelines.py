@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import streamlit as st
@@ -128,7 +128,7 @@ def create_pipeline_def(
     created_by: str,
 ) -> None:
     pid = str(uuid.uuid4())
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
 
     if not _duckdb_available():
         st.session_state.setdefault("_demo_pipelines", []).append({
@@ -206,7 +206,7 @@ def get_active_run(pipeline_id: str) -> dict | None:
 
 
 def _save_run(pipeline_id: str, backend_run_id: str, triggered_by: str) -> None:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     if not _duckdb_available():
         st.session_state[f"_demo_run_{pipeline_id}"] = {
             "pipeline_id": pipeline_id, "backend_run_id": backend_run_id,
@@ -233,7 +233,7 @@ def _save_run(pipeline_id: str, backend_run_id: str, triggered_by: str) -> None:
 
 
 def _update_run(pipeline_id: str, status: str) -> None:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     if not _duckdb_available():
         run = st.session_state.get(f"_demo_run_{pipeline_id}")
         if run:

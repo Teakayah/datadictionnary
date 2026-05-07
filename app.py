@@ -25,6 +25,14 @@ from src.config import (
 ENABLE_MOCK_AUTH = os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
 ENVIRONMENT      = os.getenv("ENVIRONMENT", "production").lower()
 
+# Defense-in-depth: refuse to start if mock auth is on outside development.
+# A single env-var typo would otherwise expose the auth bypass in prod.
+if ENABLE_MOCK_AUTH and ENVIRONMENT != "development":
+    raise RuntimeError(
+        f"ENABLE_MOCK_AUTH=true requires ENVIRONMENT=development "
+        f"(got ENVIRONMENT={ENVIRONMENT!r}). Refusing to start."
+    )
+
 st.set_page_config(
     page_title="Data Dictionary",
     page_icon="assets/favicon.png",
@@ -79,13 +87,12 @@ _mark_ui_activity()  # track UI activity for background-worker idle detection
 if _duckdb_available():
     _start_sync_worker_thread()
 
-# Capture viewport height once per session via JS (returns None on first render).
+# Capture viewport height once per session via JS. The first render returns
+# None (component round-trip), so keep calling until we have a value, then stop.
 if "viewport_height" not in st.session_state:
     _vh = streamlit_js_eval(js_expressions="window.innerHeight", key="_dd_vh")
     if _vh:
         st.session_state["viewport_height"] = int(_vh)
-else:
-    streamlit_js_eval(js_expressions="window.innerHeight", key="_dd_vh")
 
 if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
     if "authenticated" not in st.session_state:

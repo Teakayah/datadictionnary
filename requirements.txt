@@ -1,8 +1,12 @@
-streamlit
-databricks-sql-connector
-msal
-pandas
-python-dotenv
-databricks-sdk
-duckdb
-streamlit-js-eval
+# Runtime dependencies — pinned to compatible ranges so a clean install
+# next month boots the same app. Versions on the right are the last known good.
+
+streamlit>=1.50,<2                 # 1.56.0
+databricks-sql-connector>=4.2,<5   # 4.2.6
+databricks-sdk>=0.100,<1           # 0.105.0
+msal>=1.30,<2                      # 1.36.0
+pandas>=2.2,<3                     # 2.3.3
+python-dotenv>=1.0,<2              # 1.2.2
+duckdb>=1.0,<2                     # 1.5.2
+streamlit-js-eval>=1.0,<2          # 1.0.0
+requests>=2.32,<3                  # 2.33.1 — used directly in src/pipelines.py

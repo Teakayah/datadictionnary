@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 import time
 import uuid
 
@@ -11,6 +12,29 @@ from src.db.queries import _get_write_connection
 from src.config import CATALOG_CACHE, SCHEMA_CACHE
 
 _SYNC_MAX_ATTEMPTS = 3
+
+# Unity Catalog identifier validator. UC permits only [A-Za-z0-9_], so anything
+# outside this set in a column or table-name part is either a metadata bug or
+# an injection attempt — refuse rather than backtick-escape.
+_IDENT_RE = re.compile(r"^[A-Za-z0-9_]+$")
+# Lightweight email syntax check — used to block quote-escape bypass when
+# writing the steward tag value.
+_EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
+
+
+def _safe_ident(part: str) -> str:
+    """Return part wrapped in backticks, refusing anything not [A-Za-z0-9_]."""
+    if not part or not _IDENT_RE.match(part):
+        raise ValueError(f"Refusing to interpolate unsafe identifier: {part!r}")
+    return f"`{part}`"
+
+
+def _split_full_name(table_full_name: str) -> tuple[str, str, str]:
+    """Validate and split catalog.schema.table into safely-quoted parts."""
+    parts = (table_full_name or "").split(".")
+    if len(parts) != 3:
+        raise ValueError(f"Expected catalog.schema.table, got {table_full_name!r}")
+    return _safe_ident(parts[0]), _safe_ident(parts[1]), _safe_ident(parts[2])
 # Needs _get_last_ui_activity
 from src.sync.worker import _get_last_ui_activity
 
@@ -71,25 +95,27 @@ def _push_to_databricks(sync_type: str, table_full_name: str | None, payload: di
     with dbsql.connect(server_hostname=host, http_path=http_path, access_token=token) as db_conn:
         with db_conn.cursor() as cur:
             if sync_type == "COLUMN_DEF":
-                col = payload["column_name"]
+                col = _safe_ident(payload["column_name"])
                 dfn = (payload.get("definition") or "").replace("'", "''")
-                parts = table_full_name.split(".")
-                cat, sch, tbl = [f"`{p}`" for p in parts]
-                cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} ALTER COLUMN `{col}` COMMENT '{dfn}'")
+                cat, sch, tbl = _split_full_name(table_full_name)
+                cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} ALTER COLUMN {col} COMMENT '{dfn}'")
 
             elif sync_type == "TABLE_DESC":
                 dfn = (payload.get("definition") or "").replace("'", "''")
-                parts = table_full_name.split(".")
-                cat, sch, tbl = [f"`{p}`" for p in parts]
+                cat, sch, tbl = _split_full_name(table_full_name)
                 cur.execute(f"COMMENT ON TABLE {cat}.{sch}.{tbl} IS '{dfn}'")
 
             elif sync_type == "STEWARD":
-                # Implementation depends on how stewards are stored in Databricks (e.g. Tags)
-                steward = payload.get("steward", "").replace("'", "''")
-                parts = table_full_name.split(".")
-                cat, sch, tbl = [f"`{p}`" for p in parts]
+                # Steward is stored as a Unity Catalog tag. Reject anything that
+                # is not a syntactically valid email so the f-string can't be
+                # broken out of by a crafted value.
+                steward = (payload.get("steward") or "").strip()
+                if steward and not _EMAIL_RE.match(steward):
+                    raise ValueError(f"Refusing to set non-email steward value: {steward!r}")
+                steward_sql = steward.replace("'", "''")
+                cat, sch, tbl = _split_full_name(table_full_name)
                 try:
-                    cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} SET TAGS ('steward' = '{steward}')")
+                    cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} SET TAGS ('steward' = '{steward_sql}')")
                 except Exception as e:
                     logging.warning("Could not set steward tag on %s: %s", table_full_name, e)
 

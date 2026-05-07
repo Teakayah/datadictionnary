@@ -254,8 +254,14 @@ def _render_admin_cms_section():
             expires.strftime("%b %d, %Y") if hasattr(expires, "strftime")
             else str(expires)[:10] if expires else t("cms.no_expiry")
         )
-        from datetime import datetime
-        is_expired = expires is not None and (expires < datetime.utcnow() if hasattr(expires, "utcnow") else False)
+        from datetime import UTC, datetime
+        if expires is None:
+            is_expired = False
+        else:
+            now = datetime.now(UTC)
+            # Make naive datetimes (legacy rows) comparable to aware "now"
+            cmp_expires = expires if expires.tzinfo else expires.replace(tzinfo=UTC)
+            is_expired = cmp_expires < now
 
         row_html = (
             f'<div style="border-left:3px solid {color};padding:8px 12px;'
