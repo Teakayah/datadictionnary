@@ -82,39 +82,37 @@ separate ticket if write contention shows up.
 membership change. Group changes are picked up at next token refresh
 (≤1h, then ≤1h cache TTL).
 
-### 3. Split `src/ui/cards.py` (1,178 lines)
+### 3. Split `src/ui/cards.py` (was 1,083 lines)
 
-**Why:** mixes 5 unrelated concerns (discovery, admin, CMS, pipelines,
-health). Imports admin/CMS/pipeline write APIs alongside read-only
-discovery rendering. Audit surface for "what can a write touch" is the
-whole file.
+**Status:** done (branch `feat/cards-split`).
 
-**Target layout:**
+Final layout, all files <400 lines:
+
 ```
 src/ui/cards/
-  __init__.py     # re-exports for backwards compat during migration
-  _shared.py      # _dq_grade, _compute_live_completeness, _POST_COLOR
-  discovery.py    # render_discovery, _render_table_card, render_cms_banner
-  health.py       # render_health
-  admin.py        # render_admin_page + admin sub-renderers
-  pipelines.py    # render_pipelines_page (UI; logic stays in src/pipelines.py)
+  __init__.py    45  pure re-export shim for backwards compat
+  _shared.py     70  _dq_grade, _compute_live_completeness, _POST_COLOR
+  detail.py     110  render_table_metadata_editor, render_data_sample
+                     (consumed by src/pages/search.py)
+  cms_admin.py  148  _render_admin_cms_section + create dialog
+                     (peeled out so admin.py stays under 400)
+  health.py     155  render_health + private helpers
+  pipelines.py  245  render_pipelines_page + admin pipeline section
+  admin.py      311  render_admin_page + audit/sync/editing sections
+  discovery.py  317  render_discovery + CMS banner + table card
 ```
 
-**Acceptance:**
-- `wc -l src/ui/cards/*.py` shows no file >400 lines.
-- Test suite passes unchanged at every step (each move is its own commit).
-- After the migration: `git grep "from src.ui.cards import"` returns only
-  the new submodule paths; the `cards/__init__.py` shim can be deleted in a
-  follow-up PR.
+Each move is its own commit; tests stay green at 267 throughout.
+``cards/__init__.py`` is a re-export shim — historic callers
+(`from src.ui.cards import render_health`) keep working unchanged. New
+code should import from the specific submodule
+(`from src.ui.cards.discovery import render_discovery`).
 
-**Migration order (each step keeps tests green):**
-1. Create `_shared.py` with helpers + re-exports.
-2. Move `render_health` → `cards/health.py`.
-3. Move `render_pipelines_page` → `cards/pipelines.py`.
-4. Move `render_admin_page` and admin sub-renderers → `cards/admin.py`.
-5. Move discovery + CMS banner → `cards/discovery.py`.
-6. Replace `src/ui/cards.py` with `cards/__init__.py` re-exports.
-7. (Follow-up PR) delete the shim once callers migrated.
+**Out of scope (deferred):** migrate the four remaining callers
+(``app.py``, ``src/pages/catalog.py``, ``src/pages/search.py``,
+``tests/test_admin.py``) off the shim and delete
+``src/ui/cards/__init__.py``'s re-exports. ~5 minutes of mechanical work
+in a follow-up PR.
 
 ### 4. Storage abstraction — collapse demo / DuckDB / Databricks branching
 
