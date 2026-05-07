@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dd-sync-worker
+  namespace: data-dictionary
+  labels:
+    app.kubernetes.io/name: data-dictionary
+    app.kubernetes.io/component: sync-worker
+  annotations:
+    deployment.kubernetes.io/image: ghcr.io/org/data-dictionary:${IMAGE_TAG}
+spec:
+  # Singleton — DuckDB only allows one writer per file. Scaling beyond 1
+  # requires migrating user_data to PostgreSQL (TODO.md follow-up).
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: dd-sync-worker
+  template:
+    metadata:
+      labels:
+        app: dd-sync-worker
+        app.kubernetes.io/name: data-dictionary
+        app.kubernetes.io/component: sync-worker
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+      containers:
+        - name: sync-worker
+          image: ghcr.io/org/data-dictionary:${IMAGE_TAG}
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "src.sync.daemon"]
+
+          ports:
+            - name: healthz
+              containerPort: 8765
+              protocol: TCP
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "768Mi"
+
+          envFrom:
+            - configMapRef:
+                name: dd-config
+            - secretRef:
+                name: dd-secrets
+
+          env:
+            - name: SYNC_HEALTHZ_PORT
+              value: "8765"
+            - name: LOG_LEVEL
+              value: "INFO"
+
+          volumeMounts:
+            - name: data
+              mountPath: /data
+
+          # Liveness: the daemon writes a heartbeat each loop and /healthz
+          # returns 503 if the heartbeat is older than 60s.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8765
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8765
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # SIGTERM grace — let the current cycle finish (max DR_RESYNC pass).
+          # The daemon's signal handler sets _stop_event and exits the loop.
+
+      terminationGracePeriodSeconds: 60
+
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: dd-data

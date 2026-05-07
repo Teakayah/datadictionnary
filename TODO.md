@@ -22,30 +22,39 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done
 
 ### 1. Sidecar sync worker — kills DuckDB shared-connection concurrency bugs
 
-**Why:** `_get_shared_duckdb_connection` returns a single in-memory DuckDB
-connection (`src/db/duckdb_adapter.py:177`) shared across the Streamlit
-script-runner threads and the daemon worker. Reads are unsynchronised and
-the daemon is a `@st.cache_resource` callable from a thread with no
-`ScriptRunContext`. Latent crash under any real concurrency.
+**Status:** done (branch `feat/sidecar-sync-worker`).
 
-**Target shape:** Streamlit pods enqueue into `user_data.pending_sync` only.
-A separate `python -m src.sync.daemon` process drains the queue and runs DR
-resync. The `pending_sync` table is the IPC bus — no new infra.
+- `src/sync/daemon.py` runs standalone (`python -m src.sync.daemon`) with
+  `--once`, `--healthz-port`, `--log-level` flags.
+- `src/sync/daemon_db.py::DaemonConn` opens a process-local DuckDB
+  connection. The shared `@st.cache_resource` singleton is no longer used
+  outside Streamlit.
+- DR resync extracted into `src/sync/dr_resync.run_dr_resync(conn,
+  status_setter)` so it can be unit-tested with a fake conn and a patched
+  `_databricks_query`.
+- Stale-row recovery: rows in `'syncing'` for >`SYNC_STALE_ROW_S` (default
+  300s) are flipped back to `'pending'` at the top of every cycle.
+- `/healthz` HTTP listener (default port 8765) returns 200 if a heartbeat
+  was written within `SYNC_HEALTHZ_TIMEOUT_S`, else 503.
+- New `k8s/deployment-sync-worker.yaml` (`replicas: 1`, `Recreate` strategy)
+  shares the `dd-data` PVC with `dd-app`.
+- `Dockerfile` now copies `src/` (was missing — separate latent bug fixed
+  inline) and exposes 8765.
+- `_start_sync_worker_thread` and the duplicate state in `src/ui/cards.py`
+  are gone; the admin sync panel reads status via
+  `src.sync.worker.read_dr_resync_status()`.
+- `tests/test_sync_daemon.py` adds 18 tests covering DaemonConn, status
+  upsert, stale-row recovery, healthz 200/503, DR resync (skip / pull /
+  error), injected-conn drain, single-cycle integration.
+- Schema fix: `user_data.pending_sync.last_attempt_at` was referenced in
+  push.py but never created — `_initialize_schema` now declares it AND
+  runs `ALTER TABLE … ADD COLUMN IF NOT EXISTS` for migration.
 
-**Acceptance:**
-- `_start_sync_worker_thread` deleted from `src/sync/worker.py` and `app.py`.
-- `src/sync/daemon.py` runs standalone with `--once` and `--daemon` flags,
-  uses its own `duckdb.connect(USER_DATA_PATH)`, no Streamlit imports.
-- New k8s `Deployment` (`replicas: 1`) under `k8s/` mounting the same PVC.
-- `tests/test_sync_metadata.py` extended to cover the daemon's drain loop
-  with a fake Databricks cursor.
-- DR resync recovery: `attempts < MAX_ATTEMPTS` AND
-  `last_attempt_at < now - 5m` brings stuck rows back to `pending`.
-- Worker exposes `/healthz` returning 200 when its DuckDB handle is open.
-
-**Out of scope:** PostgreSQL migration for multi-writer support (file a
-separate ticket if more than one Streamlit replica needs to write
-`user_data.*`).
+**Out of scope (still open):** PostgreSQL migration for multi-writer
+support. Today the sidecar plus the (multi-replica) Streamlit pods all open
+`USER_DATA_PATH` — DuckDB serialises writes via its OS-level file lock,
+which is fine at low write volume but will not scale linearly. File a
+separate ticket if write contention shows up.
 
 ### 2. Entra ID groups overage handling
 
