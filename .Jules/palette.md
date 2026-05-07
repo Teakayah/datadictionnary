@@ -1,3 +1,3 @@
-## $(date +%Y-%m-%d) - Streamlit Micro-UX Enhancements
-**Learning:** In Streamlit, adding `help="..."` to elements like `st.selectbox` and `st.text_area` acts as a tooltip and provides accessible context (ARIA) without needing custom components. Also, setting `index=None` on `st.selectbox` prevents auto-selection, acting like a proper search input placeholder.
-**Action:** Use `help` for adding tooltips and accessible context in Streamlit form elements. Use `index=None` on selectboxes that function as search inputs to show the placeholder text initially.
+## 2026-05-04 - Localized Strings for Icon-Only Buttons
+**Learning:** In this application, when replacing exact character matches for bookmark symbols (★/☆) or arrows (→) to improve accessibility on `st.button`s without labels, it's essential to supply the `help` parameter with an appropriate i18n translation key to act as a tooltip/aria-label.
+**Action:** Use `help=t("...")` on `st.button` elements that act as icon-only buttons to ensure they have an accessible name available to screen readers.
