@@ -3,7 +3,6 @@ from __future__ import annotations
 import html as _html
 import logging
 import re
-import threading
 import time
 
 import pandas as pd
@@ -704,17 +703,18 @@ def _render_admin_sync_section():
         bc4.caption(f"Failed: {sync_stats.get('failed', 0)}")
 
     with sc2:
-        # Current Mode & DR Status
-        is_idle = (time.time() - _get_last_ui_activity()) > 300
-        mode_label = "Idle (High Throughput)" if is_idle else "Active (Low Impact)"
-        mode_color = "var(--deepblue)" if is_idle else "var(--accent-ink)" # Deep blue vs Accent red
+        # Sidecar daemon status, written into user_data.site_settings.
+        from src.sync.worker import read_dr_resync_status, read_worker_heartbeat
+        dr_status = read_dr_resync_status()
+        heartbeat = read_worker_heartbeat() or "—"
+        accent = "var(--accent-ink)" if dr_status.startswith("Error") else "var(--deepblue)"
 
         st.markdown(
-            f'<div style="background:var(--paper-deep); padding:12px; border-radius:4px; border-left:4px solid {mode_color};">'
-            f'<div style="font-family:var(--font-mono); font-size:10px; color:var(--ink-40); text-transform:uppercase;">Sync Mode</div>'
-            f'<div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink);">{mode_label}</div>'
-            f'<div style="margin-top:12px; font-family:var(--font-mono); font-size:10px; color:var(--ink-40); text-transform:uppercase;">Self-Healing (DR)</div>'
-            f'<div style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60);">{_get_dr_resync_status()}</div>'
+            f'<div style="background:var(--paper-deep); padding:12px; border-radius:4px; border-left:4px solid {accent};">'
+            f'<div style="font-family:var(--font-mono); font-size:10px; color:var(--ink-40); text-transform:uppercase;">Self-Healing (DR)</div>'
+            f'<div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink);">{dr_status}</div>'
+            f'<div style="margin-top:12px; font-family:var(--font-mono); font-size:10px; color:var(--ink-40); text-transform:uppercase;">Worker heartbeat</div>'
+            f'<div style="font-family:var(--font-mono); font-size:11px; color:var(--ink-60);">{heartbeat}</div>'
             f'</div>',
             unsafe_allow_html=True
         )
@@ -792,110 +792,9 @@ def render_admin_page():
     _render_admin_comment_log_section()
 
 
-# ── Global State for Background Workers ──────────────────────────────────────
-_worker_state_lock = threading.Lock()
-_LAST_UI_ACTIVITY = time.time()
-_DR_RESYNC_STATUS = "Idle" # Idle, Checking, Syncing, Up-to-date, Error
-_DR_RESYNC_PROGRESS = 0.0
-
-def _get_last_ui_activity():
-    with _worker_state_lock:
-        return _LAST_UI_ACTIVITY
-
-def _get_dr_resync_status():
-    with _worker_state_lock:
-        return _DR_RESYNC_STATUS
-
-def _set_dr_resync_status(status):
-    global _DR_RESYNC_STATUS
-    with _worker_state_lock:
-        _DR_RESYNC_STATUS = status
-
-def _set_dr_resync_progress(progress):
-    global _DR_RESYNC_PROGRESS
-    with _worker_state_lock:
-        _DR_RESYNC_PROGRESS = progress
-
-def _mark_ui_activity():
-    global _LAST_UI_ACTIVITY
-    with _worker_state_lock:
-        _LAST_UI_ACTIVITY = time.time()
-
-
-def _get_max_local_timestamp(conn, tbl: str, ts_col: str):
-    """Fetch the max timestamp for a table locally."""
-    with conn.cursor() as cursor:
-        cursor.execute(f"SELECT MAX({ts_col}) FROM user_data.{tbl}")
-        return cursor.fetchall()[0][0]
-
-def _fetch_remote_delta(tbl: str, ts_col: str, local_max):
-    """Query Databricks for any records AFTER local_max."""
-    remote_q = f"SELECT * FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.{tbl}"
-    params = {}
-    if local_max:
-        remote_q += f" WHERE {ts_col} > %(local_max)s"
-        params["local_max"] = local_max
-    return run_query(remote_q, params)
-
-def _merge_delta_into_local(conn, tbl: str, delta_df: pd.DataFrame):
-    """Merge delta DataFrame records into DuckDB."""
-    with conn.cursor() as cursor:
-        for row_dict in delta_df.to_dict("records"):
-            # Simple append for logs/comments (guaranteed unique IDs)
-            if tbl in ("comments", "audit_log"):
-                cols = ", ".join(delta_df.columns)
-                placeholders = ", ".join([f"%({c})s" for c in delta_df.columns])
-                cursor.execute_write(
-                    f"INSERT OR IGNORE INTO user_data.{tbl} ({cols}) VALUES ({placeholders})",
-                    row_dict
-                )
-            else:
-                # Merge for overrides
-                cursor.execute_write(
-                    f"INSERT OR REPLACE INTO user_data.{tbl} ({', '.join(delta_df.columns)}) "
-                    f"VALUES ({', '.join([f'%({c})s' for c in delta_df.columns])})",
-                    row_dict
-                )
-
-
-def _run_dr_resync():
-    """Background task to pull missing records from Databricks to DuckDB."""
-    if not _duckdb_available():
-        return
-
-    _set_dr_resync_status("Checking")
-    try:
-        conn = _get_write_connection()
-        # 1. Check for newest records in Databricks vs Local
-        # We check comments, audit_log, and overrides
-        tables_to_check = [
-            ("comments", "created_at", "comment_id"),
-            ("audit_log", "created_at", "event_id"),
-            ("business_name_overrides", "edited_at", "table_full_name, column_name")
-        ]
-
-        # Get all max local timestamps in a single query
-        with conn.cursor() as cursor:
-            union_query = " UNION ALL ".join(
-                [f"SELECT '{tbl}' as tbl, MAX({ts_col}) as max_ts FROM user_data.{tbl}" for tbl, ts_col, _ in tables_to_check]
-            )
-            cursor.execute(union_query)
-            max_ts_results = cursor.fetchall()
-            max_ts_map = {row[0]: row[1] for row in max_ts_results}
-
-        for tbl, ts_col, pk in tables_to_check:
-            local_max = max_ts_map.get(tbl)
-            delta_df = _fetch_remote_delta(tbl, ts_col, local_max)
-
-            if delta_df is not None and not delta_df.empty:
-                _set_dr_resync_status(f"Syncing {tbl}")
-                _merge_delta_into_local(conn, tbl, delta_df)
-
-        _set_dr_resync_status("Up-to-date")
-        _set_dr_resync_progress(100.0)
-    except Exception as e:
-        logging.error("DR Resync failed: %s", e)
-        _set_dr_resync_status(f"Error: {str(e)[:50]}")
+# Background-worker state and DR resync logic moved to src/sync/daemon.py
+# (sidecar process). The admin sync panel reads status via
+# src.sync.worker.read_dr_resync_status().
 
 
 

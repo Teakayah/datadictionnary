@@ -1,127 +1,85 @@
-"""Background worker thread and DR resync logic for Databricks write-back."""
+"""UI-side helpers that report on the sidecar sync daemon.
+
+The actual drain loop and DR resync now run in a separate process — see
+src/sync/daemon.py. This module exposes:
+
+* read_dr_resync_status() — pulls the latest status string the daemon wrote
+  to user_data.site_settings; the admin sync panel renders this.
+* read_worker_heartbeat() — last heartbeat timestamp, ISO-8601.
+* _mark_ui_activity() — kept as a no-op so legacy callers in app.py and
+  src/ui/cards.py still work; the daemon no longer cares about UI activity.
+
+The previous in-process daemon thread (_start_sync_worker_thread) has been
+removed; running it from a Streamlit thread without a ScriptRunContext is
+undefined behaviour, and sharing a single DuckDB connection across the UI
+and the worker corrupted concurrent reads.
+"""
+
+from __future__ import annotations
 
 import logging
-import threading
-import time
 
-import streamlit as st
-
-from src.config import CATALOG_CACHE, SCHEMA_CACHE
 from src.db.duckdb_adapter import _duckdb_available
-from src.db.queries import _get_write_connection, run_query
 
-_worker_state_lock = threading.Lock()
-_LAST_UI_ACTIVITY = time.time()
-_DR_RESYNC_STATUS = "Idle" # Idle, Checking, Syncing, Up-to-date, Error
-_DR_RESYNC_PROGRESS = 0.0
+log = logging.getLogger(__name__)
 
-def _get_last_ui_activity():
-    with _worker_state_lock:
-        return _LAST_UI_ACTIVITY
-
-def _get_dr_resync_status():
-    with _worker_state_lock:
-        return _DR_RESYNC_STATUS
-
-def _set_dr_resync_status(status):
-    global _DR_RESYNC_STATUS
-    with _worker_state_lock:
-        _DR_RESYNC_STATUS = status
-
-def _set_dr_resync_progress(progress):
-    global _DR_RESYNC_PROGRESS
-    with _worker_state_lock:
-        _DR_RESYNC_PROGRESS = progress
-
-def _mark_ui_activity():
-    global _LAST_UI_ACTIVITY
-    with _worker_state_lock:
-        _LAST_UI_ACTIVITY = time.time()
+# Public status keys (also written by src/sync/daemon.py).
+DR_STATUS_KEY = "dr_resync_status"
+WORKER_HEARTBEAT_KEY = "worker_heartbeat"
 
 
-def _run_dr_resync():
-    """Background task to pull missing records from Databricks to DuckDB."""
+def _read_setting(key: str, default: str = "") -> str:
+    """Read a single key from user_data.site_settings."""
     if not _duckdb_available():
-        return
-
-    _set_dr_resync_status("Checking")
+        return default
     try:
-        conn = _get_write_connection()
-        # 1. Check for newest records in Databricks vs Local
-        # We check comments, audit_log, and overrides
-        tables_to_check = [
-            ("comments", "created_at", "comment_id"),
-            ("audit_log", "created_at", "event_id"),
-            ("business_name_overrides", "edited_at", "table_full_name, column_name")
-        ]
+        from src.db.queries import get_db_connection  # local — avoids import cycle
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT value FROM user_data.site_settings WHERE key = %(k)s",
+                {"k": key},
+            )
+            rows = cur.fetchall()
+            if rows:
+                return str(rows[0][0])
+    except Exception as exc:
+        log.warning("Could not read site_settings[%s]: %s", key, exc)
+    return default
 
-        for tbl, ts_col, pk in tables_to_check:
-            # Get max local timestamp
-            with conn.cursor() as cursor:
-                cursor.execute(f"SELECT MAX({ts_col}) FROM user_data.{tbl}")
-                local_max = cursor.fetchall()[0][0]
 
-            # Query Databricks for any records AFTER local_max
-            # Note: run_query handles the Databricks connection
-            remote_q = f"SELECT * FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.{tbl}"
-            params = {}
-            if local_max:
-                remote_q += f" WHERE {ts_col} > %(local_max)s"
-                params["local_max"] = local_max
+def read_dr_resync_status() -> str:
+    """Return the daemon's last DR resync status, or 'Idle' before any run."""
+    return _read_setting(DR_STATUS_KEY, default="Idle")
 
-            delta_df = run_query(remote_q, params)
-            if delta_df is not None and not delta_df.empty:
-                _set_dr_resync_status(f"Syncing {tbl}")
-                # Merge into DuckDB
-                with conn.cursor() as cursor:
-                    for row_dict in delta_df.to_dict("records"):
-                        # Simple append for logs/comments (guaranteed unique IDs)
-                        if tbl in ("comments", "audit_log"):
-                            cols = ", ".join(delta_df.columns)
-                            placeholders = ", ".join([f"%({c})s" for c in delta_df.columns])
-                            cursor.execute_write(
-                                f"INSERT OR IGNORE INTO user_data.{tbl} ({cols}) VALUES ({placeholders})",
-                                row_dict
-                            )
-                        else:
-                            # Merge for overrides
-                            cursor.execute_write(
-                                f"INSERT OR REPLACE INTO user_data.{tbl} ({', '.join(delta_df.columns)}) "
-                                f"VALUES ({', '.join([f'%({c})s' for c in delta_df.columns])})",
-                                row_dict
-                            )
 
-        _set_dr_resync_status("Up-to-date")
-        _set_dr_resync_progress(100.0)
-    except Exception as e:
-        logging.error("DR Resync failed: %s", e)
-        _set_dr_resync_status(f"Error: {str(e)[:50]}")
+def read_worker_heartbeat() -> str:
+    """Return the daemon's last heartbeat as an ISO timestamp string, or ''."""
+    return _read_setting(WORKER_HEARTBEAT_KEY, default="")
 
-@st.cache_resource(show_spinner=False)
+
+# ── Legacy shims ─────────────────────────────────────────────────────────────
+# Kept so the existing import sites in app.py and src/ui/cards.py keep working
+# during the migration. Both are no-ops in the sidecar architecture.
+
+def _mark_ui_activity() -> None:
+    """No-op. The sidecar daemon doesn't track UI activity any more."""
+    return None
+
+
+def _get_last_ui_activity() -> float:
+    """Legacy shim. Returns 0 so any old idle-check evaluates to 'idle'."""
+    return 0.0
+
+
+def _get_dr_resync_status() -> str:
+    """Legacy alias for read_dr_resync_status()."""
+    return read_dr_resync_status()
+
+
 def _start_sync_worker_thread():
-    """Singleton background thread that drains pending_sync every 15 s."""
-    import threading
-
-    def _loop():
-        _count = 0
-        from src.sync.push import _process_sync_queue
-        while True:
-            try:
-                # Every 20 cycles (~10 mins in Active mode, ~1.6 mins in Idle mode), run DR resync
-                if _count % 20 == 0:
-                    _run_dr_resync()
-                _count += 1
-
-                n = _process_sync_queue()
-                if n:
-                    logging.info("Sync worker: pushed %d column definition(s) to Databricks.", n)
-            except Exception as exc:
-                logging.error("Sync worker loop error: %s", exc, exc_info=True)
-
-            # Dynamic poll: 5s if idle, 30s if active
-            is_idle = (time.time() - _get_last_ui_activity()) > 300
-            time.sleep(5 if is_idle else 30)
-
-    t = threading.Thread(target=_loop, name="dd-sync-worker", daemon=True)
-    t.start()
-    return t
+    """Legacy shim. The in-process daemon thread has been removed; the sync
+    worker now runs in its own process (see k8s/deployment-sync-worker.yaml
+    and src/sync/daemon.py). Calling this is a no-op."""
+    log.debug("_start_sync_worker_thread() called — no-op in sidecar architecture.")
+    return None

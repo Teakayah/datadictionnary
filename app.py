@@ -67,25 +67,16 @@ from src.personalization import (
 # export_schema_to_csv imported from src.db.queries
 
 
-from src.sync.worker import _start_sync_worker_thread, _mark_ui_activity
-
-
-
 from src.ui.cards import (
     render_discovery, render_health, render_admin_page, render_pipelines_page,
-    _mark_ui_activity,
 )
 from src.pages.catalog import render_catalog_browser
 from src.pages.glossary import render_glossary
 from src.pages.search import render_search_page
 
-
-# ── Per-render startup tasks ──────────────────────────────────────────────────
-_mark_ui_activity()  # track UI activity for background-worker idle detection
-
-# Start the write-back worker once (daemon thread, no-ops without DuckDB).
-if _duckdb_available():
-    _start_sync_worker_thread()
+# The sync worker runs as a sidecar process (k8s/deployment-sync-worker.yaml,
+# `python -m src.sync.daemon`). The Streamlit app only enqueues into
+# user_data.pending_sync; draining + DR resync are no longer in-process.
 
 # Capture viewport height once per session via JS. The first render returns
 # None (component round-trip), so keep calling until we have a value, then stop.

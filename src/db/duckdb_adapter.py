@@ -169,8 +169,15 @@ def _initialize_schema(con):
             status          VARCHAR NOT NULL DEFAULT 'pending',
             attempts        INTEGER  NOT NULL DEFAULT 0,
             last_error      VARCHAR,
+            last_attempt_at TIMESTAMP,
             completed_at    TIMESTAMP
         )
+    """)
+    # Migration for pre-existing user_data files that pre-date last_attempt_at.
+    # DuckDB's ALTER TABLE ADD COLUMN IF NOT EXISTS is supported >=0.10.
+    con.execute("""
+        ALTER TABLE user_data.pending_sync
+        ADD COLUMN IF NOT EXISTS last_attempt_at TIMESTAMP
     """)
 
 

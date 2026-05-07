@@ -38,6 +38,7 @@ WORKDIR /app
 
 # Copy application source
 COPY --chown=appuser:appuser app.py         ./app.py
+COPY --chown=appuser:appuser src/           ./src/
 COPY --chown=appuser:appuser scripts/       ./scripts/
 COPY --chown=appuser:appuser locale/        ./locale/
 COPY --chown=appuser:appuser assets/        ./assets/
@@ -45,7 +46,10 @@ COPY --chown=appuser:appuser design_system/ ./design_system/
 
 USER appuser
 
-EXPOSE 8501
+# The same image is used for two workloads:
+#   - dd-app          (default CMD)              — Streamlit UI on 8501
+#   - dd-sync-worker  (CMD overridden by k8s)    — `python -m src.sync.daemon` on 8765
+EXPOSE 8501 8765
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8501/_stcore/health || exit 1
