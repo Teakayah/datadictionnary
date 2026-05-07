@@ -156,3 +156,92 @@ class TestPipelinesPageUI:
         assert not at.exception, f"Exception: {at.exception}"
         nav_btn_labels = [b.label for b in at.button]
         assert "Pipelines" not in nav_btn_labels
+
+# ── Execution tests ──────────────────────────────────────────────────────────
+
+class TestTriggerPipeline:
+    @patch("src.pipelines._trigger_databricks")
+    def test_trigger_pipeline_routes_to_databricks(self, mock_trigger):
+        from src.pipelines import trigger_pipeline
+        pipeline = {"backend": "databricks"}
+        trigger_pipeline(pipeline, "user1")
+        mock_trigger.assert_called_once_with(pipeline, "user1")
+
+    @patch("src.pipelines._trigger_adf")
+    def test_trigger_pipeline_routes_to_adf(self, mock_trigger):
+        from src.pipelines import trigger_pipeline
+        pipeline = {"backend": "adf"}
+        trigger_pipeline(pipeline, "user2")
+        mock_trigger.assert_called_once_with(pipeline, "user2")
+
+    @patch("src.pipelines._trigger_ado")
+    def test_trigger_pipeline_routes_to_ado(self, mock_trigger):
+        from src.pipelines import trigger_pipeline
+        pipeline = {"backend": "ado"}
+        trigger_pipeline(pipeline, "user3")
+        mock_trigger.assert_called_once_with(pipeline, "user3")
+
+    def test_trigger_pipeline_raises_value_error_for_unknown_backend(self):
+        from src.pipelines import trigger_pipeline
+        with pytest.raises(ValueError, match="Unknown backend: unknown"):
+            trigger_pipeline({"backend": "unknown"}, "user")
+
+class TestPollRunStatus:
+    @patch("src.pipelines._status_databricks")
+    @patch("src.pipelines._update_run")
+    def test_poll_run_status_routes_to_databricks(self, mock_update, mock_status):
+        from src.pipelines import poll_run_status
+        pipeline = {"backend": "databricks", "pipeline_id": "p1"}
+        run = {"backend_run_id": "r1"}
+        mock_status.return_value = {"status": "success", "progress": 100, "message": "", "is_terminal": True}
+
+        with patch("src.pipelines._clear_run") as mock_clear:
+            result = poll_run_status(pipeline, run)
+
+        mock_status.assert_called_once_with("r1")
+        mock_update.assert_called_once_with("p1", "success")
+        mock_clear.assert_called_once_with("p1")
+        assert result["status"] == "success"
+
+    @patch("src.pipelines._status_databricks")
+    @patch("src.pipelines._update_run")
+    def test_poll_run_status_handles_exception(self, mock_update, mock_status):
+        from src.pipelines import poll_run_status
+        pipeline = {"backend": "databricks", "pipeline_id": "p1"}
+        run = {"backend_run_id": "r1", "status": "running"}
+        mock_status.side_effect = Exception("Network timeout")
+
+        result = poll_run_status(pipeline, run)
+
+        mock_status.assert_called_once_with("r1")
+        mock_update.assert_not_called()
+        assert result["status"] == "running"
+        assert result["message"] == "Network timeout"
+        assert result["is_terminal"] is False
+
+class TestCancelRun:
+    @patch("src.pipelines._cancel_databricks")
+    @patch("src.pipelines._clear_run")
+    def test_cancel_run_routes_to_databricks(self, mock_clear, mock_cancel):
+        from src.pipelines import cancel_run
+        pipeline = {"backend": "databricks", "pipeline_id": "p1"}
+        run = {"backend_run_id": "r1"}
+
+        cancel_run(pipeline, run)
+
+        mock_cancel.assert_called_once_with("r1")
+        mock_clear.assert_called_once_with("p1")
+
+    @patch("src.pipelines._cancel_databricks")
+    @patch("src.pipelines._clear_run")
+    def test_cancel_run_clears_even_on_exception(self, mock_clear, mock_cancel):
+        from src.pipelines import cancel_run
+        pipeline = {"backend": "databricks", "pipeline_id": "p1"}
+        run = {"backend_run_id": "r1"}
+        mock_cancel.side_effect = Exception("Failed")
+
+        with pytest.raises(Exception, match="Failed"):
+            cancel_run(pipeline, run)
+
+        mock_cancel.assert_called_once_with("r1")
+        mock_clear.assert_called_once_with("p1")
