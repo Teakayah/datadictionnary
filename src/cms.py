@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import streamlit as st
 
@@ -24,7 +24,7 @@ _EXPIRY_DAYS: dict[str, int | None] = {
 def get_active_posts() -> list[dict]:
     """Return all non-expired CMS posts, newest first."""
     if not _duckdb_available():
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         return [
             p for p in st.session_state.get("_demo_cms_posts", [])
             if p.get("expires_at") is None or p["expires_at"] > now
@@ -103,7 +103,7 @@ def create_post(
     expiry_days: int | None,
 ) -> None:
     post_id   = str(uuid.uuid4())
-    now       = datetime.utcnow()
+    now       = datetime.now(timezone.utc).replace(tzinfo=None)
     expires   = (now + timedelta(days=expiry_days)) if expiry_days is not None else None
 
     if not _duckdb_available():

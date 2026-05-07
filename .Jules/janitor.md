@@ -7,3 +7,7 @@
 **Action:** Always favor `.to_dict('records')` for dictionary construction and `itertuples(index=False)` for general iteration over `iterrows()`. Update row accesses to `getattr` instead of `[]` or `.get()`.
 
 ## 2026-05-01 - [Extract Demo Mode Helper] **Learning:** Repeated environment variable checks for DEMO_DATA were scattered across the codebase, making updates error-prone. **Action:** Created `is_demo_mode()` helper to consolidate the check. Future boolean env var checks should use dedicated getters.
+
+## 2026-05-07 - [Fix datetime.utcnow deprecation warnings]
+**Learning:** `datetime.utcnow()` is deprecated in Python 3.12 and scheduled for removal. However, simply changing it to `datetime.now(timezone.utc)` returns an aware datetime which can break tests or logic expecting a naive datetime.
+**Action:** Use `datetime.now(timezone.utc).replace(tzinfo=None)` to safely fix the deprecation while maintaining the original naive behavior when dealing with databases or legacy systems.

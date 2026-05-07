@@ -15,10 +15,9 @@ Coverage:
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import patch
 
-import pytest
 from streamlit.testing.v1 import AppTest
 
 APP_PATH = os.path.join(os.path.dirname(__file__), "..", "app.py")
@@ -82,7 +81,7 @@ class TestGetPipelines:
                  "adf_factory_name": None, "adf_pipeline_name": None,
                  "ado_organization": None, "ado_project": None,
                  "ado_pipeline_id": None, "created_by": "admin",
-                 "created_at": datetime.utcnow()}]
+                 "created_at": datetime.now(timezone.utc).replace(tzinfo=None)}]
         st.session_state["_demo_pipelines"] = fake
         with patch("src.pipelines._duckdb_available", return_value=False):
             from src.pipelines import get_pipelines
