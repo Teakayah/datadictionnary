@@ -21,48 +21,16 @@ from src.db.queries import _get_write_connection, run_query, get_authorized_tabl
 from src.i18n import t
 from src.personalization import is_editing_enabled, set_editing_enabled
 from src.ui.css import VIS_WIDE_CSS
-_DQ_GRADES = [
-    (90, "A", "dq-a"),
-    (75, "B", "dq-b"),
-    (60, "C", "dq-c"),
-    (0,  "D", "dq-d"),
-]
 
-
-def _dq_grade(score_str) -> tuple:
-    """Return (letter, css_class) from a dq_score string or number."""
-    try:
-        score = float(score_str or 0)
-    except (ValueError, TypeError):
-        score = 0
-    for threshold, letter, cls in _DQ_GRADES:
-        if score >= threshold:
-            return letter, cls
-    return "D", "dq-d"
-
-
-def _compute_live_completeness(table_full_name: str) -> float:
-    """Live column-definition coverage: (metadata comment OR user override) / total cols."""
-    bno_tbl = "user_data.business_name_overrides" if _duckdb_available() else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
-    q = (
-        "SELECT COUNT(*) AS total, "
-        "COUNT(CASE WHEN (cm.comment IS NOT NULL AND cm.comment != '') "
-        "           OR  (bno.definition IS NOT NULL AND bno.definition != '') "
-        "           THEN 1 END) AS defined "
-        "FROM {0}.{1}.columns_metadata cm "
-        "LEFT JOIN {2} bno "
-        "  ON cm.table_full_name = bno.table_full_name AND cm.column_name = bno.column_name "
-        "WHERE cm.table_full_name = %(fn)s"
-    ).format(CATALOG_CACHE, SCHEMA_CACHE, bno_tbl)
-    try:
-        result = run_query(q, {"fn": table_full_name})
-        if result is None or result.empty:
-            return 0.0
-        total = int(result.iloc[0]["total"] or 0)
-        defined = int(result.iloc[0]["defined"] or 0)
-        return (defined / total * 100) if total > 0 else 0.0
-    except Exception:
-        return 0.0
+# Shared helpers — keep the public symbols here so callers don't have to
+# update their imports during the cards/ split. See src/ui/cards/_shared.py
+# for the implementations.
+from src.ui.cards._shared import (  # noqa: F401  re-exports
+    _DQ_GRADES,
+    _dq_grade,
+    _compute_live_completeness,
+    _POST_COLOR,
+)
 
 
 def _render_table_card(row, key_prefix: str, _pref_delete_fn=None, _pref_upsert_fn=None) -> None:
@@ -103,13 +71,6 @@ def _render_table_card(row, key_prefix: str, _pref_delete_fn=None, _pref_upsert_
                     _pref_upsert_fn(_full, "bookmark")
             st.rerun()
     st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
-
-
-_POST_COLOR = {
-    "announcement":  "var(--accent)",
-    "featured_table": "var(--deepblue)",
-    "guide":         "var(--forest)",
-}
 
 
 def render_cms_banner() -> None:
