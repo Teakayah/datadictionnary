@@ -21,7 +21,8 @@ CATALOG_CACHE = "data_governance"
 SCHEMA_CACHE  = "dictionary_cache"
 
 # ── Data validation ───────────────────────────────────────────────────────────
-MAX_BUSINESS_NAME_LEN = 255
+MAX_BUSINESS_NAME_LEN = 255   # column business name — short label
+MAX_DEFINITION_LEN    = 2000  # column/table definition — paragraph-length
 
 # ── DuckDB local cache ────────────────────────────────────────────────────────
 DUCKDB_PATH = os.getenv("DUCKDB_PATH", "")
