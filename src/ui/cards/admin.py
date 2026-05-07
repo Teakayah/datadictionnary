@@ -18,20 +18,18 @@ the renderers below — moving them out would be premature.
 
 from __future__ import annotations
 
-import html as _html
 import logging
 
 import pandas as pd
 import streamlit as st
 
 from src.auth import is_admin
-from src.cms import _EXPIRY_DAYS, create_post, delete_post, get_all_posts
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import _get_write_connection, run_query
 from src.i18n import t
 from src.personalization import is_editing_enabled, set_editing_enabled
-from src.ui.cards._shared import _POST_COLOR
+from src.ui.cards.cms_admin import _render_admin_cms_section, _show_cms_create_dialog  # noqa: F401
 from src.ui.cards.pipelines import _render_admin_pipelines_section
 from src.ui.css import VIS_WIDE_CSS
 
@@ -141,137 +139,6 @@ def get_sync_queue_stats() -> dict:
             return stats
     except Exception:
         return {"pending": 0, "processing": 0, "done": 0, "failed": 0}
-
-
-# ── CMS admin section ────────────────────────────────────────────────────────
-
-@st.dialog(t("cms.create_title"), width="large")
-def _show_cms_create_dialog():
-    type_labels = {
-        "announcement":  t("cms.type_announcement"),
-        "featured_table": t("cms.type_featured"),
-        "guide":         t("cms.type_guide"),
-    }
-    sel_type = st.radio(
-        t("cms.post_type"),
-        options=list(type_labels.values()),
-        horizontal=True,
-        key="cms_create_type",
-    )
-    post_type = next(k for k, v in type_labels.items() if v == sel_type)
-
-    title = st.text_input(t("cms.post_title"), max_chars=120, key="cms_create_title")
-    body  = st.text_area(t("cms.post_body"),  max_chars=500, height=100, key="cms_create_body")
-
-    table_ref = None
-    if post_type == "featured_table":
-        table_ref = st.text_input(
-            t("cms.post_table_ref"),
-            placeholder="catalog.schema.table_name",
-            key="cms_create_tableref",
-        )
-
-    expiry_label = st.selectbox(
-        t("cms.post_expiry"),
-        options=list(_EXPIRY_DAYS.keys()),
-        index=0,
-        key="cms_create_expiry",
-    )
-    expiry_days = _EXPIRY_DAYS[expiry_label]
-
-    _save, _cancel = st.columns([1, 1], gap="small")
-    with _save:
-        if st.button(t("common.save"), type="primary", use_container_width=True, key="cms_save_btn"):
-            if not title.strip():
-                st.error(t("cms.error_title_required"))
-                return
-            if post_type == "featured_table" and not (table_ref or "").strip():
-                st.error(t("cms.error_table_ref_required"))
-                return
-            actor = st.session_state.get("user_email", "admin")
-            create_post(
-                post_type, title.strip(), body.strip(),
-                (table_ref or "").strip() or None, actor, expiry_days,
-            )
-            st.rerun()
-    with _cancel:
-        if st.button(t("common.cancel"), use_container_width=True, key="cms_cancel_btn"):
-            st.rerun()
-
-
-def _render_admin_cms_section():
-    _cms_h, _cms_btn = st.columns([9, 1], gap="small")
-    with _cms_h:
-        st.markdown(
-            f'<div class="dd-section-header" style="margin-top:32px;">'
-            f'<span class="dd-eyebrow">§ {t("cms.section_title")}</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-    with _cms_btn:
-        st.markdown("<div style='margin-top:28px'></div>", unsafe_allow_html=True)
-        if st.button("＋", key="cms_new_post", help=t("cms.new_post"), use_container_width=True):
-            _show_cms_create_dialog()
-
-    posts = get_all_posts()
-    if not posts:
-        st.caption(t("cms.no_posts"))
-        return
-
-    type_labels = {
-        "announcement":  t("cms.type_announcement"),
-        "featured_table": t("cms.type_featured"),
-        "guide":         t("cms.type_guide"),
-    }
-
-    for post in posts:
-        color    = _POST_COLOR.get(post["post_type"], "var(--ink-40)")
-        lbl      = type_labels.get(post["post_type"], post["post_type"])
-        created  = post["created_at"]
-        expires  = post["expires_at"]
-        date_str = (
-            created.strftime("%b %d, %Y") if hasattr(created, "strftime")
-            else str(created)[:10]
-        )
-        exp_str  = (
-            expires.strftime("%b %d, %Y") if hasattr(expires, "strftime")
-            else str(expires)[:10] if expires else t("cms.no_expiry")
-        )
-        from datetime import UTC, datetime
-        if expires is None:
-            is_expired = False
-        else:
-            now = datetime.now(UTC)
-            # Make naive datetimes (legacy rows) comparable to aware "now".
-            cmp_expires = expires if expires.tzinfo else expires.replace(tzinfo=UTC)
-            is_expired = cmp_expires < now
-
-        row_html = (
-            f'<div style="border-left:3px solid {color};padding:8px 12px;'
-            f'background:var(--paper-deep);border-radius:0 4px 4px 0;'
-            f'opacity:{"0.5" if is_expired else "1"};">'
-            f'<span style="font-family:var(--font-mono);font-size:10px;'
-            f'text-transform:uppercase;color:{color};letter-spacing:.08em;">{lbl}</span>'
-            f'<span style="font-family:var(--font-sans);font-size:14px;color:var(--ink);'
-            f'margin-left:10px;">{_html.escape(post["title"])}</span>'
-            f'<span style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);'
-            f'margin-left:10px;">{date_str} → {t("cms.expires")} {exp_str}</span>'
-            f'</div>'
-        )
-
-        _row_col, _del_col = st.columns([11, 1], gap="small")
-        with _row_col:
-            st.markdown(row_html, unsafe_allow_html=True)
-        with _del_col:
-            st.markdown("<div style='margin-top:4px'></div>", unsafe_allow_html=True)
-            if st.button(
-                "✕", key=f"cms_admin_del_{post['post_id']}",
-                help=t("cms.delete_post"), use_container_width=True,
-            ):
-                delete_post(post["post_id"])
-                st.rerun()
-
-    st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)
 
 
 # ── Audit / sync sections ────────────────────────────────────────────────────
