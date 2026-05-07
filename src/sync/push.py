@@ -3,7 +3,7 @@
 import json
 import logging
 import os
-import time
+import re
 import uuid
 
 from src.db.duckdb_adapter import _duckdb_available
@@ -11,8 +11,32 @@ from src.db.queries import _get_write_connection
 from src.config import CATALOG_CACHE, SCHEMA_CACHE
 
 _SYNC_MAX_ATTEMPTS = 3
-# Needs _get_last_ui_activity
-from src.sync.worker import _get_last_ui_activity
+# Mid-range batch size — daemon runs in its own process so there's no UI
+# latency budget to protect.
+_SYNC_BATCH_SIZE = 25
+# Unity Catalog identifier validator. UC permits only [A-Za-z0-9_], so anything
+# outside this set in a column or table-name part is either a metadata bug or
+# an injection attempt — refuse rather than backtick-escape.
+_IDENT_RE = re.compile(r"^[A-Za-z0-9_]+$")
+# Lightweight email syntax check — used to block quote-escape bypass when
+# writing the steward tag value.
+_EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
+
+
+def _safe_ident(part: str) -> str:
+    """Return part wrapped in backticks, refusing anything not [A-Za-z0-9_]."""
+    if not part or not _IDENT_RE.match(part):
+        raise ValueError(f"Refusing to interpolate unsafe identifier: {part!r}")
+    return f"`{part}`"
+
+
+def _split_full_name(table_full_name: str) -> tuple[str, str, str]:
+    """Validate and split catalog.schema.table into safely-quoted parts."""
+    parts = (table_full_name or "").split(".")
+    if len(parts) != 3:
+        raise ValueError(f"Expected catalog.schema.table, got {table_full_name!r}")
+    return _safe_ident(parts[0]), _safe_ident(parts[1]), _safe_ident(parts[2])
+
 
 def enqueue_sync(sync_type: str, table_full_name: str | None, payload: dict, queued_by: str) -> None:
     """Add an action to the Databricks write-back queue."""
@@ -71,25 +95,27 @@ def _push_to_databricks(sync_type: str, table_full_name: str | None, payload: di
     with dbsql.connect(server_hostname=host, http_path=http_path, access_token=token) as db_conn:
         with db_conn.cursor() as cur:
             if sync_type == "COLUMN_DEF":
-                col = payload["column_name"]
+                col = _safe_ident(payload["column_name"])
                 dfn = (payload.get("definition") or "").replace("'", "''")
-                parts = table_full_name.split(".")
-                cat, sch, tbl = [f"`{p}`" for p in parts]
-                cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} ALTER COLUMN `{col}` COMMENT '{dfn}'")
+                cat, sch, tbl = _split_full_name(table_full_name)
+                cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} ALTER COLUMN {col} COMMENT '{dfn}'")
 
             elif sync_type == "TABLE_DESC":
                 dfn = (payload.get("definition") or "").replace("'", "''")
-                parts = table_full_name.split(".")
-                cat, sch, tbl = [f"`{p}`" for p in parts]
+                cat, sch, tbl = _split_full_name(table_full_name)
                 cur.execute(f"COMMENT ON TABLE {cat}.{sch}.{tbl} IS '{dfn}'")
 
             elif sync_type == "STEWARD":
-                # Implementation depends on how stewards are stored in Databricks (e.g. Tags)
-                steward = payload.get("steward", "").replace("'", "''")
-                parts = table_full_name.split(".")
-                cat, sch, tbl = [f"`{p}`" for p in parts]
+                # Steward is stored as a Unity Catalog tag. Reject anything that
+                # is not a syntactically valid email so the f-string can't be
+                # broken out of by a crafted value.
+                steward = (payload.get("steward") or "").strip()
+                if steward and not _EMAIL_RE.match(steward):
+                    raise ValueError(f"Refusing to set non-email steward value: {steward!r}")
+                steward_sql = steward.replace("'", "''")
+                cat, sch, tbl = _split_full_name(table_full_name)
                 try:
-                    cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} SET TAGS ('steward' = '{steward}')")
+                    cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} SET TAGS ('steward' = '{steward_sql}')")
                 except Exception as e:
                     logging.warning("Could not set steward tag on %s: %s", table_full_name, e)
 
@@ -115,22 +141,23 @@ def _push_definition_to_databricks(table_full_name: str, column_name: str, defin
     _push_to_databricks("COLUMN_DEF", table_full_name, {"column_name": column_name, "definition": definition})
 
 
-def _process_sync_queue() -> int:
+def _process_sync_queue(conn=None) -> int:
     """Drain pending sync items → Databricks. Returns number of items attempted.
 
-    Uses dynamic batching and priority-aware processing:
-    1. Metadata (COLUMN_DEF, TABLE_DESC, STEWARD)
-    2. Tags and Comments
-    3. Audit logs (Lowest priority)
+    @param conn: Optional injected connection (used by the sidecar daemon
+                 with its own DuckDB handle). When None, falls back to the
+                 Streamlit-cached _get_write_connection.
+
+    Priority ordering (weight ASC, queued_at ASC):
+        1. Metadata    — COLUMN_DEF, TABLE_DESC
+        2. Tags/comms  — STEWARD, TAG, COMMENT
+        3. Audit log   — AUDIT
     """
-    if not _duckdb_available():
-        return 0
-
-    # Determine mode: Idle if no UI activity for 5 minutes
-    is_idle = (time.time() - _get_last_ui_activity()) > 300
-    batch_size = 50 if is_idle else 5
-
-    conn = _get_write_connection()
+    if conn is None:
+        if not _duckdb_available():
+            return 0
+        conn = _get_write_connection()
+    batch_size = _SYNC_BATCH_SIZE
     try:
         with conn.cursor() as cursor:
             # Multi-tier priority: order by sync_type weight, then by age

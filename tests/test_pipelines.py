@@ -15,7 +15,7 @@ Coverage:
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
@@ -82,7 +82,7 @@ class TestGetPipelines:
                  "adf_factory_name": None, "adf_pipeline_name": None,
                  "ado_organization": None, "ado_project": None,
                  "ado_pipeline_id": None, "created_by": "admin",
-                 "created_at": datetime.utcnow()}]
+                 "created_at": datetime.now(UTC)}]
         st.session_state["_demo_pipelines"] = fake
         with patch("src.pipelines._duckdb_available", return_value=False):
             from src.pipelines import get_pipelines
