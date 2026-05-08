@@ -101,3 +101,91 @@ class TestSyncPrefsToSession:
         assert st.session_state.col_bookmarks == {"col_1"}
         # recent_views is a list (recency order), not a set.
         assert st.session_state.recent_views == ["table_3", "table_2"]
+
+from src.personalization import is_editing_enabled, set_editing_enabled, is_power_user
+
+class FakeSiteSettingStorage:
+    def __init__(self):
+        self._store = {}
+
+    def get(self, key: str) -> str | None:
+        return self._store.get(key)
+
+    def set(self, key: str, value: str, actor_email: str) -> None:
+        self._store[key] = value
+
+class TestEditingEnabled:
+    def test_is_editing_enabled_cached(self):
+        st.session_state.clear()
+        st.session_state["_editing_enabled_cache"] = False
+        fake = FakeSiteSettingStorage()
+        fake.set("editing_enabled", "1", "admin")
+        with patch("src.personalization.get_site_setting_storage", return_value=fake):
+            # Should return cached False, not "1" from fake
+            assert is_editing_enabled() is False
+
+    def test_is_editing_enabled_not_cached_db_1(self):
+        st.session_state.clear()
+        fake = FakeSiteSettingStorage()
+        fake.set("editing_enabled", "1", "admin")
+        with patch("src.personalization.get_site_setting_storage", return_value=fake):
+            assert is_editing_enabled() is True
+            assert st.session_state["_editing_enabled_cache"] is True
+
+    def test_is_editing_enabled_not_cached_db_0(self):
+        st.session_state.clear()
+        fake = FakeSiteSettingStorage()
+        fake.set("editing_enabled", "0", "admin")
+        with patch("src.personalization.get_site_setting_storage", return_value=fake):
+            assert is_editing_enabled() is False
+            assert st.session_state["_editing_enabled_cache"] is False
+
+    def test_is_editing_enabled_not_cached_db_none(self):
+        st.session_state.clear()
+        fake = FakeSiteSettingStorage()
+        with patch("src.personalization.get_site_setting_storage", return_value=fake):
+            assert is_editing_enabled() is True
+            assert st.session_state["_editing_enabled_cache"] is True
+
+class TestSetEditingEnabled:
+    def test_set_editing_enabled_true(self):
+        st.session_state.clear()
+        fake = FakeSiteSettingStorage()
+        with patch("src.personalization.get_site_setting_storage", return_value=fake):
+            set_editing_enabled(True, "admin@example.com")
+            assert fake.get("editing_enabled") == "1"
+            assert st.session_state["_editing_enabled_cache"] is True
+
+    def test_set_editing_enabled_false(self):
+        st.session_state.clear()
+        fake = FakeSiteSettingStorage()
+        with patch("src.personalization.get_site_setting_storage", return_value=fake):
+            set_editing_enabled(False, "admin@example.com")
+            assert fake.get("editing_enabled") == "0"
+            assert st.session_state["_editing_enabled_cache"] is False
+
+class TestPowerUser:
+    def test_is_power_user_editing_disabled(self):
+        st.session_state.clear()
+        st.session_state["_editing_enabled_cache"] = False
+        assert is_power_user() is False
+
+    def test_is_power_user_no_editor_groups(self):
+        st.session_state.clear()
+        st.session_state["_editing_enabled_cache"] = True
+        with patch("os.getenv", return_value=""):
+            assert is_power_user() is False
+
+    def test_is_power_user_no_matching_groups(self):
+        st.session_state.clear()
+        st.session_state["_editing_enabled_cache"] = True
+        st.session_state["user_groups"] = ["reader", "viewer"]
+        with patch("os.getenv", return_value="admin,editor"):
+            assert is_power_user() is False
+
+    def test_is_power_user_matching_groups(self):
+        st.session_state.clear()
+        st.session_state["_editing_enabled_cache"] = True
+        st.session_state["user_groups"] = ["reader", "editor"]
+        with patch("os.getenv", return_value="admin, editor "):
+            assert is_power_user() is True
