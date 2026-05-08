@@ -37,6 +37,16 @@ from src.storage.pipeline_storage import (  # noqa: F401
     PipelineDefStorage,
     PipelineRunStorage,
 )
+from src.storage.preference_storage import (  # noqa: F401
+    DemoPreferenceStorage,
+    DemoSiteSettingStorage,
+    DuckDBPreferenceStorage,
+    DuckDBSiteSettingStorage,
+    FakePreferenceStorage,
+    FakeSiteSettingStorage,
+    PreferenceStorage,
+    SiteSettingStorage,
+)
 
 
 def _use_demo_backend() -> bool:
@@ -71,4 +81,28 @@ def get_pipeline_run_storage() -> PipelineRunStorage:
     return (
         DemoPipelineRunStorage() if _use_demo_backend()
         else DuckDBPipelineRunStorage()
+    )
+
+
+def get_preference_storage() -> PreferenceStorage:
+    """Pick a user-preferences backend based on runtime env.
+
+    Demo mode falls back to a no-op backend — preferences are kept only
+    in ``st.session_state`` (handled by ``src.personalization``).
+    """
+    return (
+        DemoPreferenceStorage() if _use_demo_backend()
+        else DuckDBPreferenceStorage()
+    )
+
+
+def get_site_setting_storage() -> SiteSettingStorage:
+    """Pick a site-settings backend based on runtime env.
+
+    Demo mode falls back to a no-op backend — global toggles only persist
+    via the in-process session cache.
+    """
+    return (
+        DemoSiteSettingStorage() if _use_demo_backend()
+        else DuckDBSiteSettingStorage()
     )
