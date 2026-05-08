@@ -198,7 +198,12 @@ def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def search_all_metadata(query: str, groups: tuple):
-    """Search across tables, columns, and descriptions using UNION."""
+    """Search across tables, columns, and descriptions using UNION.
+
+    Like get_authorized_tables, this enforces row-level access control.
+    A table or its columns are returned only if the user's Entra ID groups
+    intersect with the table's allowed principals, or if it is public.
+    """
     import logging
 
     logging.info("GLOBAL SEARCH query=%s groups=%s", query, groups)
