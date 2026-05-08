@@ -198,7 +198,27 @@ def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def search_all_metadata(query: str, groups: tuple):
-    """Search across tables, columns, and descriptions using UNION."""
+    """Search across tables, columns, and glossary terms using a UNION query.
+
+    This function performs a global search across multiple metadata domains
+    simultaneously, ensuring all results are permission-filtered to only show
+    what the user's groups are authorized to see.
+
+    The search covers:
+      1. Tables (matches on table_name or description)
+      2. Columns (matches on column_name, comment, business_name, or definition)
+      3. Glossary terms (matches on term or definition, injected if in demo mode)
+
+    After retrieval, results are assigned a `_score` for relevance sorting:
+      - Exact matches score highest (5 for Tables, 2 for Columns)
+      - Prefix matches score next highest (4 for Tables, 1 for Columns)
+      - Substring matches score lowest (3 or 2 for Tables, 0 for Columns)
+      - Glossary matches default to a score of 1
+
+    @param query: The user-entered search string (matched via SQL `LIKE %query%`).
+    @param groups: A tuple of Entra ID group Object IDs the user belongs to.
+    @returns: A pandas DataFrame of combined search results sorted by relevance.
+    """
     import logging
 
     logging.info("GLOBAL SEARCH query=%s groups=%s", query, groups)
