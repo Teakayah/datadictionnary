@@ -98,12 +98,12 @@ def render_header(user_name: str | None = None, active_tab: str = "search", show
     with st.container():
         st.markdown('<div id="dd-proxy-anchor"></div>', unsafe_allow_html=True)
         for tab_id in _tabs:
-            if st.button(t(f"nav.{tab_id}"), key=f"nav_{tab_id}"):
+            if st.button(t(f"nav.{tab_id}"), key=f"nav_{tab_id}", help=t(f"nav.{tab_id}")):
                 st.query_params["tab"] = tab_id
                 st.rerun()
         # on_click fires before rerun so render_header() picks up the new locale.
-        st.button("LOCALE_EN", key="lang_btn_en", on_click=set_locale, args=("en",))
-        st.button("LOCALE_FR", key="lang_btn_fr", on_click=set_locale, args=("fr",))
+        st.button("LOCALE_EN", key="lang_btn_en", on_click=set_locale, args=("en",), help=t("language.switch_to_en"))
+        st.button("LOCALE_FR", key="lang_btn_fr", on_click=set_locale, args=("fr",), help=t("language.switch_to_fr"))
 
     # Zero-height iframe: wires nav clicks → hidden Streamlit buttons,
     # and wires language toggle clicks → hidden lang proxy buttons.

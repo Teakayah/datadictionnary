@@ -179,32 +179,32 @@ def _show_cms_create_dialog():
         t("cms.post_type"),
         options=list(type_labels.values()),
         horizontal=True,
-        key="cms_create_type",
+        key="cms_create_type", help=t("cms.post_type"),
     )
     post_type = next(k for k, v in type_labels.items() if v == sel_type)
 
-    title = st.text_input(t("cms.post_title"), max_chars=120, key="cms_create_title")
-    body  = st.text_area(t("cms.post_body"),  max_chars=500, height=100, key="cms_create_body")
+    title = st.text_input(t("cms.post_title"), max_chars=120, key="cms_create_title", help=t("cms.post_title"))
+    body  = st.text_area(t("cms.post_body"),  max_chars=500, height=100, key="cms_create_body", help=t("cms.post_body"))
 
     table_ref = None
     if post_type == "featured_table":
         table_ref = st.text_input(
             t("cms.post_table_ref"),
             placeholder="catalog.schema.table_name",
-            key="cms_create_tableref",
+            key="cms_create_tableref", help=t("cms.post_table_ref"),
         )
 
     expiry_label = st.selectbox(
         t("cms.post_expiry"),
         options=list(_EXPIRY_DAYS.keys()),
         index=0,
-        key="cms_create_expiry",
+        key="cms_create_expiry", help=t("cms.post_expiry"),
     )
     expiry_days = _EXPIRY_DAYS[expiry_label]
 
     _save, _cancel = st.columns([1, 1], gap="small")
     with _save:
-        if st.button(t("common.save"), type="primary", use_container_width=True, key="cms_save_btn"):
+        if st.button(t("common.save"), type="primary", use_container_width=True, key="cms_save_btn", help=t("common.save")):
             if not title.strip():
                 st.error(t("cms.error_title_required"))
                 return
@@ -215,7 +215,7 @@ def _show_cms_create_dialog():
             create_post(post_type, title.strip(), body.strip(), (table_ref or "").strip() or None, actor, expiry_days)
             st.rerun()
     with _cancel:
-        if st.button(t("common.cancel"), use_container_width=True, key="cms_cancel_btn"):
+        if st.button(t("common.cancel"), use_container_width=True, key="cms_cancel_btn", help=t("common.cancel")):
             st.rerun()
 
 
@@ -396,7 +396,7 @@ def _render_bookmarks_tab(groups, get_authorized_tables_fn, pref_delete_fn=None,
                     f'</div>',
                     unsafe_allow_html=True,
                 )
-                if st.button(f"→ {_bk_tbl_label}", key=f"colbk_open_{_bk_id}", use_container_width=True, type="secondary"):
+                if st.button(f"→ {_bk_tbl_label}", key=f"colbk_open_{_bk_id}", use_container_width=True, type="secondary", help=t("search.view_details_help")):
                     st.query_params["tab"] = "search"
                     st.session_state["dd_search_override"] = _bk_tbl_label
                     st.session_state["dd_nav_select"] = _bk_table
@@ -501,7 +501,7 @@ def _render_priority_actions(all_data):
     if not undocumented.empty:
         st.warning(t("health.missing_descriptions"))
         for row in undocumented.itertuples(index=False):
-            if st.button(f"📄 {getattr(row, 'table_name', '')}", key=f"health_fix_{getattr(row, 'full_name', '')}", use_container_width=True):
+            if st.button(f"📄 {getattr(row, 'table_name', '')}", key=f"health_fix_{getattr(row, 'full_name', '')}", use_container_width=True, help=t("search.view_details_help")):
                 st.query_params["tab"] = "search"
                 st.session_state["dd_search_override"] = getattr(row, 'table_name', '')
                 st.session_state["dd_nav_select"] = getattr(row, 'full_name', '')
@@ -898,12 +898,12 @@ def render_table_metadata_editor(table_full_name: str, current_desc: str, curren
     """Editor for table-level metadata (description, steward)."""
     st.markdown(f"**{table_full_name}**")
 
-    new_desc = st.text_area(t("detail.table_description"), value=current_desc, height=150)
-    new_stew = st.text_input(t("detail.steward_email"), value=current_steward, placeholder="e.g. data.steward@example.com")
+    new_desc = st.text_area(t("detail.table_description"), value=current_desc, height=150, help=t("detail.table_description"))
+    new_stew = st.text_input(t("detail.steward_email"), value=current_steward, placeholder="e.g. data.steward@example.com", help=t("detail.steward_email"))
 
     c1, c2 = st.columns([1, 1])
     with c1:
-        if st.button(t("common.save"), type="primary", use_container_width=True):
+        if st.button(t("common.save"), type="primary", use_container_width=True, help=t("common.save")):
             if new_stew.strip() and "@" not in new_stew:
                 st.error(t("detail.invalid_email"))
             else:
@@ -915,7 +915,7 @@ def render_table_metadata_editor(table_full_name: str, current_desc: str, curren
                 except Exception as e:
                     st.error(t("common.error_with_details", error=str(e)))
     with c2:
-        if st.button(t("common.cancel"), use_container_width=True):
+        if st.button(t("common.cancel"), use_container_width=True, help=t("common.cancel")):
             st.rerun()
 
 
@@ -992,28 +992,28 @@ def _pipeline_status_color(status: str) -> str:
 @st.dialog(t("pipelines.create_title"), width="large")
 def _show_pipeline_create_dialog():
     backend_opts = [_BACKEND_LABEL[b] for b in BACKENDS]
-    sel_label = st.radio(t("pipelines.backend"), options=backend_opts, horizontal=True, key="pl_create_backend")
+    sel_label = st.radio(t("pipelines.backend"), options=backend_opts, horizontal=True, key="pl_create_backend", help=t("pipelines.backend"))
     backend = next(b for b in BACKENDS if _BACKEND_LABEL[b] == sel_label)
 
-    title = st.text_input(t("pipelines.field_title"), max_chars=120, key="pl_create_title")
-    desc  = st.text_area(t("pipelines.field_desc"),  max_chars=300, height=80, key="pl_create_desc")
+    title = st.text_input(t("pipelines.field_title"), max_chars=120, key="pl_create_title", help=t("pipelines.field_title"))
+    desc  = st.text_area(t("pipelines.field_desc"),  max_chars=300, height=80, key="pl_create_desc", help=t("pipelines.field_desc"))
 
     db_job_id = adf_sub = adf_rg = adf_fact = adf_pipe = ado_org = ado_proj = ado_pid = None
     if backend == "databricks":
-        db_job_id = st.text_input(t("pipelines.field_job_id"), placeholder="1234", key="pl_db_job")
+        db_job_id = st.text_input(t("pipelines.field_job_id"), placeholder="1234", key="pl_db_job", help=t("pipelines.field_job_id"))
     elif backend == "adf":
-        adf_sub  = st.text_input(t("pipelines.field_adf_sub"),  key="pl_adf_sub")
-        adf_rg   = st.text_input(t("pipelines.field_adf_rg"),   key="pl_adf_rg")
-        adf_fact = st.text_input(t("pipelines.field_adf_fact"),  key="pl_adf_fact")
-        adf_pipe = st.text_input(t("pipelines.field_adf_pipe"),  key="pl_adf_pipe")
+        adf_sub  = st.text_input(t("pipelines.field_adf_sub"),  key="pl_adf_sub", help=t("pipelines.field_adf_sub"))
+        adf_rg   = st.text_input(t("pipelines.field_adf_rg"),   key="pl_adf_rg", help=t("pipelines.field_adf_rg"))
+        adf_fact = st.text_input(t("pipelines.field_adf_fact"),  key="pl_adf_fact", help=t("pipelines.field_adf_fact"))
+        adf_pipe = st.text_input(t("pipelines.field_adf_pipe"),  key="pl_adf_pipe", help=t("pipelines.field_adf_pipe"))
     elif backend == "ado":
-        ado_org  = st.text_input(t("pipelines.field_ado_org"),  key="pl_ado_org")
-        ado_proj = st.text_input(t("pipelines.field_ado_proj"), key="pl_ado_proj")
-        ado_pid  = st.text_input(t("pipelines.field_ado_pid"),  placeholder="42", key="pl_ado_pid")
+        ado_org  = st.text_input(t("pipelines.field_ado_org"),  key="pl_ado_org", help=t("pipelines.field_ado_org"))
+        ado_proj = st.text_input(t("pipelines.field_ado_proj"), key="pl_ado_proj", help=t("pipelines.field_ado_proj"))
+        ado_pid  = st.text_input(t("pipelines.field_ado_pid"),  placeholder="42", key="pl_ado_pid", help=t("pipelines.field_ado_pid"))
 
     _s, _c = st.columns(2)
     with _s:
-        if st.button(t("common.save"), type="primary", use_container_width=True, key="pl_save"):
+        if st.button(t("common.save"), type="primary", use_container_width=True, key="pl_save", help=t("common.save")):
             if not title.strip():
                 st.error(t("pipelines.error_title"))
                 return
@@ -1025,7 +1025,7 @@ def _show_pipeline_create_dialog():
             )
             st.rerun()
     with _c:
-        if st.button(t("common.cancel"), use_container_width=True, key="pl_cancel"):
+        if st.button(t("common.cancel"), use_container_width=True, key="pl_cancel", help=t("common.cancel")):
             st.rerun()
 
 
@@ -1147,7 +1147,7 @@ def render_pipelines_page():
                     )
                 with _stop_col:
                     if not is_term and st.button(
-                        t("pipelines.stop"), key=f"pl_stop_{pid}",
+                        t("pipelines.stop"), key=f"pl_stop_{pid}", help=t("pipelines.stop"),
                         type="primary", use_container_width=True,
                     ):
                         try:
@@ -1160,7 +1160,7 @@ def render_pipelines_page():
             else:
                 # No active run — show Start button
                 if st.button(
-                    t("pipelines.start"), key=f"pl_start_{pid}",
+                    t("pipelines.start"), key=f"pl_start_{pid}", help=t("pipelines.start"),
                     type="secondary", use_container_width=False,
                 ):
                     try:

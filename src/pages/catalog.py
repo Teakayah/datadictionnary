@@ -45,7 +45,7 @@ def render_catalog_browser(groups, get_authorized_tables_fn):
                                 f'</div>',
                                 unsafe_allow_html=True,
                             )
-                            if st.button(f"📄 {tbl}", key=f"tree_{full_n}", use_container_width=True):
+                            if st.button(f"📄 {tbl}", key=f"tree_{full_n}", use_container_width=True, help=t("search.tree_help")):
                                 st.query_params["tab"] = "search"
                                 st.session_state["dd_search_override"] = tbl
                                 st.session_state["dd_nav_select"] = full_n

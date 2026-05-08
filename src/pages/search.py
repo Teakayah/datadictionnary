@@ -36,7 +36,7 @@ def _render_comment_form(
     _open_key = f"dd_comment_open_{key_suffix}"
     if not st.session_state.get(_open_key):
         _label = t("comment.reply") if parent_comment_id else t("comment.leave_a_comment")
-        if st.button(_label, key=f"dd_comment_btn_{key_suffix}"):
+        if st.button(_label, key=f"dd_comment_btn_{key_suffix}", help=_label):
             st.session_state[_open_key] = True
             st.rerun()
     else:
@@ -51,7 +51,7 @@ def _render_comment_form(
         )
         _cs, _cc, _ = st.columns([2, 2, 4], gap="small")
         with _cs:
-            if st.button(t("comment.send"), key=f"dd_comment_send_{key_suffix}", use_container_width=True):
+            if st.button(t("comment.send"), key=f"dd_comment_send_{key_suffix}", use_container_width=True, help=t("comment.send")):
                 if _inp.strip():
                     save_comment(
                         "TABLE", full_name, _inp.strip(), steward,
@@ -62,7 +62,7 @@ def _render_comment_form(
                 else:
                     st.warning(t("comment.empty_error"))
         with _cc:
-            if st.button(t("comment.cancel"), key=f"dd_comment_cancel_{key_suffix}", use_container_width=True):
+            if st.button(t("comment.cancel"), key=f"dd_comment_cancel_{key_suffix}", use_container_width=True, help=t("comment.cancel")):
                 st.session_state.pop(_open_key, None)
                 st.rerun()
         if not steward and not parent_comment_id:
@@ -179,7 +179,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
 
         _c_preview, _c_export = st.columns(2, gap="small")
         with _c_preview:
-            if st.button(t("detail.preview_data"), key=f"preview_{full_name}", use_container_width=True):
+            if st.button(t("detail.preview_data"), key=f"preview_{full_name}", use_container_width=True, help=t("detail.preview_data")):
                 render_data_sample(full_name)
         with _c_export:
             if n_cols > 0:
@@ -262,18 +262,18 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                         value=_col_biz,
                         placeholder=t("editor.placeholder_biz_name"),
                         max_chars=None if os.getenv("TESTING_NO_MAX_CHARS") else MAX_BUSINESS_NAME_LEN,
-                        key=f"col_biz_name_{_edit_key}",
+                        key=f"col_biz_name_{_edit_key}", help=t("editor.business_name_label"),
                     )
                     _inp_def = st.text_input(
                         t("editor.definition_label"),
                         value=_col_def,
                         placeholder=t("editor.placeholder_biz_def"),
                         max_chars=None if os.getenv("TESTING_NO_MAX_CHARS") else MAX_BUSINESS_NAME_LEN,
-                        key=f"col_biz_def_{_edit_key}",
+                        key=f"col_biz_def_{_edit_key}", help=t("editor.definition_label"),
                     )
                     _sc, _cc, _ = st.columns([2, 2, 4], gap="small")
                     with _sc:
-                        if st.button(t("editor.save"), key=f"col_biz_save_{_edit_key}", use_container_width=True):
+                        if st.button(t("editor.save"), key=f"col_biz_save_{_edit_key}", use_container_width=True, help=t("editor.save")):
                             try:
                                 save_business_name(full_name, _cname, _inp_name.strip(), _inp_def.strip())
                                 st.session_state.pop("dd_col_edit_mode", None)
@@ -287,7 +287,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                                 logging.error("Save failed for %s.%s: %s", full_name, _cname, exc, exc_info=True)
                                 st.error(f"Save failed: {exc}")
                     with _cc:
-                        if st.button(t("editor.cancel"), key=f"col_biz_cancel_{_edit_key}", use_container_width=True):
+                        if st.button(t("editor.cancel"), key=f"col_biz_cancel_{_edit_key}", use_container_width=True, help=t("editor.cancel")):
                             st.session_state.pop("dd_col_edit_mode", None)
                             st.rerun()
                     if _override.get("edited_by"):
@@ -369,13 +369,13 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                 privilege = str(getattr(g, "privilege", ""))
                 st.markdown('<div style="border-top: 1px solid var(--ink-10); margin: 8px 0 4px 0;"></div>', unsafe_allow_html=True)
                 if principal == "SELECT_ALL_USERS":
-                    if st.button(t("detail.browse_public_tables", privilege=privilege), key=f"grant_{full_name}_public_{privilege}", use_container_width=True):
+                    if st.button(t("detail.browse_public_tables", privilege=privilege), key=f"grant_{full_name}_public_{privilege}", use_container_width=True, help=t("detail.browse_public_tables", privilege=privilege)):
                         st.session_state["group_filter"] = "SELECT_ALL_USERS"
                         st.session_state.pop("catalog_search", None)
                         st.session_state.pop("dd_nav_select", None)
                         st.rerun()
                 else:
-                    if st.button(t("detail.search_tables_accessible", principal=principal, privilege=privilege), key=f"grant_{full_name}_{principal}_{privilege}", use_container_width=True):
+                    if st.button(t("detail.search_tables_accessible", principal=principal, privilege=privilege), key=f"grant_{full_name}_{principal}_{privilege}", use_container_width=True, help=t("detail.search_tables_accessible", principal=principal, privilege=privilege)):
                         st.session_state["group_filter"] = principal
                         st.session_state.pop("catalog_search", None)
                         st.session_state.pop("dd_nav_select", None)
@@ -460,7 +460,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                         f'</div>',
                         unsafe_allow_html=True,
                     )
-                    if st.button(t("detail.open_related"), key=f"rel_{_rel_full}", type="secondary", use_container_width=True):
+                    if st.button(t("detail.open_related"), key=f"rel_{_rel_full}", type="secondary", use_container_width=True, help=t("detail.open_related")):
                         st.session_state["dd_search_override"] = str(rel.get("table_name", ""))
                         st.session_state["dd_nav_select"] = _rel_full
                         st.rerun()
@@ -500,7 +500,7 @@ def render_search_page(query_groups: tuple) -> None:
             else:
                 st.info(t("search.group_filter_active", group=active_group))
         with c2:
-            if st.button(f"← {t('common.back')}", use_container_width=True, type="secondary"):
+            if st.button(f"← {t('common.back')}", use_container_width=True, type="secondary", help=t("common.back")):
                 st.session_state.pop("group_filter", None)
                 st.rerun()
 
