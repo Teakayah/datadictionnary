@@ -15,6 +15,7 @@ import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
+from src.auth import is_admin
 from src.storage import get_cms_storage
 
 POST_TYPES = ("announcement", "featured_table", "guide")
@@ -50,6 +51,8 @@ def create_post(
     Storage backend chooses how to durable-ify it (DuckDB row vs session
     state). Errors propagate so the caller can show a Streamlit error.
     """
+    if not is_admin():
+        raise PermissionError("Only admins can create CMS posts.")
     now = datetime.now(UTC)
     post = {
         "post_id":      str(uuid.uuid4()),
@@ -74,6 +77,8 @@ def create_post(
 
 def delete_post(post_id: str) -> None:
     """Remove a CMS post by id. Errors propagate."""
+    if not is_admin():
+        raise PermissionError("Only admins can delete CMS posts.")
     try:
         get_cms_storage().delete(post_id)
     except Exception as exc:

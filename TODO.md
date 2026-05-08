@@ -157,30 +157,43 @@ Each entity migrated as its own commit, tests stayed green throughout
 
 ### 5. Defense-in-depth: server-side auth checks on write paths
 
-**Why:** today only the UI gates these. If `is_admin()` regresses or a new
-caller bypasses the UI, the cost is real (pipeline runs, admin posts).
+**Status:** done (branch `feat/auth-checks-and-push-tests`).
 
-**Target:** apply the `src/audit.py:52` pattern (`if not is_admin(): raise
-PermissionError`) to:
-- `src/pipelines.py`: `trigger_pipeline`, `cancel_run`, `delete_pipeline_def`,
-  `create_pipeline_def`.
-- `src/cms.py`: `create_post`, `delete_post`.
-- `src/personalization.py`: `set_editing_enabled`.
+- `src/cms.py`            — `create_post`, `delete_post`                 (admin)
+- `src/pipelines.py`      — `create_pipeline_def`, `delete_pipeline_def` (admin)
+                           — `trigger_pipeline`, `cancel_run`            (pipeline user or admin)
+- `src/personalization.py` — `set_editing_enabled`                       (admin)
 
-**Acceptance:** each function rejects with `PermissionError` when the caller
-is not admin / pipeline user. Tests cover the rejection path.
+Each function now raises `PermissionError` at its boundary if the caller
+fails the check. Tests verify both: existing call sites set up admin /
+pipeline-user context via `patch("src.X.is_admin")`; new rejection-path
+tests assert that the underlying storage / backend was never touched
+when the check fails.
 
 ### 6. Unit tests for `src/sync/push.py`
 
-**Why:** `_push_to_databricks` dispatches 5 sync types and silently falls
-through on unknown types. Easy to break without noticing.
+**Status:** done (branch `feat/auth-checks-and-push-tests`).
 
-**Target:** new `tests/test_sync_push.py` with a fake cursor:
-- One test per sync type (COLUMN_DEF, TABLE_DESC, STEWARD, AUDIT, COMMENT).
-- Unknown sync_type emits a warning and does not call cursor.execute.
-- `_safe_ident` rejects backticks, dots, semicolons, and non-ASCII.
-- `_split_full_name` rejects 2-part and 4-part names.
-- `STEWARD` with non-email value raises `ValueError`.
+`tests/test_sync_push.py` (33 tests):
+
+- **Identifier whitelist** (`_safe_ident`): accepts `[A-Za-z0-9_]+`,
+  rejects backticks, dots, semicolons, hyphens, spaces, non-ASCII,
+  empty / whitespace-only.
+- **3-part name parser** (`_split_full_name`): accepts exactly
+  `cat.sch.tbl`, rejects 1 / 2 / 4 / empty parts.
+- **Per-sync-type dispatch**: COLUMN_DEF (ALTER COLUMN COMMENT),
+  TABLE_DESC (COMMENT ON TABLE), STEWARD (SET TAGS), AUDIT, COMMENT.
+- **STEWARD** rejects non-email values (`ValueError`).
+- **Unknown sync_type** logs a warning and does not call
+  `cursor.execute`. Required adding an explicit `else:` branch in
+  `_push_to_databricks` — previously unknown types fell through silently
+  and the queue marked rows `done`.
+- **Missing credentials** raise `RuntimeError` before any HTTP attempt.
+
+Tests run against the conftest's `databricks.sql` MagicMock via a small
+local helper that walks the `with`-block chain
+(``connect.return_value.__enter__.return_value.cursor.return_value.__enter__.return_value``)
+since the conftest's `get_db_cursor()` is wired for the read-query path.
 
 ### 7. Connection pooling for Databricks writes
 
