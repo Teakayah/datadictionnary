@@ -8,8 +8,12 @@ metadata:
     app.kubernetes.io/component: network-policy
 spec:
   podSelector:
-    matchLabels:
-      app: dd-sync
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - dd-sync
+          - dd-sync-worker
 
   policyTypes:
     - Ingress
