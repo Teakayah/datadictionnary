@@ -313,13 +313,9 @@ def sync():
                     FROM system.information_schema.table_privileges
                 """)
                 df = cursor.fetchall_as_pandas()
-                for row in df.itertuples(index=False):
-                    if getattr(row, 'table_full_name', None) in table_full_names_set:
-                        permissions_data.append({
-                            "table_full_name": row.table_full_name,
-                            "principal": row.principal,
-                            "privilege": row.privilege
-                        })
+                if not df.empty:
+                    df_filtered = df.loc[df['table_full_name'].isin(table_full_names_set), ['table_full_name', 'principal', 'privilege']]
+                    permissions_data.extend(df_filtered.to_dict('records'))
     except Exception as e:
         print(f"    Could not fetch grants in bulk: {e}")
 
