@@ -616,6 +616,9 @@ def render_search_page(query_groups: tuple) -> None:
                         st.rerun()
                     _render_detail_panel(_row, full_name, query_groups)
 
+            else:
+                st.info(t("search.no_results", query=search_query))
+
         except Exception as e:
             logging.error("Error displaying search results: %s", e, exc_info=True)
             st.error(t("detail.load_error"))
