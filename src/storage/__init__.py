@@ -27,19 +27,48 @@ from src.storage.cms_storage import (  # noqa: F401
     DuckDBCMSStorage,
     FakeCMSStorage,
 )
+from src.storage.pipeline_storage import (  # noqa: F401
+    DemoPipelineDefStorage,
+    DemoPipelineRunStorage,
+    DuckDBPipelineDefStorage,
+    DuckDBPipelineRunStorage,
+    FakePipelineDefStorage,
+    FakePipelineRunStorage,
+    PipelineDefStorage,
+    PipelineRunStorage,
+)
+
+
+def _use_demo_backend() -> bool:
+    """Single source of truth for the demo/duckdb routing decision.
+
+    Demo mode and missing DuckDB both fall back to session-state storage —
+    DuckDB is the only persistent backend today.
+    """
+    return is_demo_mode() or not _duckdb_available()
 
 
 def get_cms_storage() -> CMSStorage:
     """Pick a CMS backend based on runtime env.
 
-    Demo mode and missing DuckDB both fall back to session-state storage —
-    DuckDB is the only persistent backend today. (CMS posts have always
-    been session-only when DuckDB is absent; this preserves that.)
-
     Not cached: re-evaluating ``is_demo_mode()`` and ``_duckdb_available()``
     on every call costs ~microseconds and keeps tests honest. Tests can
     inject a ``FakeCMSStorage`` via ``mock.patch('src.cms.get_cms_storage')``.
     """
-    if is_demo_mode() or not _duckdb_available():
-        return DemoCMSStorage()
-    return DuckDBCMSStorage()
+    return DemoCMSStorage() if _use_demo_backend() else DuckDBCMSStorage()
+
+
+def get_pipeline_def_storage() -> PipelineDefStorage:
+    """Pick a pipeline-definitions backend based on runtime env."""
+    return (
+        DemoPipelineDefStorage() if _use_demo_backend()
+        else DuckDBPipelineDefStorage()
+    )
+
+
+def get_pipeline_run_storage() -> PipelineRunStorage:
+    """Pick a pipeline-runs backend based on runtime env."""
+    return (
+        DemoPipelineRunStorage() if _use_demo_backend()
+        else DuckDBPipelineRunStorage()
+    )
