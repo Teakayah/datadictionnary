@@ -37,13 +37,14 @@ _PAGES = [
 # Violation IDs that are known Streamlit framework issues we cannot fix from app.py.
 # Any NEW violations not in this list will fail the test.
 _KNOWN_UNFIXABLE = frozenset({
-    # aria-allowed-attr USED to be required because Streamlit's st.dataframe
-    # re-renders fire after our initial MutationObserver. render_css now uses
-    # three layers (one-shot sweep, observer with attributeFilter on
-    # aria-haspopup, plus a 5 s polling fallback) that should close the
-    # Health-page race. We keep the rule defensively until a live run
-    # confirms; once it does, promote this to a hard failure.
-    "aria-allowed-attr",
+    # aria-allowed-attr was previously here because Streamlit's st.dataframe
+    # re-renders raced past our MutationObserver. The three-layer patch in
+    # src/ui/css.py::render_css (one-shot sweep + observer with
+    # attributeFilter=['aria-haspopup'] + 5 s polling fallback) closed the
+    # Health-page race; verified clean against a 50-user mock-auth run on
+    # 2026-05-08. Promoted to a hard failure — if it shows up again,
+    # something has regressed in the patch.
+    #
     # Streamlit progress-bar renders with a non-standard ARIA role.
     "scrollable-region-focusable",
 })

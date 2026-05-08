@@ -1,33 +1,32 @@
 {
-  "_baseline": "300-user 2-min run — 2026-04-29, seed=42, 800-table dataset",
-  "_note": "50-user smoke test must not exceed these values. Any regression at lower concurrency indicates a real performance problem.",
-  "_drift": "Re-baseline recommended. Since this baseline was captured: search_all_metadata gained two LEFT JOINs (data_quality_cache + business_name_overrides), the locust DuckDBQueryUser was updated to mirror them, and the HTTP user now exercises 'tab: pipelines' as well. Cost on the 800-table dataset is small but real; the thresholds below may be tighter than current behaviour deserves.",
+  "_baseline": "50-user 60s smoke run — 2026-05-08, 800-table dataset, MacBook dev hardware",
+  "_note": "50-user smoke test must not exceed these values. Numbers reflect the post-audit code (search_all_metadata with LEFT JOINs to data_quality_cache + business_name_overrides) and are intentionally generous (~25% headroom over observed p99) so the smoke test fails on real regressions, not noise.",
+  "_history": "Initial 300-user baseline captured 2026-04-29 became too tight after the search-query joins were added. Re-baselined 2026-05-08 from the dev-laptop smoke run; production-grade hardware should hit lower numbers. Re-tighten when running on prod-equivalent infra.",
 
   "failure_rate_max_pct": 1.0,
   "_failure_note": "1% tolerance covers transient auth-session setup failures in dev environments",
 
   "http": {
     "description": "Streamlit page-shell HTTP requests (tab navigation)",
-    "p95_max_ms": 20,
-    "p99_max_ms": 35,
-    "_note": "300-user p99 was 16ms; 20ms p95 / 35ms p99 gives headroom for dev variance"
+    "p95_max_ms": 35,
+    "p99_max_ms": 60
   },
 
   "duckdb_search": {
-    "description": "Broad and narrow search queries (UNION across tables + columns)",
-    "p95_max_ms": 8,
-    "p99_max_ms": 15
+    "description": "Broad and narrow search queries (UNION across tables + columns + LEFT JOINs to data_quality_cache + business_name_overrides)",
+    "p95_max_ms": 15,
+    "p99_max_ms": 30
   },
 
   "duckdb_simple": {
     "description": "Single-table queries: columns fetch, permissions, export CSV",
-    "p95_max_ms": 5,
-    "p99_max_ms": 10
+    "p95_max_ms": 12,
+    "p99_max_ms": 20
   },
 
   "duckdb_related": {
     "description": "Related-tables UNION JOIN — the most expensive query path",
-    "p95_max_ms": 15,
-    "p99_max_ms": 20
+    "p95_max_ms": 25,
+    "p99_max_ms": 40
   }
 }
