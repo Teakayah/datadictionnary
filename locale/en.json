@@ -15,7 +15,9 @@
     "sign_in": "Sign in",
     "sign_in_button": "Sign in with Entra ID",
     "mock_button": "Sign in with Entra ID (mock)",
-    "signed_in_as": "Signed in as"
+    "signed_in_as": "Signed in as",
+    "signin_failed_security": "Sign-in failed: security check did not match. Please try again.",
+    "signin_failed": "Sign-in failed. Please try again."
   },
   "search": {
     "hero_title": "Search the catalog.",
