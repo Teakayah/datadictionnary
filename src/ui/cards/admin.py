@@ -289,6 +289,36 @@ def _render_admin_editing_section():
     )
 
 
+def _render_admin_groups_cache_section():
+    """Admin tool: flush every user's cached Entra group membership.
+
+    After granting a user a new Entra group, click this to drop the
+    process-level groups cache so the next render of every active
+    session re-fetches via Graph (for overage users) or the inline
+    claim. Without this, group changes can take up to 1h to propagate
+    (the cache TTL).
+    """
+    st.markdown(
+        f'<div class="dd-section-header" style="margin-top:32px;">'
+        f'<span class="dd-eyebrow">§ {t("admin.groups_cache_title")}</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<p style="font-family:var(--font-sans); font-size:13px; '
+        f'color:var(--ink-60); line-height:1.5; margin:8px 0 12px;">'
+        f'{t("admin.groups_cache_subtitle")}</p>',
+        unsafe_allow_html=True,
+    )
+    if st.button(
+        t("admin.groups_cache_flush"),
+        key="admin_groups_cache_flush",
+        type="secondary",
+    ):
+        from src.auth_graph import clear_groups_cache  # noqa: PLC0415
+        n = clear_groups_cache()
+        st.success(t("admin.groups_cache_flushed", n=n))
+
+
 def render_admin_page():
     if not is_admin():
         st.error(t("admin.access_denied"))
@@ -306,6 +336,7 @@ def render_admin_page():
     _render_admin_cms_section()
     _render_admin_pipelines_section()
     _render_admin_editing_section()
+    _render_admin_groups_cache_section()
     _render_admin_sync_section()
     _render_admin_biz_log_section()
     _render_admin_comment_log_section()

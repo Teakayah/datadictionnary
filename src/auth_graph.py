@@ -130,7 +130,29 @@ def _call_get_member_objects(access_token: str) -> list[str]:
     return out
 
 
-def _clear_cache() -> None:
-    """Test helper — drop all cached entries."""
+def clear_groups_cache(user_oid: str | None = None) -> int:
+    """Drop cached group memberships.
+
+    Use case: an admin grants a user a new Entra group, and the user
+    needs the change to be visible without waiting for the 1h cache TTL.
+    Calling this with the user's OID forces the next
+    ``fetch_member_groups`` call to hit Graph again. Calling it without
+    an OID flushes every user's entry — useful from an admin
+    "refresh all permissions" tool.
+
+    Returns the number of cache entries dropped.
+    """
     with _CACHE_LOCK:
-        _GROUPS_CACHE.clear()
+        if user_oid is None:
+            n = len(_GROUPS_CACHE)
+            _GROUPS_CACHE.clear()
+            return n
+        if user_oid in _GROUPS_CACHE:
+            del _GROUPS_CACHE[user_oid]
+            return 1
+        return 0
+
+
+def _clear_cache() -> None:
+    """Test helper — alias for ``clear_groups_cache()`` that drops everything."""
+    clear_groups_cache()

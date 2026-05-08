@@ -198,6 +198,40 @@ class TestFetchMemberGroups:
         assert result == []
 
 
+class TestClearGroupsCache:
+    def test_clear_specific_oid(self):
+        from src.auth_graph import clear_groups_cache, fetch_member_groups
+        with patch("src.auth_graph.requests") as r:
+            r.post.return_value = _resp(200, {"value": ["g1"]})
+            fetch_member_groups("tok", "u1")
+            fetch_member_groups("tok", "u2")
+            n = clear_groups_cache("u1")
+            # Only u1 was dropped — u2 still cached, u1 must re-fetch.
+            fetch_member_groups("tok", "u2")  # cache hit, no new POST
+            fetch_member_groups("tok", "u1")  # cache miss → POST
+        assert n == 1
+        # 2 initial fetches + 1 re-fetch for u1 = 3 total POSTs.
+        assert r.post.call_count == 3
+
+    def test_clear_all_with_no_oid_arg(self):
+        from src.auth_graph import clear_groups_cache, fetch_member_groups
+        with patch("src.auth_graph.requests") as r:
+            r.post.return_value = _resp(200, {"value": ["g1"]})
+            fetch_member_groups("tok", "u1")
+            fetch_member_groups("tok", "u2")
+            fetch_member_groups("tok", "u3")
+            n = clear_groups_cache()
+        assert n == 3
+
+    def test_clear_unknown_oid_returns_zero(self):
+        from src.auth_graph import clear_groups_cache
+        assert clear_groups_cache("never-cached") == 0
+
+    def test_clear_empty_cache_returns_zero(self):
+        from src.auth_graph import clear_groups_cache
+        assert clear_groups_cache() == 0
+
+
 # ── _resolve_user_groups (auth.py integration) ──────────────────────────────
 
 class TestResolveUserGroups:
