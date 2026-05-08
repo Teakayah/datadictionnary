@@ -71,23 +71,23 @@ def _push_to_databricks(sync_type: str, table_full_name: str | None, payload: di
     with dbsql.connect(server_hostname=host, http_path=http_path, access_token=token) as db_conn:
         with db_conn.cursor() as cur:
             if sync_type == "COLUMN_DEF":
-                col = payload["column_name"]
+                col = payload["column_name"].replace("`", "``")
                 dfn = (payload.get("definition") or "").replace("'", "''")
                 parts = table_full_name.split(".")
-                cat, sch, tbl = [f"`{p}`" for p in parts]
+                cat, sch, tbl = [f"`{p.replace('`', '``')}`" for p in parts]
                 cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} ALTER COLUMN `{col}` COMMENT '{dfn}'")
 
             elif sync_type == "TABLE_DESC":
                 dfn = (payload.get("definition") or "").replace("'", "''")
                 parts = table_full_name.split(".")
-                cat, sch, tbl = [f"`{p}`" for p in parts]
+                cat, sch, tbl = [f"`{p.replace('`', '``')}`" for p in parts]
                 cur.execute(f"COMMENT ON TABLE {cat}.{sch}.{tbl} IS '{dfn}'")
 
             elif sync_type == "STEWARD":
                 # Implementation depends on how stewards are stored in Databricks (e.g. Tags)
                 steward = payload.get("steward", "").replace("'", "''")
                 parts = table_full_name.split(".")
-                cat, sch, tbl = [f"`{p}`" for p in parts]
+                cat, sch, tbl = [f"`{p.replace('`', '``')}`" for p in parts]
                 try:
                     cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} SET TAGS ('steward' = '{steward}')")
                 except Exception as e:
