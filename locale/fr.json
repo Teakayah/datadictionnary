@@ -15,7 +15,9 @@
     "sign_in": "Se connecter",
     "sign_in_button": "Se connecter avec Entra ID",
     "mock_button": "Se connecter avec Entra ID (démo)",
-    "signed_in_as": "Connecté en tant que"
+    "signed_in_as": "Connecté en tant que",
+    "signin_failed_security": "Échec de la connexion : la vérification de sécurité n'a pas correspondu. Veuillez réessayer.",
+    "signin_failed": "Échec de la connexion. Veuillez réessayer."
   },
   "search": {
     "hero_title": "Rechercher dans le catalogue.",
