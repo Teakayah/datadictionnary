@@ -27,20 +27,29 @@ kubectl apply -f k8s/secret.yaml
 # 6. ConfigMap (non-sensitive env vars)
 kubectl apply -f k8s/configmap.yaml
 
-# 7. Deployment
+# 7. Deployment — Streamlit UI
 kubectl apply -f k8s/deployment.yaml
 
-# 8. Service
+# 8. Deployment — sidecar sync worker (drains pending_sync → Databricks)
+kubectl apply -f k8s/deployment-sync-worker.yaml
+
+# 9. PodDisruptionBudget (keep ≥1 dd-app replica during node drains)
+kubectl apply -f k8s/pdb.yaml
+
+# 10. Service
 kubectl apply -f k8s/service.yaml
 
-# 9. Ingress
+# 11. Ingress
 kubectl apply -f k8s/ingress.yaml
 
-# 10. Horizontal Pod Autoscaler
+# 12. Horizontal Pod Autoscaler (dd-app only)
 kubectl apply -f k8s/hpa.yaml
 
-# 11. CronJob (metadata sync)
+# 13. CronJob (nightly full catalog rebuild)
 kubectl apply -f k8s/cronjob.yaml
+
+# 14. NetworkPolicy for the sync worker
+kubectl apply -f k8s/networkpolicy-sync.yaml
 ```
 
 Or apply everything at once after the first run:
@@ -48,6 +57,16 @@ Or apply everything at once after the first run:
 ```bash
 kubectl apply -f k8s/
 ```
+
+**Two sync paths, intentionally distinct.** `dd-sync-worker`
+(`python -m src.sync.daemon`) is the long-lived in-cluster process that
+drains `user_data.pending_sync` to Databricks on a 5–30 s cadence and
+runs DR resync every ~10 minutes. The `dd-sync` CronJob is a separate
+nightly rebuild of the catalog cache (`scripts/sync_metadata.py` —
+full re-crawl of Unity Catalog). They run at different cadences and
+solve different problems. See `docs/runbooks/sync-worker.md` for the
+daemon's operations runbook (healthz, queue inspection, common failure
+modes).
 
 ### Populating secrets
 
