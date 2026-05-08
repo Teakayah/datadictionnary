@@ -59,7 +59,17 @@ def get_msal_app():
 
 
 def _clear_auth_session() -> None:
-    """Wipe all auth-related session keys so the next render starts clean."""
+    """Wipe all auth-related session keys so the next render starts clean.
+
+    Also drops the user's entry from the Graph groups cache so a fresh
+    sign-in re-fetches their group membership instead of reading a stale
+    1h-cached list. This is the piece that makes "sign out, sign back in"
+    actually pick up new Entra group assignments.
+    """
+    user_oid = st.session_state.get("user_oid", "")
+    if user_oid:
+        from src.auth_graph import clear_groups_cache  # noqa: PLC0415
+        clear_groups_cache(user_oid)
     for key in ("auth_token", "token_expires_at", "authenticated",
                 "user_groups", "user_name", "user_email", "user_oid",
                 "oauth_state", "oauth_nonce", "_prefs_loaded"):
@@ -292,6 +302,15 @@ def check_auth(sync_prefs_callback: callable | None = None):
                 logging.error("OAuth nonce mismatch.")
                 st.error("Sign-in failed: security check did not match. Please try again.")
                 st.stop()
+
+            # Bust the groups cache for this user so a fresh sign-in always
+            # re-resolves group membership from the new ID token (or Graph,
+            # for overage users) — captures Entra group changes immediately
+            # rather than waiting up to 1h for the cache TTL.
+            from src.auth_graph import clear_groups_cache  # noqa: PLC0415
+            new_oid = claims.get("oid", "")
+            if new_oid:
+                clear_groups_cache(new_oid)
 
             st.session_state.auth_token       = result
             st.session_state.token_expires_at = time.time() + result.get("expires_in", 3600)

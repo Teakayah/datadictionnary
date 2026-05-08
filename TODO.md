@@ -78,9 +78,20 @@ separate ticket if write contention shows up.
   pagination, 5xx / 403 / network errors, cache hit/miss, empty-OID path,
   and the three branches of `_resolve_user_groups`.
 
-**Out of scope (still open):** SSO logout / silent re-auth on group
-membership change. Group changes are picked up at next token refresh
-(≤1h, then ≤1h cache TTL).
+**Out of scope (still open):** ~~SSO logout / silent re-auth on group
+membership change.~~ Done — see follow-up below.
+
+**Follow-up: group-cache refresh tool** (done):
+- ``src.auth_graph.clear_groups_cache(user_oid=None)`` — drops one or
+  every cached entry.
+- ``src.auth._clear_auth_session`` clears the user's cache entry, so
+  signing out then back in actually picks up new Entra group changes
+  (was previously stale for up to 1h).
+- ``check_auth`` busts the cache for the new user_oid on every fresh
+  OIDC code-exchange before resolving groups.
+- Admin page has a "§ Group permissions cache → Flush groups cache"
+  section (locale strings: ``admin.groups_cache_*``). Flushes
+  process-wide; every active user re-fetches on their next render.
 
 ### 3. Split `src/ui/cards.py` (was 1,083 lines)
 
@@ -197,15 +208,15 @@ since the conftest's `get_db_cursor()` is wired for the read-query path.
 
 ### 7. Connection pooling for Databricks writes
 
-**Why:** `_get_databricks_write_connection` opens a fresh SQL Warehouse
-session per write (`src/db/databricks_adapter.py:23`). Audit-log spam
-(every edit) opens a new Spark cluster handshake each time.
+**Status:** done by removing the path entirely. After #1 (sidecar
+daemon) the only intentional Databricks writer is the daemon, which
+opens its own ``dbsql.connect`` per cycle. The Streamlit-pod fallback
+(``_get_databricks_write_connection`` + ``Databricks*Storage`` classes)
+was dead code and was deleted along with the 3 tests that asserted on
+its MERGE INTO syntax.
 
-**Target:** cache the write connection like the read path with a TTL, or
-switch all writes to go through the sidecar worker (Investment #1) and
-delete `_get_databricks_write_connection` entirely.
-
-**Note:** prefer the second option once Investment #1 lands.
+If daemon-side per-cycle reconnection becomes a hotspot, pool there.
+That's a separate, smaller change.
 
 ### 8. Drop `GroupMember.Read.All` scope if not used after Investment #2
 

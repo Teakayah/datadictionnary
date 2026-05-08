@@ -126,7 +126,11 @@
     "editing_toggle": "Autoriser les utilisateurs avancés à modifier les métadonnées",
     "editing_help": "Quand désactivé, les boutons de modification sont masqués pour tous — utile lors de migrations ou d’audits.",
     "editing_enabled": "L’édition est activée.",
-    "editing_disabled": "L’édition est verrouillée."
+    "editing_disabled": "L’édition est verrouillée.",
+    "groups_cache_title": "Cache des groupes",
+    "groups_cache_subtitle": "Vider le cache des appartenances de groupes Microsoft Entra conservé en mémoire. À utiliser après l’ajout d’un utilisateur à un groupe pour que le changement soit immédiat plutôt que de patienter jusqu’à une heure.",
+    "groups_cache_flush": "Vider le cache des groupes",
+    "groups_cache_flushed": "{n} entrées supprimées. Les sessions actives ré-interrogeront Entra au prochain rendu."
   },
   "health": {
     "title": "§ Santé du catalogue",
