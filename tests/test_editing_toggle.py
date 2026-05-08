@@ -11,9 +11,8 @@ Coverage:
 from __future__ import annotations
 
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-import pytest
 from streamlit.testing.v1 import AppTest
 
 APP_PATH = os.path.join(os.path.dirname(__file__), "..", "app.py")

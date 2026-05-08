@@ -55,11 +55,17 @@ def _run_dr_resync():
             ("business_name_overrides", "edited_at", "table_full_name, column_name")
         ]
 
+        # Get all max local timestamps in a single query
+        with conn.cursor() as cursor:
+            union_query = " UNION ALL ".join(
+                [f"SELECT '{tbl}' as tbl, MAX({ts_col}) as max_ts FROM user_data.{tbl}" for tbl, ts_col, _ in tables_to_check]
+            )
+            cursor.execute(union_query)
+            max_ts_results = cursor.fetchall()
+            max_ts_map = {row[0]: row[1] for row in max_ts_results}
+
         for tbl, ts_col, pk in tables_to_check:
-            # Get max local timestamp
-            with conn.cursor() as cursor:
-                cursor.execute(f"SELECT MAX({ts_col}) FROM user_data.{tbl}")
-                local_max = cursor.fetchall()[0][0]
+            local_max = max_ts_map.get(tbl)
 
             # Query Databricks for any records AFTER local_max
             # Note: run_query handles the Databricks connection

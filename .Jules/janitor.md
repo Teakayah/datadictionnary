@@ -7,3 +7,5 @@
 **Action:** Always favor `.to_dict('records')` for dictionary construction and `itertuples(index=False)` for general iteration over `iterrows()`. Update row accesses to `getattr` instead of `[]` or `.get()`.
 
 ## 2026-05-01 - [Extract Demo Mode Helper] **Learning:** Repeated environment variable checks for DEMO_DATA were scattered across the codebase, making updates error-prone. **Action:** Created `is_demo_mode()` helper to consolidate the check. Future boolean env var checks should use dedicated getters.
+
+## 2026-05-04 - [Remove duplicated UI Worker functions] **Learning:** Redundant background sync lock code `_worker_state_lock` and variables like `_LAST_UI_ACTIVITY` were duplicated between `src/sync/worker.py` and `src/ui/cards.py`. **Action:** Removed orphaned background code and logic duplicated in `src/ui/cards.py` by removing duplicate imports and logic. Always consolidate overlapping module logic related to threads.

@@ -65,7 +65,6 @@ from src.sync.worker import _start_sync_worker_thread, _mark_ui_activity
 
 from src.ui.cards import (
     render_discovery, render_health, render_admin_page, render_pipelines_page,
-    _mark_ui_activity,
 )
 from src.pages.catalog import render_catalog_browser
 from src.pages.glossary import render_glossary

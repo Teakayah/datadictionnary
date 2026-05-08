@@ -15,7 +15,6 @@ import os
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-import pytest
 from streamlit.testing.v1 import AppTest
 
 APP_PATH = os.path.join(os.path.dirname(__file__), "..", "app.py")
@@ -108,7 +107,6 @@ class TestDeletePost:
 
 class TestCmsBannerUI:
     def _discovery_app(self, groups, *, with_post=False):
-        import streamlit as st
         at = AppTest.from_file(APP_PATH, default_timeout=15)
         at.session_state["authenticated"] = True
         at.session_state["user_groups"] = groups
