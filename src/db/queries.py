@@ -30,19 +30,28 @@ from src.demo.data import (
 
 
 from src.db.duckdb_adapter import _duckdb_available, _DuckDBConn, _run_duckdb_query
-from src.db.databricks_adapter import (
-    _get_databricks_write_connection,
-    _run_databricks_query,
-)
+from src.db.databricks_adapter import _run_databricks_query
 
 
 def _get_write_connection():
-    """Return a DB connection for write operations (DuckDB → Databricks fallback)."""
-    if _duckdb_available():
-        from src.config import DUCKDB_PATH
+    """Return a DuckDB connection for write operations.
 
-        return _DuckDBConn(DUCKDB_PATH)
-    return _get_databricks_write_connection()
+    Streamlit pods only ever write locally to DuckDB (user_data file).
+    The sidecar sync daemon is the sole intentional Databricks writer
+    (see ADR 004); pods enqueue into ``user_data.pending_sync`` and the
+    daemon drains it. If DuckDB is unavailable, the app cannot accept
+    writes — raise instead of silently opening a per-call Databricks
+    session.
+    """
+    if not _duckdb_available():
+        raise RuntimeError(
+            "DuckDB is unavailable — cannot accept writes. "
+            "Set DUCKDB_PATH and ensure the catalog file exists. "
+            "Direct Databricks writes were removed in TODO #7; the "
+            "sidecar sync daemon is the only intentional Databricks writer."
+        )
+    from src.config import DUCKDB_PATH
+    return _DuckDBConn(DUCKDB_PATH)
 
 
 def get_db_connection():

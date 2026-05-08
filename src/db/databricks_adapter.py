@@ -1,7 +1,12 @@
-"""Databricks SQL Warehouse adapter.
+"""Databricks SQL Warehouse adapter — read path only.
 
-Cached read connection + uncached write connection. Writes must always reach
-the Databricks SQL Warehouse — never the local DuckDB read-only cache.
+Writes from Streamlit pods are no longer made directly to Databricks. Per
+ADR 004, the sidecar sync daemon is the sole intentional Databricks
+writer; pods enqueue into ``user_data.pending_sync`` (DuckDB-local) and
+the daemon drains it. The previous ``_get_databricks_write_connection``
+helper was a per-call ``sql.connect()`` and is now removed — its only
+callers were the dead ``Databricks*`` storage fallbacks, which were
+deleted alongside it.
 """
 
 from __future__ import annotations
@@ -13,21 +18,6 @@ from databricks import sql
 
 
 def _get_databricks_connection():
-    return sql.connect(
-        server_hostname=os.getenv("DATABRICKS_HOST"),
-        http_path=os.getenv("DATABRICKS_HTTP_PATH"),
-        access_token=os.getenv("DATABRICKS_TOKEN"),
-    )
-
-
-def _get_databricks_write_connection():
-    """Return a fresh (uncached) Databricks connection for write operations.
-
-    Write operations (INSERT, MERGE INTO) must always target the Databricks SQL
-    Warehouse — never the local DuckDB file, which is a read-only cache that is
-    rebuilt from Databricks on each sync and would silently discard any local
-    writes.  This function bypasses the read-path DuckDB check intentionally.
-    """
     return sql.connect(
         server_hostname=os.getenv("DATABRICKS_HOST"),
         http_path=os.getenv("DATABRICKS_HTTP_PATH"),
