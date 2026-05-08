@@ -21,8 +21,11 @@ from src.db.queries import _get_write_connection, get_db_connection
 BACKENDS = ("databricks", "adf", "ado")
 
 # AAD resource IDs
+# _RESOURCE_DATABRICKS: The well-known, static 1st-party enterprise application ID for Azure Databricks.
 _RESOURCE_DATABRICKS = "2ff814a6-3304-4ab8-85cb-cd0e6f879c1d"
+# _RESOURCE_AZURE_MGMT: The static resource URL for the Azure Resource Manager (ARM) API.
 _RESOURCE_AZURE_MGMT = "https://management.azure.com/"
+# _RESOURCE_ADO: The well-known, static 1st-party enterprise application ID for Azure DevOps.
 _RESOURCE_ADO        = "499b84ac-1321-427f-aa17-267ca6975798"
 
 # Map backend lifecycle states → progress %
