@@ -126,7 +126,11 @@
     "editing_toggle": "Allow power users to edit metadata",
     "editing_help": "When off, edit buttons are hidden for all users — useful during data migrations or audits.",
     "editing_enabled": "Editing is enabled.",
-    "editing_disabled": "Editing is locked."
+    "editing_disabled": "Editing is locked.",
+    "groups_cache_title": "Group permissions cache",
+    "groups_cache_subtitle": "Drop the in-process Microsoft Entra group cache. Run after granting a user a new group so the change is picked up immediately instead of waiting up to an hour for the cache to expire.",
+    "groups_cache_flush": "Flush groups cache",
+    "groups_cache_flushed": "Cleared {n} cached entries. Active users will re-fetch group membership on their next render."
   },
   "health": {
     "title": "§ Catalog health",
