@@ -116,43 +116,40 @@ in a follow-up PR.
 
 ### 4. Storage abstraction — collapse demo / DuckDB / Databricks branching
 
-**Why:** the `if not _duckdb_available(): … session_state demo path … else:
-… duckdb path` triple is duplicated ~13 times across `src/cms.py`,
-`src/pipelines.py`, `src/personalization.py`, `src/audit.py`. Adding a new
-entity means writing the same three-way switch again.
+**Status:** done (branch `feat/storage-abstraction`). Acceptance bar met:
 
-**Target shape:**
-```python
-# src/storage/base.py
-class CMSStorage(Protocol):
-    def list_active(self) -> list[Post]: ...
-    def list_all(self) -> list[Post]: ...
-    def create(self, post: Post) -> None: ...
-    def delete(self, post_id: str) -> None: ...
-# Same pattern for PipelineDefStorage, PipelineRunStorage, PreferenceStorage.
-
-# src/storage/__init__.py
-@st.cache_resource
-def get_cms_storage() -> CMSStorage:
-    if is_demo_mode():     return DemoCMSStorage()
-    if _duckdb_available(): return DuckDBCMSStorage()
-    return DatabricksCMSStorage()
+```
+$ git grep "_duckdb_available()" src/cms.py src/pipelines.py src/personalization.py
+(no matches)
 ```
 
-**Acceptance:**
-- One entity migrated per PR (CMS first — smallest surface).
-- Public function names (`get_active_posts`, `create_post`, etc.) preserved
-  as thin wrappers so callers don't change.
-- New tests inject `FakeCMSStorage` instead of mocking `_duckdb_available`.
-- After all four entities migrated: `git grep "_duckdb_available()" src/cms.py
-  src/pipelines.py src/personalization.py` returns nothing.
+Layout:
+```
+src/storage/
+  __init__.py             factories: get_<entity>_storage()
+  cms_storage.py          CMSStorage + 3 concretes (Demo / DuckDB / Fake)
+  pipeline_storage.py     PipelineDefStorage + PipelineRunStorage
+                          (each with 3 concretes)
+  preference_storage.py   PreferenceStorage + SiteSettingStorage
+                          (each with 3 concretes)
+  audit_storage.py        AuditStorage + BusinessNameOverrideStorage
+                          (each with 4 concretes — adds Databricks fallback)
+```
 
-**Migration order (one PR each):**
-1. CMS (3 functions).
-2. Pipelines — split into `PipelineDefStorage` + `PipelineRunStorage`.
-3. Preferences + site settings.
-4. Audit / business name overrides (most entangled — last, possibly behind a
-   feature flag).
+Each entity migrated as its own commit, tests stayed green throughout
+(289 → 307 → 321 → 336). Protocol-based design lets test code inject
+`Fake*Storage` without inheriting; existing callers unchanged.
+
+**Out of scope (deferred):**
+
+- ``src/audit.py::save_table_metadata`` still issues a local UPDATE
+  against the read-only-attached catalog cache. The UPDATE silently
+  fails in production today; durability comes from ``enqueue_sync`` to
+  Databricks. Migrating that to a ``CatalogTableMetadataStorage`` is a
+  separate concern — catalog cache is not user_data.
+- Re-using ``BusinessNameOverrideStorage.get_for_table`` from
+  ``src/pages/search.py`` (currently still calls
+  ``src.db.queries.get_column_business_names``). Mechanical follow-up.
 
 ---
 
