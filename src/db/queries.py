@@ -207,7 +207,26 @@ def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def search_all_metadata(query: str, groups: tuple):
-    """Search across tables, columns, and descriptions using UNION."""
+    """Search across tables, columns, and glossary terms using a UNION query.
+
+    Permission-filtered: results are limited to tables the user's Entra
+    groups have grants on (or tables marked ``SELECT_ALL_USERS``).
+
+    Match domains:
+      1. Tables   — name, description.
+      2. Columns  — name, comment, business_name override, definition override.
+      3. Glossary — term, definition (only present in demo mode today).
+
+    Each result row is scored to drive ordering:
+      - Exact match     → 5 (Tables) / 2 (Columns)
+      - Prefix match    → 4 (Tables) / 1 (Columns)
+      - Substring match → 3 (Tables) / 0 (Columns)
+      - Glossary match  → 1
+
+    @param query:  user-entered search string, matched via SQL ``LIKE '%q%'``.
+    @param groups: tuple of Entra ID group Object IDs the user belongs to.
+    @returns:      pandas DataFrame of combined results, sorted by score desc.
+    """
     import logging
 
     logging.info("GLOBAL SEARCH query=%s groups=%s", query, groups)
