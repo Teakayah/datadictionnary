@@ -12,26 +12,30 @@ The solution has four layers: identity, compute/UI, local cache, and the Databri
 graph TD
     subgraph "Identity layer (Azure)"
         A[Business user] -->|OIDC login| B[Microsoft Entra ID]
-        B -->|JWT token + group claims| C[Streamlit application]
+        B -->|JWT + group claims, with Graph fallback for overage| C[Streamlit application]
     end
 
     subgraph "Compute and UI layer"
         C -->|Permission-filtered SQL| D[DuckDB local cache]
-        C -->|Fallback| E[Databricks SQL Warehouse]
+        C -->|Read-only fallback| E[Databricks SQL Warehouse]
+        C -->|Enqueue writes| K[(user_data.pending_sync)]
     end
 
     subgraph "Local cache layer"
-        D -->|Atomic file replace on sync| F[(dict.duckdb — catalog file)]
-        G[(dict_user_data.duckdb — user file)] -->|ATTACHed at startup| D
+        D -->|Atomic file replace on sync| F[(dict.duckdb — catalog file, RO ATTACH)]
+        G[(dict_user_data.duckdb — user data file, RW)] -->|ATTACHed at startup| D
+        K --- G
     end
 
     subgraph "Background workers"
-        H[Nightly sync job] -->|Writes catalog file| F
-        I[DR resync worker thread] -->|Fills gaps on demand| F
+        H[Nightly sync CronJob] -->|Writes catalog file| F
+        I[Sidecar sync worker — python -m src.sync.daemon] -->|Drains pending_sync| L
+        I -->|DR resync — pull recent rows| F
     end
 
     subgraph "Unity Catalog (source of truth)"
         H -->|Crawl metadata and ACLs| J[Catalogs / schemas / tables]
+        L[ALTER TABLE / COMMENT / SET TAGS / INSERT audit + comments] --> J
     end
 ```
 
@@ -71,17 +75,41 @@ At startup the app opens the catalog file and `ATTACH`es the user data file as t
 
 The `_to_duckdb_sql()` function translates Databricks SQL dialect to DuckDB SQL (parameter style `%s` → `?`, function aliases, etc.) so the same query strings work against both backends.
 
-### Background DR resync worker
+### Sidecar sync worker
 
-A daemon thread (`_run_dr_resync`) runs inside the Streamlit process and monitors the DuckDB cache for staleness. When it detects that a table's metadata is missing or out of date — and the nightly sync has not yet run — it fetches the missing records from the SQL Warehouse and writes them into the local cache. This is a best-effort gap-filler, not a replacement for the nightly sync job.
+A separate process (`python -m src.sync.daemon`, deployed as `dd-sync-worker` with `replicas: 1`) drains `user_data.pending_sync` to Databricks and runs DR resync (pulling late-arriving rows from Databricks back into the local user_data file). The Streamlit pods only ever enqueue; the daemon is the sole intentional Databricks writer. See `docs/adr/004-sidecar-sync-worker.md` and `docs/runbooks/sync-worker.md`.
 
-UI activity is tracked via `_mark_ui_activity()`. The worker backs off during active user sessions to avoid competing for DuckDB write locks.
+The previous in-process daemon thread (`_start_sync_worker_thread`) was removed in TODO #1 — it shared a Streamlit-cached DuckDB connection with the UI, ran from a thread without a `ScriptRunContext`, and tracked UI activity in two diverging state objects. The sidecar resolves all three.
+
+The daemon writes its status (heartbeat ISO timestamp, DR resync state) into `user_data.site_settings` so the admin sync panel can display it; an HTTP `/healthz` listener returns 503 when the heartbeat goes stale (>60 s by default).
 
 ### Streamlit frontend
 
 `app.py` is the Streamlit entry point. It implements five tabs (search, catalog, discovery, health, glossary) and an admin panel, all within a single-page layout using custom tab-based navigation.
 
 The design system CSS is injected via `st.markdown('<style>...</style>')` at startup. All Unity Catalog identifiers (`catalog.schema.table`) are rendered in `JetBrains Mono`. The only accent color is oxidized red `#B8362A` (CSS variable `--accent`).
+
+---
+
+## Storage abstraction
+
+Per-entity storage backends live under `src/storage/` and collapse the
+demo / DuckDB branching that used to be duplicated across `cms.py`,
+`pipelines.py`, `personalization.py`, and `audit.py`.
+
+| Entity | Module | Backends |
+| -- | -- | -- |
+| CMS posts | `src/storage/cms_storage.py` | Demo (session), DuckDB, Fake |
+| Pipeline definitions / runs | `src/storage/pipeline_storage.py` | Demo (session), DuckDB, Fake |
+| User preferences / site settings | `src/storage/preference_storage.py` | Demo (no-op), DuckDB, Fake |
+| Audit log / business name overrides | `src/storage/audit_storage.py` | Demo (session), DuckDB, Fake |
+
+Each entity has a `Protocol` defining its read/write surface and a
+factory in `src/storage/__init__.py` that picks the backend at call time
+(`is_demo_mode()` → demo, else `_duckdb_available()` → DuckDB,
+otherwise raise — Databricks-direct writes were removed in TODO #7).
+The `Fake*Storage` variants are session-free in-memory implementations
+used by unit tests. See ADR 005 for the design rationale.
 
 ---
 
@@ -99,8 +127,17 @@ The `_to_duckdb_sql()` function ensures parameter substitution is correctly tran
 
 - `EDITOR_GROUPS`: comma-separated group IDs allowed to save business name overrides and comments.
 - `ADMIN_GROUPS`: comma-separated group IDs allowed to access the admin dashboard and audit logs. There is no demo bypass for admin access.
+- `PIPELINE_GROUPS`: comma-separated group IDs whose members can trigger / cancel pipeline runs.
+
+Every write function (`create_post`, `delete_post`, `create_pipeline_def`, `delete_pipeline_def`, `trigger_pipeline`, `cancel_run`, `set_editing_enabled`, `save_business_name`, `save_table_metadata`) re-checks `is_admin()` / `is_pipeline_user()` at the function boundary and raises `PermissionError` on failure — defense-in-depth for the cases where the UI gate isn't the only line. Tests assert the rejection path leaves storage untouched.
 
 User-supplied display names are HTML-escaped before rendering. SMTP headers are sanitized to prevent header injection in comment notification emails.
+
+### Entra groups overage
+
+When an Entra user belongs to more than ~150 security groups the ID token omits the inline `groups` claim and adds `_claim_names.groups` pointing at Microsoft Graph. `src/auth_graph.py` detects this shape and calls `POST /v1.0/me/getMemberObjects {"securityEnabledOnly": true}` to fetch the transitive list, paginated and capped at 50 pages. Results are kept in a process-level cache (per user OID, 1 h TTL, lock-protected) so they survive across browser tabs.
+
+Failure modes (Graph 4xx/5xx, network) return an empty list and log a warning — fail-closed. Admins can flush every cached entry from the admin page (`§ Group permissions cache → Flush groups cache`) when granting a user a new group; sign-out also drops the user's entry so "sign out, sign back in" picks up new groups immediately.
 
 ---
 
@@ -171,9 +208,10 @@ All tables live in `data_governance.dictionary_cache` on Databricks and in the r
 
 In Kubernetes the solution runs as:
 
-- A `Deployment` (`dd-app`) with 2–10 replicas managed by an HPA. Probes target `/_stcore/health` on port 8501.
-- A `CronJob` (`dd-sync`) that runs `scripts/sync_metadata.py` nightly at 03:00 UTC.
-- A `PersistentVolumeClaim` (`dd-data`) mounted at `/data` in both the app and the sync job, sharing the DuckDB cache files.
+- A `Deployment` (`dd-app`) for the Streamlit UI, scaled by HPA (replicas managed by `k8s/hpa.yaml`). Probes target `/_stcore/health` on port 8501. A `PodDisruptionBudget` keeps `minAvailable: 1` during node drains.
+- A `Deployment` (`dd-sync-worker`) for the sidecar drain process, `replicas: 1` with `strategy: Recreate` (single writer, no overlap). Liveness/readiness target `/healthz` on port 8765.
+- A `CronJob` (`dd-sync`) that runs `scripts/sync_metadata.py` nightly at 03:00 UTC (catalog rebuild — separate from the in-cluster daemon).
+- A `PersistentVolumeClaim` (`dd-data`) mounted at `/data` in `dd-app`, `dd-sync-worker`, and the CronJob — all three share the DuckDB cache files.
 - A `NetworkPolicy` restricting ingress to the ingress controller namespace and egress to HTTPS only.
 
-See `DEPLOYMENT.md` for the full operations runbook and `docs/runbooks/secret-rotation.md` for credential rotation procedures.
+See `DEPLOYMENT.md` for the full operations runbook, `docs/runbooks/sync-worker.md` for the daemon's operational behaviour, and `docs/runbooks/secret-rotation.md` for credential rotation procedures.

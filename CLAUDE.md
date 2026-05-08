@@ -41,11 +41,17 @@ This is a **Python-native Business Data Dictionary** for Databricks Unity Catalo
   - `columns_metadata` — one row per column with type and description
   - `permissions_cache` — one row per (table, principal, privilege) grant
 
-**`app.py` — Streamlit Frontend** (thin orchestrator, ~725 lines)
-- On startup: checks for `ENABLE_MOCK_AUTH` and `ENVIRONMENT` env vars; if true and development, falls back to **Mock Auth** for local dev
-- Real auth: MSAL OAuth 2.0 / OIDC flow against Entra ID; user's AD group Object IDs are read from the `groups` claim of the ID token
-- All business logic lives in `src/`: auth (`src/auth.py`), queries (`src/db/`), UI components (`src/ui/`), pages (`src/pages/`), sync (`src/sync/`)
-- Search queries always `JOIN tables_metadata` with `permissions_cache` filtered by `p.principal IN (user's groups)` — users mathematically cannot see unauthorized tables
+**`app.py` — Streamlit Frontend** (~180 lines, just the entry point)
+- On startup: refuses to boot with `ENABLE_MOCK_AUTH=true` outside `ENVIRONMENT=development`. If both are set, runs the mock-auth path (department selector); otherwise the real MSAL OIDC flow.
+- All business logic lives in `src/`: auth (`src/auth.py`, `src/auth_graph.py`), queries (`src/db/`), storage backends (`src/storage/`), UI components (`src/ui/cards/` package), pages (`src/pages/`), sync (`src/sync/`).
+- Search queries always `JOIN tables_metadata` with `permissions_cache` filtered by `p.principal IN (user's groups)` — users mathematically cannot see unauthorized tables.
+- Group resolution: inline `groups` claim when present; Microsoft Graph `getMemberObjects` for users in 150+ groups (overage). 1 h process-level cache keyed by user OID; cleared on sign-out so a fresh sign-in always reflects current Entra state.
+
+**`python -m src.sync.daemon` — Sidecar Sync Worker** (separate process)
+- Drains `user_data.pending_sync` to Databricks (`ALTER TABLE … COMMENT`, audit-log INSERT, etc.) and runs DR resync.
+- Stale-row recovery on every cycle (rows in `'syncing'` for >5 min flip back to `'pending'`).
+- HTTP `/healthz` on port 8765; k8s liveness probe goes red if heartbeat is stale (>60 s).
+- Replaces the previous in-process daemon thread (`_start_sync_worker_thread`, removed in TODO #1). See `docs/adr/004-sidecar-sync-worker.md` and `docs/runbooks/sync-worker.md`.
 
 ### Security model
 Permission enforcement is "push-down" SQL: the Streamlit app never fetches all results and filters in Python. The `JOIN` with `permissions_cache` happens inside the SQL Warehouse, so only authorized rows are returned. The sentinel value `SELECT_ALL_USERS` in `permissions_cache.principal` acts as a public-access flag.
@@ -82,16 +88,17 @@ All new UI work must follow the design system defined in `design_system/`. The c
 - `is_power_user()` gates on `is_editing_enabled()` first — returns `False` instantly when editing is globally off
 - Admin page renders a `§ Inline editing` toggle section; toggling calls `set_editing_enabled()` then `st.rerun()`
 
-### CMS discovery banner (`src/cms.py`)
+### CMS discovery banner (`src/cms.py` + `src/storage/cms_storage.py`)
 - Admins publish posts that appear as pinned cards above the Discovery sub-tabs
 - Post types: `announcement` (red), `featured_table` (blue), `guide` (green)
 - Schema: `post_id`, `post_type`, `title`, `body`, `table_ref` (featured_table only), `author_email`, `created_at`, `expires_at`
 - Expiry options live in `_EXPIRY_DAYS`: 2 / 7 / 30 days or `None` (never)
-- `get_active_posts()` filters `WHERE expires_at IS NULL OR expires_at > now()`
-- `render_cms_banner()` in `src/ui/cards.py` — called from `render_discovery()` between the hero and the sub-tab selector; admin users see a ✕ delete button per card; featured_table cards navigate to the Search tab
-- Admin CRUD lives in `_render_admin_cms_section()` / `_show_cms_create_dialog()`
+- `src/cms.py` is a thin wrapper around `CMSStorage` — see `src/storage/cms_storage.py` for backends (Demo / DuckDB / Fake)
+- `render_cms_banner()` in `src/ui/cards/discovery.py` — called from `render_discovery()` between the hero and the sub-tab selector; admin users see a ✕ delete button per card; featured_table cards navigate to the Search tab
+- Admin CRUD lives in `_render_admin_cms_section()` / `_show_cms_create_dialog()` in `src/ui/cards/cms_admin.py`
 - DB table: `user_data.cms_posts` (created by `_initialize_schema()`)
 - Demo-mode fallback: session state key `_demo_cms_posts`
+- `create_post` and `delete_post` raise `PermissionError` if the caller is not an admin — defense-in-depth alongside the UI gate
 
 ### Pipelines tab (`src/pipelines.py`)
 - Visible to `PIPELINE_GROUPS` members and admins (`show_pipelines=is_pipeline_user() or is_admin()`)
@@ -121,7 +128,43 @@ python scripts/generate_test_data.py --with-data  # adds row data for Preview ta
 ```
 Set `DUCKDB_PATH=data/test_data.duckdb` in `.env`, then run without `DEMO_DATA=true`.
 
+### Storage abstraction (`src/storage/`)
+- Per-entity Protocol-based backends collapsed the demo / DuckDB branching previously duplicated across cms / pipelines / personalization / audit
+- Entities: `CMSStorage`, `PipelineDefStorage` + `PipelineRunStorage`, `PreferenceStorage`, `SiteSettingStorage`, `AuditStorage`, `BusinessNameOverrideStorage`
+- Each has Demo (session-state) + DuckDB + Fake (in-memory, test-only) implementations. Direct-Databricks variants were deleted in TODO #7 — Streamlit pods only ever write locally
+- Factories live in `src/storage/__init__.py` (`get_<entity>_storage()`) and pick the backend at call time based on `is_demo_mode()` / `_duckdb_available()`
+- Tests inject `Fake*Storage` via `mock.patch("src.<module>.get_<entity>_storage")` — no more brittle `_duckdb_available` mocking
+- Background: ADR 005
+
+### Entra groups overage (`src/auth_graph.py`)
+- Detects ID tokens that lack inline `groups` (Entra omits it for >150-group users) and falls back to `POST /v1.0/me/getMemberObjects {"securityEnabledOnly": true}`
+- Process-level cache keyed by user OID, 1 h TTL, lock-protected (chosen over `@st.cache_data` because the latter is per-session)
+- Failure modes (Graph 4xx/5xx, network) return empty list — fail-closed, never silently grants access
+- `clear_groups_cache(user_oid=None)` flushes one user or all; admin page exposes a "Flush groups cache" button; sign-out clears the user's entry so re-auth picks up new groups
+- Background: ADR 006
+
+### Sidecar sync worker (`src/sync/daemon.py`)
+- Standalone process: `python -m src.sync.daemon [--once] [--healthz-port N]`
+- Drains `user_data.pending_sync` and runs DR resync (pulls new audit / comment / override rows back from Databricks every 20 cycles)
+- Stale-row recovery: rows in `'syncing'` for >`SYNC_STALE_ROW_S` (default 300s) flip back to `'pending'` at the top of every cycle
+- Status keys written to `user_data.site_settings`: `worker_heartbeat`, `dr_resync_status`. Admin sync panel reads via `src.sync.worker.read_dr_resync_status()` / `read_worker_heartbeat()`
+- Tunables: `SYNC_POLL_ACTIVE_S` (5), `SYNC_POLL_IDLE_S` (30), `SYNC_DR_EVERY_N` (20), `SYNC_STALE_ROW_S` (300), `SYNC_HEALTHZ_PORT` (8765), `SYNC_HEALTHZ_TIMEOUT_S` (60)
+- Background: ADR 004 + `docs/runbooks/sync-worker.md`
+
+### `src/ui/cards/` package layout
+The 1083-line `src/ui/cards.py` was split into 7 submodules (TODO #3):
+
+- `_shared.py`     — `_dq_grade`, `_compute_live_completeness`, `_POST_COLOR`
+- `discovery.py`   — `render_discovery`, `render_cms_banner`, `_render_table_card`
+- `health.py`      — `render_health` + private helpers
+- `pipelines.py`   — `render_pipelines_page` + admin pipeline section
+- `admin.py`       — `render_admin_page` + audit/sync/editing sections
+- `cms_admin.py`   — `_render_admin_cms_section` + create dialog
+- `detail.py`      — `render_table_metadata_editor`, `render_data_sample` (used by search page)
+
+`src/ui/cards/__init__.py` re-exports the public API for backwards compat. New code should import from the specific submodule.
+
 ## Roadmap context
-- Phases 1–10 (complete): Full app.py decomposition into `src/` modules, DuckDB local cache, i18n (EN/FR), personalization, lineage, health dashboard, admin page, sync worker
-- Phase 11 (complete): Admin editing toggle, CMS discovery banner, pipeline runner tab
-- Next: Entra ID redirect loop hardening, tooltips on icon-only buttons (accessibility), load test hardening
+- TODO #1–7 (complete): sidecar sync worker, Entra groups overage, cards.py split, storage abstraction, server-side auth checks on writes, src/sync/push.py unit tests, deletion of the Databricks-direct write path.
+- Plus: groups-cache flush tool (admin page), sign-out/sign-in cache invalidation.
+- Open follow-ups (see `TODO.md`): PostgreSQL multi-writer if DuckDB contention shows up; migrate the 4 callers off the `cards/__init__.py` shim; fix `save_table_metadata`'s UPDATE against the read-only catalog cache; reuse `BusinessNameOverrideStorage` from `src/pages/search.py`.

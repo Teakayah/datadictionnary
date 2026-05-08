@@ -1,4 +1,19 @@
-# Refactoring Roadmap
+# Refactoring Roadmap (historical, archived 2026-05-08)
+
+> **This document is archived.** Phases 1–11 below are complete: the
+> original `app.py` is now 181 lines, the entity decomposition,
+> design-system extraction, DB-adapter split, page modules, sync
+> worker move, and admin/CMS/pipelines features all shipped. The
+> architectural follow-ups that came after this doc was written
+> (sidecar daemon, storage abstraction, Entra groups overage,
+> cards.py split, server-side auth checks) are tracked in
+> [`../../TODO.md`](../../TODO.md) and `docs/adr/`.
+>
+> Kept here as a record of the original plan vs. what shipped.
+
+---
+
+## Original document follows.
 
 Status as of v0.1.0. This document tracks planned structural changes to the codebase ahead of v0.2.0+. Items are ordered by impact and dependency. Nothing here changes runtime behaviour — only internal organisation.
 

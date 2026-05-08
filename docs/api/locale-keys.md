@@ -153,6 +153,16 @@ Keys are dot-separated paths into the locale JSON structure (e.g. `t("search.pla
 | `admin.sync_title` | Synchronization status | État de la synchronisation |
 | `admin.no_data` | No audit data available. | Aucune donnée d'audit disponible. |
 | `admin.access_denied` | Admin access required. | Accès administrateur requis. |
+| `admin.expand_log` | Expand log | Agrandir l'historique |
+| `admin.editing_title` | Inline editing | Édition en ligne |
+| `admin.editing_toggle` | Allow power users to edit metadata | Autoriser les utilisateurs avancés à modifier les métadonnées |
+| `admin.editing_help` | When off, edit buttons are hidden for all users — useful during data migrations or audits. | Quand désactivé, les boutons de modification sont masqués pour tous — utile lors de migrations ou d'audits. |
+| `admin.editing_enabled` | Editing is enabled. | L'édition est activée. |
+| `admin.editing_disabled` | Editing is locked. | L'édition est verrouillée. |
+| `admin.groups_cache_title` | Group permissions cache | Cache des groupes |
+| `admin.groups_cache_subtitle` | Drop the in-process Microsoft Entra group cache. Run after granting a user a new group so the change is picked up immediately instead of waiting up to an hour for the cache to expire. | Vider le cache des appartenances de groupes Microsoft Entra conservé en mémoire. À utiliser après l'ajout d'un utilisateur à un groupe pour que le changement soit immédiat plutôt que de patienter jusqu'à une heure. |
+| `admin.groups_cache_flush` | Flush groups cache | Vider le cache des groupes |
+| `admin.groups_cache_flushed` | Cleared {n} cached entries. Active users will re-fetch group membership on their next render. | {n} entrées supprimées. Les sessions actives ré-interrogeront Entra au prochain rendu. |
 
 ---
 
