@@ -135,6 +135,14 @@ def _push_to_databricks(sync_type: str, table_full_name: str | None, payload: di
                     payload
                 )
 
+            else:
+                # Unknown sync_type: do nothing but log loudly so a typo in
+                # the queue doesn't silently mark rows 'done'.
+                logging.warning(
+                    "Unknown sync_type %r — no Databricks push performed.",
+                    sync_type,
+                )
+
 
 def _push_definition_to_databricks(table_full_name: str, column_name: str, definition: str) -> None:
     """Legacy wrapper for backward compatibility."""
