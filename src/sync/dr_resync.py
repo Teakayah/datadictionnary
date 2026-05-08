@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid
 from typing import Callable
 
 import pandas as pd
@@ -62,14 +63,25 @@ def _merge_into_local(local_conn, table: str, df: pd.DataFrame) -> None:
     """Insert (or replace) DataFrame rows into user_data.<table>."""
     if df is None or df.empty:
         return
-    cols = ", ".join(df.columns)
-    placeholders = ", ".join(f"%({c})s" for c in df.columns)
     # Append-only tables (immutable IDs) → IGNORE; override tables → REPLACE.
     verb = "INSERT OR IGNORE" if table in ("comments", "audit_log") else "INSERT OR REPLACE"
-    sql = f"{verb} INTO user_data.{table} ({cols}) VALUES ({placeholders})"
+
     with local_conn.cursor() as cur:
-        for row in df.to_dict("records"):
-            cur.execute_write(sql, row)
+        # Use DuckDB's native fast dataframe loading if available, else fallback to loop
+        cols = ", ".join(df.columns)
+        if hasattr(cur, '_con') and hasattr(cur._con, 'register'):
+            tmp_name = f"_dr_tmp_df_{uuid.uuid4().hex}"
+            sql = f"{verb} INTO user_data.{table} ({cols}) SELECT * FROM {tmp_name}"
+            cur._con.register(tmp_name, df)
+            try:
+                cur.execute_write(sql)
+            finally:
+                cur._con.unregister(tmp_name)
+        else:
+            placeholders = ", ".join(f"%({c})s" for c in df.columns)
+            sql = f"{verb} INTO user_data.{table} ({cols}) VALUES ({placeholders})"
+            for row in df.to_dict("records"):
+                cur.execute_write(sql, row)
 
 
 def run_dr_resync(
