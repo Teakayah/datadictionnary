@@ -14,6 +14,7 @@ from typing import Any
 
 import streamlit as st
 
+from src.auth import is_admin, is_pipeline_user
 from src.config import (
     DATABRICKS_HOST_URL,
     PIPELINE_SP_CLIENT_ID,
@@ -21,6 +22,21 @@ from src.config import (
     PIPELINE_SP_TENANT_ID,
 )
 from src.storage import get_pipeline_def_storage, get_pipeline_run_storage
+
+
+# ── Auth helpers (defense-in-depth) ──────────────────────────────────────────
+# These mirror the UI gates in src/ui/cards/pipelines.py so write functions
+# refuse calls from non-admin / non-pipeline users even if a future caller
+# bypasses the UI check.
+
+def _check_admin(action: str) -> None:
+    if not is_admin():
+        raise PermissionError(f"Only admins can {action}.")
+
+
+def _check_pipeline_user_or_admin(action: str) -> None:
+    if not (is_pipeline_user() or is_admin()):
+        raise PermissionError(f"Only pipeline users or admins can {action}.")
 
 BACKENDS = ("databricks", "adf", "ado")
 
@@ -94,6 +110,7 @@ def create_pipeline_def(
     created_by: str,
 ) -> None:
     """Persist a new pipeline definition to the configured backend."""
+    _check_admin("create pipeline definitions")
     get_pipeline_def_storage().create({
         "pipeline_id":         str(uuid.uuid4()),
         "title":               title,
@@ -118,6 +135,7 @@ def delete_pipeline_def(pipeline_id: str) -> None:
     The cascade is the wrapper's job; each storage object stays cohesive
     around its single table.
     """
+    _check_admin("delete pipeline definitions")
     get_pipeline_def_storage().delete(pipeline_id)
     get_pipeline_run_storage().clear(pipeline_id)
 
@@ -148,6 +166,7 @@ def _clear_run(pipeline_id: str) -> None:
 
 def trigger_pipeline(pipeline: dict, triggered_by: str) -> None:
     """Start a pipeline run and persist the run ID."""
+    _check_pipeline_user_or_admin("trigger pipelines")
     backend = pipeline["backend"]
     if backend == "databricks":
         _trigger_databricks(pipeline, triggered_by)
@@ -308,6 +327,7 @@ def _status_ado(pipeline: dict, run_id: str) -> dict:
 
 def cancel_run(pipeline: dict, run: dict) -> None:
     """Hard-cancel the active run and clear it from persistence."""
+    _check_pipeline_user_or_admin("cancel pipeline runs")
     backend = pipeline["backend"]
     try:
         if backend == "databricks":

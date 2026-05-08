@@ -215,7 +215,9 @@ class TestDeleteCascade:
         pid = defs.list_all()[0]["pipeline_id"]
         runs.upsert(pid, "run-1", "alice")
 
-        with patch("src.pipelines.get_pipeline_def_storage", return_value=defs), \
+        # delete_pipeline_def is admin-only — patch the auth check too.
+        with patch("src.pipelines.is_admin", return_value=True), \
+             patch("src.pipelines.get_pipeline_def_storage", return_value=defs), \
              patch("src.pipelines.get_pipeline_run_storage", return_value=runs):
             from src.pipelines import delete_pipeline_def
             delete_pipeline_def(pid)

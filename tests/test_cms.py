@@ -16,6 +16,7 @@ import os
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
+import pytest
 from streamlit.testing.v1 import AppTest
 
 from src.storage.cms_storage import FakeCMSStorage
@@ -24,10 +25,17 @@ APP_PATH = os.path.join(os.path.dirname(__file__), "..", "app.py")
 ADMIN_GROUP = "admin_group_id"
 
 
+@pytest.fixture
+def admin_context():
+    """Make is_admin() return True inside the test, then restore."""
+    with patch("src.cms.is_admin", return_value=True):
+        yield
+
+
 # ── Unit tests against FakeCMSStorage via the public src.cms API ─────────────
 
 class TestCreatePost:
-    def test_writes_post_with_expected_fields(self):
+    def test_writes_post_with_expected_fields(self, admin_context):
         """create_post round-trips through the injected storage."""
         fake = FakeCMSStorage()
         with patch("src.cms.get_cms_storage", return_value=fake):
@@ -38,13 +46,24 @@ class TestCreatePost:
         assert fake.posts[0]["post_type"] == "announcement"
         assert fake.posts[0]["expires_at"] is not None
 
-    def test_never_expiry_sets_none(self):
+    def test_never_expiry_sets_none(self, admin_context):
         """create_post with expiry_days=None leaves expires_at as None."""
         fake = FakeCMSStorage()
         with patch("src.cms.get_cms_storage", return_value=fake):
             from src.cms import create_post
             create_post("guide", "Guide", "", None, "admin@test.com", None)
         assert fake.posts[0]["expires_at"] is None
+
+    def test_rejects_non_admin(self):
+        """create_post raises PermissionError when caller is not admin."""
+        fake = FakeCMSStorage()
+        with patch("src.cms.is_admin", return_value=False), \
+             patch("src.cms.get_cms_storage", return_value=fake):
+            from src.cms import create_post
+            with pytest.raises(PermissionError, match="admins"):
+                create_post("announcement", "Hello", "", None, "u@x.com", 2)
+        # Storage was not touched.
+        assert fake.posts == []
 
 
 class TestGetActivePosts:
@@ -82,7 +101,7 @@ class TestGetActivePosts:
 
 
 class TestDeletePost:
-    def test_removes_matching_post(self):
+    def test_removes_matching_post(self, admin_context):
         """delete_post drops the matching post_id, leaves others alone."""
         fake = FakeCMSStorage([
             {"post_id": "abc", "title": "Keep", "post_type": "guide",
@@ -99,7 +118,7 @@ class TestDeletePost:
         assert "xyz" not in remaining
         assert "abc" in remaining
 
-    def test_missing_post_id_is_noop(self):
+    def test_missing_post_id_is_noop(self, admin_context):
         """delete_post on an unknown id leaves storage untouched."""
         fake = FakeCMSStorage([
             {"post_id": "abc", "title": "Keep", "post_type": "guide",
@@ -110,6 +129,21 @@ class TestDeletePost:
             from src.cms import delete_post
             delete_post("does-not-exist")
         assert [p["post_id"] for p in fake.posts] == ["abc"]
+
+    def test_rejects_non_admin(self):
+        """delete_post raises PermissionError when caller is not admin."""
+        fake = FakeCMSStorage([
+            {"post_id": "abc", "title": "Keep", "post_type": "guide",
+             "body": "", "table_ref": None, "author_email": "x",
+             "created_at": datetime.now(UTC), "expires_at": None},
+        ])
+        with patch("src.cms.is_admin", return_value=False), \
+             patch("src.cms.get_cms_storage", return_value=fake):
+            from src.cms import delete_post
+            with pytest.raises(PermissionError, match="admins"):
+                delete_post("abc")
+        # Storage was not touched.
+        assert len(fake.posts) == 1
 
 
 # ── AppTest: discovery tab banner rendering ──────────────────────────────────
