@@ -570,48 +570,10 @@ class TestBusinessNameEditorDB:
         next(b for b in at.button if b.label == "Save").click().run()
         return at
 
-    def test_save_issues_merge_statement(self, monkeypatch):
-        """save_business_name must execute a MERGE INTO on business_name_overrides."""
-        self._at_after_save(monkeypatch)
-
-        sqls = [c[0][0] for c in get_db_cursor().execute.call_args_list]
-        assert any(
-            "MERGE" in s.upper() and "business_name_overrides" in s for s in sqls
-        ), f"MERGE INTO business_name_overrides not found. SQLs: {sqls}"
-
-    def test_merge_contains_when_matched_and_when_not_matched(self, monkeypatch):
-        """The MERGE must handle UPDATE (matched) and INSERT (not matched) cases."""
-        self._at_after_save(monkeypatch)
-
-        sqls = [c[0][0] for c in get_db_cursor().execute.call_args_list]
-        merge_sql = next(
-            (
-                s
-                for s in sqls
-                if "MERGE" in s.upper() and "business_name_overrides" in s
-            ),
-            None,
-        )
-        assert merge_sql, "MERGE call not found"
-        assert "WHEN MATCHED" in merge_sql.upper()
-        assert "WHEN NOT MATCHED" in merge_sql.upper()
-
-    def test_merge_uses_correct_params(self, monkeypatch):
-        """The MERGE must bind table_full_name, column_name, business_name, definition, edited_by."""
-        self._at_after_save(monkeypatch, name="Customer ID")
-
-        cursor = get_db_cursor()
-        merge_call = next(
-            (
-                c
-                for c in cursor.execute.call_args_list
-                if len(c[0]) >= 1
-                and "MERGE" in c[0][0].upper()
-                and "business_name_overrides" in c[0][0]
-            ),
-            None,
-        )
-        assert merge_call is not None, "MERGE call not found in execute history"
+    # The previous MERGE-INTO assertions verified SQL syntax of the
+    # Databricks-direct write path, which was deleted in TODO #7. The DuckDB
+    # ON CONFLICT path is exercised by tests/test_storage_audit.py
+    # (TestDuckDBStorageRoundTrip::test_business_name_override_round_trip).
 
     def test_bulk_fetch_uses_single_query_for_all_columns(self, monkeypatch):
         """get_column_business_names must use one query per table, not one per column."""

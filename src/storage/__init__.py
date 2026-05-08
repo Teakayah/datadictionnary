@@ -50,8 +50,6 @@ from src.storage.preference_storage import (  # noqa: F401
 from src.storage.audit_storage import (  # noqa: F401
     AuditStorage,
     BusinessNameOverrideStorage,
-    DatabricksAuditStorage,
-    DatabricksBusinessNameOverrideStorage,
     DemoAuditStorage,
     DemoBusinessNameOverrideStorage,
     DuckDBAuditStorage,
@@ -123,28 +121,16 @@ def get_site_setting_storage() -> SiteSettingStorage:
 def get_audit_storage() -> AuditStorage:
     """Pick an audit-log backend based on runtime env.
 
-    Three-way: demo → session-state, DuckDB → user_data.audit_log,
-    neither → catalog.audit_log on Databricks. The sidecar daemon also
-    pushes a copy of every event via ``enqueue_sync``.
+    Demo → session-state; otherwise DuckDB (``user_data.audit_log``).
+    Direct Databricks writes were removed in TODO #7 — the sidecar daemon
+    pushes audit events via ``enqueue_sync`` instead.
     """
-    from src.config import is_demo_mode  # local import — keeps factory body honest
-    if is_demo_mode():
-        return DemoAuditStorage()
-    if _duckdb_available():
-        return DuckDBAuditStorage()
-    return DatabricksAuditStorage()
+    return DemoAuditStorage() if _use_demo_backend() else DuckDBAuditStorage()
 
 
 def get_business_name_override_storage() -> BusinessNameOverrideStorage:
-    """Pick a business-name-overrides backend.
-
-    Same three-way as audit. The DuckDB and Databricks variants schema-share
-    the column set; only the SQL syntax differs (DuckDB ON CONFLICT vs
-    Databricks MERGE INTO).
-    """
-    from src.config import is_demo_mode
-    if is_demo_mode():
-        return DemoBusinessNameOverrideStorage()
-    if _duckdb_available():
-        return DuckDBBusinessNameOverrideStorage()
-    return DatabricksBusinessNameOverrideStorage()
+    """Pick a business-name-overrides backend (demo / DuckDB)."""
+    return (
+        DemoBusinessNameOverrideStorage() if _use_demo_backend()
+        else DuckDBBusinessNameOverrideStorage()
+    )
