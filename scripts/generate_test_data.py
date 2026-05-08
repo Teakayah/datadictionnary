@@ -886,6 +886,14 @@ def generate(
         "audit_log": "event_id VARCHAR, event_type VARCHAR, object_type VARCHAR, "
                      "object_name VARCHAR, actor_email VARCHAR, old_value VARCHAR, "
                      "new_value VARCHAR, created_at TIMESTAMP",
+        # business_name_overrides lives in user_data in production; we create
+        # it empty here so load-test SQL that LEFT JOINs it (mirroring
+        # search_all_metadata) can run without ATTACH gymnastics.
+        "business_name_overrides": (
+            "table_full_name VARCHAR, column_name VARCHAR, "
+            "business_name VARCHAR, definition VARCHAR, "
+            "edited_by VARCHAR, edited_at TIMESTAMP"
+        ),
     }
 
     for tbl, df in reload_frames.items():

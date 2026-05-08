@@ -113,24 +113,39 @@ print(f"[locust] Loaded {len(_ALL_TABLES)} table names from {_DUCKDB_PATH}")
 # Positional params use ? with a list (DuckDB Python API).
 
 def _search_sql(term: str, groups: list[str]) -> tuple[str, list]:
-    """Mirror search_all_metadata() from app.py."""
+    """Mirror src.db.queries.search_all_metadata.
+
+    Includes the LEFT JOINs the production query has (data_quality_cache and
+    business_name_overrides) so the load test exercises the same plan
+    Databricks/DuckDB will execute in production. Without these joins the
+    test underestimates query cost.
+    """
     ph = ", ".join("?" for _ in groups)
     like = f"%{term}%"
-    params = [like, like, *groups, like, like, *groups]
+    params = [like, like, *groups, like, like, like, like, *groups]
     sql = f"""
         SELECT DISTINCT m.full_name, m.table_name, 'Table' AS match_type
         FROM tables_metadata m
         JOIN permissions_cache p ON m.full_name = p.table_full_name
+        LEFT JOIN data_quality_cache dq ON m.full_name = dq.table_full_name
         WHERE (m.table_name LIKE ? OR m.comment LIKE ?)
           AND (p.principal IN ({ph}) OR p.principal = 'SELECT_ALL_USERS')
 
         UNION ALL
 
-        SELECT DISTINCT c.table_full_name AS full_name, c.column_name AS table_name, 'Column' AS match_type
+        SELECT DISTINCT c.table_full_name AS full_name,
+               COALESCE(o.business_name, c.column_name) AS table_name,
+               'Column' AS match_type
         FROM columns_metadata c
         JOIN permissions_cache p ON c.table_full_name = p.table_full_name
         JOIN tables_metadata t ON c.table_full_name = t.full_name
-        WHERE (c.column_name LIKE ? OR c.comment LIKE ?)
+        LEFT JOIN data_quality_cache dq ON c.table_full_name = dq.table_full_name
+        LEFT JOIN business_name_overrides o
+               ON o.table_full_name = c.table_full_name AND o.column_name = c.column_name
+        WHERE (
+            c.column_name LIKE ? OR c.comment LIKE ?
+            OR o.business_name LIKE ? OR o.definition LIKE ?
+          )
           AND (p.principal IN ({ph}) OR p.principal = 'SELECT_ALL_USERS')
 
         LIMIT 50
@@ -370,11 +385,20 @@ class DictionaryHTTPUser(HttpUser):
     def admin_tab(self):
         self.client.get("/?tab=admin", name="tab: admin")
 
+    @task(5)
+    def pipelines_tab(self):
+        """Pipeline runner tab — visible to PIPELINE_GROUPS members and admins."""
+        self.client.get("/?tab=pipelines", name="tab: pipelines")
+
     @task(10)
     def detail_drilldown(self):
-        """Open a real table's detail URL (sampled from the actual dataset)."""
-        table = random.choice(_ALL_TABLES)
-        self.client.get(f"/?tab=search&table={table}", name="tab: search (detail)")
+        """Open a real table — exercises the search-tab page-shell path that
+        the table-detail panel renders inside. The actual table-selection
+        happens via session_state (``dd_search_override`` + ``dd_nav_select``)
+        and isn't reachable over HTTP, so we only measure the page shell here.
+        Use a Playwright-driven test for end-to-end detail measurement."""
+        random.choice(_ALL_TABLES)  # keep the random pick to mirror real cardinality
+        self.client.get("/?tab=search", name="tab: search (detail)")
 
 
 # ── Benchmark summary ─────────────────────────────────────────────────────────

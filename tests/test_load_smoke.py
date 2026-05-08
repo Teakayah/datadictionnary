@@ -121,7 +121,7 @@ class TestLoadSmoke:
     @pytest.mark.parametrize("endpoint", [
         "tab: search", "tab: catalog", "tab: glossary",
         "tab: discovery", "tab: health", "tab: admin",
-        "tab: search (detail)",
+        "tab: pipelines", "tab: search (detail)",
     ])
     def test_http_p95(self, endpoint):
         row = self._stats.get(("GET", endpoint))

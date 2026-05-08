@@ -83,6 +83,7 @@ for the design.
 
 | | |
 | -- | -- |
+| [`docs/business-requirements.md`](docs/business-requirements.md) | What the app is for — personas, functional + non-functional reqs, scope, success metrics |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | System design, components, data flows |
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | Kubernetes setup runbook |
 | [`docs/adr/`](docs/adr) | Architecture decision records |
