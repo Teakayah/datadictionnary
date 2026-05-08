@@ -37,11 +37,12 @@ _PAGES = [
 # Violation IDs that are known Streamlit framework issues we cannot fix from app.py.
 # Any NEW violations not in this list will fail the test.
 _KNOWN_UNFIXABLE = frozenset({
-    # Streamlit's st.dataframe renders sort/filter column headers as
-    # div[aria-haspopup] without a role. Our MutationObserver patch (render_css)
-    # closes the race for most pages, but the Health dashboard dataframe
-    # re-renders after the observer fires. This is a Streamlit internals issue.
-    # Track: https://github.com/streamlit/streamlit/issues
+    # aria-allowed-attr USED to be required because Streamlit's st.dataframe
+    # re-renders fire after our initial MutationObserver. render_css now uses
+    # three layers (one-shot sweep, observer with attributeFilter on
+    # aria-haspopup, plus a 5 s polling fallback) that should close the
+    # Health-page race. We keep the rule defensively until a live run
+    # confirms; once it does, promote this to a hard failure.
     "aria-allowed-attr",
     # Streamlit progress-bar renders with a non-standard ARIA role.
     "scrollable-region-focusable",

@@ -1,6 +1,7 @@
 {
   "_baseline": "300-user 2-min run — 2026-04-29, seed=42, 800-table dataset",
   "_note": "50-user smoke test must not exceed these values. Any regression at lower concurrency indicates a real performance problem.",
+  "_drift": "Re-baseline recommended. Since this baseline was captured: search_all_metadata gained two LEFT JOINs (data_quality_cache + business_name_overrides), the locust DuckDBQueryUser was updated to mirror them, and the HTTP user now exercises 'tab: pipelines' as well. Cost on the 800-table dataset is small but real; the thresholds below may be tighter than current behaviour deserves.",
 
   "failure_rate_max_pct": 1.0,
   "_failure_note": "1% tolerance covers transient auth-session setup failures in dev environments",
