@@ -232,17 +232,29 @@ class TestSendCommentEmail:
         assert not at.exception
 
     def test_no_smtp_config_send_still_saves_comment(self, monkeypatch):
-        """Missing SMTP_HOST must not block comment saving."""
+        """Missing SMTP_HOST must not block comment saving (demo mode).
+
+        Originally this test ran in production mode and asserted on the
+        INSERT SQL to the Databricks comments table — that direct-write
+        path was removed in TODO #7. The behaviour the test is named for
+        (SMTP failure must not propagate) is still verified here, just
+        through the demo (session-state) save path.
+        """
         monkeypatch.delenv("SMTP_HOST", raising=False)
-        at = _at_production_detail(monkeypatch)
+        at = _at_detail(monkeypatch)  # demo mode
         next(b for b in at.button if b.label == "Leave a comment").click().run()
         at.text_area(key=f"dd_comment_text_{FULL_NAME}").set_value(
             "No SMTP test."
         ).run()
         next(b for b in at.button if b.label == "Send").click().run()
-        cursor = get_db_cursor()
-        sql_calls = [str(c) for c in cursor.execute.call_args_list]
-        assert any("INSERT" in s and "comments" in s for s in sql_calls)
+        # No exception means the save proceeded despite the missing SMTP config.
+        assert not at.exception
+        # And the comment landed in the demo session-state store.
+        demo_comments = at.session_state["demo_comments"]
+        assert any(
+            "No SMTP test." in c.get("comment_text", "")
+            for c in demo_comments.get(FULL_NAME, [])
+        )
 
     def test_send_reply_email_exception_logs_error(self, monkeypatch, caplog):
         """Exception during SMTP send for reply email must be logged as an error."""
