@@ -285,7 +285,7 @@ def check_auth(sync_prefs_callback: callable | None = None):
             logging.error("OAuth state mismatch (got %s, expected %s).", state, expected_state)
             for key in ("oauth_state", "oauth_nonce"):
                 st.session_state.pop(key, None)
-            st.error("Sign-in failed: security check did not match. Please try again.")
+            st.error(t("auth.signin_failed_security"))
             st.stop()
 
         result = msal_app.acquire_token_by_authorization_code(
@@ -300,7 +300,7 @@ def check_auth(sync_prefs_callback: callable | None = None):
             claims = result.get("id_token_claims", {})
             if expected_nonce and claims.get("nonce") != expected_nonce:
                 logging.error("OAuth nonce mismatch.")
-                st.error("Sign-in failed: security check did not match. Please try again.")
+                st.error(t("auth.signin_failed_security"))
                 st.stop()
 
             # Bust the groups cache for this user so a fresh sign-in always
@@ -329,7 +329,7 @@ def check_auth(sync_prefs_callback: callable | None = None):
         else:
             err = result.get("error_description") or result.get("error") or "unknown error"
             logging.error("Failed to acquire token: %s", err)
-            st.error("Sign-in failed. Please try again.")
+            st.error(t("auth.signin_failed"))
             st.stop()
 
     # ── Step 4: no session, no code → show sign-in page ──────────────────────
