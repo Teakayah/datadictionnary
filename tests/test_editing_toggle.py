@@ -24,21 +24,32 @@ EDITOR_GROUP = "editor_group_id"
 # ── Unit tests for is_editing_enabled / set_editing_enabled ──────────────────
 
 class TestIsEditingEnabled:
-    def test_defaults_true_without_duckdb(self):
-        """Returns True when DuckDB is unavailable (no DB file)."""
-        with patch("src.personalization._duckdb_available", return_value=False):
-            import streamlit as st
-            with patch.object(type(st.session_state), "__contains__", return_value=False):
-                from src.personalization import is_editing_enabled
-                # Clear any cached value
-                for key in list(st.session_state.keys()):
-                    if key == "_editing_enabled_cache":
-                        del st.session_state[key]
-                result = is_editing_enabled()
-        assert result is True
+    def test_defaults_true_when_storage_returns_none(self):
+        """Returns True when the site-settings backend has no row yet."""
+        import streamlit as st
+        from src.personalization import is_editing_enabled
+        from src.storage.preference_storage import FakeSiteSettingStorage
+        st.session_state.pop("_editing_enabled_cache", None)
+        with patch(
+            "src.personalization.get_site_setting_storage",
+            return_value=FakeSiteSettingStorage(),
+        ):
+            assert is_editing_enabled() is True
+
+    def test_reads_disabled_from_storage(self):
+        """Returns False when site_settings holds value='0'."""
+        import streamlit as st
+        from src.personalization import is_editing_enabled
+        from src.storage.preference_storage import FakeSiteSettingStorage
+        st.session_state.pop("_editing_enabled_cache", None)
+        with patch(
+            "src.personalization.get_site_setting_storage",
+            return_value=FakeSiteSettingStorage({"editing_enabled": "0"}),
+        ):
+            assert is_editing_enabled() is False
 
     def test_returns_cached_value(self):
-        """Returns cached session state value without hitting DB."""
+        """Returns cached session state value without hitting the backend."""
         import streamlit as st
         from src.personalization import is_editing_enabled
         st.session_state["_editing_enabled_cache"] = False
@@ -46,15 +57,21 @@ class TestIsEditingEnabled:
         st.session_state["_editing_enabled_cache"] = True
         assert is_editing_enabled() is True
 
-    def test_set_editing_enabled_updates_cache(self):
-        """set_editing_enabled updates the session state cache immediately."""
+    def test_set_editing_enabled_updates_cache_and_storage(self):
+        """set_editing_enabled writes to both the storage and the session cache."""
         import streamlit as st
         from src.personalization import set_editing_enabled
-        with patch("src.personalization._duckdb_available", return_value=False):
+        from src.storage.preference_storage import FakeSiteSettingStorage
+        fake = FakeSiteSettingStorage()
+        with patch(
+            "src.personalization.get_site_setting_storage", return_value=fake,
+        ):
             set_editing_enabled(False, "admin@test.com")
             assert st.session_state.get("_editing_enabled_cache") is False
+            assert fake.values["editing_enabled"] == "0"
             set_editing_enabled(True, "admin@test.com")
             assert st.session_state.get("_editing_enabled_cache") is True
+            assert fake.values["editing_enabled"] == "1"
 
 
 class TestIsPowerUserGate:

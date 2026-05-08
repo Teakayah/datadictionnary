@@ -64,27 +64,27 @@ class TestIsPipelineUser:
 
 
 class TestGetPipelines:
-    def test_returns_empty_without_duckdb(self):
-        """get_pipelines returns [] when DuckDB is unavailable and no demo data."""
-        import streamlit as st
-        st.session_state.pop("_demo_pipelines", None)
-        with patch("src.pipelines._duckdb_available", return_value=False):
+    def test_returns_empty_when_storage_empty(self):
+        """get_pipelines returns [] for an empty storage backend."""
+        from src.storage.pipeline_storage import FakePipelineDefStorage
+        fake = FakePipelineDefStorage()
+        with patch("src.pipelines.get_pipeline_def_storage", return_value=fake):
             from src.pipelines import get_pipelines
-            result = get_pipelines()
-        assert result == []
+            assert get_pipelines() == []
 
-    def test_returns_demo_session_state(self):
-        """get_pipelines returns _demo_pipelines from session state."""
-        import streamlit as st
-        fake = [{"pipeline_id": "p1", "title": "My Job", "description": "desc",
-                 "backend": "databricks", "databricks_job_id": "42",
-                 "adf_subscription_id": None, "adf_resource_group": None,
-                 "adf_factory_name": None, "adf_pipeline_name": None,
-                 "ado_organization": None, "ado_project": None,
-                 "ado_pipeline_id": None, "created_by": "admin",
-                 "created_at": datetime.now(UTC)}]
-        st.session_state["_demo_pipelines"] = fake
-        with patch("src.pipelines._duckdb_available", return_value=False):
+    def test_returns_pipelines_from_storage(self):
+        """get_pipelines returns whatever the def storage holds."""
+        from src.storage.pipeline_storage import FakePipelineDefStorage
+        fake = FakePipelineDefStorage([{
+            "pipeline_id": "p1", "title": "My Job", "description": "desc",
+            "backend": "databricks", "databricks_job_id": "42",
+            "adf_subscription_id": None, "adf_resource_group": None,
+            "adf_factory_name": None, "adf_pipeline_name": None,
+            "ado_organization": None, "ado_project": None,
+            "ado_pipeline_id": None, "created_by": "admin",
+            "created_at": datetime.now(UTC),
+        }])
+        with patch("src.pipelines.get_pipeline_def_storage", return_value=fake):
             from src.pipelines import get_pipelines
             result = get_pipelines()
         assert len(result) == 1
