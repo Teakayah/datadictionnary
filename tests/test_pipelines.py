@@ -159,32 +159,57 @@ class TestPipelinesPageUI:
 
 # ── Execution tests ──────────────────────────────────────────────────────────
 
+@pytest.fixture
+def pipeline_caller_context():
+    """Make is_pipeline_user() return True so trigger/cancel auth checks pass."""
+    with patch("src.pipelines.is_pipeline_user", return_value=True), \
+         patch("src.pipelines.is_admin", return_value=False):
+        yield
+
+
+@pytest.fixture
+def admin_caller_context():
+    """Make is_admin() return True so admin-only writes pass."""
+    with patch("src.pipelines.is_admin", return_value=True):
+        yield
+
+
 class TestTriggerPipeline:
     @patch("src.pipelines._trigger_databricks")
-    def test_trigger_pipeline_routes_to_databricks(self, mock_trigger):
+    def test_trigger_pipeline_routes_to_databricks(self, mock_trigger, pipeline_caller_context):
         from src.pipelines import trigger_pipeline
         pipeline = {"backend": "databricks"}
         trigger_pipeline(pipeline, "user1")
         mock_trigger.assert_called_once_with(pipeline, "user1")
 
     @patch("src.pipelines._trigger_adf")
-    def test_trigger_pipeline_routes_to_adf(self, mock_trigger):
+    def test_trigger_pipeline_routes_to_adf(self, mock_trigger, pipeline_caller_context):
         from src.pipelines import trigger_pipeline
         pipeline = {"backend": "adf"}
         trigger_pipeline(pipeline, "user2")
         mock_trigger.assert_called_once_with(pipeline, "user2")
 
     @patch("src.pipelines._trigger_ado")
-    def test_trigger_pipeline_routes_to_ado(self, mock_trigger):
+    def test_trigger_pipeline_routes_to_ado(self, mock_trigger, pipeline_caller_context):
         from src.pipelines import trigger_pipeline
         pipeline = {"backend": "ado"}
         trigger_pipeline(pipeline, "user3")
         mock_trigger.assert_called_once_with(pipeline, "user3")
 
-    def test_trigger_pipeline_raises_value_error_for_unknown_backend(self):
+    def test_trigger_pipeline_raises_value_error_for_unknown_backend(self, pipeline_caller_context):
         from src.pipelines import trigger_pipeline
         with pytest.raises(ValueError, match="Unknown backend: unknown"):
             trigger_pipeline({"backend": "unknown"}, "user")
+
+    def test_trigger_pipeline_rejects_non_pipeline_user(self):
+        """Non-admin, non-pipeline user gets PermissionError before any backend call."""
+        from src.pipelines import trigger_pipeline
+        with patch("src.pipelines.is_pipeline_user", return_value=False), \
+             patch("src.pipelines.is_admin", return_value=False), \
+             patch("src.pipelines._trigger_databricks") as mock_trigger:
+            with pytest.raises(PermissionError, match="pipeline users or admins"):
+                trigger_pipeline({"backend": "databricks"}, "u")
+        mock_trigger.assert_not_called()
 
 class TestPollRunStatus:
     @patch("src.pipelines._status_databricks")
@@ -222,7 +247,7 @@ class TestPollRunStatus:
 class TestCancelRun:
     @patch("src.pipelines._cancel_databricks")
     @patch("src.pipelines._clear_run")
-    def test_cancel_run_routes_to_databricks(self, mock_clear, mock_cancel):
+    def test_cancel_run_routes_to_databricks(self, mock_clear, mock_cancel, pipeline_caller_context):
         from src.pipelines import cancel_run
         pipeline = {"backend": "databricks", "pipeline_id": "p1"}
         run = {"backend_run_id": "r1"}
@@ -234,7 +259,7 @@ class TestCancelRun:
 
     @patch("src.pipelines._cancel_databricks")
     @patch("src.pipelines._clear_run")
-    def test_cancel_run_clears_even_on_exception(self, mock_clear, mock_cancel):
+    def test_cancel_run_clears_even_on_exception(self, mock_clear, mock_cancel, pipeline_caller_context):
         from src.pipelines import cancel_run
         pipeline = {"backend": "databricks", "pipeline_id": "p1"}
         run = {"backend_run_id": "r1"}
@@ -245,3 +270,53 @@ class TestCancelRun:
 
         mock_cancel.assert_called_once_with("r1")
         mock_clear.assert_called_once_with("p1")
+
+    def test_cancel_run_rejects_non_pipeline_user(self):
+        """Non-admin, non-pipeline user can't cancel — backend never called."""
+        from src.pipelines import cancel_run
+        with patch("src.pipelines.is_pipeline_user", return_value=False), \
+             patch("src.pipelines.is_admin", return_value=False), \
+             patch("src.pipelines._cancel_databricks") as mock_cancel, \
+             patch("src.pipelines._clear_run") as mock_clear:
+            with pytest.raises(PermissionError, match="pipeline users or admins"):
+                cancel_run({"backend": "databricks", "pipeline_id": "p1"},
+                           {"backend_run_id": "r1"})
+        mock_cancel.assert_not_called()
+        mock_clear.assert_not_called()
+
+
+class TestPipelineDefAdminGuards:
+    """create_pipeline_def and delete_pipeline_def are admin-only."""
+
+    def test_create_pipeline_def_rejects_non_admin(self):
+        from src.pipelines import create_pipeline_def
+        with patch("src.pipelines.is_admin", return_value=False), \
+             patch("src.pipelines.get_pipeline_def_storage") as mock_storage:
+            with pytest.raises(PermissionError, match="admins"):
+                create_pipeline_def(
+                    "title", "desc", "databricks", "42", None, None, None, None,
+                    None, None, None, "u",
+                )
+        mock_storage.assert_not_called()
+
+    def test_create_pipeline_def_admin_succeeds(self, admin_caller_context):
+        from src.pipelines import create_pipeline_def
+        from src.storage.pipeline_storage import FakePipelineDefStorage
+        fake = FakePipelineDefStorage()
+        with patch("src.pipelines.get_pipeline_def_storage", return_value=fake):
+            create_pipeline_def(
+                "My Pipe", "desc", "databricks", "42", None, None, None, None,
+                None, None, None, "admin",
+            )
+        assert len(fake.list_all()) == 1
+        assert fake.list_all()[0]["title"] == "My Pipe"
+
+    def test_delete_pipeline_def_rejects_non_admin(self):
+        from src.pipelines import delete_pipeline_def
+        with patch("src.pipelines.is_admin", return_value=False), \
+             patch("src.pipelines.get_pipeline_def_storage") as mock_def, \
+             patch("src.pipelines.get_pipeline_run_storage") as mock_run:
+            with pytest.raises(PermissionError, match="admins"):
+                delete_pipeline_def("p1")
+        mock_def.assert_not_called()
+        mock_run.assert_not_called()

@@ -63,15 +63,29 @@ class TestIsEditingEnabled:
         from src.personalization import set_editing_enabled
         from src.storage.preference_storage import FakeSiteSettingStorage
         fake = FakeSiteSettingStorage()
-        with patch(
-            "src.personalization.get_site_setting_storage", return_value=fake,
-        ):
+        with patch("src.personalization.is_admin", return_value=True), \
+             patch(
+                 "src.personalization.get_site_setting_storage", return_value=fake,
+             ):
             set_editing_enabled(False, "admin@test.com")
             assert st.session_state.get("_editing_enabled_cache") is False
             assert fake.values["editing_enabled"] == "0"
             set_editing_enabled(True, "admin@test.com")
             assert st.session_state.get("_editing_enabled_cache") is True
             assert fake.values["editing_enabled"] == "1"
+
+    def test_set_editing_enabled_rejects_non_admin(self):
+        """Non-admin caller gets PermissionError; storage unchanged."""
+        from src.personalization import set_editing_enabled
+        from src.storage.preference_storage import FakeSiteSettingStorage
+        fake = FakeSiteSettingStorage()
+        with patch("src.personalization.is_admin", return_value=False), \
+             patch(
+                 "src.personalization.get_site_setting_storage", return_value=fake,
+             ):
+            with pytest.raises(PermissionError, match="admins"):
+                set_editing_enabled(False, "rando@test.com")
+        assert fake.values == {}
 
 
 class TestIsPowerUserGate:

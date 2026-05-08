@@ -14,6 +14,7 @@ import os
 
 import streamlit as st
 
+from src.auth import is_admin
 from src.storage import get_preference_storage, get_site_setting_storage
 
 log = logging.getLogger(__name__)
@@ -71,6 +72,8 @@ def is_editing_enabled() -> bool:
 
 def set_editing_enabled(enabled: bool, actor_email: str = "admin") -> None:
     """Persist the global editing toggle and invalidate the session cache."""
+    if not is_admin():
+        raise PermissionError("Only admins can toggle the editing flag.")
     get_site_setting_storage().set(
         _EDITING_ENABLED_KEY, "1" if enabled else "0", actor_email,
     )
