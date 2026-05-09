@@ -18,56 +18,60 @@ def _viewport_height(fallback: int = 800) -> int:
     return int(st.session_state.get("viewport_height", fallback))
 
 
-def _fetch_lineage_hops(node_fns: list[str], query_groups: list, run_query) -> "pd.DataFrame | None":
-    """Fetch direct lineage neighbors of multiple node_fns, permission-filtered."""
-    if not node_fns:
-        return None
-    lin_ph = ", ".join([f"%(lin_g_{i})s" for i in range(len(query_groups))]) if query_groups else "''"
-
-    node_ph = ", ".join([f"%(node_fn_{i})s" for i in range(len(node_fns))])
-    params: dict = {}
-    for i, node in enumerate(node_fns):
-        params[f"node_fn_{i}"] = node
-
-    for i, g in enumerate(query_groups):
-        params[f"lin_g_{i}"] = g
-    q = (
-        "SELECT DISTINCT l.table_full_name, l.direction, l.entity_full_name, l.entity_type "
-        "FROM {0}.{1}.lineage_cache l "
-        "JOIN {0}.{1}.permissions_cache p ON l.entity_full_name = p.table_full_name "
-        "WHERE l.table_full_name IN ({2}) "
-        "AND (p.principal IN ({3}) OR p.principal = 'SELECT_ALL_USERS') "
-        "ORDER BY l.table_full_name, l.direction, l.entity_full_name"
-    ).format(CATALOG_CACHE, SCHEMA_CACHE, node_ph, lin_ph)  # nosec B608
-    return run_query(q, params)
-
-
 def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, run_query, max_depth: int = 2):
-    """BFS multi-hop lineage. Returns (graph_nodes, graph_links)."""
+    """BFS multi-hop lineage using WITH RECURSIVE. Returns (graph_nodes, graph_links)."""
     graph_nodes = [{"id": start_fn, "label": start_label, "current": True, "relationship": "Current"}]
     graph_links: list = []
+
+    lin_ph = ", ".join([f"%(lin_g_{i})s" for i in range(len(query_groups))]) if query_groups else "''"
+
+    params: dict = {"start_fn": start_fn, "max_depth": max_depth}
+    for i, g in enumerate(query_groups):
+        params[f"lin_g_{i}"] = g
+
+    q = f"""
+        WITH RECURSIVE lineage_tree AS (
+            SELECT DISTINCT l.table_full_name, l.direction, l.entity_full_name, l.entity_type, 1 AS depth
+            FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache l
+            JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p ON l.entity_full_name = p.table_full_name
+            WHERE l.table_full_name = %(start_fn)s
+            AND (p.principal IN ({lin_ph}) OR p.principal = 'SELECT_ALL_USERS')
+
+            UNION ALL
+
+            SELECT DISTINCT l.table_full_name, l.direction, l.entity_full_name, l.entity_type, t.depth + 1
+            FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache l
+            JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p ON l.entity_full_name = p.table_full_name
+            JOIN lineage_tree t ON l.table_full_name = t.entity_full_name
+            WHERE t.depth < %(max_depth)s
+            AND (p.principal IN ({lin_ph}) OR p.principal = 'SELECT_ALL_USERS')
+        )
+        SELECT DISTINCT table_full_name, direction, entity_full_name, entity_type, MIN(depth) AS depth
+        FROM lineage_tree
+        GROUP BY table_full_name, direction, entity_full_name, entity_type
+        ORDER BY depth ASC
+    """  # nosec B608
+
+    result = run_query(q, params)
+
     visited: set = {start_fn}
-    frontier = [start_fn]
 
-    for _ in range(max_depth):
-        if not frontier:
-            break
-        next_frontier: list = []
+    if result is not None and not result.empty and "direction" in result.columns and "table_full_name" in result.columns:
+        for lr in result.itertuples(index=False):
+            node_fn = str(getattr(lr, "table_full_name"))
+            efn = str(getattr(lr, "entity_full_name"))
+            direction = str(getattr(lr, "direction"))
+            link = {"from": efn, "to": node_fn} if direction == "UPSTREAM" else {"from": node_fn, "to": efn}
+            if link not in graph_links:
+                graph_links.append(link)
 
-        result = _fetch_lineage_hops(frontier, query_groups, run_query)
-        if result is not None and not result.empty and "direction" in result.columns and "table_full_name" in result.columns:
-            for lr in result.itertuples(index=False):
-                node_fn = str(getattr(lr, "table_full_name"))
-                efn = str(getattr(lr, "entity_full_name"))
-                direction = str(getattr(lr, "direction"))
-                link = {"from": efn, "to": node_fn} if direction == "UPSTREAM" else {"from": node_fn, "to": efn}
-                if link not in graph_links:
-                    graph_links.append(link)
-                if efn not in visited:
-                    visited.add(efn)
-                    next_frontier.append(efn)
-                    graph_nodes.append({"id": efn, "label": efn.split(".")[-1], "current": False, "relationship": direction.capitalize()})
-        frontier = next_frontier
+            # Reconstruct node states
+            if efn not in visited:
+                visited.add(efn)
+                graph_nodes.append({"id": efn, "label": efn.split(".")[-1], "current": False, "relationship": direction.capitalize()})
+            if node_fn not in visited:
+                visited.add(node_fn)
+                graph_nodes.append({"id": node_fn, "label": node_fn.split(".")[-1], "current": False, "relationship": "Unknown"})
 
     return graph_nodes, graph_links
 
