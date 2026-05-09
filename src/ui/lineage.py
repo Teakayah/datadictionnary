@@ -22,9 +22,9 @@ def _fetch_lineage_hops(node_fns: list[str], query_groups: list, run_query) -> "
     """Fetch direct lineage neighbors of multiple node_fns, permission-filtered."""
     if not node_fns:
         return None
-    lin_ph = ", ".join([f"%(lin_g_{i})s" for i in range(len(query_groups))]) if query_groups else "''"
+    lin_ph = ", ".join(f"%(lin_g_{i})s" for i in range(len(query_groups))) if query_groups else "''"
 
-    node_ph = ", ".join([f"%(node_fn_{i})s" for i in range(len(node_fns))])
+    node_ph = ", ".join(f"%(node_fn_{i})s" for i in range(len(node_fns)))
     params: dict = {}
     for i, node in enumerate(node_fns):
         params[f"node_fn_{i}"] = node

@@ -344,7 +344,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
 
     with col_side:
         # Grants section
-        _placeholders = ", ".join([f"%(grant_group_{i})s" for i in range(len(query_groups))]) if query_groups else "''"
+        _placeholders = ", ".join(f"%(grant_group_{i})s" for i in range(len(query_groups))) if query_groups else "''"
         grants_params: dict = {"table_full_name": full_name}
         for _i, _g in enumerate(query_groups):
             grants_params[f"grant_group_{_i}"] = _g
@@ -388,7 +388,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             full_name, str(row["table_name"]), query_groups, run_query, max_depth=2,
         )
 
-        rel_placeholders = ", ".join([f"%(group_{i})s" for i in range(len(query_groups))]) if query_groups else "''"
+        rel_placeholders = ", ".join(f"%(group_{i})s" for i in range(len(query_groups))) if query_groups else "''"
         rel_params = {"catalog_name": row["catalog_name"], "schema_name": row["schema_name"], "full_name": full_name}
         for i, group in enumerate(query_groups):
             rel_params[f"group_{i}"] = group

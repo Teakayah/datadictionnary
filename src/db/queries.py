@@ -140,7 +140,7 @@ def get_authorized_tables(groups):
     if is_demo_mode():
         return _DEMO_TABLES
     group_placeholders = (
-        ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
+        ", ".join(f"%(group_{i})s" for i in range(len(groups))) if groups else "''"
     )
     params: dict = {}
     if groups:
@@ -232,7 +232,7 @@ def search_all_metadata(query: str, groups: tuple):
     logging.info("GLOBAL SEARCH query=%s groups=%s", query, groups)
 
     group_placeholders = (
-        ", ".join([f"%(group_{i})s" for i in range(len(groups))]) if groups else "''"
+        ", ".join(f"%(group_{i})s" for i in range(len(groups))) if groups else "''"
     )
     params: dict = {f"group_{i}": g for i, g in enumerate(groups)} if groups else {}
     params["q"] = f"%{query}%"
