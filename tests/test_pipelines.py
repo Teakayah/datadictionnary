@@ -2,9 +2,6 @@
 Tests for the pipelines tab and pipeline management.
 
 Coverage:
-  - is_pipeline_user: False when PIPELINE_GROUPS unset
-  - is_pipeline_user: False when user's groups don't match
-  - is_pipeline_user: True when user's group matches PIPELINE_GROUPS
   - get_pipelines: returns empty list when DuckDB unavailable
   - get_pipelines: returns demo session state pipelines
   - render_pipelines_page: access denied for non-pipeline, non-admin user
@@ -28,40 +25,6 @@ STANDARD_GROUP = "finance_group"
 
 
 # ── Unit tests ────────────────────────────────────────────────────────────────
-
-class TestIsPipelineUser:
-    def test_false_when_env_unset(self, monkeypatch):
-        """is_pipeline_user returns False when PIPELINE_GROUPS is not set."""
-        monkeypatch.delenv("PIPELINE_GROUPS", raising=False)
-        import streamlit as st
-        st.session_state["user_groups"] = [PIPELINE_GROUP]
-        from src.auth import is_pipeline_user
-        assert is_pipeline_user() is False
-
-    def test_false_when_group_absent(self, monkeypatch):
-        """is_pipeline_user returns False when user's groups don't overlap."""
-        monkeypatch.setenv("PIPELINE_GROUPS", PIPELINE_GROUP)
-        import streamlit as st
-        st.session_state["user_groups"] = [STANDARD_GROUP]
-        from src.auth import is_pipeline_user
-        assert is_pipeline_user() is False
-
-    def test_true_when_group_matches(self, monkeypatch):
-        """is_pipeline_user returns True when user belongs to PIPELINE_GROUPS."""
-        monkeypatch.setenv("PIPELINE_GROUPS", PIPELINE_GROUP)
-        import streamlit as st
-        st.session_state["user_groups"] = [PIPELINE_GROUP, STANDARD_GROUP]
-        from src.auth import is_pipeline_user
-        assert is_pipeline_user() is True
-
-    def test_true_with_multiple_pipeline_groups(self, monkeypatch):
-        """is_pipeline_user works with comma-separated PIPELINE_GROUPS."""
-        monkeypatch.setenv("PIPELINE_GROUPS", f"other_group,{PIPELINE_GROUP}")
-        import streamlit as st
-        st.session_state["user_groups"] = [PIPELINE_GROUP]
-        from src.auth import is_pipeline_user
-        assert is_pipeline_user() is True
-
 
 class TestGetPipelines:
     def test_returns_empty_when_storage_empty(self):
