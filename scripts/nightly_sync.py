@@ -78,22 +78,23 @@ def _push(table_full_name: str, column_name: str, definition: str) -> None:
     parts = table_full_name.split(".")
     if len(parts) != 3:
         raise ValueError(f"Expected catalog.schema.table, got {table_full_name!r}")
-    cat, sch, tbl = parts
+    cat, sch, tbl = [p.replace("`", "``") for p in parts]
+    col = column_name.replace("`", "``")
 
-    safe_comment = (definition or "").replace("'", "\\'")
     alter_sql = (
         f"ALTER TABLE `{cat}`.`{sch}`.`{tbl}` "
-        f"ALTER COLUMN `{column_name}` COMMENT '{safe_comment}'"
+        f"ALTER COLUMN `{col}` SET COMMENT %(comment)s"
     )
 
     import databricks.sql as dbsql
+
     with dbsql.connect(
         server_hostname=host,
         http_path=http_path,
         access_token=token,
     ) as conn:
         with conn.cursor() as cur:
-            cur.execute(alter_sql)
+            cur.execute(alter_sql, {"comment": definition or ""})
 
     log.info("✓  %s . %s", table_full_name, column_name)
 
