@@ -48,8 +48,7 @@ def render_table_metadata_editor(table_full_name: str, current_desc: str, curren
                     save_table_metadata(
                         table_full_name, description=new_desc, steward_email=new_stew,
                     )
-                    st.success(t("common.saved"))
-                    time.sleep(0.5)
+                    st.toast(t("common.saved"))
                     st.rerun()
                 except Exception as e:
                     st.error(t("common.error_with_details", error=str(e)))
