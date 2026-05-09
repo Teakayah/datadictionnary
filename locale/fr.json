@@ -33,7 +33,8 @@
     "view_details": "Voir les détails",
     "back_to_results": "Retour aux résultats",
     "view_details_help": "Afficher les détails de cette table",
-    "back_to_results_help": "Retour aux résultats de recherche"
+    "back_to_results_help": "Retour aux résultats de recherche",
+    "start_typing": "Commencez à taper pour rechercher dans le catalogue."
   },
   "catalog": {
     "eyebrow": "§ Navigateur de catalogue",
@@ -81,7 +82,9 @@
     "preview_needs_data": "Aucune donnée trouvée. Régénérez le jeu de test avec --with-data pour activer l'aperçu.",
     "preview_error": "Impossible de récupérer l'échantillon. Vous n'avez peut-être pas la permission d'accéder aux données.",
     "edit_table_help": "Modifier les métadonnées de la table",
-    "expand_lineage": "Développer le graphe de lignage"
+    "expand_lineage": "Développer le graphe de lignage",
+    "no_columns": "Aucune colonne enregistrée.",
+    "no_grants": "Aucune autorisation enregistrée."
   },
   "comment": {
     "add_comment": "Ajouter un commentaire",
@@ -98,7 +101,8 @@
     "your_comment": "Votre commentaire",
     "your_reply": "Votre réponse",
     "max_chars": "Maximum 1000 caractères.",
-    "empty_error": "Le commentaire ne peut pas être vide."
+    "empty_error": "Le commentaire ne peut pas être vide.",
+    "no_steward": "Aucun gestionnaire configuré — le commentaire sera enregistré mais pas envoyé par e-mail."
   },
   "editor": {
     "edit_business_name": "Modifier le nom métier",
@@ -109,7 +113,9 @@
     "saved_by": "Enregistré par {user}",
     "placeholder_biz_name": "ex. Identifiant Client",
     "placeholder_biz_def": "ex. Identifiant unique attribué à chaque client lors de son inscription.",
-    "permission_error": "Vous n’avez pas la permission de modifier les noms métier."
+    "permission_error": "Vous n’avez pas la permission de modifier les noms métier.",
+    "edit_mode_banner": "Mode d'édition — les modifications sont enregistrées immédiatement et visibles par tous les utilisateurs.",
+    "last_edited_by": "Dernière modification par {user} · {date}"
   },
   "admin": {
     "title": "§ Admin",

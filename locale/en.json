@@ -33,7 +33,8 @@
     "view_details": "View details",
     "back_to_results": "Back to results",
     "view_details_help": "View details for this table",
-    "back_to_results_help": "Back to search results"
+    "back_to_results_help": "Back to search results",
+    "start_typing": "Start typing to search the catalog."
   },
   "catalog": {
     "eyebrow": "§ Catalog browser",
@@ -81,7 +82,9 @@
     "preview_needs_data": "No row data found. Regenerate the test dataset with --with-data to enable preview.",
     "preview_error": "Could not fetch data sample. You may not have permission to view the underlying data.",
     "edit_table_help": "Edit table metadata",
-    "expand_lineage": "Expand lineage graph"
+    "expand_lineage": "Expand lineage graph",
+    "no_columns": "No columns recorded.",
+    "no_grants": "No grants recorded."
   },
   "comment": {
     "add_comment": "Add a comment",
@@ -98,7 +101,8 @@
     "your_comment": "Your comment",
     "your_reply": "Your reply",
     "max_chars": "Maximum 1000 characters.",
-    "empty_error": "Comment cannot be empty."
+    "empty_error": "Comment cannot be empty.",
+    "no_steward": "No steward configured — comment will be saved but not emailed."
   },
   "editor": {
     "edit_business_name": "Edit business name",
@@ -109,7 +113,9 @@
     "saved_by": "Saved by {user}",
     "placeholder_biz_name": "e.g. Customer ID",
     "placeholder_biz_def": "e.g. Unique identifier assigned to each customer at registration.",
-    "permission_error": "You do not have permission to edit business names."
+    "permission_error": "You do not have permission to edit business names.",
+    "edit_mode_banner": "Edit mode — changes are saved immediately and visible to all users.",
+    "last_edited_by": "Last edited by {user} · {date}"
   },
   "admin": {
     "title": "§ Admin",
