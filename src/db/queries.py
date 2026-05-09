@@ -212,6 +212,10 @@ def search_all_metadata(query: str, groups: tuple):
     Permission-filtered: results are limited to tables the user's Entra
     groups have grants on (or tables marked ``SELECT_ALL_USERS``).
 
+    Like get_authorized_tables, this enforces row-level access control.
+    A table or its columns are returned only if the user's Entra ID groups
+    intersect with the table's allowed principals, or if it is public.
+
     Match domains:
       1. Tables   — name, description.
       2. Columns  — name, comment, business_name override, definition override.
