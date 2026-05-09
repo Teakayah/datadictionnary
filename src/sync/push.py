@@ -96,14 +96,18 @@ def _push_to_databricks(sync_type: str, table_full_name: str | None, payload: di
         with db_conn.cursor() as cur:
             if sync_type == "COLUMN_DEF":
                 col = _safe_ident(payload["column_name"])
-                dfn = (payload.get("definition") or "").replace("'", "''")
                 cat, sch, tbl = _split_full_name(table_full_name)
-                cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} ALTER COLUMN {col} COMMENT '{dfn}'")
+                cur.execute(
+                    f"ALTER TABLE {cat}.{sch}.{tbl} ALTER COLUMN {col} SET COMMENT %(comment)s",
+                    {"comment": payload.get("definition") or ""},
+                )
 
             elif sync_type == "TABLE_DESC":
-                dfn = (payload.get("definition") or "").replace("'", "''")
                 cat, sch, tbl = _split_full_name(table_full_name)
-                cur.execute(f"COMMENT ON TABLE {cat}.{sch}.{tbl} IS '{dfn}'")
+                cur.execute(
+                    f"COMMENT ON TABLE {cat}.{sch}.{tbl} IS %(comment)s",
+                    {"comment": payload.get("definition") or ""},
+                )
 
             elif sync_type == "STEWARD":
                 # Steward is stored as a Unity Catalog tag. Reject anything that
@@ -112,10 +116,12 @@ def _push_to_databricks(sync_type: str, table_full_name: str | None, payload: di
                 steward = (payload.get("steward") or "").strip()
                 if steward and not _EMAIL_RE.match(steward):
                     raise ValueError(f"Refusing to set non-email steward value: {steward!r}")
-                steward_sql = steward.replace("'", "''")
                 cat, sch, tbl = _split_full_name(table_full_name)
                 try:
-                    cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} SET TAGS ('steward' = '{steward_sql}')")
+                    cur.execute(
+                        f"ALTER TABLE {cat}.{sch}.{tbl} SET TAGS ('steward' = %(steward)s)",
+                        {"steward": steward},
+                    )
                 except Exception as e:
                     logging.warning("Could not set steward tag on %s: %s", table_full_name, e)
 
