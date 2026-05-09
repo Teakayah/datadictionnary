@@ -1,5 +1,4 @@
 from unittest.mock import patch
-import pytest
 from src.i18n import get_locale, t, set_locale
 
 def test_get_locale_valid_fr():
