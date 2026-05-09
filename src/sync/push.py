@@ -39,7 +39,17 @@ def _split_full_name(table_full_name: str) -> tuple[str, str, str]:
 
 
 def enqueue_sync(sync_type: str, table_full_name: str | None, payload: dict, queued_by: str) -> None:
-    """Add an action to the Databricks write-back queue."""
+    """Add an action to the Databricks write-back queue.
+
+    For metadata sync types ('COLUMN_DEF', 'TABLE_DESC', 'STEWARD'), this method
+    upserts the action by deleting previous pending items for the same target
+    to avoid duplicate work.
+
+    @param sync_type: The type of metadata to sync (e.g., 'COLUMN_DEF', 'TABLE_DESC', 'STEWARD', 'AUDIT', 'COMMENT').
+    @param table_full_name: The Unity Catalog full name of the table (catalog.schema.table), or None if not applicable.
+    @param payload: A dictionary containing the type-specific data for the sync operation.
+    @param queued_by: The identifier (e.g., email) of the user who initiated the action.
+    """
     if not _duckdb_available():
         return
     sync_id = str(uuid.uuid4())
@@ -83,7 +93,16 @@ def enqueue_column_sync(table_full_name: str, column_name: str, definition: str,
 
 
 def _push_to_databricks(sync_type: str, table_full_name: str | None, payload: dict) -> None:
-    """Generalized dispatcher to push different types of changes to Databricks."""
+    """Generalized dispatcher to push different types of changes to Databricks.
+
+    Executes the appropriate SQL command against the Databricks SQL Warehouse
+    based on the sync_type. Supports updating column definitions, table descriptions,
+    steward tags, and inserting audit logs or comments.
+
+    @param sync_type: The type of metadata change to push (e.g., 'COLUMN_DEF', 'TABLE_DESC', 'STEWARD', 'AUDIT', 'COMMENT').
+    @param table_full_name: The Unity Catalog full name of the table (catalog.schema.table), or None if not applicable.
+    @param payload: A dictionary containing the data to push, matching the sync_type requirements.
+    """
     host = os.getenv("DATABRICKS_HOST", "").strip()
     http_path = os.getenv("DATABRICKS_HTTP_PATH", "").strip()
     token = os.getenv("DATABRICKS_TOKEN", "").strip()
