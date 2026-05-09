@@ -217,6 +217,7 @@ def render_pipelines_page():
                 with _stop_col:
                     if not is_term and st.button(
                         t("pipelines.stop"), key=f"pl_stop_{pid}",
+                        help=t("pipelines.stop_help"),
                         type="primary", use_container_width=True,
                     ):
                         try:
@@ -229,6 +230,7 @@ def render_pipelines_page():
             else:
                 if st.button(
                     t("pipelines.start"), key=f"pl_start_{pid}",
+                    help=t("pipelines.start_help"),
                     type="secondary", use_container_width=False,
                 ):
                     try:
