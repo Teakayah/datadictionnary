@@ -319,3 +319,87 @@ class TestCommentUI:
         next(b for b in at.button if b.label == "Cancel").click().run()
         area_keys = [a.key for a in at.text_area]
         assert not any(f"dd_comment_text_{FULL_NAME}" == k for k in area_keys)
+
+    def test_production_save_comment_db(self, monkeypatch):
+        """Production mode: saving a comment INSERTs into duckdb when available."""
+        from src.comments import save_comment
+        from unittest.mock import patch, MagicMock
+        monkeypatch.setenv("DEMO_DATA", "false")
+
+        with patch("src.comments._get_write_connection") as mock_conn_func, \
+             patch("src.comments.enqueue_sync") as mock_enqueue, \
+             patch("src.comments.send_comment_email") as mock_email, \
+             patch("src.audit.log_audit_event") as mock_audit, \
+             patch("src.comments.st.session_state", {"user_name": "Test User", "user_email": "test@test.com"}), \
+             patch("src.comments._duckdb_available", return_value=True):
+
+             mock_conn = MagicMock()
+             mock_cursor = MagicMock()
+             mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+             mock_conn_func.return_value = mock_conn
+
+             save_comment("table", "schema.table", "A comment", "steward@test.com")
+
+             # Assert execute_write was called on duckdb branch
+             mock_cursor.execute_write.assert_called_once()
+             args = mock_cursor.execute_write.call_args
+             assert "INSERT INTO user_data.comments" in args[0][0]
+             assert args[0][1]["comment_text"] == "A comment"
+
+             # Assert enqueue and audit
+             mock_enqueue.assert_called_once()
+             mock_audit.assert_called_once_with("comment_added", "table", "schema.table", "", "A comment")
+             mock_email.assert_called_once_with("steward@test.com", "Test User", "schema.table", "A comment")
+
+    def test_production_save_comment_databricks(self, monkeypatch):
+        """Production mode: saving a comment INSERTs into databricks when duckdb is unavailable."""
+        from src.comments import save_comment
+        from unittest.mock import patch, MagicMock
+        monkeypatch.setenv("DEMO_DATA", "false")
+
+        with patch("src.comments._get_write_connection") as mock_conn_func, \
+             patch("src.comments.enqueue_sync") as mock_enqueue, \
+             patch("src.comments.send_comment_email") as mock_email, \
+             patch("src.audit.log_audit_event") as mock_audit, \
+             patch("src.comments.st.session_state", {"user_name": "Test User", "user_email": "test@test.com"}), \
+             patch("src.comments._duckdb_available", return_value=False):
+
+             mock_conn = MagicMock()
+             mock_cursor = MagicMock()
+             mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+             mock_conn_func.return_value = mock_conn
+
+             save_comment("table", "schema.table", "A comment", "steward@test.com")
+
+             # Assert execute was called on databricks branch
+             mock_cursor.execute.assert_called_once()
+             args = mock_cursor.execute.call_args
+             assert "INSERT INTO " in args[0][0]
+             assert args[0][1]["comment_text"] == "A comment"
+
+    def test_production_save_reply_comment(self, monkeypatch):
+        """Production mode: saving a reply sends a reply email."""
+        from src.comments import save_comment
+        from unittest.mock import patch, MagicMock
+        monkeypatch.setenv("DEMO_DATA", "false")
+
+        with patch("src.comments._get_write_connection") as mock_conn_func, \
+             patch("src.comments.enqueue_sync") as mock_enqueue, \
+             patch("src.comments.send_reply_email") as mock_email, \
+             patch("src.comments._fetch_comment_author_email", return_value="parent@test.com"), \
+             patch("src.audit.log_audit_event") as mock_audit, \
+             patch("src.comments.st.session_state", {"user_name": "Test User", "user_email": "test@test.com"}), \
+             patch("src.comments._duckdb_available", return_value=True):
+
+             mock_conn = MagicMock()
+             mock_cursor = MagicMock()
+             mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+             mock_conn_func.return_value = mock_conn
+
+             save_comment("table", "schema.table", "A reply", "steward@test.com", "parent-id")
+
+             # Assert execute_write was called
+             mock_cursor.execute_write.assert_called_once()
+
+             mock_email.assert_called_once_with("parent@test.com", "Test User", "schema.table", "A reply", "steward@test.com")
+             mock_audit.assert_called_once_with("comment_reply", "table", "schema.table", "", "A reply")
