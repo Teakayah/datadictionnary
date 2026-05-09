@@ -42,7 +42,6 @@ st.set_page_config(
 # ── Design system CSS ──────────────────────────────────────────────────────────
 from src.ui.css import render_css
 render_css()  # inject design-system CSS on every render
-from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import (
     get_authorized_tables,
 )
