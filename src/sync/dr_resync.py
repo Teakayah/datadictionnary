@@ -52,11 +52,18 @@ def _databricks_query(sql: str, params: dict | None = None) -> pd.DataFrame | No
             return cur.fetchall_as_pandas()
 
 
-def _local_max_ts(local_conn, table: str, ts_col: str):
+def _get_all_local_max_ts(local_conn) -> dict[str, str | None]:
+    """Fetch the max timestamp for all DR tables in a single query."""
+    queries = [
+        f"SELECT '{tbl}' as tbl, MAX({ts_col}) as max_ts FROM user_data.{tbl}"
+        for tbl, ts_col in _DR_TABLES
+    ]
+    sql = " UNION ALL ".join(queries)
+
     with local_conn.cursor() as cur:
-        cur.execute(f"SELECT MAX({ts_col}) FROM user_data.{table}")
-        rows = cur.fetchall()
-        return rows[0][0] if rows else None
+        cur.execute(sql)
+        # Returns a dict of {table_name: max_timestamp}
+        return {row[0]: row[1] for row in cur.fetchall()}
 
 
 def _merge_into_local(local_conn, table: str, df: pd.DataFrame) -> None:
@@ -103,8 +110,11 @@ def run_dr_resync(
 
     _status("Checking")
     try:
+        # Fetch all local max timestamps in a single query to avoid N+1 problem
+        local_maxes = _get_all_local_max_ts(local_conn)
+
         for tbl, ts_col in _DR_TABLES:
-            local_max = _local_max_ts(local_conn, tbl, ts_col)
+            local_max = local_maxes.get(tbl)
             remote_q = f"SELECT * FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.{tbl}"
             params: dict = {}
             if local_max:
