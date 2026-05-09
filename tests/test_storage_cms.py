@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
-from unittest.mock import patch
 
 import duckdb
 import pytest
@@ -101,7 +100,7 @@ class TestDuckDBCMSStorage:
     @pytest.fixture
     def storage(self, tmp_path, monkeypatch):
         catalog_path = tmp_path / "dict.duckdb"
-        user_path    = tmp_path / "dict_user_data.duckdb"
+
         monkeypatch.setenv("DUCKDB_PATH", str(catalog_path))
         # Create the catalog file so _duckdb_available() is True.
         duckdb.connect(str(catalog_path)).close()
