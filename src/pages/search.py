@@ -67,7 +67,7 @@ def _render_comment_form(
                 st.rerun()
         if not steward and not parent_comment_id:
             st.markdown(
-                '<p class="dd-comment-no-steward">No steward configured — comment will be saved but not emailed.</p>',
+                f'<p class="dd-comment-no-steward">{t("comment.no_steward")}</p>',
                 unsafe_allow_html=True,
             )
 
@@ -254,7 +254,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
 
                 if _col_edit == _edit_key:
                     st.markdown(
-                        '<div class="dd-edit-banner">Edit mode — changes are saved immediately and visible to all users.</div>',
+                        f'<div class="dd-edit-banner">{t("editor.edit_mode_banner")}</div>',
                         unsafe_allow_html=True,
                     )
                     _inp_name = st.text_input(
@@ -285,20 +285,19 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                                 st.error(str(exc))
                             except Exception as exc:
                                 logging.error("Save failed for %s.%s: %s", full_name, _cname, exc, exc_info=True)
-                                st.error(f"Save failed: {exc}")
+                                st.error(t("common.error_with_details", error=str(exc)))
                     with _cc:
                         if st.button(t("editor.cancel"), key=f"col_biz_cancel_{_edit_key}", use_container_width=True):
                             st.session_state.pop("dd_col_edit_mode", None)
                             st.rerun()
                     if _override.get("edited_by"):
                         st.markdown(
-                            f'<div class="dd-biz-audit">Last edited by {_html.escape(_override["edited_by"])} · '
-                            f'{_html.escape(str(_override.get("edited_at", "")))}</div>',
+                            f'<div class="dd-biz-audit">{t("editor.last_edited_by", user=_html.escape(_override["edited_by"]), date=_html.escape(str(_override.get("edited_at", ""))))}</div>',
                             unsafe_allow_html=True,
                         )
         else:
             st.markdown(
-                '<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No columns recorded.</p>',
+                f'<p style="font-size:13px;color:var(--ink-40);padding:12px 0">{t("detail.no_columns")}</p>',
                 unsafe_allow_html=True,
             )
 
@@ -381,7 +380,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                         st.session_state.pop("dd_nav_select", None)
                         st.rerun()
         else:
-            st.markdown('<p style="font-size:13px;color:var(--ink-40);padding:12px 0">No grants recorded.</p>', unsafe_allow_html=True)
+            st.markdown(f'<p style="font-size:13px;color:var(--ink-40);padding:12px 0">{t("detail.no_grants")}</p>', unsafe_allow_html=True)
 
         # Lineage + related tables
         graph_nodes, graph_links = _build_lineage_graph(
@@ -621,7 +620,7 @@ def render_search_page(query_groups: tuple) -> None:
             st.error(t("detail.load_error"))
     else:
         st.markdown(
-            '<p style="font-family:var(--font-sans);font-size:15px;color:var(--ink-60);margin-top:8px">'
-            'Start typing to search the catalog.</p>',
+            f'<p style="font-family:var(--font-sans);font-size:15px;color:var(--ink-60);margin-top:8px">'
+            f'{t("search.start_typing")}</p>',
             unsafe_allow_html=True,
         )
