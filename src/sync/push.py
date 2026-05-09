@@ -109,7 +109,7 @@ def _push_to_databricks(sync_type: str, table_full_name: str | None, payload: di
                 # Steward is stored as a Unity Catalog tag. Reject anything that
                 # is not a syntactically valid email so the f-string can't be
                 # broken out of by a crafted value.
-                steward = (payload.get("steward") or "").strip()
+                steward = (payload.get("steward_email") or "").strip()
                 if steward and not _EMAIL_RE.match(steward):
                     raise ValueError(f"Refusing to set non-email steward value: {steward!r}")
                 steward_sql = steward.replace("'", "''")

@@ -128,7 +128,7 @@ class TestPushToDatabricks:
     def test_steward_sets_unity_catalog_tag(self, databricks_env):
         from src.sync.push import _push_to_databricks
         _push_to_databricks(
-            "STEWARD", "cat.sch.tbl", {"steward": "alice@example.com"},
+            "STEWARD", "cat.sch.tbl", {"steward_email": "alice@example.com"},
         )
         sql = _push_cursor().execute.call_args.args[0]
         assert "ALTER TABLE `cat`.`sch`.`tbl` SET TAGS" in sql
@@ -139,13 +139,13 @@ class TestPushToDatabricks:
         with pytest.raises(ValueError, match="non-email steward"):
             _push_to_databricks(
                 "STEWARD", "cat.sch.tbl",
-                {"steward": "alice'; DROP TABLE x;--"},
+                {"steward_email": "alice'; DROP TABLE x;--"},
             )
 
     def test_steward_empty_string_is_allowed(self, databricks_env):
         """Clearing the steward (empty string) bypasses the email check."""
         from src.sync.push import _push_to_databricks
-        _push_to_databricks("STEWARD", "cat.sch.tbl", {"steward": ""})
+        _push_to_databricks("STEWARD", "cat.sch.tbl", {"steward_email": ""})
         sql = _push_cursor().execute.call_args.args[0]
         assert "'steward' = ''" in sql
 
