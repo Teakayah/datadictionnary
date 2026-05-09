@@ -153,12 +153,12 @@ def push_business_name_overrides():
                 full_name_q = ".".join(
                     f"`{p.replace('`', '``')}`" for p in raw_full_name.split(".")
                 )
-                col_name_q  = f"`{raw_col_name.replace('`', '``')}`"
-                biz_name_q  = raw_biz_name.replace("'", "''")
+                col_name_q = f"`{raw_col_name.replace('`', '``')}`"
                 try:
                     cursor.execute(
                         f"ALTER TABLE {full_name_q} "
-                        f"ALTER COLUMN {col_name_q} COMMENT '{biz_name_q}'"
+                        f"ALTER COLUMN {col_name_q} SET COMMENT %(comment)s",
+                        {"comment": raw_biz_name},
                     )
                     print(f"  ✓ {raw_full_name}.{raw_col_name}")
                 except Exception as e:

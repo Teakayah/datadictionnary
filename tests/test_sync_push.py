@@ -103,36 +103,39 @@ class TestPushToDatabricks:
             "COLUMN_DEF", "cat.sch.tbl",
             {"column_name": "col_a", "definition": "hello"},
         )
-        sql = _push_cursor().execute.call_args.args[0]
+        sql, params = _push_cursor().execute.call_args.args
         assert "ALTER TABLE `cat`.`sch`.`tbl`" in sql
         assert "ALTER COLUMN `col_a`" in sql
-        assert "COMMENT 'hello'" in sql
+        assert "SET COMMENT %(comment)s" in sql
+        assert params["comment"] == "hello"
 
-    def test_column_def_escapes_single_quotes_in_definition(self, databricks_env):
+    def test_column_def_uses_parameters_for_definition(self, databricks_env):
         from src.sync.push import _push_to_databricks
         _push_to_databricks(
             "COLUMN_DEF", "cat.sch.tbl",
             {"column_name": "col_a", "definition": "it's tricky"},
         )
-        sql = _push_cursor().execute.call_args.args[0]
-        assert "COMMENT 'it''s tricky'" in sql
+        sql, params = _push_cursor().execute.call_args.args
+        assert params["comment"] == "it's tricky"
 
     def test_table_desc_emits_comment_on_table(self, databricks_env):
         from src.sync.push import _push_to_databricks
         _push_to_databricks(
             "TABLE_DESC", "cat.sch.tbl", {"definition": "primary fact table"},
         )
-        sql = _push_cursor().execute.call_args.args[0]
-        assert "COMMENT ON TABLE `cat`.`sch`.`tbl` IS 'primary fact table'" in sql
+        sql, params = _push_cursor().execute.call_args.args
+        assert "COMMENT ON TABLE `cat`.`sch`.`tbl` IS %(comment)s" in sql
+        assert params["comment"] == "primary fact table"
 
     def test_steward_sets_unity_catalog_tag(self, databricks_env):
         from src.sync.push import _push_to_databricks
         _push_to_databricks(
             "STEWARD", "cat.sch.tbl", {"steward": "alice@example.com"},
         )
-        sql = _push_cursor().execute.call_args.args[0]
+        sql, params = _push_cursor().execute.call_args.args
         assert "ALTER TABLE `cat`.`sch`.`tbl` SET TAGS" in sql
-        assert "'steward' = 'alice@example.com'" in sql
+        assert "'steward' = %(steward)s" in sql
+        assert params["steward"] == "alice@example.com"
 
     def test_steward_rejects_non_email(self, databricks_env):
         from src.sync.push import _push_to_databricks
