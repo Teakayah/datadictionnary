@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import os
 from datetime import UTC, datetime
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
 from streamlit.testing.v1 import AppTest
@@ -173,6 +173,79 @@ def admin_caller_context():
     with patch("src.pipelines.is_admin", return_value=True):
         yield
 
+
+
+class TestTriggerBackends:
+    @patch("requests.post")
+    @patch("src.pipelines._get_sp_token")
+    @patch("src.pipelines._save_run")
+    def test_trigger_databricks_success(self, mock_save_run, mock_get_token, mock_post):
+        from src.pipelines import _trigger_databricks
+        mock_get_token.return_value = "fake-token"
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"run_id": 12345}
+        mock_post.return_value = mock_resp
+
+        pipeline = {
+            "pipeline_id": "pipe1",
+            "databricks_job_id": "42"
+        }
+
+        _trigger_databricks(pipeline, "user1")
+
+        mock_get_token.assert_called_once()
+        mock_post.assert_called_once()
+        mock_resp.raise_for_status.assert_called_once()
+        mock_save_run.assert_called_once_with("pipe1", "12345", "user1")
+
+    @patch("requests.post")
+    @patch("src.pipelines._get_sp_token")
+    @patch("src.pipelines._save_run")
+    def test_trigger_adf_success(self, mock_save_run, mock_get_token, mock_post):
+        from src.pipelines import _trigger_adf
+        mock_get_token.return_value = "fake-token"
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"runId": "adf-run-123"}
+        mock_post.return_value = mock_resp
+
+        pipeline = {
+            "pipeline_id": "pipe2",
+            "adf_subscription_id": "sub1",
+            "adf_resource_group": "rg1",
+            "adf_factory_name": "fact1",
+            "adf_pipeline_name": "pipe_name_1"
+        }
+
+        _trigger_adf(pipeline, "user2")
+
+        mock_get_token.assert_called_once()
+        mock_post.assert_called_once()
+        mock_resp.raise_for_status.assert_called_once()
+        mock_save_run.assert_called_once_with("pipe2", "adf-run-123", "user2")
+
+    @patch("requests.post")
+    @patch("src.pipelines._get_sp_token")
+    @patch("src.pipelines._save_run")
+    def test_trigger_ado_success(self, mock_save_run, mock_get_token, mock_post):
+        from src.pipelines import _trigger_ado
+        mock_get_token.return_value = "fake-token"
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"id": 999}
+        mock_post.return_value = mock_resp
+
+        pipeline = {
+            "pipeline_id": "pipe3",
+            "ado_organization": "org1",
+            "ado_project": "proj1",
+            "ado_pipeline_id": "111"
+        }
+
+        _trigger_ado(pipeline, "user3")
+
+        mock_get_token.assert_called_once()
+        mock_post.assert_called_once()
+        mock_resp.raise_for_status.assert_called_once()
+        mock_save_run.assert_called_once_with("pipe3", "999", "user3")
 
 class TestTriggerPipeline:
     @patch("src.pipelines._trigger_databricks")
