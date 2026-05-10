@@ -358,7 +358,8 @@ def is_pipeline_user() -> bool:
     pipeline_groups = {g.strip() for g in os.getenv("PIPELINE_GROUPS", "").split(",") if g.strip()}
     if not pipeline_groups:
         return False
-    return bool(pipeline_groups & set(st.session_state.get("user_groups", [])))
+    user_groups = st.session_state.get("user_groups") or []
+    return bool(pipeline_groups & set(user_groups))
 
 
 def is_admin() -> bool:

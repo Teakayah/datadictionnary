@@ -11,3 +11,7 @@ Assertion: Use `unittest.mock.patch` to mock external storage classes and enviro
 Coverage Gap: `src.pipelines.py` trigger functions (`_trigger_databricks`, `_trigger_adf`, `_trigger_ado`) had 0% coverage and lacked testing for their HTTP requests.
 Learning: Local dependency imports (e.g., `import requests` inside a function body) require patching the global module (e.g., `@patch('requests.post')`) rather than patching the module namespace (`@patch('src.pipelines.requests.post')`), otherwise it raises an AttributeError.
 Assertion: Ensure tests correctly patch the globally resolved module rather than attempting to resolve it in the target namespace when it's imported locally.
+## 2026-05-10 - [Coverage Gap] Missing tests for is_pipeline_user
+Coverage Gap: `is_pipeline_user` lacked a robust defensive test for explicit `None` assignment to `user_groups` inside `st.session_state`.
+Learning: When reading arrays/lists from `session_state`, explicitly check or default to `[]` when the value is explicitly `None` (e.g. `user_groups = st.session_state.get("user_groups") or []`) to prevent `TypeError: 'NoneType' object is not iterable` during set operations.
+Assertion: Ensure tests correctly handle explicit `None` mocking using `monkeypatch.setattr('src.auth.st.session_state', {"user_groups": None})` to prevent test contamination.
