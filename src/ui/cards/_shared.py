@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Helpers shared across cards/ submodules.
 
 Contents:
@@ -9,7 +11,6 @@ Contents:
   Used by ``render_cms_banner`` (discovery) and the admin CMS section.
 """
 
-from __future__ import annotations
 
 from src.config import CATALOG_CACHE, SCHEMA_CACHE
 from src.db.duckdb_adapter import _duckdb_available

@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Admin page — composition of admin-only sections.
 
 Sections, in render order:
@@ -16,7 +18,6 @@ get_sync_queue_stats) are kept here too because their only callers are
 the renderers below — moving them out would be premature.
 """
 
-from __future__ import annotations
 
 import logging
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Microsoft Graph helpers for Entra ID groups overage.
 
 When a user is a member of more than ~150 security groups, Entra ID omits
@@ -23,7 +25,6 @@ user see no tables, which is the right default. We do NOT silently grant
 access by returning a wider set.
 """
 
-from __future__ import annotations
 
 import logging
 import threading
@@ -130,7 +131,7 @@ def _call_get_member_objects(access_token: str) -> list[str]:
     return out
 
 
-def clear_groups_cache(user_oid: str | None = None) -> int:
+def clear_groups_cache(user_oid: Optional[str] = None) -> int:
     """Drop cached group memberships.
 
     Use case: an admin grants a user a new Entra group, and the user

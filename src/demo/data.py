@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 import pandas as pd
 
 _DEMO_TABLES = pd.DataFrame({

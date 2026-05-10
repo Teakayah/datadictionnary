@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """User preferences and personalization functions.
 
 Storage is delegated to ``src.storage`` — see ``PreferenceStorage`` and

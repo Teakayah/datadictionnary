@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Sidecar sync worker — long-lived process that drains user_data.pending_sync
 into Databricks and runs DR resync.
 
@@ -20,7 +22,6 @@ Environment:
     SYNC_HEALTHZ_PORT          — default 8765
 """
 
-from __future__ import annotations
 
 import argparse
 import json
@@ -30,7 +31,7 @@ import signal
 import sys
 import threading
 import time
-from datetime import UTC, datetime
+from datetime import datetime, timezone; UTC = timezone.utc
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -167,7 +168,7 @@ def _silence_streamlit_warnings() -> None:
         logging.getLogger(name).setLevel(logging.ERROR)
 
 
-def run(once: bool = False, healthz_port: int | None = None) -> int:
+def run(once: bool = False, healthz_port: Optional[int] = None) -> int:
     """Daemon entry point. Returns 0 on graceful shutdown."""
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
@@ -217,7 +218,7 @@ def run(once: bool = False, healthz_port: int | None = None) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog="sync-daemon")
     parser.add_argument(
         "--once", action="store_true",

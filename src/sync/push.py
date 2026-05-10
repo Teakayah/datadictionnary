@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Queue and Push logic for Databricks write-back."""
 
 import json
@@ -41,7 +43,7 @@ def _split_full_name(table_full_name: str) -> list[str]:
     return parts
 
 
-def enqueue_sync(sync_type: str, table_full_name: str | None, payload: dict, queued_by: str) -> None:
+def enqueue_sync(sync_type: str, table_full_name: Optional[str], payload: dict, queued_by: str) -> None:
     """Add an action to the Databricks write-back queue.
 
     For metadata sync types ('COLUMN_DEF', 'TABLE_DESC', 'STEWARD'), this method
@@ -95,7 +97,7 @@ def enqueue_column_sync(table_full_name: str, column_name: str, definition: str,
     enqueue_sync("COLUMN_DEF", table_full_name, {"column_name": column_name, "definition": definition}, queued_by)
 
 
-def _push_to_databricks(sync_type: str, table_full_name: str | None, payload: dict) -> None:
+def _push_to_databricks(sync_type: str, table_full_name: Optional[str], payload: dict) -> None:
     """Generalized dispatcher to push different types of changes to Databricks.
 
     Executes the appropriate SQL command against the Databricks SQL Warehouse

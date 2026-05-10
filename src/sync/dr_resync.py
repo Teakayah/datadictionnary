@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Disaster-recovery resync — pull recent rows from Databricks back into the
 local DuckDB user_data file.
 
@@ -10,12 +12,10 @@ caching, no demo-mode branching — because the daemon never runs inside a
 Streamlit context.
 """
 
-from __future__ import annotations
 
 import logging
 import os
 import uuid
-from typing import Callable
 
 import pandas as pd
 
@@ -32,7 +32,7 @@ _DR_TABLES: tuple[tuple[str, str], ...] = (
 )
 
 
-def _databricks_query(sql: str, params: dict | None = None) -> pd.DataFrame | None:
+def _databricks_query(sql: str, params: Optional[dict] = None) -> Optional[pd.DataFrame]:
     """Run a query against Databricks. Returns None if creds are unset.
 
     DR resync is best-effort — when DATABRICKS_* env vars are missing (e.g.
@@ -52,7 +52,7 @@ def _databricks_query(sql: str, params: dict | None = None) -> pd.DataFrame | No
             return cur.fetchall_as_pandas()
 
 
-def _get_all_local_max_ts(local_conn) -> dict[str, str | None]:
+def _get_all_local_max_ts(local_conn) -> dict[str, Optional[str]]:
     """Fetch the max timestamp for all DR tables in a single query."""
     queries = [
         f"SELECT '{tbl}' as tbl, MAX({ts_col}) as max_ts FROM user_data.{tbl}"
@@ -93,7 +93,7 @@ def _merge_into_local(local_conn, table: str, df: pd.DataFrame) -> None:
 
 def run_dr_resync(
     local_conn,
-    status_setter: Callable[[str], None] | None = None,
+    status_setter: Optional[Callable[[str], None]] = None,
 ) -> str:
     """Pull missing rows from Databricks back into local user_data.
 

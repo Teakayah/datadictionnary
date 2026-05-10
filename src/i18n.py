@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Internationalisation (i18n) for the Data Dictionary.
 
 Public API:
@@ -9,7 +11,6 @@ Public API:
 Dependencies: os, json, streamlit (no databricks/msal imports — safe in tests).
 """
 
-from __future__ import annotations
 
 import json as _json
 import os
@@ -58,7 +59,7 @@ def t(key: str, **kwargs) -> str:
     _ensure_locale()
     lang = st.session_state.get("locale", "en")
 
-    def _lookup(d: dict, parts: list) -> "str | None":
+    def _lookup(d: dict, parts: list) -> "Optional[str]":
         for p in parts:
             if not isinstance(d, dict):
                 return None

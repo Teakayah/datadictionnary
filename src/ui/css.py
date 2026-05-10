@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Design system CSS loader.
 
 Reads assets/design.css and assets/vis_dialog.css at import time and
@@ -11,7 +13,6 @@ Public API:
 Dependencies: pathlib, streamlit (no databricks/msal imports — safe in tests).
 """
 
-from __future__ import annotations
 
 from pathlib import Path
 import streamlit as st

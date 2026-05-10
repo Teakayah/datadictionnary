@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Audit log + business-name-override storage backends.
 
 Two entities, one module — both write-heavy. Backends:
@@ -17,10 +19,8 @@ writer, pushing audit events / column comments via
 ``enqueue_sync(...)``.
 """
 
-from __future__ import annotations
 
 import logging
-from typing import Protocol, runtime_checkable
 
 import pandas as pd
 import streamlit as st
