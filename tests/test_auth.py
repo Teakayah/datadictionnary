@@ -95,6 +95,21 @@ class TestIsPowerUserAuth:
         st.session_state["user_groups"] = ["editor_group"]
         assert is_power_user() is False
 
+    def test_false_when_env_empty(self, monkeypatch):
+        monkeypatch.setenv("EDITOR_GROUPS", "")
+        st.session_state["user_groups"] = ["editor_group"]
+        assert is_power_user() is False
+
+    def test_false_when_no_session_groups(self, monkeypatch):
+        monkeypatch.setenv("EDITOR_GROUPS", "editor_group")
+        # st.session_state.clear() via fixture
+        assert is_power_user() is False
+
+    def test_false_when_groups_empty(self, monkeypatch):
+        monkeypatch.setenv("EDITOR_GROUPS", "editor_group")
+        st.session_state["user_groups"] = []
+        assert is_power_user() is False
+
     def test_false_when_no_match(self, monkeypatch):
         monkeypatch.setenv("EDITOR_GROUPS", "editor_group")
         st.session_state["user_groups"] = ["other_group"]
@@ -102,5 +117,11 @@ class TestIsPowerUserAuth:
 
     def test_true_when_group_matches(self, monkeypatch):
         monkeypatch.setenv("EDITOR_GROUPS", "editor_group")
+        st.session_state["user_groups"] = ["editor_group", "other_group"]
+        assert is_power_user() is True
+
+    def test_true_with_multiple_env_groups(self, monkeypatch):
+        """is_power_user works with comma-separated EDITOR_GROUPS."""
+        monkeypatch.setenv("EDITOR_GROUPS", "other_group, editor_group ")
         st.session_state["user_groups"] = ["editor_group"]
         assert is_power_user() is True

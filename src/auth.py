@@ -352,6 +352,14 @@ def check_auth(sync_prefs_callback: callable | None = None):
 
 
 
+def is_power_user() -> bool:
+    """True if the current user belongs to at least one EDITOR_GROUPS group."""
+    editor_groups = {g.strip() for g in os.getenv("EDITOR_GROUPS", "").split(",") if g.strip()}
+    if not editor_groups:
+        return False
+    return bool(editor_groups & set(st.session_state.get("user_groups", [])))
+
+
 def is_pipeline_user() -> bool:
     """True if the current user belongs to at least one PIPELINE_GROUPS group."""
     pipeline_groups = {g.strip() for g in os.getenv("PIPELINE_GROUPS", "").split(",") if g.strip()}
