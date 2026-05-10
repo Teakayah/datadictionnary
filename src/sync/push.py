@@ -27,8 +27,14 @@ def _safe_ident(part: str) -> str:
     """Return part wrapped in backticks, refusing anything not [A-Za-z0-9_]."""
     if not part or not _IDENT_RE.match(part):
         raise ValueError(f"Refusing to interpolate unsafe identifier: {part!r}")
-    return f"`{part}`"
+    escaped = part.replace("`", "``")
+    return f"`{escaped}`"
 
+
+
+def _escape_sql_string(val: str) -> str:
+    """Escape a string for safe interpolation into Databricks SQL DDL statements."""
+    return (val or "").replace("\\", "\\\\").replace("'", "''")
 
 def _split_full_name(table_full_name: str) -> tuple[str, str, str]:
     """Validate and split catalog.schema.table into safely-quoted parts."""
@@ -116,17 +122,13 @@ def _push_to_databricks(sync_type: str, table_full_name: str | None, payload: di
             if sync_type == "COLUMN_DEF":
                 col = _safe_ident(payload["column_name"])
                 cat, sch, tbl = _split_full_name(table_full_name)
-                cur.execute(
-                    f"ALTER TABLE {cat}.{sch}.{tbl} ALTER COLUMN {col} SET COMMENT %(comment)s",
-                    {"comment": payload.get("definition") or ""},
-                )
+                dfn = _escape_sql_string(payload.get("definition"))
+                cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} ALTER COLUMN {col} COMMENT '{dfn}'")
 
             elif sync_type == "TABLE_DESC":
                 cat, sch, tbl = _split_full_name(table_full_name)
-                cur.execute(
-                    f"COMMENT ON TABLE {cat}.{sch}.{tbl} IS %(comment)s",
-                    {"comment": payload.get("definition") or ""},
-                )
+                dfn = _escape_sql_string(payload.get("definition"))
+                cur.execute(f"COMMENT ON TABLE {cat}.{sch}.{tbl} IS '{dfn}'")
 
             elif sync_type == "STEWARD":
                 # Steward is stored as a Unity Catalog tag. Reject anything that
@@ -137,10 +139,8 @@ def _push_to_databricks(sync_type: str, table_full_name: str | None, payload: di
                     raise ValueError(f"Refusing to set non-email steward value: {steward!r}")
                 cat, sch, tbl = _split_full_name(table_full_name)
                 try:
-                    cur.execute(
-                        f"ALTER TABLE {cat}.{sch}.{tbl} SET TAGS ('steward' = %(steward)s)",
-                        {"steward": steward},
-                    )
+                    escaped_steward = _escape_sql_string(steward)
+                    cur.execute(f"ALTER TABLE {cat}.{sch}.{tbl} SET TAGS ('steward' = '{escaped_steward}')")
                 except Exception as e:
                     logging.warning("Could not set steward tag on %s: %s", table_full_name, e)
 
