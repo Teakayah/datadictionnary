@@ -217,7 +217,8 @@
     "stopped": "Exécution annulée.",
     "start_error": "Impossible de démarrer le pipeline",
     "stop_error": "Impossible d'arrêter le pipeline",
-    "error_title": "Le titre est requis."
+    "error_title": "Le titre est requis.",
+    "date_format": "%d %b %H:%M UTC"
   },
   "cms": {
     "section_title": "Gestion de contenu",
@@ -236,7 +237,11 @@
     "expires": "expire",
     "no_expiry": "jamais",
     "error_title_required": "Le titre est requis.",
-    "error_table_ref_required": "La référence de table est requise pour une publication en vedette."
+    "error_table_ref_required": "La référence de table est requise pour une publication en vedette.",
+    "date_format_short": "%d %b",
+    "date_format_long": "%d %b %Y",
+    "date_range": "{start} → expire {end}",
+    "author_date": "{author} · {date}"
   },
   "footer": {
     "built_with": "Data Dictionary · v0.1.0 · synchronisé chaque nuit depuis Unity Catalog"
