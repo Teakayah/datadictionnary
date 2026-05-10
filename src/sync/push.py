@@ -30,12 +30,15 @@ def _safe_ident(part: str) -> str:
     return f"`{part}`"
 
 
-def _split_full_name(table_full_name: str) -> tuple[str, str, str]:
+def _split_full_name(table_full_name: str) -> list[str]:
     """Validate and split catalog.schema.table into safely-quoted parts."""
     parts = (table_full_name or "").split(".")
     if len(parts) != 3:
         raise ValueError(f"Expected catalog.schema.table, got {table_full_name!r}")
-    return _safe_ident(parts[0]), _safe_ident(parts[1]), _safe_ident(parts[2])
+    for part in parts:
+        if not part or not _IDENT_RE.match(part):
+            raise ValueError(f"Refusing to interpolate unsafe identifier: {part!r}")
+    return parts
 
 
 def enqueue_sync(sync_type: str, table_full_name: str | None, payload: dict, queued_by: str) -> None:
@@ -114,18 +117,25 @@ def _push_to_databricks(sync_type: str, table_full_name: str | None, payload: di
     with dbsql.connect(server_hostname=host, http_path=http_path, access_token=token) as db_conn:
         with db_conn.cursor() as cur:
             if sync_type == "COLUMN_DEF":
-                col = _safe_ident(payload["column_name"])
-                cat, sch, tbl = _split_full_name(table_full_name)
+                tbl_parts = _split_full_name(table_full_name)
+                # Ensure column name is validated
+                if not payload["column_name"] or not _IDENT_RE.match(payload["column_name"]):
+                    raise ValueError(f"Refusing to interpolate unsafe identifier: {payload['column_name']!r}")
+
                 cur.execute(
-                    f"ALTER TABLE {cat}.{sch}.{tbl} ALTER COLUMN {col} SET COMMENT %(comment)s",
-                    {"comment": payload.get("definition") or ""},
+                    "ALTER TABLE IDENTIFIER(%(tbl)s) ALTER COLUMN IDENTIFIER(%(col)s) SET COMMENT %(comment)s",
+                    {
+                        "tbl": tbl_parts,
+                        "col": [payload["column_name"]],
+                        "comment": payload.get("definition") or "",
+                    },
                 )
 
             elif sync_type == "TABLE_DESC":
-                cat, sch, tbl = _split_full_name(table_full_name)
+                tbl_parts = _split_full_name(table_full_name)
                 cur.execute(
-                    f"COMMENT ON TABLE {cat}.{sch}.{tbl} IS %(comment)s",
-                    {"comment": payload.get("definition") or ""},
+                    "COMMENT ON TABLE IDENTIFIER(%(tbl)s) IS %(comment)s",
+                    {"tbl": tbl_parts, "comment": payload.get("definition") or ""},
                 )
 
             elif sync_type == "STEWARD":
@@ -135,11 +145,11 @@ def _push_to_databricks(sync_type: str, table_full_name: str | None, payload: di
                 steward = (payload.get("steward_email") or "").strip()
                 if steward and not _EMAIL_RE.match(steward):
                     raise ValueError(f"Refusing to set non-email steward value: {steward!r}")
-                cat, sch, tbl = _split_full_name(table_full_name)
+                tbl_parts = _split_full_name(table_full_name)
                 try:
                     cur.execute(
-                        f"ALTER TABLE {cat}.{sch}.{tbl} SET TAGS ('steward' = %(steward)s)",
-                        {"steward": steward},
+                        "ALTER TABLE IDENTIFIER(%(tbl)s) SET TAGS ('steward' = %(steward)s)",
+                        {"tbl": tbl_parts, "steward": steward},
                     )
                 except Exception as e:
                     logging.warning("Could not set steward tag on %s: %s", table_full_name, e)
