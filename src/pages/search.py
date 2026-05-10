@@ -5,6 +5,7 @@ from __future__ import annotations
 import html as _html
 import logging
 import os
+import urllib.parse
 
 import pandas as _pd
 import streamlit as st
@@ -97,10 +98,15 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         _tbl  = _html.escape(str(row["table_name"]))
         _raw_desc = row.get("table_description", "")
         _desc = _html.escape(str(_raw_desc) if isinstance(_raw_desc, str) else "")
-        _host = os.getenv("DATABRICKS_HOST", "").strip()
+
+        _host = _html.escape(os.getenv("DATABRICKS_HOST", "").strip())
+        _url_cat = urllib.parse.quote(str(row["catalog_name"]))
+        _url_sch = urllib.parse.quote(str(row["schema_name"]))
+        _url_tbl = urllib.parse.quote(str(row["table_name"]))
+        _ext_text = _html.escape(str(t("table.open_in_databricks")))
         _ext_link = (
-            f'<a href="https://{_host}/explore/data/{_cat}/{_sch}/{_tbl}" '
-            f'target="_blank" class="dd-link-external">{t("table.open_in_databricks")} ↗</a>'
+            f'<a href="https://{_host}/explore/data/{_url_cat}/{_url_sch}/{_url_tbl}" '
+            f'target="_blank" class="dd-link-external">{_ext_text} ↗</a>'
             if _host else ""
         )
 
@@ -122,7 +128,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         _score = float(st.session_state[_live_key])
         _grade, _gcls = _dq_grade(_score)
 
-        _steward = str(row.get("steward_email", ""))
+        _steward = _html.escape(str(row.get("steward_email", "")))
         st.markdown(
             f'<div class="dd-eyebrow" style="margin-bottom:4px">{_cat} · {_sch}</div>'
             f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
