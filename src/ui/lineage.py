@@ -1,7 +1,6 @@
 """Lineage graph building and rendering components."""
 
 from __future__ import annotations
-import pandas as pd
 
 import json
 
