@@ -9,3 +9,7 @@
 ## 2026-05-01 - [Extract Demo Mode Helper] **Learning:** Repeated environment variable checks for DEMO_DATA were scattered across the codebase, making updates error-prone. **Action:** Created `is_demo_mode()` helper to consolidate the check. Future boolean env var checks should use dedicated getters.
 
 ## 2024-05-09 - [Remove Duplicated is_power_user] **Learning:** Found a duplicated implementation of `is_power_user()` in `src/auth.py` and `src/personalization.py`. The `src/auth.py` version lacked the critical global `is_editing_enabled()` check. Global utility duplication can lead to security bypasses if developers import from the wrong location. **Action:** Removed the incomplete duplicate from `src/auth.py`. Ensure RBAC functions are strictly centralized and not re-implemented ad-hoc.
+
+## 2026-05-10 - [Ruff Unused Variable Fixes Limitation]
+**Learning:** Ruff's `--fix` flag for unused variables (F841) might only remove the left-hand variable assignment, leaving the right-hand pure expressions hanging (e.g., set comprehensions, or method calls). This can lead to SyntaxErrors if the assignment was part of a multiline `with` block patch statement.
+**Action:** Always manually review and fix F841 to avoid leaving dead code or invalid syntax, rather than relying solely on `--unsafe-fixes`.

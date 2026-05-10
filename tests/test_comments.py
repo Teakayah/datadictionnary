@@ -358,9 +358,9 @@ class TestCommentUI:
         monkeypatch.setenv("DEMO_DATA", "false")
 
         with patch("src.comments._get_write_connection") as mock_conn_func, \
-             patch("src.comments.enqueue_sync") as mock_enqueue, \
-             patch("src.comments.send_comment_email") as mock_email, \
-             patch("src.audit.log_audit_event") as mock_audit, \
+             patch("src.comments.enqueue_sync"), \
+             patch("src.comments.send_comment_email"), \
+             patch("src.audit.log_audit_event"), \
              patch("src.comments.st.session_state", {"user_name": "Test User", "user_email": "test@test.com"}), \
              patch("src.comments._duckdb_available", return_value=False):
 
@@ -384,7 +384,7 @@ class TestCommentUI:
         monkeypatch.setenv("DEMO_DATA", "false")
 
         with patch("src.comments._get_write_connection") as mock_conn_func, \
-             patch("src.comments.enqueue_sync") as mock_enqueue, \
+             patch("src.comments.enqueue_sync"), \
              patch("src.comments.send_reply_email") as mock_email, \
              patch("src.comments._fetch_comment_author_email", return_value="parent@test.com"), \
              patch("src.audit.log_audit_event") as mock_audit, \

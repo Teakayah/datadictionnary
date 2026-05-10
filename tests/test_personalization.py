@@ -102,7 +102,7 @@ class TestSyncPrefsToSession:
         # recent_views is a list (recency order), not a set.
         assert st.session_state.recent_views == ["table_3", "table_2"]
 
-from src.personalization import is_editing_enabled, set_editing_enabled, is_power_user
+from src.personalization import is_editing_enabled, set_editing_enabled, is_power_user  # noqa: E402
 
 class FakeSiteSettingStorage:
     def __init__(self):
