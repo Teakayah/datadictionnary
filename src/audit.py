@@ -1,5 +1,5 @@
+# ruff: noqa: E402
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Audit logging and business-name-override write paths.
 
 Storage delegated to ``src.storage`` — see ``AuditStorage`` and
@@ -13,6 +13,7 @@ the read-only-attached catalog file in production and silently raises;
 the durable change is the ``enqueue_sync`` to Databricks. Migration of
 that path is deferred — see TODO.md (out-of-scope follow-ups).
 """
+from typing import Optional
 
 
 import logging
@@ -40,6 +41,7 @@ from src.db.queries import (
 )
 from src.personalization import is_power_user
 from src.storage import get_audit_storage, get_business_name_override_storage
+from src.storage.audit_storage import ColumnOverride
 from src.sync.push import enqueue_column_sync, enqueue_sync
 
 
@@ -152,9 +154,14 @@ def save_business_name(
     user_name = st.session_state.get("user_name", "unknown")
     old_value = _get_old_business_name(table_full_name, column_name)
 
-    get_business_name_override_storage().upsert(
-        table_full_name, column_name, business_name, definition, user_name,
+    override = ColumnOverride(
+        table_full_name=table_full_name,
+        column_name=column_name,
+        business_name=business_name,
+        definition=definition,
+        edited_by=user_name,
     )
+    get_business_name_override_storage().upsert(override)
 
     if _duckdb_available():
         try:
