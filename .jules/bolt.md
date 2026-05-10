@@ -6,3 +6,6 @@
 ## 2024-05-18 - N+1 database queries when querying multiple tables
 **Learning:** Found an N+1 query problem in `dr_resync.py` when attempting to fetch maximum timestamps for multiple tables individually. Making separate database calls in a loop severely throttles performance.
 **Action:** Always group queries into a single batched query using `UNION ALL` when fetching aggregate data (like maximum timestamps) across multiple tables, reducing the overhead of database connections and network latency.
+## 2024-05-10 - DuckDB N+1 Query Overhead
+**Learning:** Executing multiple separate DuckDB queries via `run_query` incurs noticeable overhead due to connection locking and repeated pandas DataFrame instantiations. In UI components like the admin dashboard that fetch multiple independent counts, this N+1 pattern was causing ~50% slower execution times.
+**Action:** When fetching multiple scalar values or independent counts from DuckDB, consolidate them into a single query using subqueries in the `SELECT` clause (e.g. `SELECT (SELECT COUNT(*) FROM t1) AS c1, ...`) to eliminate connection and dataframe conversion overhead.
