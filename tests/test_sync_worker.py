@@ -58,6 +58,12 @@ def test_read_dr_resync_status(mock_read_setting):
     mock_read_setting.assert_called_once_with(DR_STATUS_KEY, default="Idle")
 
 @patch("src.sync.worker._read_setting")
+def test_read_dr_resync_status_default(mock_read_setting):
+    mock_read_setting.return_value = "Idle"
+    assert read_dr_resync_status() == "Idle"
+    mock_read_setting.assert_called_once_with(DR_STATUS_KEY, default="Idle")
+
+@patch("src.sync.worker._read_setting")
 def test_read_worker_heartbeat(mock_read_setting):
     mock_read_setting.return_value = "2023-10-01T12:00:00Z"
     assert read_worker_heartbeat() == "2023-10-01T12:00:00Z"
