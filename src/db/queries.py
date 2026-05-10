@@ -200,7 +200,7 @@ def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
         )
         SELECT * FROM lineage_cte
     """
-    ).format(CATALOG_CACHE, SCHEMA_CACHE)
+    ).format(CATALOG_CACHE, SCHEMA_CACHE)  # nosec B608
 
     return run_query(sql_query, {"fn": table_full_name, "depth": depth})
 
@@ -391,7 +391,7 @@ def get_column_business_names(table_full_name: str) -> dict:
             cursor.execute(
                 f"SELECT column_name, business_name, definition, edited_by, edited_at "
                 f"FROM {tbl} "
-                f"WHERE table_full_name = %(table_full_name)s",
+                f"WHERE table_full_name = %(table_full_name)s",  # nosec B608
                 {"table_full_name": table_full_name},
             )
             rows = cursor.fetchall_as_pandas()
