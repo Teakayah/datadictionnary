@@ -71,34 +71,19 @@ class TestIsAdmin:
     def test_false_when_env_empty(self, monkeypatch):
         """is_admin returns False when ADMIN_GROUPS is empty string."""
         monkeypatch.setenv("ADMIN_GROUPS", "")
-        st.session_state["user_groups"] = ["any_group"]
+        monkeypatch.setattr("src.auth.st.session_state", {"user_groups": ["any_group"]})
         assert is_admin() is False
 
     def test_false_when_no_session_groups(self, monkeypatch):
         """is_admin returns False when user_groups is missing from session."""
         monkeypatch.setenv("ADMIN_GROUPS", "admin_group")
-        # st.session_state.clear() via fixture
+        monkeypatch.setattr("src.auth.st.session_state", {})
         assert is_admin() is False
 
     def test_false_when_groups_empty(self, monkeypatch):
         """is_admin returns False when user_groups is an empty list."""
         monkeypatch.setenv("ADMIN_GROUPS", "admin_group")
-        st.session_state["user_groups"] = []
-        assert is_admin() is False
-
-    def test_false_when_env_empty(self, monkeypatch):
-        monkeypatch.setenv("ADMIN_GROUPS", "")
-        st.session_state["user_groups"] = ["admin_group"]
-        assert is_admin() is False
-
-    def test_false_when_no_session_groups(self, monkeypatch):
-        monkeypatch.setenv("ADMIN_GROUPS", "admin_group")
-        # st.session_state.clear() via fixture
-        assert is_admin() is False
-
-    def test_false_when_groups_empty(self, monkeypatch):
-        monkeypatch.setenv("ADMIN_GROUPS", "admin_group")
-        st.session_state["user_groups"] = []
+        monkeypatch.setattr("src.auth.st.session_state", {"user_groups": []})
         assert is_admin() is False
 
     def test_false_when_no_match(self, monkeypatch):
