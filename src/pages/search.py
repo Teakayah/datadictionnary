@@ -1,6 +1,7 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Search tab — result cards and table detail panel."""
 
-from __future__ import annotations
 
 import html as _html
 import logging

@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Audit logging and business-name-override write paths.
 
 Storage delegated to ``src.storage`` — see ``AuditStorage`` and
@@ -12,7 +14,6 @@ the durable change is the ``enqueue_sync`` to Databricks. Migration of
 that path is deferred — see TODO.md (out-of-scope follow-ups).
 """
 
-from __future__ import annotations
 
 import logging
 import uuid
@@ -71,8 +72,8 @@ def log_audit_event(
 
 def save_table_metadata(
     table_full_name: str,
-    description: str | None = None,
-    steward_email: str | None = None,
+    description: Optional[str] = None,
+    steward_email: Optional[str] = None,
 ) -> None:
     """Atomically update table metadata (description/steward) and enqueue for sync."""
     if not is_power_user():

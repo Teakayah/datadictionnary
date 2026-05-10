@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """CMS data layer — admin-authored posts shown as a banner on the Discovery tab.
 
 Thin wrappers over a ``CMSStorage`` backend; the backend is picked at call
@@ -9,7 +11,6 @@ Adding a new CMS field: update the ``post`` dict in ``create_post`` and
 ``_POST_COLUMNS`` in ``src.storage.cms_storage``.
 """
 
-from __future__ import annotations
 
 import logging
 import uuid
@@ -20,7 +21,7 @@ from src.storage import get_cms_storage
 
 POST_TYPES = ("announcement", "featured_table", "guide")
 
-_EXPIRY_DAYS: dict[str, int | None] = {
+_EXPIRY_DAYS: dict[str, Optional[int]] = {
     "2 days":  2,
     "7 days":  7,
     "30 days": 30,
@@ -42,9 +43,9 @@ def create_post(
     post_type: str,
     title: str,
     body: str,
-    table_ref: str | None,
+    table_ref: Optional[str],
     author_email: str,
-    expiry_days: int | None,
+    expiry_days: Optional[int],
 ) -> None:
     """Persist a new CMS post.
 

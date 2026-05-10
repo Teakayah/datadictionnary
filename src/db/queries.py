@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """DB connection router and base query executor.
 
 Provides the write-connection helper and a backend-agnostic run_query()
@@ -11,7 +13,6 @@ get_column_business_names(), and get_multi_hop_lineage() still live in
 app.py because they depend on the _DEMO_* DataFrames defined there.
 """
 
-from __future__ import annotations
 
 import csv
 import io

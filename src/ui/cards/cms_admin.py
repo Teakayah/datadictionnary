@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """CMS admin section — list / create / delete posts.
 
 Used only from ``cards/admin.py``'s ``render_admin_page``. Kept as its own
@@ -8,7 +10,6 @@ The read-only banner that surfaces these posts on the discovery tab lives
 in ``cards/discovery.py::render_cms_banner``.
 """
 
-from __future__ import annotations
 
 import html as _html
 
@@ -111,7 +112,7 @@ def _render_admin_cms_section():
             expires.strftime("%b %d, %Y") if hasattr(expires, "strftime")
             else str(expires)[:10] if expires else t("cms.no_expiry")
         )
-        from datetime import UTC, datetime
+        from datetime import datetime, timezone; UTC = timezone.utc
         if expires is None:
             is_expired = False
         else:

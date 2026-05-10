@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """User preferences and site-settings storage backends.
 
 Two related entities, one module:
@@ -13,10 +15,8 @@ fell back to defaults for site settings. The Fake variants are
 session-free in-memory dicts for unit tests.
 """
 
-from __future__ import annotations
 
 import logging
-from typing import Protocol, runtime_checkable
 
 from src.db.duckdb_adapter import _db_write_lock
 from src.db.queries import _get_write_connection, get_db_connection
@@ -154,7 +154,7 @@ class SiteSettingStorage(Protocol):
     """Global key/value store. Today: editing_enabled flag, daemon
     heartbeat, dr_resync_status."""
 
-    def get(self, key: str) -> str | None: ...
+    def get(self, key: str) -> Optional[str]: ...
     def set(self, key: str, value: str, actor_email: str) -> None: ...
 
 
@@ -167,7 +167,7 @@ class DemoSiteSettingStorage:
     runtime-mutable knob without DuckDB.
     """
 
-    def get(self, key: str) -> str | None:
+    def get(self, key: str) -> Optional[str]:
         return None
 
     def set(self, key: str, value: str, actor_email: str) -> None:
@@ -175,7 +175,7 @@ class DemoSiteSettingStorage:
 
 
 class DuckDBSiteSettingStorage:
-    def get(self, key: str) -> str | None:
+    def get(self, key: str) -> Optional[str]:
         try:
             conn = get_db_connection()
             with conn.cursor() as cur:
@@ -214,7 +214,7 @@ class FakeSiteSettingStorage:
     def __init__(self, initial: dict[str, str] | None = None) -> None:
         self.values: dict[str, str] = dict(initial or {})
 
-    def get(self, key: str) -> str | None:
+    def get(self, key: str) -> Optional[str]:
         return self.values.get(key)
 
     def set(self, key: str, value: str, actor_email: str) -> None:

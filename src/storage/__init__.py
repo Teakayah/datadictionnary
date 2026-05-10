@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Storage abstraction — collapses the demo / DuckDB / Databricks branching
 that used to be duplicated across src/cms.py, src/pipelines.py,
 src/personalization.py, and src/audit.py.
@@ -17,7 +19,6 @@ Migration order (from TODO.md #4):
   4. Audit + business name overrides — open
 """
 
-from __future__ import annotations
 
 from src.config import is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available

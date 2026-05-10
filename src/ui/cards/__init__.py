@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Public surface for src.ui.cards — re-exports from submodules.
 
 Historic callers `from src.ui.cards import render_health` etc. keep
@@ -13,7 +15,6 @@ Submodules:
 - ``detail``     table-detail dialogs (used by the search page)
 """
 
-from __future__ import annotations
 
 from src.ui.cards._shared import (  # noqa: F401
     _DQ_GRADES,

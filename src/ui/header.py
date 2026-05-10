@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """UI header and footer components.
 
 Contains the SVG brand constants and the render functions for the
@@ -11,7 +13,6 @@ Public API:
     render_footer() — standard application footer
 """
 
-from __future__ import annotations
 
 import html as _html
 import json as _json
@@ -44,7 +45,7 @@ SEARCH_ICON_SVG = """<svg width="18" height="18" viewBox="0 0 24 24" fill="none"
 </svg>"""
 
 
-def render_header(user_name: str | None = None, active_tab: str = "search", show_admin: bool = False, show_pipelines: bool = False):
+def render_header(user_name: Optional[str] = None, active_tab: str = "search", show_admin: bool = False, show_pipelines: bool = False):
     _ensure_locale()
     locale = st.session_state.get("locale", "en")
 

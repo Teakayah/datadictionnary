@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Authentication and authorization logic.
 
 Handles Microsoft Entra ID (OIDC) via MSAL, mock authentication for development,
@@ -30,7 +32,6 @@ Three failure modes are guarded against:
    error loop.
 """
 
-from __future__ import annotations
 
 import logging
 import os
@@ -148,7 +149,7 @@ def _get_catalog_stats() -> tuple[str, str]:
         return "—", "—"
 
 
-def render_signin_page(auth_url: str | None = None, mock: bool = False):
+def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
     """Render the editorial two-column sign-in layout."""
     col_hero, col_card = st.columns([1.1, 0.9], gap="large")
 
@@ -236,7 +237,7 @@ def render_signin_page(auth_url: str | None = None, mock: bool = False):
             """, unsafe_allow_html=True)
 
 
-def check_auth(sync_prefs_callback: callable | None = None):
+def check_auth(sync_prefs_callback: Optional[callable] = None):
     """Main authentication gate. Handles OIDC flow and session initialisation.
 
     Args:

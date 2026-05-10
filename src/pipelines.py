@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Pipeline definitions, run tracking, and execution for Databricks / ADF / ADO.
 
 Storage (definitions + runs) is delegated to ``src.storage`` — see
@@ -5,12 +7,10 @@ Storage (definitions + runs) is delegated to ``src.storage`` — see
 to Databricks/ADF/ADO management APIs) stays here.
 """
 
-from __future__ import annotations
 
 import logging
 import uuid
 from datetime import UTC, datetime
-from typing import Any
 
 
 from src.auth import is_admin, is_pipeline_user
@@ -101,14 +101,14 @@ def create_pipeline_def(
     title: str,
     description: str,
     backend: str,
-    databricks_job_id: str | None,
-    adf_subscription_id: str | None,
-    adf_resource_group: str | None,
-    adf_factory_name: str | None,
-    adf_pipeline_name: str | None,
-    ado_organization: str | None,
-    ado_project: str | None,
-    ado_pipeline_id: str | None,
+    databricks_job_id: Optional[str],
+    adf_subscription_id: Optional[str],
+    adf_resource_group: Optional[str],
+    adf_factory_name: Optional[str],
+    adf_pipeline_name: Optional[str],
+    ado_organization: Optional[str],
+    ado_project: Optional[str],
+    ado_pipeline_id: Optional[str],
     created_by: str,
 ) -> None:
     """Persist a new pipeline definition to the configured backend."""
@@ -144,7 +144,7 @@ def delete_pipeline_def(pipeline_id: str) -> None:
 
 # ── Run state persistence ─────────────────────────────────────────────────────
 
-def get_active_run(pipeline_id: str) -> dict | None:
+def get_active_run(pipeline_id: str) -> Optional[dict]:
     """Return the active run for a pipeline, or None if no run is in flight."""
     return get_pipeline_run_storage().get_active(pipeline_id)
 

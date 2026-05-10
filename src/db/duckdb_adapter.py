@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """DuckDB local-cache adapter.
 
 When DUCKDB_PATH points to an existing file (written by the sync job), all
@@ -6,7 +8,6 @@ The adapter translates the existing %(name)s pyformat SQL into DuckDB's
 $name named-parameter style so no query code needs to change.
 """
 
-from __future__ import annotations
 
 import os
 import re

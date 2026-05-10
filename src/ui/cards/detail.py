@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Table-detail modal dialogs.
 
 These are consumed exclusively by the search page's table detail panel
@@ -10,7 +12,6 @@ them from ``src.ui.cards``.
 - ``render_data_sample``           — top-100-rows preview
 """
 
-from __future__ import annotations
 
 import logging
 import re

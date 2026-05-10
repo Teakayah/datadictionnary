@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Pipelines tab UI — list, run, monitor, cancel pipeline runs.
 
 Three render points:
@@ -10,7 +12,6 @@ Backend logic (start / poll / cancel) lives in src/pipelines.py — this
 module is rendering only.
 """
 
-from __future__ import annotations
 
 import html as _html
 import time

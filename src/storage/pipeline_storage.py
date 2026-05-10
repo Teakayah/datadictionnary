@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Pipeline storage backends — definitions and runs.
 
 Two distinct entities in one module because they share their backend file:
@@ -11,11 +13,9 @@ test) implementations. Cross-table cascade behaviour
 ``src.pipelines`` wrapper, not here — each storage object stays cohesive.
 """
 
-from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
-from typing import Protocol, runtime_checkable
+from datetime import datetime, timezone; UTC = timezone.utc
 
 import streamlit as st
 
@@ -118,7 +118,7 @@ class DuckDBPipelineDefStorage:
 
 
 class FakePipelineDefStorage:
-    def __init__(self, pipelines: list[dict] | None = None) -> None:
+    def __init__(self, pipelines: Optional[list[dict]] = None) -> None:
         self.pipelines: list[dict] = list(pipelines or [])
 
     def list_all(self) -> list[dict]:
@@ -137,7 +137,7 @@ class FakePipelineDefStorage:
 class PipelineRunStorage(Protocol):
     """Persists the live-run state per pipeline (one active run at a time)."""
 
-    def get_active(self, pipeline_id: str) -> dict | None: ...
+    def get_active(self, pipeline_id: str) -> Optional[dict]: ...
     def upsert(self, pipeline_id: str, backend_run_id: str, triggered_by: str) -> None: ...
     def update_status(self, pipeline_id: str, status: str) -> None: ...
     def clear(self, pipeline_id: str) -> None: ...
@@ -150,7 +150,7 @@ class DemoPipelineRunStorage:
     def _key(pipeline_id: str) -> str:
         return f"_demo_run_{pipeline_id}"
 
-    def get_active(self, pipeline_id: str) -> dict | None:
+    def get_active(self, pipeline_id: str) -> Optional[dict]:
         return st.session_state.get(self._key(pipeline_id))
 
     def upsert(self, pipeline_id: str, backend_run_id: str, triggered_by: str) -> None:
@@ -175,7 +175,7 @@ class DemoPipelineRunStorage:
 
 
 class DuckDBPipelineRunStorage:
-    def get_active(self, pipeline_id: str) -> dict | None:
+    def get_active(self, pipeline_id: str) -> Optional[dict]:
         try:
             conn = get_db_connection()
             with conn.cursor() as cur:
@@ -238,7 +238,7 @@ class FakePipelineRunStorage:
     def __init__(self) -> None:
         self.runs: dict[str, dict] = {}
 
-    def get_active(self, pipeline_id: str) -> dict | None:
+    def get_active(self, pipeline_id: str) -> Optional[dict]:
         return self.runs.get(pipeline_id)
 
     def upsert(self, pipeline_id: str, backend_run_id: str, triggered_by: str) -> None:

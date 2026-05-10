@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """CMS storage backends.
 
 Three implementations against the same Protocol:
@@ -15,11 +17,9 @@ satisfies it. ``runtime_checkable`` lets ``isinstance(x, CMSStorage)``
 work in tests.
 """
 
-from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
-from typing import Protocol, runtime_checkable
+from datetime import datetime, timezone; UTC = timezone.utc
 
 import streamlit as st
 
@@ -167,7 +167,7 @@ class FakeCMSStorage:
     runtime to exercise the storage protocol.
     """
 
-    def __init__(self, posts: list[dict] | None = None) -> None:
+    def __init__(self, posts: Optional[list[dict]] = None) -> None:
         self.posts: list[dict] = list(posts or [])
 
     def list_active(self) -> list[dict]:
