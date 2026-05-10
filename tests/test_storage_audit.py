@@ -8,6 +8,7 @@ import duckdb
 import pytest
 
 from src.storage.audit_storage import (
+    BusinessNameOverride,
     AuditStorage,
     BusinessNameOverrideStorage,
     DemoAuditStorage,
@@ -62,7 +63,7 @@ class TestFakeAuditStorage:
 class TestFakeBusinessNameOverrideStorage:
     def test_upsert_then_get(self):
         fake = FakeBusinessNameOverrideStorage()
-        fake.upsert("cat.sch.tbl", "col_a", "BizName", "definition", "alice")
+        fake.upsert(BusinessNameOverride("cat.sch.tbl", "col_a", "BizName", "definition", "alice"))
         result = fake.get_for_table("cat.sch.tbl")
         assert result["col_a"]["business_name"] == "BizName"
         assert result["col_a"]["definition"]    == "definition"
@@ -70,8 +71,8 @@ class TestFakeBusinessNameOverrideStorage:
 
     def test_upsert_overwrites(self):
         fake = FakeBusinessNameOverrideStorage()
-        fake.upsert("t", "c", "old", "old-def", "alice")
-        fake.upsert("t", "c", "new", "new-def", "bob")
+        fake.upsert(BusinessNameOverride("t", "c", "old", "old-def", "alice"))
+        fake.upsert(BusinessNameOverride("t", "c", "new", "new-def", "bob"))
         assert fake.get_for_table("t")["c"]["business_name"] == "new"
         assert fake.get_for_table("t")["c"]["edited_by"]     == "bob"
 
@@ -81,8 +82,8 @@ class TestFakeBusinessNameOverrideStorage:
 
     def test_isolated_by_table(self):
         fake = FakeBusinessNameOverrideStorage()
-        fake.upsert("t1", "c", "n1", "d1", "alice")
-        fake.upsert("t2", "c", "n2", "d2", "alice")
+        fake.upsert(BusinessNameOverride("t1", "c", "n1", "d1", "alice"))
+        fake.upsert(BusinessNameOverride("t2", "c", "n2", "d2", "alice"))
         assert fake.get_for_table("t1")["c"]["business_name"] == "n1"
         assert fake.get_for_table("t2")["c"]["business_name"] == "n2"
 
@@ -128,13 +129,13 @@ class TestDuckDBStorageRoundTrip:
 
     def test_business_name_override_round_trip(self, storages):
         _, overrides = storages
-        overrides.upsert("cat.sch.tbl", "col_a", "BizName", "definition", "alice")
+        overrides.upsert(BusinessNameOverride("cat.sch.tbl", "col_a", "BizName", "definition", "alice"))
         result = overrides.get_for_table("cat.sch.tbl")
         assert "col_a" in result
         assert result["col_a"]["business_name"] == "BizName"
 
         # Upsert again with new values.
-        overrides.upsert("cat.sch.tbl", "col_a", "NewName", "new-def", "bob")
+        overrides.upsert(BusinessNameOverride("cat.sch.tbl", "col_a", "NewName", "new-def", "bob"))
         result = overrides.get_for_table("cat.sch.tbl")
         assert result["col_a"]["business_name"] == "NewName"
         assert result["col_a"]["edited_by"]     == "bob"
@@ -169,7 +170,7 @@ class TestAuditRouting:
 
     def test_get_old_business_name_routes_to_storage(self):
         fake = FakeBusinessNameOverrideStorage()
-        fake.upsert("cat.sch.tbl", "col_a", "BizName", "def", "alice")
+        fake.upsert(BusinessNameOverride("cat.sch.tbl", "col_a", "BizName", "def", "alice"))
         with patch(
             "src.audit.get_business_name_override_storage", return_value=fake,
         ):
