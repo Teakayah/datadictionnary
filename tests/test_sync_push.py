@@ -150,7 +150,7 @@ class TestPushToDatabricks:
         from src.sync.push import _push_to_databricks
         _push_to_databricks("STEWARD", "cat.sch.tbl", {"steward_email": ""})
         sql = _push_cursor().execute.call_args.args[0]
-        assert "'steward' = ''" in sql
+        assert "'steward' = %(steward)s" in sql
 
     def test_audit_inserts_into_catalog_audit_log(self, databricks_env):
         from src.sync.push import _push_to_databricks
