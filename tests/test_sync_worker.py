@@ -68,3 +68,11 @@ def test_read_worker_heartbeat(mock_read_setting):
     mock_read_setting.return_value = "2023-10-01T12:00:00Z"
     assert read_worker_heartbeat() == "2023-10-01T12:00:00Z"
     mock_read_setting.assert_called_once_with(WORKER_HEARTBEAT_KEY, default="")
+
+
+@patch("src.sync.worker._read_setting")
+def test_read_dr_resync_status_pending(mock_read_setting):
+    """Test reading the DR resync status using a mocked setting."""
+    mock_read_setting.return_value = "Pending"
+    assert read_dr_resync_status() == "Pending"
+    mock_read_setting.assert_called_once_with(DR_STATUS_KEY, default="Idle")
