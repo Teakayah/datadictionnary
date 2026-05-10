@@ -16,6 +16,7 @@ import html as _html
 import time
 
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 
 from src.auth import is_admin, is_pipeline_user
 from src.i18n import t
@@ -243,5 +244,4 @@ def render_pipelines_page():
 
     # Auto-poll every 3 s while any run is active.
     if _any_active:
-        time.sleep(3)
-        st.rerun()
+        st_autorefresh(interval=3000, limit=None, key="pl_autorefresh")

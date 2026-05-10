@@ -10,3 +10,4 @@ python-dotenv>=1.0,<2              # 1.2.2
 duckdb>=1.0,<2                     # 1.5.2
 streamlit-js-eval>=1.0,<2          # 1.0.0
 requests>=2.32,<3                  # 2.33.1 — used directly in src/pipelines.py
+streamlit-autorefresh>=1.0,<2          # 1.0.1 — used in src/ui/cards/pipelines.py for non-blocking UI refresh
