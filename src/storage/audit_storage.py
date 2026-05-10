@@ -21,6 +21,7 @@ writer, pushing audit events / column comments via
 
 
 import logging
+from dataclasses import dataclass
 
 import pandas as pd
 import streamlit as st
@@ -83,19 +84,21 @@ class FakeAuditStorage:
 
 # ── Business name overrides ──────────────────────────────────────────────────
 
+@dataclass
+class BusinessNameOverride:
+    table_full_name: str
+    column_name: str
+    business_name: str
+    definition: str
+    edited_by: str
+
+
 @runtime_checkable
 class BusinessNameOverrideStorage(Protocol):
     """Read + write column-level business name + definition overrides."""
 
     def get_for_table(self, table_full_name: str) -> dict: ...
-    def upsert(
-        self,
-        table_full_name: str,
-        column_name: str,
-        business_name: str,
-        definition: str,
-        edited_by: str,
-    ) -> None: ...
+    def upsert(self, override: BusinessNameOverride) -> None: ...
 
 
 class DemoBusinessNameOverrideStorage:
@@ -106,14 +109,12 @@ class DemoBusinessNameOverrideStorage:
     def get_for_table(self, table_full_name: str) -> dict:
         return st.session_state.get(self._KEY, {}).get(table_full_name, {})
 
-    def upsert(
-        self, table_full_name, column_name, business_name, definition, edited_by,
-    ) -> None:
-        store = st.session_state.setdefault(self._KEY, {}).setdefault(table_full_name, {})
-        store[column_name] = {
-            "business_name": business_name,
-            "definition":    definition,
-            "edited_by":     edited_by,
+    def upsert(self, override: BusinessNameOverride) -> None:
+        store = st.session_state.setdefault(self._KEY, {}).setdefault(override.table_full_name, {})
+        store[override.column_name] = {
+            "business_name": override.business_name,
+            "definition":    override.definition,
+            "edited_by":     override.edited_by,
             "edited_at":     "just now",
         }
 
@@ -147,9 +148,7 @@ class DuckDBBusinessNameOverrideStorage:
             )
         return {}
 
-    def upsert(
-        self, table_full_name, column_name, business_name, definition, edited_by,
-    ) -> None:
+    def upsert(self, override: BusinessNameOverride) -> None:
         conn = _get_write_connection()
         with conn.cursor() as cursor:
             cursor.execute_write(
@@ -168,11 +167,11 @@ class DuckDBBusinessNameOverrideStorage:
                     edited_at     = current_localtimestamp()
                 """,
                 {
-                    "table_full_name": table_full_name,
-                    "column_name":     column_name,
-                    "business_name":   business_name,
-                    "definition":      definition,
-                    "edited_by":       edited_by,
+                    "table_full_name": override.table_full_name,
+                    "column_name":     override.column_name,
+                    "business_name":   override.business_name,
+                    "definition":      override.definition,
+                    "edited_by":       override.edited_by,
                 },
             )
 
@@ -185,12 +184,10 @@ class FakeBusinessNameOverrideStorage:
     def get_for_table(self, table_full_name: str) -> dict:
         return dict(self.data.get(table_full_name, {}))
 
-    def upsert(
-        self, table_full_name, column_name, business_name, definition, edited_by,
-    ) -> None:
-        self.data.setdefault(table_full_name, {})[column_name] = {
-            "business_name": business_name,
-            "definition":    definition,
-            "edited_by":     edited_by,
+    def upsert(self, override: BusinessNameOverride) -> None:
+        self.data.setdefault(override.table_full_name, {})[override.column_name] = {
+            "business_name": override.business_name,
+            "definition":    override.definition,
+            "edited_by":     override.edited_by,
             "edited_at":     "just now",
         }
