@@ -14,3 +14,10 @@
 **Cluster Quirk:** The `dd-sync-worker` background process (Deployment) shared the same restrictive egress requirements (HTTPS on 443, DNS on 53) and deny-all ingress posture as the `dd-sync` CronJob, but was missing a NetworkPolicy entirely. Without explicit NetworkPolicy coverage, pods default to allowing all ingress and egress traffic, exposing a potentially powerful background process to unnecessary lateral movement risks.
 **Learning:** NetworkPolicies are tied strictly to label selectors (`podSelector`). When introducing a new workload architecture (like splitting a CronJob into a background daemon deployment `dd-sync-worker` and a nightly resync `dd-sync`), `matchLabels` might only cover one resource. `matchExpressions` allows a single, strict NetworkPolicy to comprehensively cover multiple related background components that share the same security posture.
 **Resilience:** Upgraded the `dd-sync-network-policy` to use a `matchExpressions` selector targeting both `dd-sync` and `dd-sync-worker`, ensuring that any new replica or run of these processes is automatically isolated from unexpected ingress while explicitly allowing essential external egress.
+## 2024-05-15 - Streamlit with readOnlyRootFilesystem
+
+**Cluster Quirk:** Streamlit workloads crash at startup when the container is run with a read-only root filesystem, because the app attempts to write temporary files (like cache files) dynamically at runtime.
+
+**Learning:** This is a common quirk with applications that aren't natively designed to run immutably, requiring write access to temporary directories. The K8s API will enforce the read-only restriction rigidly, preventing the container from starting.
+
+**Resilience:** To run Streamlit securely with `readOnlyRootFilesystem: true`, an `emptyDir` volume must be mounted to `/tmp` in the deployment manifest. This allows the root filesystem to remain immutable while providing the necessary write-access for temporary runtime files.

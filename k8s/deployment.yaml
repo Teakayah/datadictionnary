@@ -43,8 +43,7 @@ spec:
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
-            # Set to false: Streamlit writes temp files at runtime
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -67,6 +66,8 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: tmp-dir
+              mountPath: /tmp
 
           livenessProbe:
             httpGet:
@@ -90,6 +91,8 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: dd-data
+        - name: tmp-dir
+          emptyDir: {}
 
       # Prevent two replicas landing on the same node
       affinity:
