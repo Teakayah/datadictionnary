@@ -112,6 +112,24 @@ class TestIsPowerUserAuth:
         monkeypatch.setattr("src.personalization.is_editing_enabled", lambda: True)
         assert is_power_user() is False
 
+    def test_false_when_env_empty(self, monkeypatch):
+        monkeypatch.setenv("EDITOR_GROUPS", "")
+        monkeypatch.setattr("src.personalization.st.session_state", {"user_groups": ["editor_group"]})
+        monkeypatch.setattr("src.personalization.is_editing_enabled", lambda: True)
+        assert is_power_user() is False
+
+    def test_false_when_no_session_groups(self, monkeypatch):
+        monkeypatch.setenv("EDITOR_GROUPS", "editor_group")
+        monkeypatch.setattr("src.personalization.st.session_state", {})
+        monkeypatch.setattr("src.personalization.is_editing_enabled", lambda: True)
+        assert is_power_user() is False
+
+    def test_false_when_groups_empty(self, monkeypatch):
+        monkeypatch.setenv("EDITOR_GROUPS", "editor_group")
+        monkeypatch.setattr("src.personalization.st.session_state", {"user_groups": []})
+        monkeypatch.setattr("src.personalization.is_editing_enabled", lambda: True)
+        assert is_power_user() is False
+
     def test_false_when_no_match(self, monkeypatch):
         monkeypatch.setenv("EDITOR_GROUPS", "editor_group")
         monkeypatch.setattr("src.personalization.st.session_state", {"user_groups": ["other_group"]})
@@ -127,5 +145,11 @@ class TestIsPowerUserAuth:
     def test_true_when_group_matches_and_editing_enabled(self, monkeypatch):
         monkeypatch.setenv("EDITOR_GROUPS", "editor_group")
         monkeypatch.setattr("src.personalization.st.session_state", {"user_groups": ["editor_group"]})
+        monkeypatch.setattr("src.personalization.is_editing_enabled", lambda: True)
+        assert is_power_user() is True
+
+    def test_true_with_multiple_env_groups(self, monkeypatch):
+        monkeypatch.setenv("EDITOR_GROUPS", "  editor-group1  ,  editor-group2  ")
+        monkeypatch.setattr("src.personalization.st.session_state", {"user_groups": ["editor-group1"]})
         monkeypatch.setattr("src.personalization.is_editing_enabled", lambda: True)
         assert is_power_user() is True
