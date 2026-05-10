@@ -86,6 +86,21 @@ class TestIsAdmin:
         st.session_state["user_groups"] = []
         assert is_admin() is False
 
+    def test_false_when_env_empty(self, monkeypatch):
+        monkeypatch.setenv("ADMIN_GROUPS", "")
+        st.session_state["user_groups"] = ["admin_group"]
+        assert is_admin() is False
+
+    def test_false_when_no_session_groups(self, monkeypatch):
+        monkeypatch.setenv("ADMIN_GROUPS", "admin_group")
+        # st.session_state.clear() via fixture
+        assert is_admin() is False
+
+    def test_false_when_groups_empty(self, monkeypatch):
+        monkeypatch.setenv("ADMIN_GROUPS", "admin_group")
+        st.session_state["user_groups"] = []
+        assert is_admin() is False
+
     def test_false_when_no_match(self, monkeypatch):
         monkeypatch.setenv("ADMIN_GROUPS", "admin_group")
         monkeypatch.setattr("src.auth.st.session_state", {"user_groups": ["other_group"]})
