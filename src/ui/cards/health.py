@@ -8,6 +8,18 @@ undocumented tables.
 """
 
 
+
+from dataclasses import dataclass
+
+@dataclass
+class HealthMetrics:
+    table_coverage: float
+    n_desc: int
+    n_tables: int
+    col_coverage: float
+    n_col_desc: int
+    n_cols: int
+
 import logging
 
 import streamlit as st
@@ -35,25 +47,32 @@ def _calculate_health_metrics(all_data):
         n_col_desc = stats.iloc[0]['with_desc']
 
     col_coverage = (n_col_desc / n_cols * 100) if n_cols > 0 else 0
-    return table_coverage, n_desc, n_tables, col_coverage, n_col_desc, n_cols
+    return HealthMetrics(
+        table_coverage=table_coverage,
+        n_desc=n_desc,
+        n_tables=n_tables,
+        col_coverage=col_coverage,
+        n_col_desc=n_col_desc,
+        n_cols=n_cols,
+    )
 
 
-def _render_health_hero_metrics(table_coverage, n_desc, n_tables, col_coverage, n_col_desc, n_cols):
+def _render_health_hero_metrics(metrics: HealthMetrics):
     c1, c2, c3 = st.columns(3, gap="large")
     with c1:
         st.markdown(f'''
         <div style="background:var(--paper); border-top:3px solid var(--accent); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
             <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.table_coverage")}</div>
-            <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{table_coverage:.0f}%</div>
-            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.tables_described", n_desc=n_desc, n_tables=n_tables)}</div>
+            <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{metrics.table_coverage:.0f}%</div>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.tables_described", n_desc=metrics.n_desc, n_tables=metrics.n_tables)}</div>
         </div>
         ''', unsafe_allow_html=True)
     with c2:
         st.markdown(f'''
         <div style="background:var(--paper); border-top:3px solid var(--deepblue); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
             <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.column_coverage")}</div>
-            <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{col_coverage:.0f}%</div>
-            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.columns_defined", n_col_desc=n_col_desc, n_cols=n_cols)}</div>
+            <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{metrics.col_coverage:.0f}%</div>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.columns_defined", n_col_desc=metrics.n_col_desc, n_cols=metrics.n_cols)}</div>
         </div>
         ''', unsafe_allow_html=True)
     with c3:
@@ -134,12 +153,9 @@ def render_health(groups, get_authorized_tables_fn):
             st.info(t("health.no_data"))
             return
 
-        (table_coverage, n_desc, n_tables,
-         col_coverage, n_col_desc, n_cols) = _calculate_health_metrics(all_data)
+        metrics = _calculate_health_metrics(all_data)
 
-        _render_health_hero_metrics(
-            table_coverage, n_desc, n_tables, col_coverage, n_col_desc, n_cols,
-        )
+        _render_health_hero_metrics(metrics)
 
         st.markdown('<div style="margin-top:48px;"></div>', unsafe_allow_html=True)
 
