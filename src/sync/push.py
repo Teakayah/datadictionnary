@@ -17,9 +17,15 @@ _SYNC_BATCH_SIZE = 25
 # Unity Catalog identifier validator. UC permits only [A-Za-z0-9_], so anything
 # outside this set in a column or table-name part is either a metadata bug or
 # an injection attempt — refuse rather than backtick-escape.
+# Matches strings containing only 1 or more alphanumeric characters and underscores.
 _IDENT_RE = re.compile(r"^[A-Za-z0-9_]+$")
+
 # Lightweight email syntax check — used to block quote-escape bypass when
 # writing the steward tag value.
+# Matches basic email structures (e.g., user@domain.com):
+# - Local part: alphanumeric characters, dots, underscores, percents, pluses, and hyphens.
+# - Domain part: alphanumeric characters, dots, and hyphens.
+# - TLD: at least 2 alphabetic characters.
 _EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
 
 
