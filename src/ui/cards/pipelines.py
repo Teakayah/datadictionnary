@@ -198,7 +198,7 @@ def render_pipelines_page():
                 _stat_col, _stop_col = st.columns([8, 2], gap="small")
                 with _stat_col:
                     triggered_str = (
-                        run["triggered_at"].strftime("%b %d %H:%M UTC")
+                        run["triggered_at"].strftime(t("pipelines.date_format"))
                         if hasattr(run.get("triggered_at"), "strftime")
                         else str(run.get("triggered_at", ""))[:16]
                     )
