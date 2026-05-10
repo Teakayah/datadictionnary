@@ -88,7 +88,7 @@ def render_cms_banner() -> None:
         lbl        = t(type_key)
         created    = post["created_at"]
         date_str   = (
-            created.strftime("%b %d") if hasattr(created, "strftime")
+            created.strftime(t("cms.date_format_short")) if hasattr(created, "strftime")
             else str(created)[:10]
         )
         body_safe  = _html.escape(post["body"] or "")
@@ -98,6 +98,7 @@ def render_cms_banner() -> None:
             f'margin-top:4px;line-height:var(--lh-body);">{body_safe}</div>'
         ) if body_safe else ""
 
+        author_date = t("cms.author_date", author=_html.escape(post["author_email"]), date=date_str)
         card_html = (
             f'<div style="border-left:3px solid {color};padding:12px 16px;'
             f'background:var(--paper-deep);border-radius:0 4px 4px 0;margin-bottom:4px;">'
@@ -107,7 +108,7 @@ def render_cms_banner() -> None:
             f'margin-top:2px;">{title_safe}</div>'
             f'{body_html}'
             f'<div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);'
-            f'margin-top:8px;">{_html.escape(post["author_email"])} · {date_str}</div>'
+            f'margin-top:8px;">{author_date}</div>'
             f'</div>'
         )
 

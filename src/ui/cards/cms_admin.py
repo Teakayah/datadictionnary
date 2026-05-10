@@ -104,11 +104,11 @@ def _render_admin_cms_section():
         created  = post["created_at"]
         expires  = post["expires_at"]
         date_str = (
-            created.strftime("%b %d, %Y") if hasattr(created, "strftime")
+            created.strftime(t("cms.date_format_long")) if hasattr(created, "strftime")
             else str(created)[:10]
         )
         exp_str  = (
-            expires.strftime("%b %d, %Y") if hasattr(expires, "strftime")
+            expires.strftime(t("cms.date_format_long")) if hasattr(expires, "strftime")
             else str(expires)[:10] if expires else t("cms.no_expiry")
         )
         from datetime import UTC, datetime
@@ -120,6 +120,7 @@ def _render_admin_cms_section():
             cmp_expires = expires if expires.tzinfo else expires.replace(tzinfo=UTC)
             is_expired = cmp_expires < now
 
+        date_range = t("cms.date_range", start=date_str, end=exp_str)
         row_html = (
             f'<div style="border-left:3px solid {color};padding:8px 12px;'
             f'background:var(--paper-deep);border-radius:0 4px 4px 0;'
@@ -129,7 +130,7 @@ def _render_admin_cms_section():
             f'<span style="font-family:var(--font-sans);font-size:14px;color:var(--ink);'
             f'margin-left:10px;">{_html.escape(post["title"])}</span>'
             f'<span style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);'
-            f'margin-left:10px;">{date_str} → {t("cms.expires")} {exp_str}</span>'
+            f'margin-left:10px;">{date_range}</span>'
             f'</div>'
         )
 
