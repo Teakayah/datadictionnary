@@ -39,8 +39,8 @@ class TestCreatePost:
         """create_post round-trips through the injected storage."""
         fake = FakeCMSStorage()
         with patch("src.cms.get_cms_storage", return_value=fake):
-            from src.cms import create_post
-            create_post("announcement", "Hello", "Body text", None, "admin@test.com", 2)
+            from src.cms import PostParams, create_post
+            create_post(PostParams("announcement", "Hello", "Body text", None, "admin@test.com", 2))
         assert len(fake.posts) == 1
         assert fake.posts[0]["title"] == "Hello"
         assert fake.posts[0]["post_type"] == "announcement"
@@ -50,8 +50,8 @@ class TestCreatePost:
         """create_post with expiry_days=None leaves expires_at as None."""
         fake = FakeCMSStorage()
         with patch("src.cms.get_cms_storage", return_value=fake):
-            from src.cms import create_post
-            create_post("guide", "Guide", "", None, "admin@test.com", None)
+            from src.cms import PostParams, create_post
+            create_post(PostParams("guide", "Guide", "", None, "admin@test.com", None))
         assert fake.posts[0]["expires_at"] is None
 
     def test_rejects_non_admin(self):
@@ -59,9 +59,9 @@ class TestCreatePost:
         fake = FakeCMSStorage()
         with patch("src.cms.is_admin", return_value=False), \
              patch("src.cms.get_cms_storage", return_value=fake):
-            from src.cms import create_post
+            from src.cms import PostParams, create_post
             with pytest.raises(PermissionError, match="admins"):
-                create_post("announcement", "Hello", "", None, "u@x.com", 2)
+                create_post(PostParams("announcement", "Hello", "", None, "u@x.com", 2))
         # Storage was not touched.
         assert fake.posts == []
 
