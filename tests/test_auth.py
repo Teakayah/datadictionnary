@@ -10,7 +10,7 @@ from __future__ import annotations
 import streamlit as st
 import pytest
 
-from src.auth import is_pipeline_user, is_admin, is_power_user
+from src.auth import is_pipeline_user, is_admin
 
 @pytest.fixture(autouse=True)
 def clear_session_state():
@@ -86,21 +86,3 @@ class TestIsAdmin:
         assert is_admin() is True
 
 
-class TestIsPowerUserAuth:
-    """Note: This tests src.auth.is_power_user, which does NOT check the global toggle.
-    The toggled version is in src.personalization.py.
-    """
-    def test_false_when_env_unset(self, monkeypatch):
-        monkeypatch.delenv("EDITOR_GROUPS", raising=False)
-        st.session_state["user_groups"] = ["editor_group"]
-        assert is_power_user() is False
-
-    def test_false_when_no_match(self, monkeypatch):
-        monkeypatch.setenv("EDITOR_GROUPS", "editor_group")
-        st.session_state["user_groups"] = ["other_group"]
-        assert is_power_user() is False
-
-    def test_true_when_group_matches(self, monkeypatch):
-        monkeypatch.setenv("EDITOR_GROUPS", "editor_group")
-        st.session_state["user_groups"] = ["editor_group"]
-        assert is_power_user() is True
