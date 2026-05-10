@@ -79,7 +79,7 @@ class TestSafeIdent:
 class TestSplitFullName:
     def test_accepts_three_parts(self):
         from src.sync.push import _split_full_name
-        assert _split_full_name("cat.sch.tbl") == ("`cat`", "`sch`", "`tbl`")
+        assert _split_full_name("cat.sch.tbl") == ["cat", "sch", "tbl"]
 
     @pytest.mark.parametrize("bad", [
         "cat.sch",                  # 2 parts
@@ -104,9 +104,11 @@ class TestPushToDatabricks:
             {"column_name": "col_a", "definition": "hello"},
         )
         sql, params = _push_cursor().execute.call_args.args
-        assert "ALTER TABLE `cat`.`sch`.`tbl`" in sql
-        assert "ALTER COLUMN `col_a`" in sql
+        assert "ALTER TABLE IDENTIFIER(%(tbl)s)" in sql
+        assert "ALTER COLUMN IDENTIFIER(%(col)s)" in sql
         assert "SET COMMENT %(comment)s" in sql
+        assert params["tbl"] == ["cat", "sch", "tbl"]
+        assert params["col"] == ["col_a"]
         assert params["comment"] == "hello"
 
     def test_column_def_uses_parameters_for_definition(self, databricks_env):
@@ -124,7 +126,8 @@ class TestPushToDatabricks:
             "TABLE_DESC", "cat.sch.tbl", {"definition": "primary fact table"},
         )
         sql, params = _push_cursor().execute.call_args.args
-        assert "COMMENT ON TABLE `cat`.`sch`.`tbl` IS %(comment)s" in sql
+        assert "COMMENT ON TABLE IDENTIFIER(%(tbl)s) IS %(comment)s" in sql
+        assert params["tbl"] == ["cat", "sch", "tbl"]
         assert params["comment"] == "primary fact table"
 
     def test_steward_sets_unity_catalog_tag(self, databricks_env):
@@ -133,8 +136,9 @@ class TestPushToDatabricks:
             "STEWARD", "cat.sch.tbl", {"steward_email": "alice@example.com"},
         )
         sql, params = _push_cursor().execute.call_args.args
-        assert "ALTER TABLE `cat`.`sch`.`tbl` SET TAGS" in sql
+        assert "ALTER TABLE IDENTIFIER(%(tbl)s) SET TAGS" in sql
         assert "'steward' = %(steward)s" in sql
+        assert params["tbl"] == ["cat", "sch", "tbl"]
         assert params["steward"] == "alice@example.com"
 
     def test_steward_rejects_non_email(self, databricks_env):
@@ -149,8 +153,9 @@ class TestPushToDatabricks:
         """Clearing the steward (empty string) bypasses the email check."""
         from src.sync.push import _push_to_databricks
         _push_to_databricks("STEWARD", "cat.sch.tbl", {"steward_email": ""})
-        sql = _push_cursor().execute.call_args.args[0]
+        sql, params = _push_cursor().execute.call_args.args
         assert "'steward' = %(steward)s" in sql
+        assert params["steward"] == ""
 
     def test_audit_inserts_into_catalog_audit_log(self, databricks_env):
         from src.sync.push import _push_to_databricks
