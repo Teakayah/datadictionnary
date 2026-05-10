@@ -10,7 +10,8 @@ from __future__ import annotations
 import streamlit as st
 import pytest
 
-from src.auth import is_pipeline_user, is_admin, is_power_user
+from src.auth import is_pipeline_user, is_admin
+from src.personalization import is_power_user
 
 @pytest.fixture(autouse=True)
 def clear_session_state():
