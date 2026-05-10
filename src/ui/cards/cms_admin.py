@@ -15,7 +15,7 @@ import html as _html
 
 import streamlit as st
 
-from src.cms import _EXPIRY_DAYS, create_post, delete_post, get_all_posts
+from src.cms import _EXPIRY_DAYS, PostParams, create_post, delete_post, get_all_posts
 from src.i18n import t
 from src.ui.cards._shared import _POST_COLOR
 
@@ -64,10 +64,14 @@ def _show_cms_create_dialog():
                 st.error(t("cms.error_table_ref_required"))
                 return
             actor = st.session_state.get("user_email", "admin")
-            create_post(
-                post_type, title.strip(), body.strip(),
-                (table_ref or "").strip() or None, actor, expiry_days,
-            )
+            create_post(PostParams(
+                post_type=post_type,
+                title=title.strip(),
+                body=body.strip(),
+                table_ref=(table_ref or "").strip() or None,
+                author_email=actor,
+                expiry_days=expiry_days,
+            ))
             st.rerun()
     with _cancel:
         if st.button(t("common.cancel"), use_container_width=True, key="cms_cancel_btn"):
