@@ -94,9 +94,9 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
     col_main, col_side = st.columns([7, 5], gap="large")
 
     with col_main:
-        _cat  = _html.escape(str(row["catalog_name"]))
-        _sch  = _html.escape(str(row["schema_name"]))
-        _tbl  = _html.escape(str(row["table_name"]))
+        _cat  = str(row["catalog_name"])
+        _sch  = str(row["schema_name"])
+        _tbl  = str(row["table_name"])
         _raw_desc = row.get("table_description", "")
         _desc = _html.escape(str(_raw_desc) if isinstance(_raw_desc, str) else "")
 
@@ -131,9 +131,9 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
 
         _steward = _html.escape(str(row.get("steward_email", "")))
         st.markdown(
-            f'<div class="dd-eyebrow" style="margin-bottom:4px">{_cat} · {_sch}</div>'
+            f'<div class="dd-eyebrow" style="margin-bottom:4px">{_html.escape(_cat)} · {_html.escape(_sch)}</div>'
             f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
-            f'<div class="dd-detail-table-name" style="margin-bottom:0">{_tbl}</div>'
+            f'<div class="dd-detail-table-name" style="margin-bottom:0">{_html.escape(_tbl)}</div>'
             f'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">'
             f'<span class="dd-dq-badge {_gcls}" style="width:32px;height:32px;font-size:14px;" '
             f'title="Completeness {_score:.0f}/100">{_grade}</span>'
