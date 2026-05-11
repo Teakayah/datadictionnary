@@ -175,6 +175,60 @@ def admin_caller_context():
 
 
 
+
+class TestGetSpToken:
+    def test_get_sp_token_success(self):
+        from src.pipelines import _get_sp_token
+        with patch("src.pipelines.PIPELINE_SP_TENANT_ID", "tenant"), \
+             patch("src.pipelines.PIPELINE_SP_CLIENT_ID", "client"), \
+             patch("src.pipelines.PIPELINE_SP_CLIENT_SECRET", "secret"), \
+             patch("msal.ConfidentialClientApplication") as mock_msal:
+
+            mock_app = MagicMock()
+            mock_app.acquire_token_for_client.return_value = {"access_token": "fake-token"}
+            mock_msal.return_value = mock_app
+
+            token = _get_sp_token("my-resource")
+            assert token == "fake-token"
+            mock_app.acquire_token_for_client.assert_called_once_with(scopes=["my-resource/.default"])
+
+    def test_get_sp_token_missing_creds(self):
+        from src.pipelines import _get_sp_token
+        with patch("src.pipelines.PIPELINE_SP_TENANT_ID", ""), \
+             patch("src.pipelines.PIPELINE_SP_CLIENT_ID", "client"), \
+             patch("src.pipelines.PIPELINE_SP_CLIENT_SECRET", "secret"):
+             with pytest.raises(RuntimeError, match="credentials are not configured"):
+                 _get_sp_token("res")
+
+    def test_get_sp_token_failure(self):
+        from src.pipelines import _get_sp_token
+        with patch("src.pipelines.PIPELINE_SP_TENANT_ID", "tenant"), \
+             patch("src.pipelines.PIPELINE_SP_CLIENT_ID", "client"), \
+             patch("src.pipelines.PIPELINE_SP_CLIENT_SECRET", "secret"), \
+             patch("msal.ConfidentialClientApplication") as mock_msal:
+
+            mock_app = MagicMock()
+            mock_app.acquire_token_for_client.return_value = {"error_description": "bad credentials"}
+            mock_msal.return_value = mock_app
+
+            with pytest.raises(RuntimeError, match="Failed to acquire pipeline SP token: bad credentials"):
+                _get_sp_token("res")
+
+    def test_get_sp_token_endswith_slash(self):
+        from src.pipelines import _get_sp_token
+        with patch("src.pipelines.PIPELINE_SP_TENANT_ID", "tenant"), \
+             patch("src.pipelines.PIPELINE_SP_CLIENT_ID", "client"), \
+             patch("src.pipelines.PIPELINE_SP_CLIENT_SECRET", "secret"), \
+             patch("msal.ConfidentialClientApplication") as mock_msal:
+
+            mock_app = MagicMock()
+            mock_app.acquire_token_for_client.return_value = {"access_token": "fake-token"}
+            mock_msal.return_value = mock_app
+
+            token = _get_sp_token("my-resource/")
+            assert token == "fake-token"
+            mock_app.acquire_token_for_client.assert_called_once_with(scopes=["my-resource/.default"])
+
 class TestTriggerBackends:
     @patch("requests.post")
     @patch("src.pipelines._get_sp_token")
