@@ -211,7 +211,7 @@ def render_pipelines_page():
                         f'<div style="font-family:var(--font-mono);font-size:11px;">'
                         f'<span style="color:{st_color};">{status}</span>'
                         f'<span style="color:var(--ink-40);margin-left:10px;">'
-                        f'started by {_html.escape(run.get("triggered_by","?"))} · {triggered_str}</span>'
+                        f'{t("pipelines.started_by", user=_html.escape(run.get("triggered_by", "?")), date=triggered_str)}</span>'
                         f'{_msg_html}'
                         f'</div>',
                         unsafe_allow_html=True,
