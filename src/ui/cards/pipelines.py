@@ -224,7 +224,7 @@ def render_pipelines_page():
                     ):
                         try:
                             cancel_run(pl, run)
-                            st.success(t("pipelines.stopped"))
+                            st.toast(t("pipelines.stopped"))
                         except Exception as _e:
                             st.error(f"{t('pipelines.stop_error')}: {_e}")
                         st.rerun()
@@ -237,6 +237,7 @@ def render_pipelines_page():
                 ):
                     try:
                         trigger_pipeline(pl, actor)
+                        st.toast(t("pipelines.started"))
                         st.rerun()
                     except Exception as _e:
                         st.error(f"{t('pipelines.start_error')}: {_e}")

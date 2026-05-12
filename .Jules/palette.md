@@ -5,3 +5,6 @@
 ## 2026-05-09 - Added help attribute to Start/Stop pipeline buttons
 **Learning:** The "Start" and "Stop" buttons in the pipelines UI were predominantly icon-based (▶ Start, ■ Stop) and lacked tooltips, making them less accessible and intuitive. Added `help` attribute with localized strings to improve UX and accessibility.
 **Action:** Always verify that buttons containing symbols or icons as primary indicators have an accessible `help` attribute.
+## 2026-05-12 - Toast Notifications
+**Learning:** In Streamlit, `st.toast()` notifications persist across script reruns, making them ideal for displaying brief success or status messages immediately before calling `st.rerun()`. Standard UI alerts like `st.success()` are instantly cleared upon rerun and will not be seen by the user.
+**Action:** Use `st.toast()` instead of `st.success()` when the immediate next action is a script rerun.
