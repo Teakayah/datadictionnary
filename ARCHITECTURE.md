@@ -45,7 +45,7 @@ graph TD
 
 ### Identity and security layer
 
-Authentication uses the OAuth 2.0 / OpenID Connect flow against Microsoft Entra ID. The app extracts Security Group Object IDs from the `groups` claim in the ID token. No additional database lookup is needed to resolve group membership — the signed token is the proof.
+Authentication uses the OAuth 2.0 / OpenID Connect flow against Microsoft Entra ID. The app extracts Security Group Object IDs from the `groups` claim in the ID token. No additional database lookup is needed to resolve group membership — the signed token is the proof. Comma-separated group env vars (`ADMIN_GROUPS`, `PIPELINE_GROUPS`, `EDITOR_GROUPS`) are parsed by `_parse_groups()`, an LRU-cached helper in `src/auth.py`, so the string splitting cost is paid once per unique env value rather than on every RBAC check.
 
 In local development, setting `ENABLE_MOCK_AUTH=true` and `ENVIRONMENT=development` replaces the Entra ID redirect with department-specific mock login buttons (finance, research, hr, it).
 
@@ -131,7 +131,9 @@ The `_to_duckdb_sql()` function ensures parameter substitution is correctly tran
 
 Every write function (`create_post`, `delete_post`, `create_pipeline_def`, `delete_pipeline_def`, `trigger_pipeline`, `cancel_run`, `set_editing_enabled`, `save_business_name`, `save_table_metadata`) re-checks `is_admin()` / `is_pipeline_user()` at the function boundary and raises `PermissionError` on failure — defense-in-depth for the cases where the UI gate isn't the only line. Tests assert the rejection path leaves storage untouched.
 
-User-supplied display names are HTML-escaped before rendering. SMTP headers are sanitized to prevent header injection in comment notification emails.
+Immutable runtime filesystem: both `dd-app` and `dd-sync-worker` pods run with `readOnlyRootFilesystem: true`. A `/tmp` `emptyDir` volume is mounted to allow Streamlit and DuckDB to write ephemeral state without relaxing the root constraint.
+
+User-supplied display names are HTML-escaped at point of use before rendering. SMTP headers are sanitized to prevent header injection in comment notification emails.
 
 ### Entra groups overage
 
@@ -184,7 +186,7 @@ The business glossary is generated dynamically from Unity Catalog metadata prope
 | Calculation | Tag with key `calculation` | `object_tags` |
 | Domain | Schema tag with key `domain` | `object_tags` |
 | Steward | Table tag with key `steward` | `object_tags` |
-| Linked tables | Table lineage edges | `lineage_cache` |
+| Linked tables | Table lineage edges (multi-hop via `WITH RECURSIVE` CTE) | `lineage_cache` |
 
 ---
 
@@ -208,8 +210,8 @@ All tables live in `data_governance.dictionary_cache` on Databricks and in the r
 
 In Kubernetes the solution runs as:
 
-- A `Deployment` (`dd-app`) for the Streamlit UI, scaled by HPA (replicas managed by `k8s/hpa.yaml`). Probes target `/_stcore/health` on port 8501. A `PodDisruptionBudget` keeps `minAvailable: 1` during node drains.
-- A `Deployment` (`dd-sync-worker`) for the sidecar drain process, `replicas: 1` with `strategy: Recreate` (single writer, no overlap). Liveness/readiness target `/healthz` on port 8765.
+- A `Deployment` (`dd-app`) for the Streamlit UI, scaled by HPA (replicas managed by `k8s/hpa.yaml`). Probes target `/_stcore/health` on port 8501. A `PodDisruptionBudget` keeps `minAvailable: 1` during node drains. Runs with `readOnlyRootFilesystem: true`; a `/tmp` emptyDir provides writable scratch space for Streamlit temp files.
+- A `Deployment` (`dd-sync-worker`) for the sidecar drain process, `replicas: 1` with `strategy: Recreate` (single writer, no overlap). Liveness/readiness target `/healthz` on port 8765. Also runs with `readOnlyRootFilesystem: true` and `/tmp` emptyDir.
 - A `CronJob` (`dd-sync`) that runs `scripts/sync_metadata.py` nightly at 03:00 UTC (catalog rebuild — separate from the in-cluster daemon).
 - A `PersistentVolumeClaim` (`dd-data`) mounted at `/data` in `dd-app`, `dd-sync-worker`, and the CronJob — all three share the DuckDB cache files.
 - A `NetworkPolicy` restricting ingress to the ingress controller namespace and egress to HTTPS only.
