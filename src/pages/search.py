@@ -538,7 +538,9 @@ def render_search_page(query_groups: tuple) -> None:
     ''', unsafe_allow_html=True)
 
     if "dd_search_override" in st.session_state:
-        st.session_state["catalog_search"] = st.session_state.pop("dd_search_override")
+        _over_q = st.session_state.pop("dd_search_override")
+        st.session_state["catalog_search"] = _over_q
+        st.session_state["_dd_current_search_query"] = _over_q
     if "dd_nav_select" in st.session_state:
         _nav_candidate = st.session_state.pop("dd_nav_select")
         if _nav_candidate in _auth_full_names:
