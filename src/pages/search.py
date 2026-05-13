@@ -476,6 +476,14 @@ def render_search_page(query_groups: tuple) -> None:
     """Render the search tab: hero, search box, result cards, and table detail panel."""
     active_group = st.session_state.get("group_filter")
 
+    try:
+        _all_tables = get_authorized_tables(query_groups)
+        _auth_full_names = set(_all_tables["full_name"].tolist()) if _all_tables is not None and not _all_tables.empty else set()
+    except Exception as e:
+        logging.error("Error querying authorized tables: %s", e, exc_info=True)
+        _all_tables = None
+        _auth_full_names = set()
+
     st.markdown(f'''
     <div class="dd-search-hero">
       <div class="dd-eyebrow">{t('search.eyebrow')}</div>
@@ -488,11 +496,6 @@ def render_search_page(query_groups: tuple) -> None:
         st.session_state["catalog_search"] = st.session_state.pop("dd_search_override")
     if "dd_nav_select" in st.session_state:
         _nav_candidate = st.session_state.pop("dd_nav_select")
-        try:
-            _auth_df       = get_authorized_tables(query_groups)
-            _auth_full_names = set(_auth_df["full_name"].tolist()) if _auth_df is not None and not _auth_df.empty else set()
-        except Exception:
-            _auth_full_names = set()
         if _nav_candidate in _auth_full_names:
             st.session_state["_dd_sticky_nav"] = _nav_candidate
         else:
@@ -510,18 +513,15 @@ def render_search_page(query_groups: tuple) -> None:
                 st.session_state.pop("group_filter", None)
                 st.rerun()
 
-    try:
-        _all_tables = get_authorized_tables(query_groups)
+    if _all_tables is None:
+        st.error(t("search.load_error"))
+        _table_options = []
+    else:
         _table_options = (
             sorted(_all_tables["table_name"].unique().tolist())
-            if _all_tables is not None and not _all_tables.empty and "table_name" in _all_tables.columns
+            if not _all_tables.empty and "table_name" in _all_tables.columns
             else []
         )
-    except Exception as e:
-        logging.error("Error querying data: %s", e, exc_info=True)
-        st.error(t("search.load_error"))
-        _all_tables    = None
-        _table_options = []
 
     search_query = st.selectbox(
         t("common.search"),
@@ -565,9 +565,7 @@ def render_search_page(query_groups: tuple) -> None:
                 _render_result_card(_fn, str(getattr(_row, "name", "") or getattr(_row, "table_name", "")), str(getattr(_row, "description", "") or ""), "Table", str(getattr(_row, "dq_score", "") or ""))
             with _gb:
                 if st.button(f"{t('search.view_details')} →", key=f"gview_{_fn}_{_i}", help=t("search.view_details_help"), use_container_width=True):
-                    _auth_df = get_authorized_tables(query_groups)
-                    _allowed = set(_auth_df["full_name"].tolist()) if _auth_df is not None and not _auth_df.empty else set()
-                    if _fn in _allowed:
+                    if _fn in _auth_full_names:
                         st.session_state["dd_search_override"] = str(_row.get("name") or _row.get("table_name", ""))
                         st.session_state["dd_nav_select"] = _fn
                         st.rerun()
@@ -605,9 +603,7 @@ def render_search_page(query_groups: tuple) -> None:
                             _render_result_card(_fn, _s(getattr(_sr, "name", None)), _s(getattr(_sr, "description", None)), _s(getattr(_sr, "match_type", None)), _s(getattr(_sr, "dq_score", "")))
                         with _btn_col:
                             if st.button(f"{t('search.view_details')} →", key=f"view_{_fn}_{_sr_i}", help=t("search.view_details_help"), use_container_width=True):
-                                _auth_df = get_authorized_tables(query_groups)
-                                _allowed = set(_auth_df["full_name"].tolist()) if _auth_df is not None and not _auth_df.empty else set()
-                                if _fn in _allowed:
+                                if _fn in _auth_full_names:
                                     st.session_state["_dd_sticky_nav"] = _fn
                                     st.rerun()
                                 else:
