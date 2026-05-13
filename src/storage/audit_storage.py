@@ -93,6 +93,7 @@ class ColumnOverride:
     business_name: str
     definition: str
     edited_by: str
+    status: str = "published"
 
 
 @runtime_checkable
@@ -101,6 +102,9 @@ class BusinessNameOverrideStorage(Protocol):
 
     def get_for_table(self, table_full_name: str) -> dict: ...
     def upsert(self, override: ColumnOverride) -> None: ...
+    def list_pending(self) -> list: ...
+    def approve(self, table_full_name: str, column_name: str) -> None: ...
+    def reject(self, table_full_name: str, column_name: str) -> None: ...
 
 
 class DemoBusinessNameOverrideStorage:
@@ -109,7 +113,11 @@ class DemoBusinessNameOverrideStorage:
     _KEY = "demo_business_names"
 
     def get_for_table(self, table_full_name: str) -> dict:
-        return st.session_state.get(self._KEY, {}).get(table_full_name, {})
+        return {
+            col: {k: v for k, v in data.items() if k != "status"}
+            for col, data in st.session_state.get(self._KEY, {}).get(table_full_name, {}).items()
+            if data.get("status", "published") == "published"
+        }
 
     def upsert(self, override: ColumnOverride) -> None:
         store = st.session_state.setdefault(self._KEY, {}).setdefault(override.table_full_name, {})
@@ -118,7 +126,32 @@ class DemoBusinessNameOverrideStorage:
             "definition":    override.definition,
             "edited_by":     override.edited_by,
             "edited_at":     "just now",
+            "status":        override.status,
         }
+
+    def list_pending(self) -> list:
+        results = []
+        for tbl_name, cols in st.session_state.get(self._KEY, {}).items():
+            for col_name, data in cols.items():
+                if data.get("status") == "pending_approval":
+                    results.append({
+                        "table_full_name": tbl_name,
+                        "column_name":     col_name,
+                        "business_name":   data.get("business_name", ""),
+                        "definition":      data.get("definition", ""),
+                        "edited_by":       data.get("edited_by", ""),
+                        "edited_at":       data.get("edited_at", ""),
+                    })
+        return results
+
+    def approve(self, table_full_name: str, column_name: str) -> None:
+        store = st.session_state.get(self._KEY, {}).get(table_full_name, {})
+        if column_name in store:
+            store[column_name]["status"] = "published"
+
+    def reject(self, table_full_name: str, column_name: str) -> None:
+        store = st.session_state.get(self._KEY, {}).get(table_full_name, {})
+        store.pop(column_name, None)
 
 
 class DuckDBBusinessNameOverrideStorage:
@@ -129,7 +162,7 @@ class DuckDBBusinessNameOverrideStorage:
                 cursor.execute(
                     "SELECT column_name, business_name, definition, edited_by, edited_at "
                     "FROM user_data.business_name_overrides "
-                    "WHERE table_full_name = %(table_full_name)s",
+                    "WHERE table_full_name = %(table_full_name)s AND status = 'published'",
                     {"table_full_name": table_full_name},
                 )
                 rows = cursor.fetchall_as_pandas()
@@ -157,16 +190,17 @@ class DuckDBBusinessNameOverrideStorage:
                 """
                 INSERT INTO user_data.business_name_overrides (
                     table_full_name, column_name, business_name,
-                    definition, edited_by, edited_at
+                    definition, edited_by, edited_at, status
                 ) VALUES (
                     %(table_full_name)s, %(column_name)s, %(business_name)s,
-                    %(definition)s, %(edited_by)s, current_localtimestamp()
+                    %(definition)s, %(edited_by)s, current_localtimestamp(), %(status)s
                 )
                 ON CONFLICT (table_full_name, column_name) DO UPDATE SET
                     business_name = excluded.business_name,
                     definition    = excluded.definition,
                     edited_by     = excluded.edited_by,
-                    edited_at     = current_localtimestamp()
+                    edited_at     = current_localtimestamp(),
+                    status        = excluded.status
                 """,
                 {
                     "table_full_name": override.table_full_name,
@@ -174,7 +208,44 @@ class DuckDBBusinessNameOverrideStorage:
                     "business_name":   override.business_name,
                     "definition":      override.definition,
                     "edited_by":       override.edited_by,
+                    "status":          override.status,
                 },
+            )
+
+    def list_pending(self) -> list:
+        try:
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT table_full_name, column_name, business_name, definition, edited_by, edited_at "
+                    "FROM user_data.business_name_overrides "
+                    "WHERE status = 'pending_approval' "
+                    "ORDER BY edited_at DESC",
+                )
+                rows = cursor.fetchall_as_pandas()
+                if rows is not None and not rows.empty:
+                    return rows.to_dict(orient="records")
+        except Exception as exc:
+            log.warning("Could not fetch pending overrides: %s", exc)
+        return []
+
+    def approve(self, table_full_name: str, column_name: str) -> None:
+        conn = _get_write_connection()
+        with conn.cursor() as cursor:
+            cursor.execute_write(
+                "UPDATE user_data.business_name_overrides SET status = 'published' "
+                "WHERE table_full_name = %(fn)s AND column_name = %(col)s",
+                {"fn": table_full_name, "col": column_name},
+            )
+
+    def reject(self, table_full_name: str, column_name: str) -> None:
+        conn = _get_write_connection()
+        with conn.cursor() as cursor:
+            cursor.execute_write(
+                "DELETE FROM user_data.business_name_overrides "
+                "WHERE table_full_name = %(fn)s AND column_name = %(col)s "
+                "AND status = 'pending_approval'",
+                {"fn": table_full_name, "col": column_name},
             )
 
 
@@ -184,7 +255,11 @@ class FakeBusinessNameOverrideStorage:
         self.data: dict[str, dict[str, dict]] = {}
 
     def get_for_table(self, table_full_name: str) -> dict:
-        return dict(self.data.get(table_full_name, {}))
+        return {
+            col: {k: v for k, v in d.items() if k != "status"}
+            for col, d in self.data.get(table_full_name, {}).items()
+            if d.get("status", "published") == "published"
+        }
 
     def upsert(self, override: ColumnOverride) -> None:
         self.data.setdefault(override.table_full_name, {})[override.column_name] = {
@@ -192,4 +267,28 @@ class FakeBusinessNameOverrideStorage:
             "definition":    override.definition,
             "edited_by":     override.edited_by,
             "edited_at":     "just now",
+            "status":        override.status,
         }
+
+    def list_pending(self) -> list:
+        return [
+            {
+                "table_full_name": tbl,
+                "column_name":     col,
+                "business_name":   d.get("business_name", ""),
+                "definition":      d.get("definition", ""),
+                "edited_by":       d.get("edited_by", ""),
+                "edited_at":       d.get("edited_at", ""),
+            }
+            for tbl, cols in self.data.items()
+            for col, d in cols.items()
+            if d.get("status") == "pending_approval"
+        ]
+
+    def approve(self, table_full_name: str, column_name: str) -> None:
+        entry = self.data.get(table_full_name, {}).get(column_name)
+        if entry:
+            entry["status"] = "published"
+
+    def reject(self, table_full_name: str, column_name: str) -> None:
+        self.data.get(table_full_name, {}).pop(column_name, None)

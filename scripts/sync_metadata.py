@@ -165,6 +165,41 @@ def push_business_name_overrides():
                     print(f"  ✗ {raw_full_name}.{raw_col_name}: {e}")
 
 
+def enrich_dq_from_monitoring(cursor, table_full_names: list, tag_dq: list) -> list:
+    """Attempt to enrich DQ data from Lakehouse Monitoring system tables.
+
+    Primary source: system.lakeformation.quality_monitors_statistics (if available).
+    Falls back to tag-based DQ already collected during schema traversal.
+    Returns a merged list deduplicated by table_full_name (monitoring wins).
+    """
+    monitoring_dq: dict[str, dict] = {}
+    try:
+        placeholders = ", ".join(f"'{n}'" for n in table_full_names[:200])  # cap for IN clause
+        cursor.execute(f"""
+            SELECT table_name,
+                   AVG(CASE WHEN status = 'PASS' THEN 100 WHEN status = 'FAIL' THEN 0 ELSE 50 END) AS dq_score,
+                   MAX(status) AS last_run_status,
+                   MAX(run_timestamp) AS freshness
+            FROM system.lakeformation.quality_monitors_statistics
+            WHERE table_name IN ({placeholders})
+            GROUP BY table_name
+        """)
+        for row in cursor.fetchall_as_pandas().itertuples(index=False):
+            monitoring_dq[str(row.table_name)] = {
+                "table_full_name": str(row.table_name),
+                "dq_score":        str(int(round(float(row.dq_score or 0)))),
+                "last_run_status": str(row.last_run_status or ""),
+                "freshness":       str(row.freshness or ""),
+            }
+    except Exception as e:
+        print(f"  Lakehouse Monitoring unavailable, using tag-based DQ: {e}")
+
+    # Merge: monitoring wins, fall back to tag-based for tables not in monitoring
+    tag_dq_map = {r["table_full_name"]: r for r in (tag_dq or [])}
+    merged = {**tag_dq_map, **monitoring_dq}
+    return list(merged.values())
+
+
 def fetch_lineage(w, full_name):
     """Returns 1-hop upstream/downstream lineage edges for *full_name*."""
     entries = []
@@ -323,6 +358,15 @@ def sync():
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         for entries in executor.map(lambda fn: fetch_lineage(w, fn), table_full_names):
             lineage_data.extend(entries)
+
+    # 2b. Enrich DQ data from Lakehouse Monitoring (overwrites tag-based where available)
+    print("📊 Enriching data quality metrics from Lakehouse Monitoring...")
+    try:
+        with get_sql_connection() as conn:
+            with conn.cursor() as cursor:
+                data_quality_data = enrich_dq_from_monitoring(cursor, table_full_names, data_quality_data)
+    except Exception as e:
+        print(f"  ⚠  DQ enrichment step failed: {e}")
 
     # 3. Load into Databricks SQL Warehouse
     print("📂 Loading data into SQL Warehouse...")
