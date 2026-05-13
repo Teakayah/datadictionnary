@@ -23,10 +23,12 @@ import logging
 import pandas as pd
 import streamlit as st
 
+from src.audit import approve_business_name, reject_business_name
 from src.auth import is_admin
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import _get_write_connection, run_query
+from src.storage import get_business_name_override_storage
 from src.i18n import t
 from src.personalization import is_editing_enabled, set_editing_enabled
 from src.ui.cards.cms_admin import _render_admin_cms_section, _show_cms_create_dialog  # noqa: F401
@@ -329,6 +331,88 @@ def _render_admin_groups_cache_section():
         st.success(t("admin.groups_cache_flushed", n=n))
 
 
+def _render_pending_reviews_section():
+    """Admin section: list pending column-override proposals and approve/reject them."""
+    import html as _html
+    st.markdown(
+        f'<div class="dd-section-header" style="margin-top:32px;">'
+        f'<span class="dd-eyebrow">§ {t("admin.reviews_title")}</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);'
+        f'line-height:1.5;margin:8px 0 12px;">{t("admin.reviews_subtitle")}</p>',
+        unsafe_allow_html=True,
+    )
+    try:
+        pending = get_business_name_override_storage().list_pending()
+    except Exception as exc:
+        logging.warning("Could not load pending reviews: %s", exc)
+        pending = []
+
+    if not pending:
+        st.markdown(
+            f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-40);">'
+            f'{t("admin.reviews_empty")}</p>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    for item in pending:
+        tbl  = str(item.get("table_full_name", ""))
+        col  = str(item.get("column_name", ""))
+        biz  = str(item.get("business_name", "") or "")
+        defn = str(item.get("definition", "") or "")
+        by   = str(item.get("edited_by", ""))
+        at   = str(item.get("edited_at", ""))
+        st.markdown(
+            f'<div style="background:var(--paper);border:1px solid var(--ink-10);'
+            f'border-radius:4px;padding:12px 16px;margin-bottom:8px;">'
+            f'<div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);'
+            f'text-transform:uppercase;margin-bottom:4px;">'
+            f'{_html.escape(tbl)} · {_html.escape(col)}</div>'
+            f'<div style="display:flex;gap:24px;margin:6px 0;">'
+            f'<div><span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-40);">'
+            f'{t("admin.reviews_new_value")}</span>'
+            f'<div style="font-family:var(--font-sans);font-size:13px;color:var(--ink);">'
+            f'{_html.escape(biz)}</div>'
+            f'<div style="font-family:var(--font-sans);font-size:12px;color:var(--ink-60);">'
+            f'{_html.escape(defn)}</div></div>'
+            f'</div>'
+            f'<div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);'
+            f'margin-top:4px;">'
+            f'{t("admin.reviews_proposed_by", user=_html.escape(by), date=_html.escape(at))}'
+            f'</div></div>',
+            unsafe_allow_html=True,
+        )
+        _c_approve, _c_reject, _ = st.columns([2, 2, 8], gap="small")
+        with _c_approve:
+            if st.button(
+                t("admin.reviews_approve"),
+                key=f"rev_approve_{tbl}_{col}",
+                type="primary",
+                use_container_width=True,
+            ):
+                try:
+                    approve_business_name(tbl, col)
+                    st.toast(f"Approved {col}")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(str(exc))
+        with _c_reject:
+            if st.button(
+                t("admin.reviews_reject"),
+                key=f"rev_reject_{tbl}_{col}",
+                use_container_width=True,
+            ):
+                try:
+                    reject_business_name(tbl, col)
+                    st.toast(f"Rejected {col}")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(str(exc))
+
+
 def render_admin_page():
     if not is_admin():
         st.error(t("admin.access_denied"))
@@ -343,6 +427,7 @@ def render_admin_page():
     ''', unsafe_allow_html=True)
 
     _render_admin_stats_section()
+    _render_pending_reviews_section()
     _render_admin_cms_section()
     _render_admin_pipelines_section()
     _render_admin_editing_section()

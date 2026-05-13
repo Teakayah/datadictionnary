@@ -228,6 +228,42 @@ unused and broader than needed.
 
 ---
 
+## Possible explorations (not yet scoped)
+
+### E1. Semantic / hybrid search
+
+**Motivation:** Full-text search fails when business terminology diverges from technical column
+names (e.g. searching "revenue" doesn't surface `fct_gross_sales_v2`). Both Gemini and Ollama
+independently identified this as the highest-recall enhancement for non-technical users.
+
+**Proposed approach:**
+- During nightly sync (`scripts/sync_metadata.py`), generate embeddings for table/column
+  descriptions using the Databricks Foundation Models API (`databricks-embeddings-v2`) or
+  locally via `all-MiniLM-L6-v2` (sentence-transformers).
+- Store vectors in a new `tables_embedding_cache(table_full_name, embedding FLOAT[])` table in
+  the catalog DuckDB file using the `vss` extension (`INSTALL vss; LOAD vss`).
+- In `src/db/queries.py::search_all_metadata`, run hybrid search: BM25 (current) +
+  cosine similarity via `array_cosine_similarity`. Combine scores with a weighted sum.
+- Add a `_to_duckdb_sql` translation for the `array_cosine_similarity` call.
+- The query-time embedding call (`embed(user_query)`) needs to be fast — consider caching
+  the query embedding in `st.session_state` per unique query string.
+
+**Prerequisites / risks:**
+- DuckDB `vss` extension is in beta; test against the pinned DuckDB version before committing.
+- Embedding generation adds ~5–30 min to the nightly sync depending on table count and model.
+- Foundation Models API requires a PAT with `CAN_USE` on a serving endpoint — add to `.env`.
+- The 384-dim MiniLM vectors add ~1.5 MB per 1000 tables; acceptable at 800-table scale.
+
+**Acceptance (when this is picked up):**
+- [ ] `scripts/sync_metadata.py` generates and stores embeddings; controllable via
+      `ENABLE_SEMANTIC_SEARCH=true` env flag.
+- [ ] Hybrid search ranks "revenue" above non-matching tables when `fct_gross_sales` has
+      "gross revenue" in its description.
+- [ ] Search p95 latency stays under 200 ms with vectors enabled (load-test at 300 users).
+- [ ] `ENABLE_SEMANTIC_SEARCH` defaults to `false`; existing search path unchanged when off.
+
+---
+
 ## How to use this file with Claude
 
 > "Read TODO.md and complete item #3" — picks up the cards.py split.
