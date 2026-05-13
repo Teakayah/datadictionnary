@@ -15,7 +15,7 @@ Adding a new CMS field: update the ``post`` dict in ``create_post`` and
 import logging
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone; UTC = timezone.utc
 
 from src.auth import is_admin
 from src.storage import get_cms_storage
