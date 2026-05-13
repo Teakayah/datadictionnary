@@ -138,8 +138,8 @@ def _fetch_comment_author_email(comment_id: str) -> str:
     if is_demo_mode():
         for comments in st.session_state.get("demo_comments", {}).values():
             for c in comments:
-                if c.get("comment_id") == comment_id:
-                    return str(c.get("author_email") or "")
+                if c["comment_id"] == comment_id:
+                    return str(c.get("author_email", ""))
         return ""
     try:
         conn = get_db_connection()
