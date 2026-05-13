@@ -16,7 +16,7 @@ import os
 
 import streamlit as st
 
-from src.auth import is_admin
+from src.auth import is_admin, _parse_groups
 from src.storage import get_preference_storage, get_site_setting_storage
 
 log = logging.getLogger(__name__)
@@ -88,9 +88,7 @@ def is_power_user() -> bool:
     """True if editing is globally enabled AND the user belongs to an EDITOR_GROUPS group."""
     if not is_editing_enabled():
         return False
-    editor_groups = {
-        g.strip() for g in os.getenv("EDITOR_GROUPS", "").split(",") if g.strip()
-    }
+    editor_groups = _parse_groups(os.getenv("EDITOR_GROUPS", ""))
     if not editor_groups:
         return False
     return bool(editor_groups & set(st.session_state.get("user_groups", [])))

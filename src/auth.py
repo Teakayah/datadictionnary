@@ -34,6 +34,7 @@ Three failure modes are guarded against:
 
 
 import logging
+import functools
 import os
 import secrets
 import time
@@ -352,9 +353,17 @@ def check_auth(sync_prefs_callback: Optional[callable] = None):
 
 
 
+@functools.lru_cache(maxsize=128)
+def _parse_groups(env_val: str) -> frozenset[str]:
+    """Parse comma-separated groups from an environment variable."""
+    if not env_val:
+        return frozenset()
+    return frozenset(g.strip() for g in env_val.split(",") if g.strip())
+
+
 def is_pipeline_user() -> bool:
     """True if the current user belongs to at least one PIPELINE_GROUPS group."""
-    pipeline_groups = {g.strip() for g in os.getenv("PIPELINE_GROUPS", "").split(",") if g.strip()}
+    pipeline_groups = _parse_groups(os.getenv("PIPELINE_GROUPS", ""))
     if not pipeline_groups:
         return False
     user_groups = st.session_state.get("user_groups") or []
@@ -367,7 +376,7 @@ def is_admin() -> bool:
     No demo-mode bypass — admins must be in the real Entra group even in
     demo/development mode, unlike is_power_user() which may have a mock shortcut.
     """
-    admin_groups = {g.strip() for g in os.getenv("ADMIN_GROUPS", "").split(",") if g.strip()}
+    admin_groups = _parse_groups(os.getenv("ADMIN_GROUPS", ""))
     if not admin_groups:
         return False
     return bool(admin_groups & set(st.session_state.get("user_groups", [])))
