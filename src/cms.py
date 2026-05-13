@@ -14,6 +14,7 @@ Adding a new CMS field: update the ``post`` dict in ``create_post`` and
 
 import logging
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from src.auth import is_admin
@@ -39,14 +40,17 @@ def get_all_posts() -> list[dict]:
     return get_cms_storage().list_all()
 
 
-def create_post(
-    post_type: str,
-    title: str,
-    body: str,
-    table_ref: Optional[str],
-    author_email: str,
-    expiry_days: Optional[int],
-) -> None:
+
+@dataclass
+class PostParams:
+    post_type: str
+    title: str
+    body: str
+    table_ref: Optional[str]
+    author_email: str
+    expiry_days: Optional[int]
+
+def create_post(params: PostParams) -> None:
     """Persist a new CMS post.
 
     Storage backend chooses how to durable-ify it (DuckDB row vs session
@@ -57,15 +61,15 @@ def create_post(
     now = datetime.now(UTC)
     post = {
         "post_id":      str(uuid.uuid4()),
-        "post_type":    post_type,
-        "title":        title,
-        "body":         body or None,
-        "table_ref":    table_ref or None,
-        "author_email": author_email,
+        "post_type":    params.post_type,
+        "title":        params.title,
+        "body":         params.body or None,
+        "table_ref":    params.table_ref or None,
+        "author_email": params.author_email,
         "created_at":   now,
         "expires_at":   (
-            now + timedelta(days=expiry_days)
-            if expiry_days is not None
+            now + timedelta(days=params.expiry_days)
+            if params.expiry_days is not None
             else None
         ),
     }
