@@ -10,7 +10,7 @@ to Databricks/ADF/ADO management APIs) stays here.
 
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone; UTC = timezone.utc
 
 
 from src.auth import is_admin, is_pipeline_user

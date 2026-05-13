@@ -15,7 +15,7 @@ Coverage:
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime
+from datetime import datetime, timezone; UTC = timezone.utc
 from unittest.mock import patch, MagicMock
 
 import pytest
