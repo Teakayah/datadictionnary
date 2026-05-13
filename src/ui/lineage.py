@@ -69,22 +69,10 @@ def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, ru
             # Reconstruct node states
             if efn not in visited:
                 visited.add(efn)
-                graph_nodes.append({
-                    "id": efn, 
-                    "label": efn.split(".")[-1], 
-                    "current": False, 
-                    "relationship": direction.capitalize(),
-                    "type": str(getattr(lr, "entity_type", "Table"))
-                })
+                graph_nodes.append({"id": efn, "label": efn.split(".")[-1], "current": False, "relationship": direction.capitalize()})
             if node_fn not in visited:
                 visited.add(node_fn)
-                graph_nodes.append({
-                    "id": node_fn, 
-                    "label": node_fn.split(".")[-1], 
-                    "current": False, 
-                    "relationship": "Unknown",
-                    "type": "Table"
-                })
+                graph_nodes.append({"id": node_fn, "label": node_fn.split(".")[-1], "current": False, "relationship": "Unknown"})
 
     return graph_nodes, graph_links
 
@@ -108,15 +96,7 @@ def _lineage_vis_html(graph_nodes: list, graph_links: list, height: int = 350, c
         f'var bg=n.current?"#B8362A":(n.relationship==="Shared column"?"#DDE4EC":"#FAF7F0");'
         f'var bdr=n.current?"#8C271E":(n.relationship==="Shared column"?"#2B4A6B":"#C9C2B4");'
         f'var txt=n.current?"#FAF7F0":(n.relationship==="Shared column"?"#2B4A6B":"#14110C");'
-        f'var shp="box";'
-        f'if(n.type){{'
-        f'  var t=n.type.toLowerCase();'
-        f'  if(t.includes("table")) shp="database";'
-        f'  else if(t.includes("view")||t.includes("dashboard")) shp="diamond";'
-        f'  else if(t.includes("notebook")||t.includes("pipeline")) shp="hexagon";'
-        f'  else if(n.relationship==="Shared column") shp="ellipse";'
-        f'}}'
-        f'upd.push({{id:n.id,shape:shp,color:{{background:bg,border:bdr,highlight:{{background:bg,border:bdr}}}},font:{{color:txt}}}});}});'
+        f'upd.push({{id:n.id,color:{{background:bg,border:bdr,highlight:{{background:bg,border:bdr}}}},font:{{color:txt}}}});}});'
         f'nodes.update(upd);'
         f'var net=new vis.Network(container,{{nodes:nodes,edges:edges}},options);'
         f'net.once("stabilizationIterationsDone",function(){{net.fit();}});'

@@ -470,7 +470,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                     else _html.escape(_rel_raw_badge)
                 )
                 if not any(n["id"] == _rel_full for n in graph_nodes):
-                    graph_nodes.append({"id": _rel_full, "label": _rel_name, "current": False, "relationship": _rel_badge, "type": "Table"})
+                    graph_nodes.append({"id": _rel_full, "label": _rel_name, "current": False, "relationship": _rel_badge})
                 if not any((lnk["from"] == full_name and lnk["to"] == _rel_full) or (lnk["from"] == _rel_full and lnk["to"] == full_name) for lnk in graph_links):
                     graph_links.append({"from": full_name, "to": _rel_full})
 
