@@ -5,11 +5,19 @@ from typing import Any, Callable, Optional, Protocol, runtime_checkable
 Renders the "/health" tab. Pure read-only views: documentation coverage,
 column completeness, schema-level rollups, and a priority-actions list of
 undocumented tables.
+
+Implements SQL push-down for all metrics (ADR 002) to ensure scalability
+while maintaining row-level access control.
 """
 
-
-
 from dataclasses import dataclass
+import logging
+import pandas as pd
+import streamlit as st
+
+from src.config import CATALOG_CACHE, SCHEMA_CACHE, is_demo_mode
+from src.db.queries import run_query
+from src.i18n import t
 
 @dataclass
 class HealthMetrics:
@@ -20,41 +28,76 @@ class HealthMetrics:
     n_col_desc: int
     n_cols: int
 
-import logging
 
-import streamlit as st
-
-from src.config import CATALOG_CACHE, SCHEMA_CACHE, is_demo_mode
-from src.db.queries import run_query
-from src.i18n import t
-
-
-def _calculate_health_metrics(all_data):
-    n_tables = len(all_data)
-    n_desc = (all_data['table_description'].str.strip().str.len() > 0).sum()
-    table_coverage = (n_desc / n_tables * 100) if n_tables > 0 else 0
-
+def _get_table_health_stats(groups: tuple) -> pd.DataFrame:
+    """Fetch table-level coverage stats grouped by schema with SQL push-down."""
     if is_demo_mode():
-        n_cols = 0
-        n_col_desc = 0
-    else:
-        cols_stats_query = (
-            f"SELECT count(*) as total, count(comment) as with_desc "
-            f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata"
-        )
-        stats = run_query(cols_stats_query)
-        n_cols = stats.iloc[0]['total']
-        n_col_desc = stats.iloc[0]['with_desc']
+        from src.demo.data import _DEMO_TABLES
+        return _DEMO_TABLES.groupby('schema_name').agg(
+            total=('table_name', 'count'),
+            described=('table_description', lambda x: (x.fillna('').astype(str).str.strip().str.len() > 0).sum())
+        ).reset_index()
 
-    col_coverage = (n_col_desc / n_cols * 100) if n_cols > 0 else 0
-    return HealthMetrics(
-        table_coverage=table_coverage,
-        n_desc=n_desc,
-        n_tables=n_tables,
-        col_coverage=col_coverage,
-        n_col_desc=n_col_desc,
-        n_cols=n_cols,
-    )
+    group_ph = ", ".join(f"%(g_{i})s" for i in range(len(groups))) if groups else "''"
+    params = {f"g_{i}": g for i, g in enumerate(groups)}
+
+    query = f"""
+        SELECT 
+            m.schema_name,
+            COUNT(*) as total,
+            SUM(CASE WHEN m.comment IS NOT NULL AND m.comment != '' THEN 1 ELSE 0 END) as described
+        FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata m
+        JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p ON m.full_name = p.table_full_name
+        WHERE (p.principal IN ({group_ph}) OR p.principal = 'SELECT_ALL_USERS')
+        GROUP BY m.schema_name
+        ORDER BY m.schema_name
+    """
+    return run_query(query, params)
+
+
+def _get_column_health_stats(groups: tuple) -> tuple[int, int]:
+    """Fetch catalog-wide column coverage stats with SQL push-down."""
+    if is_demo_mode():
+        return 0, 0
+    
+    group_ph = ", ".join(f"%(g_{i})s" for i in range(len(groups))) if groups else "''"
+    params = {f"g_{i}": g for i, g in enumerate(groups)}
+
+    query = f"""
+        SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN c.comment IS NOT NULL AND c.comment != '' THEN 1 ELSE 0 END) as with_desc
+        FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata c
+        JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p ON c.table_full_name = p.table_full_name
+        WHERE (p.principal IN ({group_ph}) OR p.principal = 'SELECT_ALL_USERS')
+    """
+    stats = run_query(query, params)
+    if stats is None or stats.empty:
+        return 0, 0
+    return int(stats.iloc[0]['total']), int(stats.iloc[0]['with_desc'] or 0)
+
+
+def _get_undocumented_priority(groups: tuple, limit: int = 5) -> pd.DataFrame:
+    """Identify undocumented tables with SQL push-down."""
+    if is_demo_mode():
+        from src.demo.data import _DEMO_TABLES
+        return _DEMO_TABLES[
+            _DEMO_TABLES['table_description'].fillna('').astype(str).str.strip() == ''
+        ].head(limit)
+
+    group_ph = ", ".join(f"%(g_{i})s" for i in range(len(groups))) if groups else "''"
+    params = {f"g_{i}": g for i, g in enumerate(groups)}
+    params["limit"] = limit
+
+    query = f"""
+        SELECT m.full_name, m.table_name, m.comment as table_description
+        FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata m
+        JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p ON m.full_name = p.table_full_name
+        WHERE (m.comment IS NULL OR m.comment = '')
+          AND (p.principal IN ({group_ph}) OR p.principal = 'SELECT_ALL_USERS')
+        LIMIT %(limit)s
+    """
+    return run_query(query, params)
 
 
 def _render_health_hero_metrics(metrics: HealthMetrics):
@@ -85,24 +128,22 @@ def _render_health_hero_metrics(metrics: HealthMetrics):
         ''', unsafe_allow_html=True)
 
 
-def _render_schema_coverage(all_data):
+def _render_schema_coverage(schema_stats: pd.DataFrame):
     st.markdown(
         '<div class="dd-section-header"><span class="dd-eyebrow" '
         'style="margin-bottom:0">§ Coverage by Schema</span></div>',
         unsafe_allow_html=True,
     )
-    # ⚡ Bolt: Use vectorized string operations instead of `.apply()` with lambdas
-    # Pandas .apply() executes in Python loops and is slow.
-    # Vectorized .str operations push execution to fast C loops.
-    # Expected impact: ~3-5x faster aggregation on large DataFrames.
-    schema_stats = all_data.groupby('schema_name').agg(
-        total=('table_name', 'count'),
-        described=('table_description', lambda x: (x.fillna('').astype(str).str.strip().str.len() > 0).sum())
-    ).reset_index()
-    schema_stats['coverage'] = (schema_stats['described'] / schema_stats['total'] * 100).round(0)
+    
+    if schema_stats is None or schema_stats.empty:
+        st.info(t("common.empty"))
+        return
+
+    stats = schema_stats.copy()
+    stats['coverage'] = (stats['described'] / stats['total'] * 100).round(0)
 
     st.dataframe(
-        schema_stats.sort_values(by='coverage', ascending=False),
+        stats.sort_values(by='coverage', ascending=False),
         column_config={
             "schema_name": "Schema",
             "total": "Tables",
@@ -116,18 +157,12 @@ def _render_schema_coverage(all_data):
     )
 
 
-def _render_priority_actions(all_data):
+def _render_priority_actions(undocumented: pd.DataFrame):
     st.markdown(
         '<div class="dd-section-header"><span class="dd-eyebrow" '
         'style="margin-bottom:0">§ Priority Actions</span></div>',
         unsafe_allow_html=True,
     )
-    # ⚡ Bolt: Replaced `.apply(lambda...)` with vectorized filtering.
-    # Also fixes an implicit bug where str(np.nan) == "nan" (len 3),
-    # which incorrectly marked NULL descriptions as documented.
-    undocumented = all_data[
-        all_data['table_description'].fillna('').astype(str).str.strip() == ''
-    ].head(5)
 
     if not undocumented.empty:
         st.warning(t("health.missing_descriptions"))
@@ -145,7 +180,7 @@ def _render_priority_actions(all_data):
         st.success(t("health.all_documented"))
 
 
-def render_health(groups, get_authorized_tables_fn):
+def render_health(groups: tuple, _unused_fn=None):
     st.markdown(f'''
     <div class="dd-search-hero">
       <div class="dd-eyebrow">{t("health.title")}</div>
@@ -155,12 +190,29 @@ def render_health(groups, get_authorized_tables_fn):
     ''', unsafe_allow_html=True)
 
     try:
-        all_data = get_authorized_tables_fn(groups)
-        if all_data.empty:
+        # 1. Fetch all metrics via SQL push-down
+        schema_stats = _get_table_health_stats(groups)
+        n_cols, n_col_desc = _get_column_health_stats(groups)
+        undocumented = _get_undocumented_priority(groups)
+
+        if schema_stats.empty:
             st.info(t("health.no_data"))
             return
 
-        metrics = _calculate_health_metrics(all_data)
+        # 2. Calculate hero metrics
+        n_tables = schema_stats['total'].sum()
+        n_desc = schema_stats['described'].sum()
+        table_coverage = (n_desc / n_tables * 100) if n_tables > 0 else 0
+        col_coverage = (n_col_desc / n_cols * 100) if n_cols > 0 else 0
+
+        metrics = HealthMetrics(
+            table_coverage=table_coverage,
+            n_desc=int(n_desc),
+            n_tables=int(n_tables),
+            col_coverage=col_coverage,
+            n_col_desc=int(n_col_desc),
+            n_cols=int(n_cols),
+        )
 
         _render_health_hero_metrics(metrics)
 
@@ -169,11 +221,11 @@ def render_health(groups, get_authorized_tables_fn):
         col_left, col_right = st.columns([6, 4], gap="large")
 
         with col_left:
-            _render_schema_coverage(all_data)
+            _render_schema_coverage(schema_stats)
 
         with col_right:
-            _render_priority_actions(all_data)
+            _render_priority_actions(undocumented)
 
     except Exception as e:
-        logging.error("Error in health dashboard: %s", e)
+        logging.error("Error in health dashboard: %s", e, exc_info=True)
         st.error(t("health.load_error"))
