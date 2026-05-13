@@ -102,6 +102,18 @@ class TestIsAdmin:
         monkeypatch.setattr("src.auth.st.session_state", {"user_groups": ["admin-group1"]})
         assert is_admin() is True
 
+    def test_false_when_env_only_commas(self, monkeypatch):
+        """is_admin returns False when ADMIN_GROUPS contains only commas and spaces."""
+        monkeypatch.setenv("ADMIN_GROUPS", " , ,, ")
+        monkeypatch.setattr("src.auth.st.session_state", {"user_groups": ["any_group"]})
+        assert is_admin() is False
+
+    def test_case_sensitivity(self, monkeypatch):
+        """is_admin is case-sensitive when matching groups."""
+        monkeypatch.setenv("ADMIN_GROUPS", "Admin_Group")
+        monkeypatch.setattr("src.auth.st.session_state", {"user_groups": ["admin_group"]})
+        assert is_admin() is False
+
 
 class TestIsPowerUserAuth:
     """Tests src.personalization.is_power_user.
