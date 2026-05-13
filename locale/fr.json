@@ -17,7 +17,15 @@
     "mock_button": "Se connecter avec Entra ID (démo)",
     "signed_in_as": "Connecté en tant que",
     "signin_failed_security": "Échec de la connexion : la vérification de sécurité n'a pas correspondu. Veuillez réessayer.",
-    "signin_failed": "Échec de la connexion. Veuillez réessayer."
+    "signin_failed": "Échec de la connexion. Veuillez réessayer.",
+    "tables_indexed": "tables indexées",
+    "schemas": "schémas",
+    "sync_cadence": "fréquence de synchronisation",
+    "nightly": "nuit",
+    "corporate_account_title": "Utilisez votre compte d'entreprise",
+    "corporate_account_body": "Le catalogue est filtré par Microsoft Entra ID — vous ne verrez que les données auxquelles vous avez accès.",
+    "mock_authentication": "Authentification de test — sélectionnez un département pour filtrer selon ses accès.",
+    "data_access_policy": "En vous connectant, vous acceptez la politique d'accès aux données."
   },
   "search": {
     "hero_title": "Rechercher dans le catalogue.",

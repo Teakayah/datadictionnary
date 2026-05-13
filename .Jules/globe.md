@@ -4,3 +4,4 @@
 ## 2025-05-15 - Strftime Format Strings
 **Learning:** To localize `strftime` date formats using the repository's custom `t()` i18n function, store the format string (e.g., `"%b %d, %Y"`) inside the `locale/*.json` dictionaries and pass the localized string directly into the datetime object's formatting method: `dt.strftime(t('namespace.date_format_key'))`.
 **Action:** When refactoring hardcoded date representations generated via `strftime`, always move the underlying format string into the translation dictionaries to support locale-specific month/day ordering and structures.
+## 2026-05-13 - [Missing Sign In Key] Learning: Always double check translation dictionary for existing usage of strings. Action: When extracting strings, if replacing an existing hardcoded string that matches an existing key (e.g. 'Sign in' mapped to 'auth.sign_in'), ensure the existing translation dictionary actually contains that key, and add it if it's missing.

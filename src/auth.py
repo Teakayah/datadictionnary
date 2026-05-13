@@ -167,26 +167,25 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
         <div class="dd-stats-row">
           <div>
             <div class="dd-stat-n">{_n_tables}</div>
-            <div class="dd-stat-l">tables indexed</div>
+            <div class="dd-stat-l">{t('auth.tables_indexed')}</div>
           </div>
           <div>
             <div class="dd-stat-n">{_n_schemas}</div>
-            <div class="dd-stat-l">schemas</div>
+            <div class="dd-stat-l">{t('auth.schemas')}</div>
           </div>
           <div>
-            <div class="dd-stat-n">nightly</div>
-            <div class="dd-stat-l">sync cadence</div>
+            <div class="dd-stat-n">{t('auth.nightly')}</div>
+            <div class="dd-stat-l">{t('auth.sync_cadence')}</div>
           </div>
         </div>
         """, unsafe_allow_html=True)
 
     with col_card:
-        st.markdown("""
+        st.markdown(f"""
         <div class="dd-signin-card">
-          <div class="dd-eyebrow">Sign in</div>
-          <h3>Use your corporate account</h3>
-          <p class="body">The catalog is permission-trimmed by Microsoft Entra ID —
-          you'll only see data your Unity Catalog grants allow.</p>
+          <div class="dd-eyebrow">{t('auth.sign_in')}</div>
+          <h3>{t('auth.corporate_account_title')}</h3>
+          <p class="body">{t('auth.corporate_account_body')}</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -219,7 +218,7 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
                 st.session_state.user_email    = _email
                 st.rerun()
             st.markdown(
-                '<p class="dd-meta">Mock authentication — select a department to filter by its grants.</p>',
+                f'<p class="dd-meta">{t("auth.mock_authentication")}</p>',
                 unsafe_allow_html=True,
             )
         else:
@@ -233,7 +232,7 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
               text-decoration:none;box-sizing:border-box;
               transition:background 120ms var(--ease);
             ">{MS_LOGO_SVG} {t('auth.sign_in_button')}</a>
-            <p class="dd-meta" style="margin-top:12px">By signing in you agree to the data access policy.</p>
+            <p class="dd-meta" style="margin-top:12px">{t('auth.data_access_policy')}</p>
             """, unsafe_allow_html=True)
 
 

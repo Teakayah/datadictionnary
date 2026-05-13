@@ -17,7 +17,15 @@
     "mock_button": "Sign in with Entra ID (mock)",
     "signed_in_as": "Signed in as",
     "signin_failed_security": "Sign-in failed: security check did not match. Please try again.",
-    "signin_failed": "Sign-in failed. Please try again."
+    "signin_failed": "Sign-in failed. Please try again.",
+    "tables_indexed": "tables indexed",
+    "schemas": "schemas",
+    "sync_cadence": "sync cadence",
+    "nightly": "nightly",
+    "corporate_account_title": "Use your corporate account",
+    "corporate_account_body": "The catalog is permission-trimmed by Microsoft Entra ID — you'll only see data your Unity Catalog grants allow.",
+    "mock_authentication": "Mock authentication — select a department to filter by its grants.",
+    "data_access_policy": "By signing in you agree to the data access policy."
   },
   "search": {
     "hero_title": "Search the catalog.",
