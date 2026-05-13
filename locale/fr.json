@@ -229,7 +229,8 @@
     "start_error": "Impossible de démarrer le pipeline",
     "stop_error": "Impossible d'arrêter le pipeline",
     "error_title": "Le titre est requis.",
-    "date_format": "%d %b %H:%M UTC"
+    "date_format": "%d %b %H:%M UTC",
+    "started_by": "lancé par {user} · {date}"
   },
   "cms": {
     "section_title": "Gestion de contenu",
