@@ -393,3 +393,200 @@ class TestPipelineDefAdminGuards:
                 delete_pipeline_def("p1")
         mock_def.assert_not_called()
         mock_run.assert_not_called()
+
+class TestSPTokenAndPipelineDefs:
+    @patch("src.pipelines.PIPELINE_SP_TENANT_ID", "tenant")
+    @patch("src.pipelines.PIPELINE_SP_CLIENT_ID", "client")
+    @patch("src.pipelines.PIPELINE_SP_CLIENT_SECRET", "secret")
+    @patch("msal.ConfidentialClientApplication")
+    def test_get_sp_token_success(self, mock_msal):
+        from src.pipelines import _get_sp_token
+        mock_app = MagicMock()
+        mock_msal.return_value = mock_app
+        mock_app.acquire_token_for_client.return_value = {"access_token": "token"}
+        token = _get_sp_token("resource")
+        assert token == "token"
+
+    @patch("src.pipelines.PIPELINE_SP_TENANT_ID", "tenant")
+    @patch("src.pipelines.PIPELINE_SP_CLIENT_ID", "client")
+    @patch("src.pipelines.PIPELINE_SP_CLIENT_SECRET", "secret")
+    @patch("msal.ConfidentialClientApplication")
+    def test_get_sp_token_failure(self, mock_msal):
+        from src.pipelines import _get_sp_token
+        mock_app = MagicMock()
+        mock_msal.return_value = mock_app
+        mock_app.acquire_token_for_client.return_value = {"error": "bad"}
+        with pytest.raises(RuntimeError, match="Failed to acquire pipeline SP token: bad"):
+            _get_sp_token("resource")
+
+    @patch("src.pipelines.PIPELINE_SP_TENANT_ID", "")
+    def test_get_sp_token_missing_credentials(self):
+        from src.pipelines import _get_sp_token
+        with pytest.raises(RuntimeError, match="Pipeline service principal credentials are not configured"):
+            _get_sp_token("resource")
+
+class TestPollStatusAllBackends:
+    @patch("src.pipelines._get_sp_token", return_value="token")
+    @patch("requests.get")
+    @patch("src.pipelines._update_run")
+    def test_status_databricks(self, mock_update, mock_get, mock_token):
+        from src.pipelines import poll_run_status
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "state": {"life_cycle_state": "RUNNING", "state_message": "msg"},
+            "tasks": [{"state": {"life_cycle_state": "TERMINATED"}}, {"state": {"life_cycle_state": "PENDING"}}]
+        }
+        mock_get.return_value = mock_resp
+
+        pipeline = {"pipeline_id": "p1", "backend": "databricks"}
+        run = {"backend_run_id": "123"}
+
+        with patch("src.pipelines._clear_run"):
+            result = poll_run_status(pipeline, run)
+
+        assert result["status"] == "RUNNING"
+        assert result["progress"] == 45
+        assert result["message"] == "msg"
+        assert result["is_terminal"] is False
+        mock_update.assert_called_once_with("p1", "RUNNING")
+
+    @patch("src.pipelines._get_sp_token", return_value="token")
+    @patch("requests.get")
+    @patch("src.pipelines._update_run")
+    def test_status_adf(self, mock_update, mock_get, mock_token):
+        from src.pipelines import poll_run_status
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"status": "InProgress", "message": "msg"}
+        mock_get.return_value = mock_resp
+
+        pipeline = {
+            "pipeline_id": "p1", "backend": "adf",
+            "adf_subscription_id": "sub", "adf_resource_group": "rg", "adf_factory_name": "fact"
+        }
+        run = {"backend_run_id": "123"}
+
+        with patch("src.pipelines._clear_run"):
+            result = poll_run_status(pipeline, run)
+
+        assert result["status"] == "InProgress"
+        assert result["progress"] == 55
+        assert result["message"] == "msg"
+        assert result["is_terminal"] is False
+        mock_update.assert_called_once_with("p1", "InProgress")
+
+    @patch("src.pipelines._get_sp_token", return_value="token")
+    @patch("requests.get")
+    @patch("src.pipelines._clear_run")
+    @patch("src.pipelines._update_run")
+    def test_status_ado(self, mock_update, mock_clear, mock_get, mock_token):
+        from src.pipelines import poll_run_status
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"state": "completed", "result": "succeeded"}
+        mock_get.return_value = mock_resp
+
+        pipeline = {
+            "pipeline_id": "p1", "backend": "ado",
+            "ado_organization": "org", "ado_project": "proj", "ado_pipeline_id": "1"
+        }
+        run = {"backend_run_id": "123"}
+
+        result = poll_run_status(pipeline, run)
+
+        assert result["status"] == "succeeded"
+        assert result["progress"] == 100
+        assert result["message"] == ""
+        assert result["is_terminal"] is True
+        mock_update.assert_called_once_with("p1", "succeeded")
+        mock_clear.assert_called_once_with("p1")
+
+    @patch("src.pipelines._update_run")
+    def test_status_unknown_backend(self, mock_update):
+        from src.pipelines import poll_run_status
+        pipeline = {"pipeline_id": "p1", "backend": "unknown"}
+        run = {"backend_run_id": "123"}
+
+        with patch("src.pipelines._clear_run"):
+            result = poll_run_status(pipeline, run)
+
+        assert result["status"] == "unknown"
+        assert result["progress"] == 0
+        assert result["is_terminal"] is False
+
+class TestCancelBackends:
+    @patch("src.pipelines._get_sp_token", return_value="token")
+    @patch("requests.post")
+    @patch("src.pipelines._clear_run")
+    def test_cancel_adf(self, mock_clear, mock_post, mock_token):
+        from src.pipelines import cancel_run
+        pipeline = {
+            "pipeline_id": "p1", "backend": "adf",
+            "adf_subscription_id": "sub", "adf_resource_group": "rg", "adf_factory_name": "fact"
+        }
+        run = {"backend_run_id": "123"}
+
+        with patch("src.pipelines.is_pipeline_user", return_value=True), patch("src.pipelines.is_admin", return_value=False):
+            cancel_run(pipeline, run)
+
+        mock_post.assert_called_once()
+        mock_clear.assert_called_once_with("p1")
+
+    @patch("src.pipelines._get_sp_token", return_value="token")
+    @patch("requests.patch")
+    @patch("src.pipelines._clear_run")
+    def test_cancel_ado(self, mock_clear, mock_patch, mock_token):
+        from src.pipelines import cancel_run
+        pipeline = {
+            "pipeline_id": "p1", "backend": "ado",
+            "ado_organization": "org", "ado_project": "proj"
+        }
+        run = {"backend_run_id": "123"}
+
+        with patch("src.pipelines.is_pipeline_user", return_value=True), patch("src.pipelines.is_admin", return_value=False):
+            cancel_run(pipeline, run)
+
+        mock_patch.assert_called_once()
+        mock_clear.assert_called_once_with("p1")
+
+    @patch("src.pipelines._get_sp_token", return_value="token")
+    @patch("requests.post")
+    def test_cancel_databricks(self, mock_post, mock_token):
+        from src.pipelines import _cancel_databricks
+        _cancel_databricks("123")
+        mock_post.assert_called_once()
+        mock_post.return_value.raise_for_status.assert_called_once()
+
+class TestSaveRunClearRun:
+    def test_save_run(self):
+        from src.pipelines import _save_run
+        with patch("src.pipelines.get_pipeline_run_storage") as mock_storage:
+            _save_run("p1", "r1", "user")
+            mock_storage.return_value.upsert.assert_called_once_with("p1", "r1", "user")
+
+    def test_clear_run(self):
+        from src.pipelines import _clear_run
+        with patch("src.pipelines.get_pipeline_run_storage") as mock_storage:
+            _clear_run("p1")
+            mock_storage.return_value.clear.assert_called_once_with("p1")
+
+    def test_get_active_run(self):
+        from src.pipelines import get_active_run
+        with patch("src.pipelines.get_pipeline_run_storage") as mock_storage:
+            mock_storage.return_value.get_active.return_value = {"id": "1"}
+            res = get_active_run("p1")
+            assert res == {"id": "1"}
+            mock_storage.return_value.get_active.assert_called_once_with("p1")
+
+    def test_update_run(self):
+        from src.pipelines import _update_run
+        with patch("src.pipelines.get_pipeline_run_storage") as mock_storage:
+            _update_run("p1", "status")
+            mock_storage.return_value.update_status.assert_called_once_with("p1", "status")
+
+    def test_delete_pipeline_def_admin_succeeds(self):
+        from src.pipelines import delete_pipeline_def
+        with patch("src.pipelines.is_admin", return_value=True), \
+             patch("src.pipelines.get_pipeline_def_storage") as mock_def, \
+             patch("src.pipelines.get_pipeline_run_storage") as mock_run:
+            delete_pipeline_def("p1")
+            mock_def.return_value.delete.assert_called_once_with("p1")
+            mock_run.return_value.clear.assert_called_once_with("p1")
