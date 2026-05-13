@@ -49,6 +49,12 @@ class TestIsPipelineUser:
         monkeypatch.setattr("src.auth.st.session_state", {"user_groups": ["standard_user_group"]})
         assert is_pipeline_user() is False
 
+    def test_false_when_user_groups_is_none(self, monkeypatch):
+        """is_pipeline_user returns False when user_groups in session state is explicitly None."""
+        monkeypatch.setenv("PIPELINE_GROUPS", "pipe_group")
+        monkeypatch.setattr("src.auth.st.session_state", {"user_groups": None})
+        assert is_pipeline_user() is False
+
     def test_true_when_group_matches(self, monkeypatch):
         """is_pipeline_user returns True when user belongs to PIPELINE_GROUPS."""
         monkeypatch.setenv("PIPELINE_GROUPS", "pipe_group")
