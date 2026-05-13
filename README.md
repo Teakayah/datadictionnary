@@ -70,7 +70,7 @@ The three excluded suites need a live app or Playwright browsers
          │                         │   DR resync
          └────  PVC dd-data  ──────┘
               dict.duckdb (catalog cache, nightly)
-              dict_user_data.duckdb (overrides + queue + audit)
+              dict_user_data.duckdb (overrides + queue + audit + comments)
 ```
 
 Streamlit pods only ever write locally to DuckDB. The sidecar daemon
