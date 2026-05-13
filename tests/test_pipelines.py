@@ -447,3 +447,91 @@ class TestPipelineDefAdminGuards:
                 delete_pipeline_def("p1")
         mock_def.assert_not_called()
         mock_run.assert_not_called()
+
+class TestStatusDatabricks:
+    @patch("requests.get")
+    @patch("src.pipelines._get_sp_token")
+    def test_status_databricks_pending(self, mock_get_token, mock_get):
+        from src.pipelines import _status_databricks
+        mock_get_token.return_value = "fake-token"
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "state": {
+                "life_cycle_state": "PENDING",
+                "state_message": "Waiting for resources"
+            }
+        }
+        mock_get.return_value = mock_resp
+
+        result = _status_databricks("run-123")
+        assert result["status"] == "PENDING"
+        assert result["progress"] == 10
+        assert result["message"] == "Waiting for resources"
+        assert result["is_terminal"] is False
+
+    @patch("requests.get")
+    @patch("src.pipelines._get_sp_token")
+    def test_status_databricks_running_with_tasks(self, mock_get_token, mock_get):
+        from src.pipelines import _status_databricks
+        mock_get_token.return_value = "fake-token"
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "state": {
+                "life_cycle_state": "RUNNING"
+            },
+            "tasks": [
+                {"state": {"life_cycle_state": "TERMINATED"}},
+                {"state": {"life_cycle_state": "RUNNING"}},
+                {"state": {"life_cycle_state": "PENDING"}},
+                {"state": {"life_cycle_state": "TERMINATED"}}
+            ]
+        }
+        mock_get.return_value = mock_resp
+
+        result = _status_databricks("run-123")
+        assert result["status"] == "RUNNING"
+        # 2 out of 4 tasks TERMINATED -> 50% * 90 = 45 progress
+        assert result["progress"] == 45
+        assert result["is_terminal"] is False
+
+    @patch("requests.get")
+    @patch("src.pipelines._get_sp_token")
+    def test_status_databricks_terminated(self, mock_get_token, mock_get):
+        from src.pipelines import _status_databricks
+        mock_get_token.return_value = "fake-token"
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "state": {
+                "life_cycle_state": "TERMINATED",
+                "result_state": "SUCCESS"
+            }
+        }
+        mock_get.return_value = mock_resp
+
+        result = _status_databricks("run-123")
+        # rs is 'SUCCESS', so status should be 'SUCCESS'
+        assert result["status"] == "SUCCESS"
+        assert result["progress"] == 100
+        assert result["is_terminal"] is True
+
+
+class TestCancelDatabricks:
+    @patch("requests.post")
+    @patch("src.pipelines._get_sp_token")
+    def test_cancel_databricks_success(self, mock_get_token, mock_post):
+        from src.pipelines import _cancel_databricks
+        mock_get_token.return_value = "fake-token"
+        mock_resp = MagicMock()
+        mock_post.return_value = mock_resp
+
+        _cancel_databricks("12345")
+
+        mock_get_token.assert_called_once()
+        mock_post.assert_called_once()
+        mock_resp.raise_for_status.assert_called_once()
+
+        # Verify post payload
+        args, kwargs = mock_post.call_args
+        assert kwargs["json"] == {"run_id": 12345}
+        assert "Authorization" in kwargs["headers"]
+        assert kwargs["headers"]["Authorization"] == "Bearer fake-token"
