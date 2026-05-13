@@ -24,7 +24,7 @@ def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, ru
     graph_nodes = [{"id": start_fn, "label": start_label, "current": True, "relationship": "Current"}]
     graph_links: list = []
 
-    lin_ph = ", ".join([f"%(lin_g_{i})s" for i in range(len(query_groups))]) if query_groups else "''"
+    lin_ph = ", ".join(f"%(lin_g_{i})s" for i in range(len(query_groups))) if query_groups else "''"
 
     params: dict = {"start_fn": start_fn, "max_depth": max_depth}
     for i, g in enumerate(query_groups):

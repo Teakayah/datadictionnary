@@ -74,7 +74,7 @@ _TERMINAL_STATUSES = frozenset({
 def _get_sp_token(resource: str) -> str:
     """Acquire an AAD token for the pipeline service principal."""
     import msal
-    if not all([PIPELINE_SP_TENANT_ID, PIPELINE_SP_CLIENT_ID, PIPELINE_SP_CLIENT_SECRET]):
+    if not all((PIPELINE_SP_TENANT_ID, PIPELINE_SP_CLIENT_ID, PIPELINE_SP_CLIENT_SECRET)):
         raise RuntimeError("Pipeline service principal credentials are not configured (PIPELINE_SP_*).")
     authority = f"https://login.microsoftonline.com/{PIPELINE_SP_TENANT_ID}"
     app = msal.ConfidentialClientApplication(
