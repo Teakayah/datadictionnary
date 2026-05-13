@@ -39,7 +39,7 @@ spec:
               securityContext:
                 runAsNonRoot: true
                 runAsUser: 1000
-                readOnlyRootFilesystem: false
+                readOnlyRootFilesystem: true
                 allowPrivilegeEscalation: false
                 capabilities:
                   drop:
@@ -62,8 +62,12 @@ spec:
               volumeMounts:
                 - name: data
                   mountPath: /data
+                - name: tmp
+                  mountPath: /tmp
 
           volumes:
             - name: data
               persistentVolumeClaim:
                 claimName: dd-data
+            - name: tmp
+              emptyDir: {}
