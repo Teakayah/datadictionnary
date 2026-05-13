@@ -156,7 +156,7 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
     with col_hero:
         st.markdown(f"""
         <div class="dd-signin-hero">
-          <div class="dd-eyebrow">§ Business Data Dictionary</div>
+          <div class="dd-eyebrow">§ {t('auth.hero_eyebrow')}</div>
           <h1>{t('auth.title')}</h1>
           <p class="lead">{t('auth.subtitle')}</p>
         </div>
@@ -167,26 +167,25 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
         <div class="dd-stats-row">
           <div>
             <div class="dd-stat-n">{_n_tables}</div>
-            <div class="dd-stat-l">tables indexed</div>
+            <div class="dd-stat-l">{t('auth.stats_tables')}</div>
           </div>
           <div>
             <div class="dd-stat-n">{_n_schemas}</div>
-            <div class="dd-stat-l">schemas</div>
+            <div class="dd-stat-l">{t('auth.stats_schemas')}</div>
           </div>
           <div>
-            <div class="dd-stat-n">nightly</div>
-            <div class="dd-stat-l">sync cadence</div>
+            <div class="dd-stat-n">{t('auth.stats_cadence_val')}</div>
+            <div class="dd-stat-l">{t('auth.stats_cadence')}</div>
           </div>
         </div>
         """, unsafe_allow_html=True)
 
     with col_card:
-        st.markdown("""
+        st.markdown(f"""
         <div class="dd-signin-card">
-          <div class="dd-eyebrow">Sign in</div>
-          <h3>Use your corporate account</h3>
-          <p class="body">The catalog is permission-trimmed by Microsoft Entra ID —
-          you'll only see data your Unity Catalog grants allow.</p>
+          <div class="dd-eyebrow">{t('auth.card_eyebrow')}</div>
+          <h3>{t('auth.card_title')}</h3>
+          <p class="body">{t('auth.card_body')}</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -206,7 +205,7 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
             _default_dept = MOCK_DEPT
             _dept_opts = list(_MOCK_DEPTS.keys())
             _dept_sel = st.selectbox(
-                "Department",
+                t("auth.mock_department"),
                 _dept_opts,
                 index=_dept_opts.index(_default_dept) if _default_dept in _dept_opts else 0,
                 label_visibility="collapsed",
@@ -219,7 +218,7 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
                 st.session_state.user_email    = _email
                 st.rerun()
             st.markdown(
-                '<p class="dd-meta">Mock authentication — select a department to filter by its grants.</p>',
+                f'<p class="dd-meta">{t("auth.mock_prompt")}</p>',
                 unsafe_allow_html=True,
             )
         else:
@@ -233,7 +232,7 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
               text-decoration:none;box-sizing:border-box;
               transition:background 120ms var(--ease);
             ">{MS_LOGO_SVG} {t('auth.sign_in_button')}</a>
-            <p class="dd-meta" style="margin-top:12px">By signing in you agree to the data access policy.</p>
+            <p class="dd-meta" style="margin-top:12px">{t("auth.policy_agreement")}</p>
             """, unsafe_allow_html=True)
 
 

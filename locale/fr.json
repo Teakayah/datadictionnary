@@ -17,7 +17,18 @@
     "mock_button": "Se connecter avec Entra ID (démo)",
     "signed_in_as": "Connecté en tant que",
     "signin_failed_security": "Échec de la connexion : la vérification de sécurité n'a pas correspondu. Veuillez réessayer.",
-    "signin_failed": "Échec de la connexion. Veuillez réessayer."
+    "signin_failed": "Échec de la connexion. Veuillez réessayer.",
+    "stats_tables": "tables indexées",
+    "stats_schemas": "schémas",
+    "stats_cadence": "fréquence de synchronisation",
+    "stats_cadence_val": "nuit",
+    "card_eyebrow": "Se connecter",
+    "card_title": "Utilisez votre compte d'entreprise",
+    "card_body": "Le catalogue est filtré par Microsoft Entra ID — vous ne verrez que les données auxquelles vos accès Unity Catalog vous donnent droit.",
+    "mock_department": "Département",
+    "mock_prompt": "Authentification fictive — sélectionnez un département pour filtrer selon ses accès.",
+    "policy_agreement": "En vous connectant, vous acceptez la politique d'accès aux données.",
+    "hero_eyebrow": "Dictionnaire de Données d'Entreprise"
   },
   "search": {
     "hero_title": "Rechercher dans le catalogue.",
