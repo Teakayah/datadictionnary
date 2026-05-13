@@ -229,7 +229,8 @@
     "start_error": "Could not start pipeline",
     "stop_error": "Could not stop pipeline",
     "error_title": "Title is required.",
-    "date_format": "%b %d %H:%M UTC"
+    "date_format": "%b %d %H:%M UTC",
+    "started_by": "started by {user} · {date}"
   },
   "cms": {
     "section_title": "Content management",
