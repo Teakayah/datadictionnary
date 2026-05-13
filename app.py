@@ -6,8 +6,8 @@ import os
 from dotenv import load_dotenv
 load_dotenv()  # must run before any src.* import so os.getenv() reads .env values
 
-from src.auth import check_auth, is_admin, is_pipeline_user, render_signin_page
-from src.ui.header import render_header, render_footer, LOGO_MARK_SVG
+from src.auth import check_auth, is_admin, is_pipeline_user, render_signin_page  # noqa: E402
+from src.ui.header import render_header, render_footer, LOGO_MARK_SVG  # noqa: E402
 
 def is_demo_mode() -> bool:
     """Check if the application is running in demo mode."""
@@ -17,7 +17,7 @@ def is_demo_mode() -> bool:
 
 
 
-from src.config import (
+from src.config import (  # noqa: E402
     MOCK_DEPT,
 )
 # Runtime flags kept as inline reads so per-test env overrides are picked up
@@ -40,12 +40,12 @@ st.set_page_config(
 )
 
 # ── Design system CSS ──────────────────────────────────────────────────────────
-from src.ui.css import render_css
+from src.ui.css import render_css  # noqa: E402
 render_css()  # inject design-system CSS on every render
-from src.db.queries import (
+from src.db.queries import (  # noqa: E402
     get_authorized_tables,
 )
-from src.personalization import (
+from src.personalization import (  # noqa: E402
     _pref_upsert, _pref_delete, _sync_prefs_to_session
 )
 
@@ -66,12 +66,12 @@ from src.personalization import (
 # export_schema_to_csv imported from src.db.queries
 
 
-from src.ui.cards import (
+from src.ui.cards import (  # noqa: E402
     render_discovery, render_health, render_admin_page, render_pipelines_page,
 )
-from src.pages.catalog import render_catalog_browser
-from src.pages.glossary import render_glossary
-from src.pages.search import render_search_page
+from src.pages.catalog import render_catalog_browser  # noqa: E402
+from src.pages.glossary import render_glossary  # noqa: E402
+from src.pages.search import render_search_page  # noqa: E402
 
 # The sync worker runs as a sidecar process (k8s/deployment-sync-worker.yaml,
 # `python -m src.sync.daemon`). The Streamlit app only enqueues into
