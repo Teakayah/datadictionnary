@@ -21,17 +21,19 @@ file). It runs in its own pod, separate from the Streamlit app.
 ```
 ┌────────────────────┐            ┌────────────────────┐         ┌──────────────┐
 │  dd-app pods       │            │  dd-sync-worker    │         │  Databricks  │
-│  (replicas: 2)     │            │  (replicas: 1)     │         │  SQL Wh / UC │
+│  (HPA: 2–10)       │            │  (replicas: 1)     │         │  SQL Wh / UC │
 │                    │  enqueue   │                    │  push   │              │
 │  Streamlit UI      │ ────────▶  │  python -m         │ ──────▶ │              │
 │  + DuckDB attach   │            │  src.sync.daemon   │ ◀────── │              │
-│                    │  read      │                    │  pull   │              │
-│                    │  status    │                    │  (DR)   │              │
+│                    │            │                    │  pull   │              │
+│                    │            │                    │  (DR)   │              │
 └──────────┬─────────┘            └─────────┬──────────┘         └──────────────┘
            │                                │
            └────────────  PVC dd-data  ─────┘
-                  /data/dict.duckdb         (catalog cache, written by nightly_sync)
-                  /data/dict_user_data.duckdb (queue + overrides + audit log)
+                  /data/dict.duckdb              (catalog cache, written by nightly_sync)
+                  /data/dict_user_data.duckdb    (queue + overrides + audit log + comments)
+                       ↑ daemon writes worker_heartbeat + dr_resync_status here;
+                         Streamlit reads them back via user_data.site_settings
 ```
 
 Streamlit pods only **enqueue** into `pending_sync` and write user
