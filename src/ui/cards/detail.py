@@ -15,7 +15,6 @@ them from ``src.ui.cards``.
 
 import logging
 import re
-import time
 
 import pandas as pd
 import streamlit as st
