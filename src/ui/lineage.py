@@ -1,8 +1,6 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Lineage graph building and rendering components."""
 
-import pandas as pd
 
 import json
 

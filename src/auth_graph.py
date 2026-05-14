@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
+from typing import Optional
 """Microsoft Graph helpers for Entra ID groups overage.
 
 When a user is a member of more than ~150 security groups, Entra ID omits

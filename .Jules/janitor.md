@@ -13,3 +13,5 @@
 ## 2026-05-10 - [Ruff Unused Variable Fixes Limitation]
 **Learning:** Ruff's `--fix` flag for unused variables (F841) might only remove the left-hand variable assignment, leaving the right-hand pure expressions hanging (e.g., set comprehensions, or method calls). This can lead to SyntaxErrors if the assignment was part of a multiline `with` block patch statement.
 **Action:** Always manually review and fix F841 to avoid leaving dead code or invalid syntax, rather than relying solely on `--unsafe-fixes`.
+
+## 2026-05-14 - [Avoid Unstopped Patches] **Learning:** When refactoring tests to use actual storage dependencies and mocking those dependencies, using `unittest.mock.patch("...").start()` without explicitly stopping the mock will cause test pollution. Since pytest fixtures (like `monkeypatch`) do not have `self.addCleanup` like `unittest.TestCase` does, adding cleanup requires setting an explicit teardown mechanism (e.g. `monkeypatch.setattr("pytest.MonkeyPatch", lambda: patcher.stop())` or using a `with` block). **Action:** Always clean up global mocks created via `.start()` inside pytest functions to avoid cascading failures in subsequent tests.

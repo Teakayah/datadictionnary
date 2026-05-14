@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
+from typing import Optional, Protocol, runtime_checkable
 """User preferences and site-settings storage backends.
 
 Two related entities, one module:

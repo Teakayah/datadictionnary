@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
+from typing import Optional
 """Sidecar sync worker — long-lived process that drains user_data.pending_sync
 into Databricks and runs DR resync.
 

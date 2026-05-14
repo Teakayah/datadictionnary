@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """UI-side helpers that report on the sidecar sync daemon.
 
 The actual drain loop and DR resync now run in a separate process — see

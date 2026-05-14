@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """DuckDB local-cache adapter.
 
 When DUCKDB_PATH points to an existing file (written by the sync job), all

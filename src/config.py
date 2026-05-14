@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Configuration constants for the Data Dictionary application.
 
 This module owns all environment-variable reads and compile-time constants.
