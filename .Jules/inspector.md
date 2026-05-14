@@ -13,3 +13,6 @@
 =======
 ## 2026-05-12 - [Pipelines] **Learning:** External dependencies like requests and msal need mock patches on their usage in the specific files they are imported, and error cases provide important coverage. **Action:** Added comprehensive unit tests for Databricks, ADF, and ADO pipelines including status polling, cancellation, and token logic.
 >>>>>>> origin/inspector-pipelines-coverage-9575987316161452967
+## 2026-05-14 - Clean Test Append Workflow
+**Learning:** When adding new test classes to existing files (e.g., `tests/test_sync_push.py`), iteratively appending raw code blocks using `cat >>` without checking for redundant imports or overlapping code logic leads to severe duplication, massive files, and immediate review rejection.
+**Action:** When adding missing tests, design the tests as standalone classes and accurately append or insert them into the target file avoiding redundant top-level mock and module imports. Validate code health before review using standard formatters and linters.
