@@ -17,6 +17,7 @@ app.py because they depend on the _DEMO_* DataFrames defined there.
 import csv
 import io
 import pandas as pd
+import numpy as np
 import streamlit as st
 import logging
 from src.config import is_demo_mode, CATALOG_CACHE, SCHEMA_CACHE
@@ -349,27 +350,36 @@ def search_all_metadata(query: str, groups: tuple):
 
     q_lower = query.lower()
 
-    def _score(row):
-        name = str(row.get("name") or "").lower()
-        mtype = str(row.get("match_type") or "")
-        if mtype == "Table":
-            if name == q_lower:
-                return 5
-            if name.startswith(q_lower):
-                return 4
-            if q_lower in name:
-                return 3
-            return 2
-        if mtype == "Column":
-            if name == q_lower:
-                return 2
-            if name.startswith(q_lower):
-                return 1
-            return 0
-        return 1  # Glossary
-
+    # ⚡ Bolt: Replace .apply() with vectorized scoring for faster performance
     combined = combined.copy()
-    combined["_score"] = combined.apply(_score, axis=1)
+
+    # Safely convert to string and lower
+    names = combined["name"].fillna("").astype(str).str.lower()
+    mtypes = combined["match_type"].fillna("").astype(str)
+
+    # Initialize scores with default Glossary value
+    scores = np.where(mtypes == "Glossary", 1, 0)
+
+    # Table masks
+    table_mask = mtypes == "Table"
+    if table_mask.any():
+        table_names = names[table_mask]
+        t_scores = np.full(table_mask.sum(), 2)
+        t_scores[table_names.str.contains(q_lower, regex=False)] = 3
+        t_scores[table_names.str.startswith(q_lower)] = 4
+        t_scores[table_names == q_lower] = 5
+        scores[table_mask] = t_scores
+
+    # Column masks
+    col_mask = mtypes == "Column"
+    if col_mask.any():
+        col_names = names[col_mask]
+        c_scores = np.full(col_mask.sum(), 0)
+        c_scores[col_names.str.startswith(q_lower)] = 1
+        c_scores[col_names == q_lower] = 2
+        scores[col_mask] = c_scores
+
+    combined["_score"] = scores
     return (
         combined.sort_values("_score", ascending=False)
         .drop(columns=["_score"])
