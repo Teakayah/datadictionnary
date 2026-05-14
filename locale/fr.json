@@ -113,7 +113,8 @@
     "your_reply": "Votre réponse",
     "max_chars": "Maximum 1000 caractères.",
     "empty_error": "Le commentaire ne peut pas être vide.",
-    "no_steward": "Aucun gestionnaire configuré — le commentaire sera enregistré mais pas envoyé par e-mail."
+    "no_steward": "Aucun gestionnaire configuré — le commentaire sera enregistré mais pas envoyé par e-mail.",
+    "date_format": "%d %b %Y %H:%M UTC"
   },
   "editor": {
     "edit_business_name": "Modifier le nom métier",
@@ -126,7 +127,8 @@
     "placeholder_biz_def": "ex. Identifiant unique attribué à chaque client lors de son inscription.",
     "permission_error": "Vous n’avez pas la permission de modifier les noms métier.",
     "edit_mode_banner": "Mode d'édition — les modifications sont enregistrées immédiatement et visibles par tous les utilisateurs.",
-    "last_edited_by": "Dernière modification par {user} · {date}"
+    "last_edited_by": "Dernière modification par {user} · {date}",
+    "date_format": "%d %b %Y %H:%M UTC"
   },
   "admin": {
     "title": "§ Admin",

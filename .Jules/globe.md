@@ -7,3 +7,6 @@
 ## 2024-05-12 - [Extracted Sign-in Strings]
 **Learning:** The authentication page (`src/auth.py`) contained multiple hardcoded strings directly in the Streamlit UI components and f-strings. These string literals must be wrapped in `t('auth.*')` calls using standard translation methods. Streamlit f-strings should interpolate translations directly.
 **Action:** Before implementing localization, always ensure strings inside HTML block interpolations or selectboxes inside `src/auth.py` and other files are fully wrapped using the `t` function to maintain compatibility.
+## 2024-05-14 - Localizing strftime formats
+**Learning:** To localize date formats effectively in this Streamlit app without an external i18n date library, the format string itself (e.g., "%b %d, %Y") can be stored inside the JSON localization dictionaries.
+**Action:** When formatting dates using Python's strftime, pass the localized format string directly into the datetime object's formatting method: `dt.strftime(t('namespace.date_format_key'))`.
