@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Health dashboard — catalog-wide metadata coverage metrics.
 
 Renders the "/health" tab. Pure read-only views: documentation coverage,

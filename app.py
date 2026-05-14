@@ -66,9 +66,10 @@ from src.personalization import (  # noqa: E402
 # export_schema_to_csv imported from src.db.queries
 
 
-from src.ui.cards import (  # noqa: E402
-    render_discovery, render_health, render_admin_page, render_pipelines_page,
-)
+from src.ui.cards.discovery import render_discovery  # noqa: E402
+from src.ui.cards.health import render_health  # noqa: E402
+from src.ui.cards.admin import render_admin_page  # noqa: E402
+from src.ui.cards.pipelines import render_pipelines_page  # noqa: E402
 from src.pages.catalog import render_catalog_browser  # noqa: E402
 from src.pages.glossary import render_glossary  # noqa: E402
 from src.pages.search import render_search_page  # noqa: E402

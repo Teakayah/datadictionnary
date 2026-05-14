@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Discovery tab — read-only views over authorized tables.
 
 Three sub-tabs (notable / bookmarks / recent) plus a CMS-banner that pins

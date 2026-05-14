@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """CMS admin section — list / create / delete posts.
 
 Used only from ``cards/admin.py``'s ``render_admin_page``. Kept as its own

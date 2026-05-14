@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Pipelines tab UI — list, run, monitor, cancel pipeline runs.
 
 Three render points:
@@ -14,7 +13,6 @@ module is rendering only.
 
 
 import html as _html
-import time
 
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh

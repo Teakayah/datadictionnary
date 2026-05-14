@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Process-local DuckDB connection for the sidecar sync daemon.
 
 The Streamlit app uses a Streamlit-cached singleton (src.db.duckdb_adapter

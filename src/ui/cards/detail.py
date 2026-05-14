@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Table-detail modal dialogs.
 
 These are consumed exclusively by the search page's table detail panel

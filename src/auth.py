@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
+from typing import Optional
 """Authentication and authorization logic.
 
 Handles Microsoft Entra ID (OIDC) via MSAL, mock authentication for development,

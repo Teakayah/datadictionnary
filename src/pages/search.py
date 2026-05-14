@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Search tab — result cards and table detail panel."""
 
 
@@ -16,15 +15,14 @@ from src.config import CATALOG_CACHE, SCHEMA_CACHE, MAX_BUSINESS_NAME_LEN
 from src.i18n import t
 from src.db.queries import (
     get_authorized_tables, search_all_metadata,
-    get_column_business_names, run_query, export_schema_to_csv,
+    run_query, export_schema_to_csv,
 )
+from src.storage import get_business_name_override_storage
 from src.personalization import _pref_upsert, _pref_delete, is_power_user
 from src.comments import get_table_comments, save_comment
 from src.audit import save_business_name, get_table_steward
-from src.ui.cards import (
-    _dq_grade, _compute_live_completeness,
-    render_table_metadata_editor, render_data_sample,
-)
+from src.ui.cards._shared import _dq_grade, _compute_live_completeness
+from src.ui.cards.detail import render_table_metadata_editor, render_data_sample
 from src.ui.lineage import _build_lineage_graph, _lineage_vis_html, render_lineage_fullscreen
 
 
@@ -175,7 +173,8 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             _pref_upsert(full_name, "recent")
 
         # Columns section
-        col_overrides = get_column_business_names(full_name)
+        store = get_business_name_override_storage()
+        col_overrides = store.get_for_table(full_name)
         cols_query = (
             "SELECT column_name, data_type, comment "
             "FROM {0}.{1}.columns_metadata "

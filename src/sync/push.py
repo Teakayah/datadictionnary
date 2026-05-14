@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
+from typing import Optional
 """Queue and Push logic for Databricks write-back."""
 
 import json
