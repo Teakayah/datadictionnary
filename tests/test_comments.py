@@ -256,6 +256,87 @@ class TestSendCommentEmail:
             for c in demo_comments.get(FULL_NAME, [])
         )
 
+    def test_send_comment_email_success(self, monkeypatch, caplog):
+        """Production mode: comment email successfully sent via SMTP."""
+        import logging
+        from src.comments import send_comment_email
+        import smtplib
+        from unittest.mock import MagicMock
+
+        monkeypatch.setenv("DEMO_DATA", "false")
+        monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+
+        mock_smtp_instance = MagicMock()
+        mock_smtp_instance.__enter__.return_value = mock_smtp_instance
+        def mock_smtp(*args, **kwargs):
+            return mock_smtp_instance
+        monkeypatch.setattr(smtplib, "SMTP", mock_smtp)
+
+        with caplog.at_level(logging.INFO):
+            send_comment_email(
+                to_email="steward@example.com",
+                author_name="Test User",
+                object_name="table_xyz",
+                comment_text="This is a test comment",
+            )
+
+        mock_smtp_instance.sendmail.assert_called_once()
+        assert "Comment email sent to steward@example.com" in caplog.text
+
+    def test_send_comment_email_exception_logs_error(self, monkeypatch, caplog):
+        """Exception during SMTP send for comment email must be logged as an error."""
+        import logging
+        from src.comments import send_comment_email
+        import smtplib
+
+        monkeypatch.setenv("DEMO_DATA", "false")
+        monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+
+        def mock_smtp(*args, **kwargs):
+            raise smtplib.SMTPException("Simulated SMTP error")
+
+        monkeypatch.setattr(smtplib, "SMTP", mock_smtp)
+
+        with caplog.at_level(logging.ERROR):
+            send_comment_email(
+                to_email="steward@example.com",
+                author_name="Test User",
+                object_name="table_xyz",
+                comment_text="This is a test comment",
+            )
+
+        assert "Failed to send comment email to steward@example.com" in caplog.text
+        assert "Simulated SMTP error" in caplog.text
+
+    def test_send_reply_email_success(self, monkeypatch, caplog):
+        """Production mode: reply email successfully sent via SMTP."""
+        import logging
+        from src.comments import send_reply_email
+        import smtplib
+        from unittest.mock import MagicMock
+
+        monkeypatch.setenv("DEMO_DATA", "false")
+        monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+
+        mock_smtp_instance = MagicMock()
+        mock_smtp_instance.__enter__.return_value = mock_smtp_instance
+        def mock_smtp(*args, **kwargs):
+            return mock_smtp_instance
+        monkeypatch.setattr(smtplib, "SMTP", mock_smtp)
+
+        with caplog.at_level(logging.INFO):
+            send_reply_email(
+                parent_author_email="parent@example.com",
+                reply_author_name="Replier User",
+                object_name="table_xyz",
+                reply_text="This is a test reply",
+                steward_email="steward@example.com",
+            )
+
+        mock_smtp_instance.sendmail.assert_called_once()
+        assert "Reply email sent to" in caplog.text
+        assert "parent@example.com" in caplog.text
+
     def test_send_reply_email_exception_logs_error(self, monkeypatch, caplog):
         """Exception during SMTP send for reply email must be logged as an error."""
         import logging
