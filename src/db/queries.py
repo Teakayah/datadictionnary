@@ -17,6 +17,7 @@ app.py because they depend on the _DEMO_* DataFrames defined there.
 import csv
 import io
 import pandas as pd
+import numpy as np
 import streamlit as st
 import logging
 from src.config import is_demo_mode, CATALOG_CACHE, SCHEMA_CACHE
@@ -349,27 +350,33 @@ def search_all_metadata(query: str, groups: tuple):
 
     q_lower = query.lower()
 
-    def _score(row):
-        name = str(row.get("name") or "").lower()
-        mtype = str(row.get("match_type") or "")
-        if mtype == "Table":
-            if name == q_lower:
-                return 5
-            if name.startswith(q_lower):
-                return 4
-            if q_lower in name:
-                return 3
-            return 2
-        if mtype == "Column":
-            if name == q_lower:
-                return 2
-            if name.startswith(q_lower):
-                return 1
-            return 0
-        return 1  # Glossary
-
+    # ⚡ Bolt: Replaced `.apply()` with vectorized NumPy/Pandas operations.
+    # `.apply()` executes with significant overhead as it loops in Python.
+    # Vectorized string operations and `np.select` are dramatically faster for large result sets.
     combined = combined.copy()
-    combined["_score"] = combined.apply(_score, axis=1)
+    name = combined["name"].fillna("").astype(str).str.lower()
+    mtype = combined["match_type"].fillna("").astype(str)
+
+    is_table = mtype == "Table"
+    is_col = mtype == "Column"
+
+    is_exact = name == q_lower
+    is_start = name.str.startswith(q_lower)
+    is_in = name.str.contains(q_lower, regex=False)
+
+    conditions = [
+        is_table & is_exact,
+        is_table & is_start,
+        is_table & is_in,
+        is_table,
+        is_col & is_exact,
+        is_col & is_start,
+        is_col,
+    ]
+    choices = [5, 4, 3, 2, 2, 1, 0]
+
+    combined["_score"] = np.select(conditions, choices, default=1)
+
     return (
         combined.sort_values("_score", ascending=False)
         .drop(columns=["_score"])
