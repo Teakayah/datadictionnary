@@ -1,131 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Data Dictionary — Data Steward Guide</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --paper:#FAF7F0; --paper-deep:#F2EDE1; --paper-ink:#E8E1D0;
-    --ink:#14110C; --ink-90:#2A2620; --ink-80:#3D3830; --ink-60:#6B645A;
-    --ink-40:#9A9388; --ink-20:#C9C2B4; --ink-10:#DCD6C8;
-    --accent:#B8362A; --accent-wash:#F3DFD9;
-    --forest:#3F5E3A; --forest-wash:#E3E9DE;
-    --ochre:#9A6D1C; --ochre-wash:#F0E5CC;
-    --deepblue:#2B4A6B; --deepblue-wash:#DDE4EC;
-    --font-display:"Fraunces","Cormorant Garamond",serif;
-    --font-sans:"Manrope","Segoe UI",system-ui,sans-serif;
-    --font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
-  }
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  html{font-size:16px;scroll-behavior:smooth}
-  body{background:var(--paper);color:var(--ink);font-family:var(--font-sans);font-size:15px;line-height:1.6;letter-spacing:-0.005em;-webkit-font-smoothing:antialiased}
-  ::selection{background:var(--accent-wash);color:var(--ink)}
-  .page{max-width:780px;margin:0 auto;padding:0 24px 120px}
-  .site-header{border-bottom:1px solid var(--ink-20);padding:24px 0 20px;margin-bottom:64px;display:flex;align-items:center;justify-content:space-between}
-  .site-header .badge{font-family:var(--font-sans);font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--forest);background:var(--forest-wash);border:1px solid #c2d4bd;padding:3px 8px;border-radius:999px}
-  .hero{padding:48px 0 56px;border-bottom:1px solid var(--ink-20);margin-bottom:64px}
-  .hero .eyebrow{font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--forest);margin-bottom:16px}
-  .hero h1{font-family:var(--font-display);font-size:clamp(36px,5vw,64px);font-weight:300;line-height:1.05;letter-spacing:-0.02em;margin-bottom:20px}
-  .hero h1 em{font-style:italic;color:var(--ink-60)}
-  .hero .lead{font-size:17px;line-height:1.55;color:var(--ink-60);max-width:560px}
-  .section{margin-bottom:72px}
-  .section-eyebrow{font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-40);margin-bottom:10px}
-  h2{font-family:var(--font-display);font-size:32px;font-weight:400;letter-spacing:-0.015em;line-height:1.15;margin-bottom:20px}
-  h3{font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-60);margin:40px 0 16px}
-  h3:first-child{margin-top:0}
-  p{margin-bottom:14px;color:var(--ink-80)}
-  p:last-child{margin-bottom:0}
-  hr{border:0;border-top:1px solid var(--ink-10);margin:56px 0}
-  code{font-family:var(--font-mono);font-size:0.88em;background:var(--paper-deep);border:1px solid var(--ink-10);padding:1px 5px;border-radius:2px;color:var(--ink-80)}
-  ul{margin:0 0 20px;padding-left:20px;font-size:14px;color:var(--ink-80);line-height:1.8}
-  .callout{padding:14px 18px;border-radius:0 2px 2px 0;margin:20px 0;font-size:14px;color:var(--ink-80);line-height:1.55}
-  .callout{background:var(--deepblue-wash);border-left:3px solid var(--deepblue)}
-  .callout.warn{background:var(--ochre-wash);border-left-color:var(--ochre)}
-  .callout.ok{background:var(--forest-wash);border-left-color:var(--forest)}
-  .callout strong{color:var(--ink);font-weight:600}
-  .steps{list-style:none;counter-reset:steps;margin:0 0 24px}
-  .steps li{counter-increment:steps;display:grid;grid-template-columns:28px 1fr;gap:0 14px;padding:12px 0;border-bottom:1px solid var(--ink-10);font-size:14px;color:var(--ink-80);line-height:1.55}
-  .steps li::before{content:counter(steps);font-family:var(--font-mono);font-size:11px;font-weight:500;color:var(--forest);background:var(--forest-wash);border-radius:2px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
-  .steps li strong{color:var(--ink);font-weight:600}
-  .toc{background:var(--paper-deep);border:1px solid var(--ink-10);padding:24px 28px;margin-bottom:64px}
-  .toc-title{font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-40);margin-bottom:14px}
-  .toc ol{list-style:decimal;padding-left:18px}
-  .toc li{margin:6px 0;font-size:14px}
-  .toc a{color:var(--ink-60);text-decoration:none;border-bottom:1px solid transparent;transition:color 120ms,border-color 120ms}
-  .toc a:hover{color:var(--forest);border-bottom-color:var(--forest-wash)}
-  .do-dont{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}
-  .do-dont-col{padding:16px;font-size:14px;line-height:1.55}
-  .do-col{background:var(--forest-wash);border-top:3px solid var(--forest)}
-  .dont-col{background:var(--accent-wash);border-top:3px solid var(--accent)}
-  .do-dont-label{font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px}
-  .do-col .do-dont-label{color:var(--forest)}
-  .dont-col .do-dont-label{color:var(--accent)}
-  .do-dont-col ul{margin:0;padding-left:16px;color:var(--ink-80)}
-  .workflow-diagram{display:flex;align-items:center;gap:0;margin:24px 0;overflow-x:auto}
-  .wf-step{background:var(--paper-deep);border:1px solid var(--ink-10);padding:12px 16px;font-size:13px;text-align:center;min-width:110px;flex-shrink:0;line-height:1.3}
-  .wf-step .wf-label{font-weight:600;color:var(--ink);display:block;margin-bottom:3px}
-  .wf-step .wf-actor{font-size:11px;color:var(--ink-40);text-transform:uppercase;letter-spacing:0.08em}
-  .wf-arrow{font-size:18px;color:var(--ink-20);padding:0 4px;flex-shrink:0}
-  .wf-step.accent{background:var(--accent-wash);border-color:#e8c4be}
-  .wf-step.accent .wf-label{color:var(--accent)}
-  .wf-step.ok{background:var(--forest-wash);border-color:#c2d4bd}
-  .wf-step.ok .wf-label{color:var(--forest)}
-  .site-footer{border-top:1px solid var(--ink-20);padding:32px 0;margin-top:80px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-  .site-footer p{font-size:12px;color:var(--ink-40);margin:0}
-  @media print{.toc{display:none}a{color:var(--ink)!important;text-decoration:none!important}}
-  @media(max-width:600px){.hero h1{font-size:34px}.do-dont{grid-template-columns:1fr}}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Dictionary — Data Steward Guide</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="page">
-
-  <header class="site-header">
-    <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:32px">
-      <g transform="translate(4,2)">
-        <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
-        <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
-        <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
-        <line x1="3" y1="13" x2="23" y2="13" stroke="#C9C2B4" stroke-width="0.8"/>
-        <line x1="3" y1="17" x2="23" y2="17" stroke="#C9C2B4" stroke-width="0.8"/>
-        <line x1="3" y1="21" x2="17" y2="21" stroke="#C9C2B4" stroke-width="0.8"/>
-      </g>
-      <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
-      <text x="194" y="25" font-family="Fraunces, serif" font-size="20" fill="#B8362A">§</text>
-    </svg>
-    <span class="badge">Data Steward Guide</span>
-  </header>
-
-  <section class="hero">
-    <div class="eyebrow">Stewardship · Editorial</div>
-    <h1>The steward's<br><em>handbook.</em></h1>
-    <p class="lead">Your guide to describing, maintaining, and governing the data assets you own — so that everyone in the organisation can find and trust them.</p>
-  </section>
-
-  <nav class="toc">
-    <div class="toc-title">Contents</div>
-    <ol>
-      <li><a href="#role">What is a data steward?</a></li>
-      <li><a href="#your-tables">Finding your tables</a></li>
-      <li><a href="#descriptions">Writing good descriptions</a></li>
-      <li><a href="#business-names">Column business names and definitions</a></li>
-      <li><a href="#approval-cycle">The approval workflow</a></li>
-      <li><a href="#comments">Handling comments and questions</a></li>
-      <li><a href="#tracking">Tracking changes via audit log</a></li>
-      <li><a href="#health">Using the Health dashboard</a></li>
-      <li><a href="#best-practices">Best practices and style guide</a></li>
-    </ol>
+  
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <a href="product-overview.html" style="text-decoration:none; color:inherit;">
+      <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:24px">
+        <g transform="translate(4,2)">
+          <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
+          <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
+          <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
+        </g>
+        <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
+      </svg>
+    </a>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-section-title">Guides</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="user-guide.html">User Guide</a></li>
+      <li class="nav-item active"><a href="steward-guide.html">Steward Guide</a></li>
+      <li class="nav-item "><a href="admin-runbook.html">Admin Runbook</a></li>
+    </ul>
   </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Product</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="product-overview.html">Product Overview</a></li>
+      <li class="nav-item "><a href="business-requirements.html">Business Requirements</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Features</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="feature-unified-search.html">Unified Search</a></li>
+      <li class="nav-item "><a href="feature-personalization.html">Personalization</a></li>
+      <li class="nav-item "><a href="feature-data-quality.html">Data Quality</a></li>
+      <li class="nav-item "><a href="feature-data-preview.html">Data Preview</a></li>
+      <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
+      <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
+      <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Architecture</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="architecture.html">Architecture Overview</a></li>
+      <li class="nav-item "><a href="dependencies.html">Dependencies</a></li>
+      <li class="nav-item "><a href="adr-001-duckdb-local-cache.html">ADR 001: DuckDB Cache</a></li>
+      <li class="nav-item "><a href="adr-002-push-down-sql-auth.html">ADR 002: SQL Auth</a></li>
+      <li class="nav-item "><a href="adr-003-streamlit-not-fastapi.html">ADR 003: Streamlit</a></li>
+      <li class="nav-item "><a href="adr-004-sidecar-sync-worker.html">ADR 004: Sync Worker</a></li>
+      <li class="nav-item "><a href="adr-005-storage-abstraction.html">ADR 005: Storage Abstraction</a></li>
+      <li class="nav-item "><a href="adr-006-entra-groups-overage.html">ADR 006: Groups Overage</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Operations</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="runbook-sync-worker.html">Sync Worker Runbook</a></li>
+      <li class="nav-item "><a href="runbook-secret-rotation.html">Secret Rotation Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Reference</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="reference-locale-keys.html">Locale Keys</a></li>
+    </ul>
+  </nav>
+</aside>
 
-  <!-- Role -->
+  <main class="content-wrapper">
+    <article class="page">
+      <header class="site-header">
+        <span class="badge">Guides</span>
+      </header>
+      <section class="hero">
+        <div class="eyebrow">Guides</div>
+        <h1>Data Steward Guide</h1>
+      </section>
+      <section class="section" id="table-of-contents">
+        <h2>Table of contents</h2>
+        
+        <hr>
+      </section>
+      <!-- Role -->
   <section class="section" id="role">
     <div class="section-eyebrow">§ 1 — Role</div>
     <h2>What is a data steward?</h2>
-    <p>A data steward is the person responsible for the accuracy, completeness, and trustworthiness of a set of data assets. In the Data Dictionary, stewardship is expressed through two things: your email address appears in the <strong>Steward</strong> field on each table you own, and you are notified whenever a user leaves a comment or question on those tables.</p>
-    <p>You do not need to be a data engineer to be a steward. Your job is to describe what the data means in business terms — what a table is for, what each column represents, what caveats or limitations apply. The engineering team handles the technical structure.</p>
+    <p>A data steward is the person responsible for the accuracy, completeness, and trustworthiness of a set of data assets. In the Data Dictionary, stewardship is expressed through two things: your email address appears in the <strong>Steward</strong> field on each table you own, and you are notified whenever a user leaves a comment or question on those tables. For a high-level summary of the product goals, see the <a href="product-overview.html">Product Overview</a>.</p>
+    <p>You do not need to be a data engineer to be a steward. Your job is to describe what the data means in business terms — what a table is for, what each column represents, what caveats or limitations apply. The engineering team handles the technical structure. See the <a href="user-guide.html">User Guide</a> for more on user-facing features.</p>
 
     <div class="callout ok"><strong>Your stewardship shows up everywhere.</strong> The description and steward email you write appear in search results, the discovery feed, the health dashboard, and the glossary. Good stewardship directly improves findability for every user in the organisation.</div>
   </section>
@@ -136,7 +109,7 @@
   <section class="section" id="your-tables">
     <div class="section-eyebrow">§ 2 — Getting oriented</div>
     <h2>Finding your tables</h2>
-    <p>There are two ways to find the tables assigned to you.</p>
+    <p>There are two ways to find the tables assigned to you. If you are an administrator, see the <a href="admin-runbook.html">Admin Runbook</a> for higher-level management tasks.</p>
 
     <h3>Via Search</h3>
     <ol class="steps">
@@ -152,7 +125,7 @@
       <li>Click any table name in the priority list to jump directly to its detail page.</li>
     </ol>
 
-    <div class="callout"><strong>Not seeing your tables?</strong> Your view is filtered to the groups your Entra ID account belongs to. If a table you own is not visible, contact your platform administrator to verify the Unity Catalog grants for your group.</div>
+    <div class="callout warn"><strong>Not seeing your tables?</strong> Your view is filtered to the groups your Entra ID account belongs to. If a table you own is not visible, contact your platform administrator to verify the Unity Catalog grants for your group. See <a href="adr-002-push-down-sql-auth.html">ADR 002</a> for details on the security model.</div>
   </section>
 
   <hr>
@@ -217,14 +190,14 @@
     <p>Column names in Unity Catalog are often technical identifiers (<code>cust_ltv_90d</code>, <code>acq_src_cd</code>). Business names and definitions translate these into language that business users can understand and trust.</p>
 
     <h3>Business name vs. definition</h3>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0 24px">
-      <div style="padding:14px;background:var(--paper-deep);border:1px solid var(--ink-10)">
-        <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-40);margin-bottom:6px">Business name</div>
-        <p style="font-size:14px;margin:0;color:var(--ink-80)">A short, human-readable label. Replaces the technical column name in the UI. Max 255 characters. Example: <em>90-day customer lifetime value</em></p>
+    <div class="def-grid">
+      <div class="def-col">
+        <div class="def-col-label">Business name</div>
+        <p>A short, human-readable label. Replaces the technical column name in the UI. Max 255 characters. Example: <em>90-day customer lifetime value</em></p>
       </div>
-      <div style="padding:14px;background:var(--paper-deep);border:1px solid var(--ink-10)">
-        <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-40);margin-bottom:6px">Definition</div>
-        <p style="font-size:14px;margin:0;color:var(--ink-80)">A full explanation of what the column contains, how it is calculated, and any caveats. Max 2,000 characters. Example: <em>Sum of all revenue attributed to the customer in the 90 days prior to the reference date, net of refunds. Null if the customer has fewer than 3 orders.</em></p>
+      <div class="def-col">
+        <div class="def-col-label">Definition</div>
+        <p>A full explanation of what the column contains, how it is calculated, and any caveats. Max 2,000 characters. Example: <em>Sum of all revenue attributed to the customer in the 90 days prior to the reference date, net of refunds. Null if the customer has fewer than 3 orders.</em></p>
       </div>
     </div>
 
@@ -261,13 +234,13 @@
     <h3>What happens at each stage</h3>
     <ul>
       <li><strong>Pending approval:</strong> The proposed value is stored in <code>user_data.business_name_overrides</code> with <code>status='pending_approval'</code>. It is visible only to the submitting editor (in their session) and to admins in the review queue.</li>
-      <li><strong>Approved:</strong> An admin clicks Approve. The status changes to <code>'published'</code>, an audit event is logged, and the change is added to the sync queue.</li>
-      <li><strong>Synced:</strong> The sidecar worker pushes the change to Unity Catalog as a column comment within minutes.</li>
+      <li><strong>Approved:</strong> An admin clicks Approve. The status changes to <code>'published'</code>, an audit event is logged, and the change is added to the sync queue. See the <a href="admin-runbook.html">Admin Runbook</a> for the approval interface.</li>
+      <li><strong>Synced:</strong> The <a href="runbook-sync-worker.html">Sidecar sync worker</a> pushes the change to Unity Catalog as a column comment within minutes.</li>
       <li><strong>Rejected:</strong> The admin clicks Reject. The proposed value is deleted. An audit event records the rejection. The column retains its previous value.</li>
     </ul>
 
     <h3>Checking the status of your proposal</h3>
-    <p>Open the table detail page and find the column you edited. If your proposal is pending, the field shows your proposed value with a subtle pending indicator. Once approved, the value is published and shows normally. If rejected, the field reverts to the previous value — you will need to resubmit with a revised value.</p>
+    <p>Open the table detail page and find the column you edited. If your proposal is pending, the field shows your proposed value with a subtle pending indicator. Once approved, the value is published and shows normally. If rejected, the field reverts to the previous value — you will need to resubmit with a revised value. For more on the background synchronization process, see the <a href="architecture.html#sidecar-sync-worker">Architecture Overview</a>.</p>
 
     <div class="callout ok"><strong>Table descriptions and steward updates bypass approval.</strong> These changes go live instantly and sync to Databricks in the background, without requiring admin review.</div>
   </section>
@@ -320,7 +293,7 @@
     </ul>
 
     <h3>Requesting an audit extract (admins only)</h3>
-    <p>The full audit log is accessible in the Admin dashboard → Audit Logs tab. If you need a CSV extract or a historical view beyond what the UI shows, ask your platform administrator to query <code>user_data.audit_log</code> or the Databricks mirror at <code>data_governance.dictionary_cache.audit_log</code> directly.</p>
+    <p>The full audit log is accessible in the Admin dashboard → Audit Logs tab. If you need a CSV extract or a historical view beyond what the UI shows, ask your platform administrator to query <code>user_data.audit_log</code> or the Databricks mirror at <code>data_governance.dictionary_cache.audit_log</code> directly. See the <a href="admin-runbook.html">Admin Runbook</a> for more on audit management.</p>
   </section>
 
   <hr>
@@ -329,7 +302,7 @@
   <section class="section" id="health">
     <div class="section-eyebrow">§ 8 — Coverage monitoring</div>
     <h2>Using the Health dashboard</h2>
-    <p>The Health tab shows documentation coverage across the entire catalog — broken down by schema. It is the fastest way to find your gaps and prioritise your stewardship effort.</p>
+    <p>The Health tab shows documentation coverage across the entire catalog — broken down by schema. It is the fastest way to find your gaps and prioritise your stewardship effort. Technical details on the coverage calculation can be found in the <a href="architecture.html">Architecture Overview</a>.</p>
 
     <h3>Reading the metrics</h3>
     <ul>
@@ -377,12 +350,11 @@
     <h3>Review cadence</h3>
     <p>A quarterly sweep of your tables is enough for most stewards: check that descriptions are still accurate, that the steward email is current, and that any columns added since the last review have business names and definitions. The Health dashboard makes this quick — a schema with 100 % coverage takes minutes to verify, not hours.</p>
   </section>
-
-  <footer class="site-footer">
-    <p>Data Dictionary · Data Steward Guide</p>
-    <p><a href="user-guide.html">User guide</a> · <a href="admin-runbook.html">Admin runbook</a> · <a href="PRODUCT_OVERVIEW.md">Product overview</a></p>
-  </footer>
-
-</div>
+      <footer class="site-footer">
+        <p>Data Dictionary · Documented by Data Engineering</p>
+        <p>Internal Use Only</p>
+      </footer>
+    </article>
+  </main>
 </body>
 </html>
