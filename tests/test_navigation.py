@@ -79,6 +79,24 @@ def make_health_col_stats() -> pd.DataFrame:
     return pd.DataFrame({"total": [10], "with_desc": [7]})
 
 
+def make_health_schema_stats() -> pd.DataFrame:
+    """Matches the shape returned by _get_table_health_stats after SQL push-down."""
+    return pd.DataFrame({
+        "schema_name": ["sales"],
+        "total":       [3],
+        "described":   [1],
+    })
+
+
+def make_health_undocumented_df() -> pd.DataFrame:
+    """Matches the shape returned by _get_undocumented_priority."""
+    return pd.DataFrame({
+        "full_name":         ["main.sales.customers", "main.sales.products"],
+        "table_name":        ["customers", "products"],
+        "table_description": ["", ""],
+    })
+
+
 def empty_tables_df() -> pd.DataFrame:
     return pd.DataFrame(columns=[
         "full_name", "catalog_name", "schema_name", "table_name",
@@ -394,7 +412,7 @@ class TestHealthDashboard:
     def test_health_renders_coverage_metrics(self, monkeypatch):
         """Health dashboard must show table coverage percentage."""
         monkeypatch.setenv("DEMO_DATA", "false")
-        sql_returns(make_tables_df_with_missing_desc(), make_health_col_stats())
+        sql_returns(make_health_schema_stats(), make_health_col_stats(), make_health_undocumented_df())
         at = authenticated_app(tab="health")
         at.run()
         html = _html(*at.markdown)
@@ -403,10 +421,10 @@ class TestHealthDashboard:
     def test_health_coverage_calculation(self, monkeypatch):
         """Health dashboard must correctly calculate coverage %.
 
-        make_tables_df_with_missing_desc has 3 tables, 1 with description = 33%.
+        make_health_schema_stats has total=3, described=1 → 33%.
         """
         monkeypatch.setenv("DEMO_DATA", "false")
-        sql_returns(make_tables_df_with_missing_desc(), make_health_col_stats())
+        sql_returns(make_health_schema_stats(), make_health_col_stats(), make_health_undocumented_df())
         at = authenticated_app(tab="health")
         at.run()
         html = _html(*at.markdown)
@@ -423,7 +441,7 @@ class TestHealthDashboard:
     def test_health_shows_priority_actions(self, monkeypatch):
         """Health dashboard must list undocumented tables as priority actions."""
         monkeypatch.setenv("DEMO_DATA", "false")
-        sql_returns(make_tables_df_with_missing_desc(), make_health_col_stats())
+        sql_returns(make_health_schema_stats(), make_health_col_stats(), make_health_undocumented_df())
         at = authenticated_app(tab="health")
         at.run()
         html = _html(*at.markdown)
@@ -432,7 +450,7 @@ class TestHealthDashboard:
     def test_health_click_priority_action_reruns(self, monkeypatch):
         """Clicking a priority action must set overrides and switch to search tab."""
         monkeypatch.setenv("DEMO_DATA", "false")
-        sql_returns(make_tables_df_with_missing_desc(), make_health_col_stats())
+        sql_returns(make_health_schema_stats(), make_health_col_stats(), make_health_undocumented_df())
         at = authenticated_app(tab="health")
         at.run()
 
