@@ -403,3 +403,241 @@ class TestCommentUI:
 
              mock_email.assert_called_once_with("parent@test.com", "Test User", "schema.table", "A reply", "steward@test.com")
              mock_audit.assert_called_once_with("comment_reply", "table", "schema.table", "", "A reply")
+import pytest
+from unittest.mock import patch, MagicMock
+from src.comments import _fetch_comment_author_email
+import pandas as pd
+
+class MockSessionState(dict):
+    def __getattr__(self, item):
+        try:
+            return self[item]
+        except KeyError:
+            raise AttributeError(item)
+    def __setattr__(self, key, value):
+        self[key] = value
+
+def test_fetch_comment_author_email_demo_found(monkeypatch):
+    monkeypatch.setenv("DEMO_DATA", "true")
+    state = MockSessionState({"demo_comments": {"obj1": [{"comment_id": "123", "author_email": "author@test.com"}]}})
+    with patch("src.comments.st.session_state", state):
+        res = _fetch_comment_author_email("123")
+        assert res == "author@test.com"
+
+def test_fetch_comment_author_email_demo_not_found(monkeypatch):
+    monkeypatch.setenv("DEMO_DATA", "true")
+    state = MockSessionState({"demo_comments": {"obj1": [{"comment_id": "123", "author_email": "author@test.com"}]}})
+    with patch("src.comments.st.session_state", state):
+        res = _fetch_comment_author_email("456")
+        assert res == ""
+
+def test_fetch_comment_author_email_prod_found(monkeypatch):
+    monkeypatch.setenv("DEMO_DATA", "false")
+    with patch("src.comments.get_db_connection") as mock_conn_func, \
+         patch("src.comments._duckdb_available", return_value=True):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_conn_func.return_value = mock_conn
+
+        mock_cursor.fetchall_as_pandas.return_value = pd.DataFrame({"author_email": ["prod@test.com"]})
+
+        res = _fetch_comment_author_email("123")
+        assert res == "prod@test.com"
+        mock_cursor.execute.assert_called_once()
+
+def test_fetch_comment_author_email_prod_not_found(monkeypatch):
+    monkeypatch.setenv("DEMO_DATA", "false")
+    with patch("src.comments.get_db_connection") as mock_conn_func, \
+         patch("src.comments._duckdb_available", return_value=True):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_conn_func.return_value = mock_conn
+
+        mock_cursor.fetchall_as_pandas.return_value = pd.DataFrame()
+
+        res = _fetch_comment_author_email("123")
+        assert res == ""
+
+def test_fetch_comment_author_email_prod_error(monkeypatch, caplog):
+    monkeypatch.setenv("DEMO_DATA", "false")
+    with patch("src.comments.get_db_connection") as mock_conn_func, \
+         patch("src.comments._duckdb_available", return_value=True):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_conn_func.return_value = mock_conn
+
+        mock_cursor.execute.side_effect = Exception("DB error")
+
+        res = _fetch_comment_author_email("123")
+        assert res == ""
+        assert "Could not fetch author_email for comment 123" in caplog.text
+
+
+def test_build_comment_tree():
+    from src.comments import _build_comment_tree
+
+    flat = [
+        {"comment_id": "1", "parent_comment_id": None, "text": "Root"},
+        {"comment_id": "2", "parent_comment_id": "1", "text": "Reply 1"},
+        {"comment_id": "3", "parent_comment_id": "1", "text": "Reply 2"},
+        {"comment_id": "4", "parent_comment_id": "2", "text": "Reply to reply"},
+        {"comment_id": "5", "parent_comment_id": "999", "text": "Orphan"},
+    ]
+
+    tree = _build_comment_tree(flat)
+
+    assert len(tree) == 2
+    assert tree[0]["comment_id"] == "1"
+    assert len(tree[0]["replies"]) == 2
+    assert tree[0]["replies"][0]["comment_id"] == "2"
+    assert len(tree[0]["replies"][0]["replies"]) == 1
+    assert tree[0]["replies"][0]["replies"][0]["comment_id"] == "4"
+    assert tree[0]["replies"][1]["comment_id"] == "3"
+
+    assert tree[1]["comment_id"] == "5" # Orphan becomes root
+
+def test_get_table_comments_prod_found(monkeypatch):
+    from src.comments import get_table_comments
+    monkeypatch.setenv("DEMO_DATA", "false")
+    with patch("src.comments.get_db_connection") as mock_conn_func, \
+         patch("src.comments._duckdb_available", return_value=True):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_conn_func.return_value = mock_conn
+
+        mock_cursor.fetchall_as_pandas.return_value = pd.DataFrame([
+            {"comment_id": "1", "parent_comment_id": None, "text": "Root"}
+        ])
+
+        res = get_table_comments("obj1")
+        assert len(res) == 1
+        assert res[0]["comment_id"] == "1"
+
+def test_get_table_comments_prod_error(monkeypatch, caplog):
+    from src.comments import get_table_comments
+    monkeypatch.setenv("DEMO_DATA", "false")
+    with patch("src.comments.get_db_connection") as mock_conn_func, \
+         patch("src.comments._duckdb_available", return_value=True):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_conn_func.return_value = mock_conn
+
+        mock_cursor.execute.side_effect = Exception("DB query failed")
+
+        res = get_table_comments("obj1")
+        assert res == []
+        assert "Could not fetch comments for obj1: DB query failed" in caplog.text
+
+
+def test_save_reply_demo_sends_email(monkeypatch):
+    from src.comments import save_comment
+    monkeypatch.setenv("DEMO_DATA", "true")
+    state = MockSessionState({
+        "demo_comments": {"obj1": [{"comment_id": "123", "author_email": "author@test.com"}]},
+        "user_name": "Replier",
+        "user_email": "replier@test.com",
+    })
+    with patch("src.comments.st.session_state", state), \
+         patch("src.comments.send_reply_email") as mock_send_reply, \
+         patch("src.audit.log_audit_event") as mock_audit:
+        save_comment("table", "obj1", "Reply demo", "steward@test.com", "123")
+        mock_send_reply.assert_called_once_with("author@test.com", "Replier", "obj1", "Reply demo", "steward@test.com")
+        mock_audit.assert_called_once()
+
+def test_send_comment_email_prod(monkeypatch, caplog):
+    from src.comments import send_comment_email
+    monkeypatch.setenv("DEMO_DATA", "false")
+    monkeypatch.setenv("SMTP_HOST", "smtp.test.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "user")
+    monkeypatch.setenv("SMTP_PASSWORD", "pass")
+    monkeypatch.setenv("SMTP_FROM", "from@test.com")
+
+    with patch("smtplib.SMTP") as mock_smtp_class:
+        mock_smtp = MagicMock()
+        mock_smtp_class.return_value.__enter__.return_value = mock_smtp
+
+        send_comment_email("to@test.com", "Author", "Object", "Text")
+
+        mock_smtp_class.assert_called_once_with("smtp.test.com", 587)
+        mock_smtp.starttls.assert_called_once()
+        mock_smtp.login.assert_called_once_with("user", "pass")
+        mock_smtp.sendmail.assert_called_once()
+
+        args = mock_smtp.sendmail.call_args[0]
+        assert args[0] == "from@test.com"
+        assert args[1] == ["to@test.com"]
+        assert "Author left a comment on Object:" in args[2]
+
+def test_send_comment_email_prod_exception(monkeypatch, caplog):
+    from src.comments import send_comment_email
+    monkeypatch.setenv("DEMO_DATA", "false")
+    monkeypatch.setenv("SMTP_HOST", "smtp.test.com")
+
+    with patch("smtplib.SMTP") as mock_smtp_class:
+        mock_smtp = MagicMock()
+        mock_smtp_class.return_value.__enter__.return_value = mock_smtp
+        mock_smtp.sendmail.side_effect = Exception("SMTP Error")
+
+        send_comment_email("to@test.com", "Author", "Object", "Text")
+
+        assert "Failed to send comment email to to@test.com: SMTP Error" in caplog.text
+
+def test_send_reply_email_prod(monkeypatch):
+    from src.comments import send_reply_email
+    monkeypatch.setenv("DEMO_DATA", "false")
+    monkeypatch.setenv("SMTP_HOST", "smtp.test.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "user")
+    monkeypatch.setenv("SMTP_PASSWORD", "pass")
+    monkeypatch.setenv("SMTP_FROM", "from@test.com")
+
+    with patch("smtplib.SMTP") as mock_smtp_class:
+        mock_smtp = MagicMock()
+        mock_smtp_class.return_value.__enter__.return_value = mock_smtp
+
+        send_reply_email("parent@test.com", "Replier", "Object", "Reply Text", "steward@test.com")
+
+        mock_smtp_class.assert_called_once_with("smtp.test.com", 587)
+        mock_smtp.starttls.assert_called_once()
+        mock_smtp.login.assert_called_once_with("user", "pass")
+        mock_smtp.sendmail.assert_called_once()
+
+        args = mock_smtp.sendmail.call_args[0]
+        assert args[0] == "from@test.com"
+        # recipients is a set of parent and steward, so verify both are in the list
+        assert set(args[1]) == {"parent@test.com", "steward@test.com"}
+        assert "Replier replied to a comment on Object:" in args[2]
+
+def test_send_reply_email_no_recipients(monkeypatch):
+    from src.comments import send_reply_email
+    # Should return early
+    send_reply_email("", "Replier", "Object", "Reply Text", "")
+
+def test_send_reply_email_demo(monkeypatch, capfd):
+    from src.comments import send_reply_email
+    monkeypatch.setenv("DEMO_DATA", "true")
+    send_reply_email("parent@test.com", "Replier", "Object", "Reply Text", "")
+    out, _ = capfd.readouterr()
+    assert "[DEMO REPLY]" in out
+    assert "Replier" in out
+
+def test_send_reply_email_no_smtp(monkeypatch, caplog):
+    from src.comments import send_reply_email
+    monkeypatch.setenv("DEMO_DATA", "false")
+    monkeypatch.delenv("SMTP_HOST", raising=False)
+    send_reply_email("parent@test.com", "Replier", "Object", "Reply Text", "")
+    assert "Reply saved but email not sent: SMTP_HOST not configured" in caplog.text
+
+
+def test_send_comment_email_no_smtp(monkeypatch, caplog):
+    from src.comments import send_comment_email
+    monkeypatch.setenv("DEMO_DATA", "false")
+    monkeypatch.delenv("SMTP_HOST", raising=False)
+    send_comment_email("to@test.com", "Author", "Object", "Text")
+    assert "Comment saved but email not sent: SMTP_HOST or steward_email not configured" in caplog.text
