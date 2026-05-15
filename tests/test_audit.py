@@ -66,7 +66,7 @@ def test_save_table_metadata_permission_error():
             save_table_metadata("catalog.schema.table", description="test")
 
 def test_save_table_metadata_steward_email_only():
-    """Verify that save_table_metadata handles steward_email correctly."""
+    """Verify that save_table_metadata writes to table_metadata_overrides and enqueues for steward."""
     with patch("src.audit.is_power_user", return_value=True), \
          patch("src.audit._duckdb_available", return_value=True), \
          patch("src.audit._get_write_connection") as mock_get_write, \
@@ -82,12 +82,12 @@ def test_save_table_metadata_steward_email_only():
 
         save_table_metadata("catalog.schema.table", steward_email="steward@example.com")
 
-        # Verify execute_write was called with steward_email updates
-        # Since description is None, it should only be called once for steward_email
+        # Verify execute_write was called once (single upsert into table_metadata_overrides)
         assert mock_cursor.execute_write.call_count == 1
         call_args = mock_cursor.execute_write.call_args[0]
-        assert "SET steward_email = %(stew)s" in call_args[0]
-        assert call_args[1] == {"stew": "steward@example.com", "fn": "catalog.schema.table"}
+        assert "table_metadata_overrides" in call_args[0]
+        assert call_args[1]["fn"] == "catalog.schema.table"
+        assert call_args[1]["stew"] == "steward@example.com"
 
         # Verify enqueue_sync and log_audit_event were called for STEWARD
         mock_enqueue.assert_called_once()

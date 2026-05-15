@@ -16,8 +16,9 @@ from src.config import CATALOG_CACHE, SCHEMA_CACHE, MAX_BUSINESS_NAME_LEN
 from src.i18n import t
 from src.db.queries import (
     get_authorized_tables, search_all_metadata,
-    get_column_business_names, run_query, export_schema_to_csv,
+    get_column_business_names, get_multi_hop_lineage, run_query, export_schema_to_csv,
 )
+from src.storage import get_business_name_override_storage
 from src.personalization import _pref_upsert, _pref_delete, is_power_user
 from src.comments import get_table_comments, save_comment
 from src.audit import save_business_name, get_table_steward
@@ -174,8 +175,8 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             st.session_state.recent_views = [full_name] + [x for x in _rv if x != full_name][:49]
             _pref_upsert(full_name, "recent")
 
-        # Columns section
-        col_overrides = get_column_business_names(full_name)
+        # Columns section — route through storage abstraction (fix split-brain)
+        col_overrides = get_business_name_override_storage().get_for_table(full_name)
         cols_query = (
             "SELECT column_name, data_type, comment "
             "FROM {0}.{1}.columns_metadata "
@@ -389,6 +390,50 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         else:
             st.markdown(f'<p style="font-size:13px;color:var(--ink-40);padding:12px 0">{t("detail.no_grants")}</p>', unsafe_allow_html=True)
 
+        # Downstream impact
+        try:
+            _downstream = get_multi_hop_lineage(full_name, depth=2)
+            _ds_rows = (
+                _downstream[_downstream["direction"] == "downstream"]
+                if _downstream is not None and not _downstream.empty and "direction" in _downstream.columns
+                else None
+            )
+            _n_downstream = len(_ds_rows) if _ds_rows is not None else 0
+            _has_critical = (
+                _ds_rows["entity_type"].str.lower().str.contains("certified|production", na=False).any()
+                if _n_downstream > 0 and "entity_type" in _ds_rows.columns
+                else False
+            )
+        except Exception:
+            _n_downstream = 0
+            _has_critical = False
+
+        st.markdown(
+            f'<div class="dd-section-header">'
+            f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_downstream")}</span>'
+            f'<span class="dd-section-count">{_n_downstream}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        if _n_downstream == 0:
+            st.markdown(
+                f'<p style="font-size:13px;color:var(--ink-40);padding:4px 0 12px">'
+                f'{t("detail.downstream_none")}</p>',
+                unsafe_allow_html=True,
+            )
+        else:
+            if _has_critical:
+                st.markdown(
+                    f'<p style="font-family:var(--font-sans);font-size:12px;color:var(--accent);'
+                    f'padding:4px 0 8px;">{t("detail.downstream_certified_warning")}</p>',
+                    unsafe_allow_html=True,
+                )
+            st.markdown(
+                f'<p style="font-family:var(--font-mono);font-size:12px;color:var(--ink-60);'
+                f'padding:0 0 12px;">{t("detail.downstream_count", n=_n_downstream)}</p>',
+                unsafe_allow_html=True,
+            )
+
         # Lineage + related tables
         graph_nodes, graph_links = _build_lineage_graph(
             full_name, str(row["table_name"]), query_groups, run_query, max_depth=2,
@@ -467,7 +512,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                         unsafe_allow_html=True,
                     )
                     if st.button(t("detail.open_related"), key=f"rel_{_rel_full}", type="secondary", use_container_width=True):
-                        st.session_state["dd_search_override"] = str(rel.get("table_name", ""))
+                        st.session_state["dd_search_override"] = str(getattr(rel, "table_name", ""))
                         st.session_state["dd_nav_select"] = _rel_full
                         st.rerun()
 
@@ -493,7 +538,9 @@ def render_search_page(query_groups: tuple) -> None:
     ''', unsafe_allow_html=True)
 
     if "dd_search_override" in st.session_state:
-        st.session_state["catalog_search"] = st.session_state.pop("dd_search_override")
+        _over_q = st.session_state.pop("dd_search_override")
+        st.session_state["catalog_search"] = _over_q
+        st.session_state["_dd_current_search_query"] = _over_q
     if "dd_nav_select" in st.session_state:
         _nav_candidate = st.session_state.pop("dd_nav_select")
         if _nav_candidate in _auth_full_names:

@@ -87,7 +87,21 @@ def _initialize_schema(con):
             definition      VARCHAR,
             edited_by       VARCHAR,
             edited_at       TIMESTAMP,
+            status          VARCHAR DEFAULT 'published',
             PRIMARY KEY (table_full_name, column_name)
+        )
+    """)
+    con.execute("""
+        ALTER TABLE user_data.business_name_overrides
+        ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'published'
+    """)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS user_data.table_metadata_overrides (
+            table_full_name VARCHAR PRIMARY KEY,
+            description     VARCHAR,
+            steward_email   VARCHAR,
+            updated_by      VARCHAR,
+            updated_at      TIMESTAMP
         )
     """)
     con.execute("""
