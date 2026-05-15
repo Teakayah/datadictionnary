@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Dictionary — Feature: Activity-Based Recommendation Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <a href="product-overview.html" style="text-decoration:none; color:inherit;">
+      <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:24px">
+        <g transform="translate(4,2)">
+          <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
+          <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
+          <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
+        </g>
+        <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
+      </svg>
+    </a>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-section-title">Guides</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="user-guide.html">User Guide</a></li>
+      <li class="nav-item "><a href="steward-guide.html">Steward Guide</a></li>
+      <li class="nav-item "><a href="admin-runbook.html">Admin Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Product</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="product-overview.html">Product Overview</a></li>
+      <li class="nav-item "><a href="business-requirements.html">Business Requirements</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Features</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="feature-unified-search.html">Unified Search</a></li>
+      <li class="nav-item "><a href="feature-personalization.html">Personalization</a></li>
+      <li class="nav-item "><a href="feature-data-quality.html">Data Quality</a></li>
+      <li class="nav-item "><a href="feature-data-preview.html">Data Preview</a></li>
+      <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
+      <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
+      <li class="nav-item active"><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Architecture</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="architecture.html">Architecture Overview</a></li>
+      <li class="nav-item "><a href="dependencies.html">Dependencies</a></li>
+      <li class="nav-item "><a href="adr-001-duckdb-local-cache.html">ADR 001: DuckDB Cache</a></li>
+      <li class="nav-item "><a href="adr-002-push-down-sql-auth.html">ADR 002: SQL Auth</a></li>
+      <li class="nav-item "><a href="adr-003-streamlit-not-fastapi.html">ADR 003: Streamlit</a></li>
+      <li class="nav-item "><a href="adr-004-sidecar-sync-worker.html">ADR 004: Sync Worker</a></li>
+      <li class="nav-item "><a href="adr-005-storage-abstraction.html">ADR 005: Storage Abstraction</a></li>
+      <li class="nav-item "><a href="adr-006-entra-groups-overage.html">ADR 006: Groups Overage</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Operations</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="runbook-sync-worker.html">Sync Worker Runbook</a></li>
+      <li class="nav-item "><a href="runbook-secret-rotation.html">Secret Rotation Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Reference</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="reference-locale-keys.html">Locale Keys</a></li>
+    </ul>
+  </nav>
+</aside>
+
+  <main class="content-wrapper">
+    <article class="page">
+      <header class="site-header">
+        <span class="badge">Features</span>
+      </header>
+      <section class="hero">
+        <div class="eyebrow">Features</div>
+        <h1>Feature: Activity-Based Recommendation Engine</h1>
+      </section>
+      <section class="section" id="description">
+<h2>Description</h2>
+<p>The Recommendation Engine surface's popular and active data assets to users, encouraging the discovery of high-value tables within their authorized scope. It powers the "Recommended" sub-tab in the Discovery interface.</p>
+</section>
+<section class="section" id="how-it-works">
+<h2>How it Works</h2>
+<p>The engine uses a popularity-based heuristic derived from organization-wide activity, rather than complex collaborative filtering. This ensures relevance even with smaller user bases.</p>
+<h3>1. Activity Aggregation</h3>
+The engine queries the <code>user_data.audit_log</code> to identify tables with the highest recent engagement. It specifically tracks:
+<ul>
+  <li><strong>Metadata Edits:</strong> Changes to table descriptions or column business names.</li>
+  <li><strong>Social Signals:</strong> New comments or threaded replies added to a table. <h3>2. Personalization & Security</h3></li>
+</ul>To ensure the recommendations are safe and helpful, the engine applies two layers of filtering:
+<ul>
+  <li><strong>Authorization Filter:</strong> Results are cross-referenced with the <code>permissions_cache</code>. A user only ever sees recommendations for tables they are authorized to access.</li>
+  <li><strong>Novelty Filter:</strong> Tables that appear in the user's "Recently Viewed" list (last 5 interactions) are excluded. This prevents the engine from recommending assets the user is already actively using. <h3>3. Implementation Logic</h3></li>
+</ul>The recommendation is performed via a single SQL query against the local DuckDB cache:
+<pre><code class="language-sql">SELECT object_name, COUNT(*) AS engagement_score
+FROM user_data.audit_log
+WHERE event_type IN ('table_description_change', 'business_name_change', 'comment_added')
+GROUP BY object_name 
+ORDER BY engagement_score DESC 
+LIMIT 30;</code></pre>
+</section>
+<section class="section" id="initial-scaffolding">
+<h2>Initial Scaffolding</h2>
+<ul>
+  <li>Implemented <code>_get_recommended_tables</code> in <code>src/ui/cards/discovery.py</code>.</li>
+  <li>Added the "Recommended" tab to the Discovery dashboard.</li>
+  <li>Integrated with <code>st.session_state.recent_views</code> for the novelty filter.</li>
+</ul>
+</section>
+      <footer class="site-footer">
+        <p>Data Dictionary · Documented by Data Engineering</p>
+        <p>Internal Use Only</p>
+      </footer>
+    </article>
+  </main>
+</body>
+</html>
