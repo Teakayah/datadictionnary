@@ -7,3 +7,5 @@
 ## 2024-05-12 - [Extracted Sign-in Strings]
 **Learning:** The authentication page (`src/auth.py`) contained multiple hardcoded strings directly in the Streamlit UI components and f-strings. These string literals must be wrapped in `t('auth.*')` calls using standard translation methods. Streamlit f-strings should interpolate translations directly.
 **Action:** Before implementing localization, always ensure strings inside HTML block interpolations or selectboxes inside `src/auth.py` and other files are fully wrapped using the `t` function to maintain compatibility.
+## 2025-05-15 - [App Localization] **Learning:** Data Dictionary uses custom i18n wrapper `src.i18n.t()`. The locale is toggled using `set_locale` from `src.i18n` instead of native libraries. Translation keys are mapped in `locale/en.json` and `locale/fr.json`.
+**Action:** Use `t('key.name')` to localize strings in Streamlit apps and map hardcoded values in `en.json` and `fr.json`.

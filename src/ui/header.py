@@ -71,8 +71,8 @@ def render_header(user_name: Optional[str] = None, active_tab: str = "search", s
   <div class="dd-header-inner">
     <a href="#" data-tab="search" class="dd-logo-link">
       {LOGO_MARK_SVG}
-      <span class="dd-logo-text">Data Dictionary</span>
-      <span class="dd-pill">Beta</span>
+      <span class="dd-logo-text">{t("common.app_title")}</span>
+      <span class="dd-pill">{t("common.beta")}</span>
     </a>
     <nav class="dd-nav" role="navigation" aria-label="Main navigation">
       {link(t("nav.search"), "search")}
