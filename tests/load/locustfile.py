@@ -48,17 +48,40 @@ from __future__ import annotations
 import csv
 import io
 import os
+import os
 import random
 import time
-from typing import Optional
-
+import csv
+import io
+import shutil
+import tempfile
 import duckdb
-from locust import HttpUser, User, between, events, tag, task
-
+from locust import HttpUser, task, between, events, User, tag
 
 # ── Bootstrap: load real table names from the test dataset ───────────────────
 
-_DUCKDB_PATH = os.getenv("DUCKDB_PATH", "data/test_data.duckdb")
+_DUCKDB_PATH = os.getenv("DUCKDB_PATH") or "data/test_data.duckdb"
+_USER_DATA_PATH = (
+    _DUCKDB_PATH.replace(".duckdb", "_user_data.duckdb")
+    if ".duckdb" in _DUCKDB_PATH
+    else _DUCKDB_PATH + "_user_data.duckdb"
+)
+
+# ── Lock-free access: use a temporary copy of the database ──────────────────
+# This avoids "IO Error: Could not set lock" when the app is running.
+_WORKING_DB = tempfile.NamedTemporaryFile(suffix=".duckdb", delete=False).name
+if os.path.exists(_DUCKDB_PATH):
+    shutil.copy2(_DUCKDB_PATH, _WORKING_DB)
+    print(f"[locust] Created working copy: {_WORKING_DB}")
+else:
+    print(f"[locust] WARNING: {_DUCKDB_PATH} not found, DuckDB queries will fail")
+
+# Ensure temp file is cleaned up on exit
+import atexit
+def _cleanup():
+    try: os.unlink(_WORKING_DB)
+    except: pass
+atexit.register(_cleanup)
 
 # Department group IDs used by mock auth (mirrors generate_test_data.py)
 _DEPT_GROUPS = {
@@ -82,20 +105,50 @@ _SEARCH_TERMS = [
 
 _SCHEMA = "dictionary_cache"  # schema used by generate_test_data.py
 
+# ── Global connection to be shared by all users ──────────────────────────────
+# DuckDB allows sharing a connection object across threads if using cursors.
+try:
+    _GLOBAL_CON = duckdb.connect(_WORKING_DB, read_only=True)
+    # Attach a private in-memory DB as 'user_data' for overrides fallback
+    _GLOBAL_CON.execute("ATTACH ':memory:' AS user_data")
+    _GLOBAL_CON.execute("""
+        CREATE TABLE user_data.business_name_overrides (
+            table_full_name VARCHAR,
+            column_name     VARCHAR,
+            business_name   VARCHAR,
+            definition      VARCHAR,
+            edited_by       VARCHAR,
+            edited_at       TIMESTAMP,
+            PRIMARY KEY (table_full_name, column_name)
+        )
+    """)
+except Exception as exc:
+    print(f"[locust] FATAL: could not initialize global DuckDB connection: {exc}")
+    _GLOBAL_CON = None
 
-def _open_con(read_only: bool = True) -> duckdb.DuckDBPyConnection:
-    """Open a connection with the correct default search path."""
-    con = duckdb.connect(_DUCKDB_PATH, read_only=read_only)
-    con.execute(f"SET search_path = '{_SCHEMA}'")
-    return con
+
+def _open_con(read_only: bool = True, attach_user_data: bool = True) -> duckdb.DuckDBPyConnection:
+    """Return a thread-local cursor from the global connection."""
+    if _GLOBAL_CON is None:
+        return None
+    try:
+        # Each thread (Locust user) gets its own cursor
+        con = _GLOBAL_CON.cursor()
+        con.execute(f"SET search_path = '{_SCHEMA}'")
+        return con
+    except Exception as exc:
+        print(f"[locust] ERROR: could not create cursor: {exc}")
+        return None
 
 
 def _load_table_names() -> list[str]:
     """Read all table full_names from the dataset at startup."""
     try:
-        con = _open_con()
+        # Use the global connection to avoid lock contention
+        con = _open_con(attach_user_data=False)
+        if con is None: return ["research_org.finance.invoices"]
         rows = con.execute("SELECT full_name FROM tables_metadata").fetchall()
-        con.close()
+        # DO NOT close the connection, just let the cursor go out of scope
         return [r[0] for r in rows]
     except Exception as exc:
         print(f"[locust] WARNING: could not load table names from {_DUCKDB_PATH}: {exc}")
@@ -140,7 +193,7 @@ def _search_sql(term: str, groups: list[str]) -> tuple[str, list]:
         JOIN permissions_cache p ON c.table_full_name = p.table_full_name
         JOIN tables_metadata t ON c.table_full_name = t.full_name
         LEFT JOIN data_quality_cache dq ON c.table_full_name = dq.table_full_name
-        LEFT JOIN business_name_overrides o
+        LEFT JOIN user_data.business_name_overrides o
                ON o.table_full_name = c.table_full_name AND o.column_name = c.column_name
         WHERE (
             c.column_name LIKE ? OR c.comment LIKE ?
@@ -241,6 +294,14 @@ class DuckDBQueryUser(User):
     def _run_query(self, name: str, sql: str, params: list):
         """Execute a DuckDB query and report timing to Locust."""
         if not self._con:
+            # Report as failure if connection is missing so we see it in stats
+            events.request.fire(
+                request_type="DuckDB",
+                name=name,
+                response_time=0,
+                response_length=0,
+                exception=RuntimeError("DuckDB connection not initialized"),
+            )
             return
         start = time.perf_counter()
         exc_instance = None
@@ -286,6 +347,15 @@ class DuckDBQueryUser(User):
         Export dictionary: fetch columns then serialize to CSV.
         Mirrors export_schema_to_csv() — measures both query + serialization.
         """
+        if not self._con:
+            events.request.fire(
+                request_type="DuckDB",
+                name="query: export dictionary (CSV)",
+                response_time=0,
+                response_length=0,
+                exception=RuntimeError("DuckDB connection not initialized"),
+            )
+            return
         table = random.choice(_ALL_TABLES)
         sql, params = _columns_sql(table)
         start = time.perf_counter()
@@ -324,6 +394,15 @@ class DuckDBQueryUser(User):
         Related tables panel — the most expensive query (two-level JOIN on columns).
         Weighted low because it appears only when a user opens a detail panel.
         """
+        if not self._con:
+            events.request.fire(
+                request_type="DuckDB",
+                name="query: related tables",
+                response_time=0,
+                response_length=0,
+                exception=RuntimeError("DuckDB connection not initialized"),
+            )
+            return
         table = random.choice(_ALL_TABLES)
         parts = table.split(".")           # catalog.schema.table
         catalog, schema = parts[0], parts[1]
@@ -437,3 +516,11 @@ def print_benchmark_summary(environment, **kwargs):
         print(f"\n  HTTP requests  : {http_reqs:,}")
         print(f"  DuckDB queries : {duckdb_reqs:,}")
         print("=" * 64 + "\n")
+
+    if stats.errors:
+        print("\nError report")
+        print(f"{'# occurrences':<18} Error")
+        print("-" * 18 + "|" + "-" * 64)
+        for error_key, error in stats.errors.items():
+            print(f"{error.occurrences:<18} {error_key}")
+        environment.process_exit_code = 1

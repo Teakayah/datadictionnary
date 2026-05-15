@@ -19,6 +19,13 @@ def make_tables_df() -> pd.DataFrame:
         "updated_at":        [pd.Timestamp("2026-04-22 10:00"), pd.Timestamp("2026-04-21 08:00")],
     })
 
+def make_health_table_stats() -> pd.DataFrame:
+    return pd.DataFrame({
+        "schema_name": ["sales"],
+        "total": [2],
+        "described": [2]
+    })
+
 def make_health_col_stats() -> pd.DataFrame:
     return pd.DataFrame({"total": [10], "with_desc": [7]})
 
@@ -62,7 +69,8 @@ def test_no_errors_on_discovery(auth_app):
     assert not auth_app.error
 
 def test_no_errors_on_health(auth_app):
-    sql_returns(make_tables_df(), make_health_col_stats())
+    # Health tab executes 3 queries: table stats, column stats, priority undocumented
+    sql_returns(make_health_table_stats(), make_health_col_stats(), make_tables_df())
     auth_app.query_params["tab"] = "health"
     auth_app.run()
     assert not auth_app.exception

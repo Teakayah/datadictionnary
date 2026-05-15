@@ -28,6 +28,7 @@ import os as _os
 _os.environ.setdefault("ENABLE_MOCK_AUTH", "true")
 _os.environ.setdefault("ENVIRONMENT", "development")
 _os.environ.setdefault("DEMO_DATA", "true")
+_os.environ["DUCKDB_PATH"] = ""  # Force empty to ensure hermetic tests
 
 # ── Stub missing packages ─────────────────────────────────────────────────────
 

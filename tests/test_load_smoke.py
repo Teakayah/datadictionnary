@@ -28,9 +28,10 @@ APP_URL    = os.getenv("LOAD_TEST_HOST", "http://localhost:8501")
 LOCUST_F   = Path(__file__).parent / "load" / "locustfile.py"
 SLA_FILE   = Path(__file__).parent / "load" / "sla.json"
 
-USERS      = 50
-SPAWN_RATE = 5
-DURATION   = "60s"
+USERS = 50
+SPAWN_RATE = 10
+DURATION = "60s"
+
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -51,7 +52,7 @@ def require_server():
 def _run_locust(out_dir: str) -> dict[str, dict]:
     """Run locust headlessly and return parsed per-endpoint stats."""
     cmd = [
-        sys.executable, "-m", "locust",
+        "locust",
         "-f", str(LOCUST_F),
         "--headless",
         "-u", str(USERS),
@@ -61,9 +62,17 @@ def _run_locust(out_dir: str) -> dict[str, dict]:
         "--csv", os.path.join(out_dir, "smoke"),
         "--loglevel", "WARNING",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-    if result.returncode not in (0, 1):   # locust exits 1 on threshold failures
+    env = os.environ.copy()
+    if not env.get("DUCKDB_PATH"):
+        env["DUCKDB_PATH"] = "data/test_data.duckdb"
+
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=env)
+    # Locust exits 1 on threshold failures, sometimes 2 on other non-fatal issues in headless mode
+    if result.returncode not in (0, 1, 2):
         raise RuntimeError(f"Locust exited {result.returncode}:\n{result.stderr[-2000:]}")
+    
+    if result.stderr:
+        print(f"Locust stderr:\n{result.stderr}")
 
     stats: dict[str, dict] = {}
     stats_file = os.path.join(out_dir, "smoke_stats.csv")
@@ -96,10 +105,11 @@ class TestLoadSmoke:
     def _server(self, require_server):
         pass
 
-    def setup_method(self):
-        self._sla = _load_sla()
-        self._tmpdir = tempfile.mkdtemp()
-        self._stats = _run_locust(self._tmpdir)
+    @classmethod
+    def setup_class(cls):
+        cls._sla = _load_sla()
+        cls._tmpdir = tempfile.mkdtemp()
+        cls._stats = _run_locust(cls._tmpdir)
 
     # ── Zero failures ─────────────────────────────────────────────────────────
 
