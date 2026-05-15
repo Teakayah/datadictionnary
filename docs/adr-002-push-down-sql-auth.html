@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Dictionary — ADR 002 — Push-down SQL for permission enforcement</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <a href="product-overview.html" style="text-decoration:none; color:inherit;">
+      <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:24px">
+        <g transform="translate(4,2)">
+          <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
+          <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
+          <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
+        </g>
+        <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
+      </svg>
+    </a>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-section-title">Guides</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="user-guide.html">User Guide</a></li>
+      <li class="nav-item "><a href="steward-guide.html">Steward Guide</a></li>
+      <li class="nav-item "><a href="admin-runbook.html">Admin Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Product</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="product-overview.html">Product Overview</a></li>
+      <li class="nav-item "><a href="business-requirements.html">Business Requirements</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Features</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="feature-unified-search.html">Unified Search</a></li>
+      <li class="nav-item "><a href="feature-personalization.html">Personalization</a></li>
+      <li class="nav-item "><a href="feature-data-quality.html">Data Quality</a></li>
+      <li class="nav-item "><a href="feature-data-preview.html">Data Preview</a></li>
+      <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
+      <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
+      <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Architecture</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="architecture.html">Architecture Overview</a></li>
+      <li class="nav-item "><a href="dependencies.html">Dependencies</a></li>
+      <li class="nav-item "><a href="adr-001-duckdb-local-cache.html">ADR 001: DuckDB Cache</a></li>
+      <li class="nav-item active"><a href="adr-002-push-down-sql-auth.html">ADR 002: SQL Auth</a></li>
+      <li class="nav-item "><a href="adr-003-streamlit-not-fastapi.html">ADR 003: Streamlit</a></li>
+      <li class="nav-item "><a href="adr-004-sidecar-sync-worker.html">ADR 004: Sync Worker</a></li>
+      <li class="nav-item "><a href="adr-005-storage-abstraction.html">ADR 005: Storage Abstraction</a></li>
+      <li class="nav-item "><a href="adr-006-entra-groups-overage.html">ADR 006: Groups Overage</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Operations</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="runbook-sync-worker.html">Sync Worker Runbook</a></li>
+      <li class="nav-item "><a href="runbook-secret-rotation.html">Secret Rotation Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Reference</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="reference-locale-keys.html">Locale Keys</a></li>
+    </ul>
+  </nav>
+</aside>
+
+  <main class="content-wrapper">
+    <article class="page">
+      <header class="site-header">
+        <span class="badge">Guides</span>
+      </header>
+      <section class="hero">
+        <div class="eyebrow">Guides</div>
+        <h1>ADR 002 — Push-down SQL for permission enforcement</h1>
+      </section>
+      <section class="section">
+<p><strong>Status:</strong> Accepted  
+<strong>Date:</strong> 2026-04-30  
+<strong>Deciders:</strong> Platform team, Security team</p>
+<hr>
+</section>
+<section class="section" id="context">
+<h2>Context</h2>
+<p>The catalog contains tables owned by different business units. Users must only see tables they are authorized to access. Authorization is modeled as a set of Entra ID Security Group Object IDs extracted from the <code>groups</code> claim in the user's OIDC token.</p>
+<p>The sync job extracts every <code>GRANT</code> from Unity Catalog and writes one row per (table, principal, privilege) triple into <code>permissions_cache</code>. At query time, the app knows the user's group IDs. The question is: where should the permission check happen?</p>
+<h3>Option A — Python-side filtering</h3>
+<ol class="steps">
+  <li>Run the search query without any permission filter, retrieving all matching rows</li>
+  <li>In Python, filter the result set to only include tables where <code>permissions_cache.principal</code> overlaps with the user's groups Problems:</li>
+</ol>- The full result set is fetched from the database before filtering. For broad queries this means sending potentially thousands of unauthorized rows across the connection.
+<ul>
+  <li>If a bug is introduced in the Python filter, unauthorized rows can leak to the user interface. The defense is a single point of failure.</li>
+  <li>Pagination and row counts become incorrect (the total count before filtering does not match the count after filtering).</li>
+  <li>It is impossible to express "how many results exist for this user" without reading all results first. <h3>Option B — Push-down SQL JOIN</h3> Enforce permissions by requiring every user-facing query to JOIN <code>tables_metadata</code> with <code>permissions_cache WHERE principal IN ($user_groups)</code>. The database engine discards unauthorized rows before returning any data. The sentinel value <code>SELECT_ALL_USERS</code> in <code>permissions_cache.principal</code> marks tables that are publicly accessible to all authenticated users. A query that includes <code>SELECT_ALL_USERS</code> in the <code>IN</code> list returns those rows for everyone. <hr></li>
+</ul>
+</section>
+<section class="section" id="decision">
+<h2>Decision</h2>
+<p>Use push-down SQL authorization. All queries that return table-level results must include the permissions JOIN. The application layer performs no secondary filtering.</p>
+<p>Implementation:</p>
+<pre><code class="language-sql">SELECT
+    t.full_name,
+    t.description,
+    t.table_type
+FROM tables_metadata t
+JOIN permissions_cache p
+    ON p.full_name = t.full_name
+WHERE p.principal IN (%(group_1)s, %(group_2)s, 'SELECT_ALL_USERS')
+  AND t.full_name ILIKE %(query)s
+GROUP BY t.full_name, t.description, t.table_type</code></pre>
+<p>Parameterized queries are used throughout. The <code>_to_duckdb_sql()</code> function translates named parameters (<code>%(name)s</code>) to positional parameters (<code>?</code>) for DuckDB, preserving the parameterized pattern in both backends and preventing SQL injection via concatenation.</p>
+<hr>
+</section>
+<section class="section" id="consequences">
+<h2>Consequences</h2>
+<p><strong>Positive:</strong>
+<ul>
+  <li>Unauthorized rows are never returned from the query engine. There is no Python code path that could accidentally expose them.</li>
+  <li>Row counts and pagination are correct from the first query.</li>
+  <li>The approach is transparent to auditors: every logged SQL statement is self-contained and shows exactly which groups were used.</li>
+  <li>Works identically against DuckDB (local) and Databricks SQL Warehouse (production). <strong>Negative:</strong></li>
+  <li>Every search query must include the permissions JOIN, adding complexity to query construction and making the SQL harder to read in isolation.</li>
+  <li>The <code>IN</code> clause for group IDs can become long if a user belongs to many groups. DuckDB and Databricks SQL both handle large <code>IN</code> lists efficiently, but this is a theoretical concern for organizations with very deep AD group nesting.</li>
+  <li>The <code>SELECT_ALL_USERS</code> sentinel is a convention, not a database constraint. If the sync job stops writing it for public tables, those tables silently disappear from all user views. This must be guarded by integration tests in the sync job.</li>
+  <li>Query logic must not be bypassed. Any new query that returns table metadata must include the JOIN. Code review must enforce this; there is no automated check yet.</li>
+</ul></p>
+</section>
+      <footer class="site-footer">
+        <p>Data Dictionary · Documented by Data Engineering</p>
+        <p>Internal Use Only</p>
+      </footer>
+    </article>
+  </main>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Dictionary — Dependency reference</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <a href="product-overview.html" style="text-decoration:none; color:inherit;">
+      <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:24px">
+        <g transform="translate(4,2)">
+          <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
+          <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
+          <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
+        </g>
+        <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
+      </svg>
+    </a>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-section-title">Guides</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="user-guide.html">User Guide</a></li>
+      <li class="nav-item "><a href="steward-guide.html">Steward Guide</a></li>
+      <li class="nav-item "><a href="admin-runbook.html">Admin Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Product</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="product-overview.html">Product Overview</a></li>
+      <li class="nav-item "><a href="business-requirements.html">Business Requirements</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Features</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="feature-unified-search.html">Unified Search</a></li>
+      <li class="nav-item "><a href="feature-personalization.html">Personalization</a></li>
+      <li class="nav-item "><a href="feature-data-quality.html">Data Quality</a></li>
+      <li class="nav-item "><a href="feature-data-preview.html">Data Preview</a></li>
+      <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
+      <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
+      <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Architecture</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="architecture.html">Architecture Overview</a></li>
+      <li class="nav-item active"><a href="dependencies.html">Dependencies</a></li>
+      <li class="nav-item "><a href="adr-001-duckdb-local-cache.html">ADR 001: DuckDB Cache</a></li>
+      <li class="nav-item "><a href="adr-002-push-down-sql-auth.html">ADR 002: SQL Auth</a></li>
+      <li class="nav-item "><a href="adr-003-streamlit-not-fastapi.html">ADR 003: Streamlit</a></li>
+      <li class="nav-item "><a href="adr-004-sidecar-sync-worker.html">ADR 004: Sync Worker</a></li>
+      <li class="nav-item "><a href="adr-005-storage-abstraction.html">ADR 005: Storage Abstraction</a></li>
+      <li class="nav-item "><a href="adr-006-entra-groups-overage.html">ADR 006: Groups Overage</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Operations</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="runbook-sync-worker.html">Sync Worker Runbook</a></li>
+      <li class="nav-item "><a href="runbook-secret-rotation.html">Secret Rotation Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Reference</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="reference-locale-keys.html">Locale Keys</a></li>
+    </ul>
+  </nav>
+</aside>
+
+  <main class="content-wrapper">
+    <article class="page">
+      <header class="site-header">
+        <span class="badge">Architecture</span>
+      </header>
+      <section class="hero">
+        <div class="eyebrow">Architecture</div>
+        <h1>Dependency reference</h1>
+      </section>
+      <section class="section">
+<p>All dependencies for the Data Dictionary application, with descriptions, justifications, and known trade-offs. Runtime dependencies are pinned to compatible ranges (<code>>=x.y,<next-major</code>). Dev-only dependencies do not ship in the production image.</p>
+<hr>
+</section>
+<section class="section" id="runtime-dependencies-requirements-txt">
+<h2>Runtime dependencies (<code>requirements.txt</code>)</h2>
+<h3><code>streamlit</code> — <code>>=1.50,<2</code> (installed: 1.57.0)</h3>
+<p><strong>What it does.</strong> Streamlit is the web UI framework for the entire application. It renders pages, manages session state, and handles the WebSocket connection between the browser and the Python process. Every tab, card, button, and input in the app is a Streamlit widget. <code>app.py</code> is the single entry point; all pages are sub-modules under <code>src/ui/</code> and <code>src/pages/</code> that Streamlit calls on each interaction.</p>
+<p><strong>Why it was chosen.</strong> The Business Data Dictionary is an internal tool for non-technical business users whose primary interactions are search, browse, and occasional low-frequency writes (bookmarks, comments, metadata edits). The team building it is small with strong Python skills and limited frontend experience. The alternatives considered were:</p>
+<ul>
+  <li><strong>FastAPI + React</strong> — full control over the UI and standard HTTP semantics, but requires maintaining two codebases (Python API + JavaScript frontend), adds React state management and build tooling overhead, and adds weeks to the time-to-first-demo.</li>
+  <li><strong>Dash</strong> — Python-native like Streamlit but oriented toward data visualization dashboards, not search-first catalog UIs. Less community momentum at time of decision. Streamlit's single-codebase model means the same engineers who write the DuckDB queries write the UI. OIDC authentication, permission enforcement, and search are all expressed in one language. A new tab or feature card is tens of lines of Python rather than coordinated frontend + backend changes. (ADR 003) <strong>Known trade-offs.</strong></li>
+  <li>Streamlit drives interactions over a binary WebSocket protocol (protobuf), not plain HTTP. Conventional HTTP load-testing tools (k6, wrk) cannot exercise real user interactions — only the page-shell delivery endpoint. This is mitigated in <code>tests/load/locustfile.py</code> via a <code>DuckDBQueryUser</code> class that exercises the actual performance-sensitive path (the DuckDB search query) directly, bypassing the WebSocket layer.</li>
+  <li>Streamlit re-runs the entire script top-to-bottom on every interaction. Redundant DuckDB queries are avoided through <code>st.session_state</code> caching and by pulling <code>get_authorized_tables()</code> once at the top of <code>render_search_page()</code>.</li>
+  <li>Multi-page routing uses a single <code>app.py</code> entry point (not Streamlit's file-based <code>pages/</code> directory) because tab visibility is permission-aware — some tabs are only shown to <code>ADMIN_GROUPS</code> or <code>PIPELINE_GROUPS</code> members, which requires custom routing logic.</li>
+  <li>Full end-to-end click-flow testing requires Playwright. <code>streamlit.testing.v1.AppTest</code> (used in <code>tests/test_app.py</code> and others) covers rendering and session-state assertions but does not simulate real browser WebSocket interactions. <hr> <h3><code>streamlit-autorefresh</code> — <code>>=1.0,<2</code> (installed: 1.0.1)</h3> <strong>What it does.</strong> Injects a self-refresh trigger into a Streamlit app at a configurable interval without blocking the Python script thread. Unlike <code>time.sleep()</code>, which freezes the entire Streamlit process (blocking all other users on the same pod), <code>streamlit-autorefresh</code> schedules the rerun client-side and returns control immediately. <strong>Why it was chosen.</strong> The pipelines tab (<code>src/ui/cards/pipelines.py</code>) must poll the backend status API (Databricks Jobs, ADF, ADO) every 3 seconds while a run is in flight to update the progress bar. A blocking <code>time.sleep(3)</code> was the initial implementation and was replaced (see the <code>performance/remove-time-sleep</code> PR) because it held the Streamlit script-runner thread, preventing other sessions from rendering during the sleep window. <code>streamlit-autorefresh</code> is the standard community solution for non-blocking periodic reruns in Streamlit. <strong>Known trade-offs.</strong> Adds a third-party Streamlit component dependency. The component communicates via Streamlit's component API (iframe + <code>postMessage</code>), which adds a small overhead per refresh cycle. Only active when a pipeline run is in flight — the refresh is not triggered unconditionally. <hr> <h3><code>streamlit-js-eval</code> — <code>>=1.0,<2</code> (installed: 1.0.0)</h3> <strong>What it does.</strong> Evaluates an arbitrary JavaScript expression in the browser from within a Streamlit Python script and returns the result synchronously to Python. Used in <code>src/ui/lineage.py</code> to read <code>window.innerHeight</code> so the lineage graph component can be sized to fill the visible viewport rather than using a hard-coded pixel height. <strong>Why it was chosen.</strong> Streamlit does not expose the browser viewport dimensions natively. The lineage graph is rendered as an HTML component via <code>streamlit.components.v1.html()</code>; setting its height without knowing the viewport produces either a truncated graph or unnecessary whitespace. <code>streamlit-js-eval</code> is the minimal, established solution for reading browser-side values — the alternative would be a custom Streamlit component with a full JS build toolchain. <strong>Known trade-offs.</strong> Tight dependency on a small, lightly-maintained third-party component. If it breaks on a future Streamlit version, the fallback is a hard-coded default height (already implemented in <code>_viewport_height(fallback=800)</code>). <hr> <h3><code>duckdb</code> — <code>>=1.0,<2</code> (installed: 1.5.2)</h3> <strong>What it does.</strong> DuckDB is an embedded, in-process columnar analytical database. It runs as a library inside the Python process — no server, no network socket, no daemon. The nightly sync job writes the entire catalog snapshot to a local <code>.duckdb</code> file; the Streamlit app opens that file read-only and executes all search, filter, and aggregate queries against it. A second file (<code>dict_user_data.duckdb</code>) holds user-generated data (bookmarks, comments, business-name overrides, audit log, pipeline definitions). Both files are <code>ATTACH</code>ed at startup, enabling cross-file JOINs. <strong>Why it was chosen.</strong> The alternatives considered were: - <strong>SQLite</strong> — built into Python, zero dependency, but designed for transactional OLTP workloads. Multi-table GROUP BY and JOIN queries (the core patterns of a search-and-filter catalog UI) are measurably slower on SQLite than on a columnar engine. No native Parquet export.</li>
+  <li><strong>Redis</strong> — excellent for key-value point lookups but does not support SQL JOINs, which are essential for the push-down permission filter (<code>JOIN permissions_cache WHERE principal IN ($groups)</code>). Would require moving permission enforcement into Python — a security regression (see ADR 002).</li>
+  <li><strong>Polars in-memory</strong> — very fast analytical queries but no persistence; data must be reloaded from Databricks on every session start (several-second cold start for 800 tables). No SQL interface — queries must be rewritten in the Polars expression API, diverging from the Databricks SQL strings that are tested against both backends. DuckDB speaks standard SQL, runs in-process (zero infrastructure for local development), and achieves p95 search query latency under 8 ms on the 800-table reference dataset, compared to ~300 ms for a network round-trip to the Databricks SQL Warehouse. The catalog file is replaced atomically by the sync job (<code>os.replace()</code>), so readers always see a consistent snapshot with no coordination overhead. (ADR 001) <strong>Known trade-offs.</strong></li>
+  <li>Single-writer constraint per file. The sync job holds an exclusive write lock while rebuilding the catalog file (30–90 s). Readers fall back to the previous file during this window via the atomic-replace mechanism.</li>
+  <li>Not a networked database. Horizontal scaling (multiple Streamlit replicas) requires all pods to share the same PVC mount, which is why <code>dd-data</code> uses <code>ReadWriteMany</code> access mode.</li>
+  <li>A small dialect-translation layer (<code>_to_duckdb_sql()</code> in <code>src/db/duckdb_adapter.py</code>) converts Databricks SQL named parameters (<code>%(name)s</code>) to DuckDB positional parameters (<code>?</code>). New query patterns that use Databricks-specific functions must be added to this translator. <hr> <h3><code>pandas</code> — <code>>=2.2,<3</code> (installed: 2.3.3)</h3> <strong>What it does.</strong> Pandas provides the <code>DataFrame</code> abstraction used throughout the application to handle query results from both DuckDB and the Databricks SQL Warehouse. It is used for: building search result sets (<code>src/pages/search.py</code>), computing health-dashboard metrics (<code>src/ui/cards/health.py</code>), processing lineage graph data (<code>src/ui/lineage.py</code>), and constructing schema-export CSVs. Streamlit itself accepts DataFrames natively for rendering tables. <strong>Why it was chosen.</strong> Both DuckDB and <code>databricks-sql-connector</code> return results as Pandas DataFrames by default (<code>.df()</code> on DuckDB, <code>.fetchall_arrow().to_pandas()</code> on DBSQL). Adopting a different data-frame library (Polars, for example) would require conversion at every query boundary. Pandas is also the standard Streamlit DataFrame type, making rendering trivial. The application's data volumes (at most a few thousand rows per query) are well within Pandas' in-memory comfort zone. <strong>Known trade-offs.</strong> <code>iterrows()</code> was removed throughout the codebase in favour of <code>itertuples()</code> and vectorized string operations, because <code>iterrows()</code> is significantly slower for row-by-row access. Pandas' eager-loading model means entire result sets are held in memory — acceptable at catalog scale but worth revisiting if row counts grow into the hundreds of thousands. <hr> <h3><code>databricks-sql-connector</code> — <code>>=4.2,<5</code> (installed: 4.2.6)</h3> <strong>What it does.</strong> The official Databricks SQL Warehouse connector for Python. Provides a DBAPI 2.0-compliant cursor interface to execute SQL against a Databricks SQL Warehouse over HTTPS. Used exclusively by:</li>
+  <li>The <strong>nightly sync job</strong> (<code>scripts/nightly_sync.py</code>) to write the catalog snapshot (<code>TRUNCATE</code> + <code>INSERT INTO</code>) to <code>data_governance.dictionary_cache</code>.</li>
+  <li>The <strong>sidecar sync worker</strong> (<code>src/sync/push.py</code>) to push queued metadata changes back to Unity Catalog (<code>ALTER TABLE … COMMENT</code>, <code>INSERT INTO audit_log</code>). The Streamlit pods themselves <strong>never</strong> open a connection to the SQL Warehouse — they query DuckDB locally. <strong>Why it was chosen.</strong> It is the only supported connector for Databricks SQL Warehouses. The alternative (raw HTTP to the Databricks REST API) would require reimplementing connection pooling, retry logic, and the Thrift binary protocol. <strong>Known trade-offs.</strong> The connector adds significant transitive dependencies (<code>thrift</code>, <code>pyarrow</code>, <code>pybreaker</code>, etc.). A future optimization could replace the connector with direct Unity Catalog REST API calls for the write path, removing this dependency from the production image entirely — but the connector's DBAPI interface makes SQL writes straightforward and is retained for now. <hr> <h3><code>databricks-sdk</code> — <code>>=0.100,<1</code> (installed: 0.108.0)</h3> <strong>What it does.</strong> The official Databricks Python SDK, providing <code>WorkspaceClient</code> — a high-level client for the Databricks REST API. Used exclusively by the <strong>nightly sync job</strong> to crawl the Unity Catalog hierarchy: listing catalogs, schemas, tables, columns, lineage edges, and extracting <code>GRANT</code> permissions per table. The SDK handles authentication (PAT token or OAuth), pagination, and retry logic for each API call. <strong>Why it was chosen.</strong> The alternative is raw <code>requests</code> calls to the Unity Catalog REST API endpoints. The SDK abstracts pagination (<code>list()</code> returns a generator, not a single page), handles rate-limit retries, and exposes typed Python objects for catalog entities. The metadata crawl touches ~800 tables × 15 columns × multiple API endpoints, so the SDK's built-in pagination and retry behaviour is load-bearing. <strong>Known trade-offs.</strong> The SDK is marked Beta (<code><1</code>). Breaking API changes between minor versions are possible; the upper bound <code><1</code> is intentional — every SDK update must be tested before adopting. <hr> <h3><code>msal</code> — <code>>=1.30,<2</code> (installed: 1.36.0)</h3> <strong>What it does.</strong> The Microsoft Authentication Library. Drives the full OAuth 2.0 / OpenID Connect authorization-code flow in <code>src/auth.py</code>: constructs the Entra ID authorization URL, exchanges the auth code for tokens, validates the ID token signature, and extracts claims (including the <code>groups</code> claim used for RBAC). Also used in <code>src/pipelines.py</code> via <code>ConfidentialClientApplication</code> for client-credentials token acquisition — the service principal tokens that authorize calls to the Databricks Jobs API, Azure Data Factory, and Azure DevOps. <strong>Why it was chosen.</strong> MSAL is the Microsoft-maintained, officially supported library for Entra ID authentication. The alternative — implementing the OIDC flow manually with <code>requests</code> and a JWT validation library — would require handling token refresh, token caching, and the overage pointer (<code>_claim_names.groups</code>) without Microsoft's tested implementations. MSAL is the only reasonable choice for a Microsoft-stack enterprise deployment. <strong>Known trade-offs.</strong> MSAL's token cache is in-memory and process-local, which is correct for stateless Streamlit pods (each pod handles its own session). The 1-hour groups cache in <code>src/auth_graph.py</code> is implemented separately in a process-level dict (not in MSAL's cache) because it needs to survive across sessions on the same pod and be invalidatable on sign-out. <hr> <h3><code>requests</code> — <code>>=2.32,<3</code> (installed: 2.34.0)</h3> <strong>What it does.</strong> Standard Python HTTP client. Used directly in <code>src/pipelines.py</code> to call three external REST APIs:</li>
+  <li><strong>Databricks Jobs API 2.1</strong> — trigger, poll, and cancel job runs.</li>
+  <li><strong>Azure Data Factory management API (2018-06-01)</strong> — trigger, poll, and cancel pipeline runs.</li>
+  <li><strong>Azure DevOps Pipelines API (7.0)</strong> — trigger, poll (<code>GET</code>), and cancel (<code>PATCH</code>) pipeline runs. Also used transitively by <code>msal</code>, <code>databricks-sdk</code>, and <code>databricks-sql-connector</code>. <strong>Why it was chosen.</strong> <code>requests</code> is the de-facto standard Python HTTP library for REST API calls. The pipeline backends require simple JSON <code>POST</code>/<code>GET</code>/<code>PATCH</code> calls with Bearer token headers — well within <code>requests</code>' capabilities without needing an async client (<code>httpx</code>, <code>aiohttp</code>), since the pipeline status polling runs in a synchronous Streamlit context. <strong>Known trade-offs.</strong> Synchronous only. If the pipeline control-plane APIs are slow to respond (>several seconds), the Streamlit process blocks. In practice, API calls are fast (<200 ms); the 3-second poll interval provides sufficient slack. <hr> <h3><code>python-dotenv</code> — <code>>=1.0,<2</code> (installed: 1.2.2)</h3> <strong>What it does.</strong> Reads a <code>.env</code> file from the project root and injects its key-value pairs as environment variables at process startup. Invoked in <code>app.py</code> and <code>scripts/nightly_sync.py</code> via <code>load_dotenv()</code>. <strong>Why it was chosen.</strong> Local development requires setting ~10 environment variables (<code>DATABRICKS_HOST</code>, <code>DATABRICKS_TOKEN</code>, <code>TENANT_ID</code>, etc.). Typing them into every terminal session is impractical; a <code>.env</code> file is the universal convention. In Kubernetes, the <code>.env</code> file is not used — env vars are injected from <code>ConfigMap</code> and <code>Secret</code> at pod level. <code>python-dotenv</code> is a no-op when no <code>.env</code> file is present, making it safe to include in the production image without risk. <strong>Known trade-offs.</strong> None meaningful. It is a single-purpose, zero-dependency utility library. <hr></li>
+</ul>
+</section>
+<section class="section" id="development-dependencies-requirements-dev-txt">
+<h2>Development dependencies (<code>requirements-dev.txt</code>)</h2>
+<p>These are installed alongside runtime deps for local development and CI. They are <strong>not</strong> present in the production Docker image.</p>
+<hr>
+<h3><code>pytest</code> — <code>>=8.0</code> (installed: 9.0.3)</h3>
+<p><strong>What it does.</strong> The test runner. Discovers and executes all test files under <code>tests/</code>, applies fixtures (<code>conftest.py</code>), and reports pass/fail. Used via <code>python -m pytest tests/ -q --ignore=...</code> for the standard suite (475 tests at time of writing) and separately for load and accessibility suites.</p>
+<p><strong>Why it was chosen.</strong> Pytest is the dominant Python test framework. Streamlit ships a first-party <code>AppTest</code> integration (<code>streamlit.testing.v1</code>) that runs natively inside pytest. The <code>mock.patch</code> pattern used extensively in the storage tests (<code>mock.patch("src.cms.get_cms_storage", return_value=FakeCMSStorage())</code>) is pytest-compatible without extra plugins.</p>
+<hr>
+<h3><code>pytest-cov</code> — <code>>=5.0</code> (installed: 7.1.0)</h3>
+<p><strong>What it does.</strong> Coverage measurement plugin for pytest. Records which lines and branches are executed during the test run and reports coverage percentages. Run with <code>--cov=src</code> to scope coverage to the application source.</p>
+<p><strong>Why it was chosen.</strong> Standard companion to pytest. Required for CI coverage gates and for identifying untested paths — particularly important given the three-backend storage abstraction where Demo, DuckDB, and Fake implementations must all be exercised.</p>
+<hr>
+<h3><code>locust</code> — <code>>=2.29</code> (installed: 2.44.0)</h3>
+<p><strong>What it does.</strong> Load-testing framework. Simulates concurrent users executing defined task sequences against the application. The load test file (<code>tests/load/locustfile.py</code>) defines two user classes:
+<ul>
+  <li><code>DictionaryHTTPUser</code> — exercises the HTTP page-shell endpoint (<code>/_stcore/health</code>, <code>/</code>) to measure raw request throughput and p95 latency.</li>
+  <li><code>DuckDBQueryUser</code> — connects directly to the DuckDB cache file and executes parameterized search queries, measuring the actual query latency that a real user would experience (p95 target: <8 ms). <strong>Why it was chosen.</strong> As noted in ADR 003, Streamlit's WebSocket interaction model means conventional HTTP load testers cannot exercise real user interactions — only page delivery. The <code>DuckDBQueryUser</code> approach fills this gap by targeting the performance-critical path (the DuckDB search query) directly. Locust was chosen over k6 or Gatling because its user classes are defined in Python, allowing the same SQL query strings used in <code>src/db/queries.py</code> to be reused in the load test without reimplementing them in a different language. <strong>Why it is dev-only.</strong> Load tests require a live running app and a populated DuckDB file. They are excluded from the standard <code>pytest</code> run and wired up separately in CI against a staging environment. <hr> <h3><code>faker</code> — <code>>=26.0</code> (installed: 40.15.0)</h3> <strong>What it does.</strong> Generates realistic fake data — names, email addresses, company names, sentences, paragraphs. Used in <code>scripts/generate_test_data.py</code> to populate the local test dataset (<code>data/test_data.duckdb</code>) with 800 synthetic tables, ~15 columns each, realistic descriptions, steward emails, and permission rows. <strong>Why it was chosen.</strong> The application's search and filter behaviour depends on having a realistic volume of data to query against. Hard-coding 800 table names would be impractical to maintain and would not stress-test full-text search properly. Faker produces varied, human-readable values that surface edge cases (long descriptions, unicode characters, special characters in names) that uniform synthetic data would miss. <strong>Why it is dev-only.</strong> Only needed to generate the local test dataset once (or when the schema changes). Never required at runtime. <hr> <h3><code>playwright</code> — <code>>=1.44</code> (installed: 1.59.0)</h3> <strong>What it does.</strong> Browser automation library for Chromium, Firefox, and WebKit. Drives real browser sessions for tests that require JavaScript execution — specifically, the WCAG accessibility tests (<code>tests/test_wcag_axe.py</code>) and the navigation-render smoke tests (<code>tests/test_nav_render.py</code>). Requires a separate browser binary installation: <code>playwright install chromium</code>. <strong>Why it was chosen.</strong> Streamlit's <code>AppTest</code> runs tests by simulating Streamlit's execution model in Python, without a real browser. WCAG compliance can only be measured against a rendered DOM — axe-core must evaluate the actual HTML, CSS, and JavaScript that the browser produces. Playwright is the maintained, officially supported tool for this in the Python ecosystem and is the dependency required by <code>axe-playwright-python</code>. <strong>Why it is dev-only.</strong> Requires a live running app and browser binaries (~200 MB download). Excluded from the standard <code>pytest</code> run and run separately in CI. <hr> <h3><code>axe-playwright-python</code> — <code>>=0.1.3</code> (installed: 0.1.7)</h3> <strong>What it does.</strong> Wraps the <code>axe-core</code> JavaScript accessibility engine for use from Python via Playwright. In <code>tests/test_wcag_axe.py</code>, it navigates to each page of the running app, injects <code>axe-core</code> into the page, runs the WCAG 2.0 Level AA ruleset, and asserts zero new violations beyond two known, accepted Streamlit framework violations. <strong>Why it was chosen.</strong> WCAG 2.0 Level AA compliance is a non-functional requirement (F11). Accessibility cannot be reliably verified by reading source code — it requires the rendered DOM. <code>axe-core</code> is the industry-standard engine (used by Deque, included in browser DevTools, and referenced by WCAG tooling guides). <code>axe-playwright-python</code> is the minimal wrapper that brings it into the Python + Playwright test stack. <strong>Why it is dev-only.</strong> Same constraints as <code>playwright</code> — requires a live app and browser binaries. <hr> <h3><code>python-pptx</code> — <code>>=1.0</code> (installed: 1.0.2)</h3> <strong>What it does.</strong> Creates and modifies PowerPoint <code>.pptx</code> files programmatically. Used in <code>scripts/build_deck.py</code> and <code>scripts/generate_reports.py</code> to produce slide-deck reports from catalog health metrics (documentation coverage percentages, undocumented table counts, steward activity). <strong>Why it was chosen.</strong> Stakeholder reporting is a recurring operational task. Generating slide decks from live data programmatically eliminates manual copy-paste from the health dashboard into a presentation. <code>python-pptx</code> is the only mature, actively maintained Python library for <code>.pptx</code> generation. <strong>Why it is dev-only.</strong> Report generation is a script-level operation run on demand by operators, not a runtime application feature. Including it in the production image would add unnecessary size. <hr></li>
+</ul></p>
+</section>
+<section class="section" id="python-version-requirement">
+<h2>Python version requirement</h2>
+<p>The application requires <strong>Python 3.11 or later</strong>. The <code>datetime.UTC</code> singleton (introduced in Python 3.11) is used in <code>src/sync/daemon.py</code> and several test files. Running with Python 3.9 or 3.10 raises <code>ImportError: cannot import name 'UTC' from 'datetime'</code> at collection time.</p>
+<p>The production Docker image pins to a Python 3.11 base image. Local development must invoke the correct interpreter explicitly:</p>
+<pre><code class="language-bash">python3.11 -m pytest tests/ -q \
+  --ignore=tests/test_load_smoke.py \
+  --ignore=tests/test_wcag_axe.py \
+  --ignore=tests/test_nav_render.py</code></pre>
+<hr>
+</section>
+<section class="section" id="version-pinning-rationale">
+<h2>Version pinning rationale</h2>
+<p>Runtime dependencies use <code>>=x.y,<next-major</code>. The comment on each line records the last-known-good version:</p>
+<pre><code>streamlit>=1.50,<2   # 1.56.0
+duckdb>=1.0,<2       # 1.5.2</code></pre>
+<p><strong>Why <code><next-major</code> and not a pinned exact version.</strong> Exact pins (<code>==1.57.0</code>) cause <code>pip</code> conflicts when transitive dependencies update. Compatible ranges allow minor and patch updates — which typically carry bug fixes and security patches — while blocking major-version jumps that may carry breaking API changes. Each time the installed version drifts beyond the comment, the comment should be updated and the test suite re-run to confirm compatibility.</p>
+<p><strong>Dev dependencies use only a lower bound</strong> (<code>>=x.y</code>) because they never ship to production and the risk of a minor-version regression is low relative to the cost of keeping them pinned.</p>
+</section>
+      <footer class="site-footer">
+        <p>Data Dictionary · Documented by Data Engineering</p>
+        <p>Internal Use Only</p>
+      </footer>
+    </article>
+  </main>
+</body>
+</html>

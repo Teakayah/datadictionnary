@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Dictionary — ADR 003 — Streamlit instead of FastAPI + React</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <a href="product-overview.html" style="text-decoration:none; color:inherit;">
+      <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:24px">
+        <g transform="translate(4,2)">
+          <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
+          <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
+          <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
+        </g>
+        <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
+      </svg>
+    </a>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-section-title">Guides</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="user-guide.html">User Guide</a></li>
+      <li class="nav-item "><a href="steward-guide.html">Steward Guide</a></li>
+      <li class="nav-item "><a href="admin-runbook.html">Admin Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Product</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="product-overview.html">Product Overview</a></li>
+      <li class="nav-item "><a href="business-requirements.html">Business Requirements</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Features</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="feature-unified-search.html">Unified Search</a></li>
+      <li class="nav-item "><a href="feature-personalization.html">Personalization</a></li>
+      <li class="nav-item "><a href="feature-data-quality.html">Data Quality</a></li>
+      <li class="nav-item "><a href="feature-data-preview.html">Data Preview</a></li>
+      <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
+      <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
+      <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Architecture</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="architecture.html">Architecture Overview</a></li>
+      <li class="nav-item "><a href="dependencies.html">Dependencies</a></li>
+      <li class="nav-item "><a href="adr-001-duckdb-local-cache.html">ADR 001: DuckDB Cache</a></li>
+      <li class="nav-item "><a href="adr-002-push-down-sql-auth.html">ADR 002: SQL Auth</a></li>
+      <li class="nav-item active"><a href="adr-003-streamlit-not-fastapi.html">ADR 003: Streamlit</a></li>
+      <li class="nav-item "><a href="adr-004-sidecar-sync-worker.html">ADR 004: Sync Worker</a></li>
+      <li class="nav-item "><a href="adr-005-storage-abstraction.html">ADR 005: Storage Abstraction</a></li>
+      <li class="nav-item "><a href="adr-006-entra-groups-overage.html">ADR 006: Groups Overage</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Operations</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="runbook-sync-worker.html">Sync Worker Runbook</a></li>
+      <li class="nav-item "><a href="runbook-secret-rotation.html">Secret Rotation Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Reference</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="reference-locale-keys.html">Locale Keys</a></li>
+    </ul>
+  </nav>
+</aside>
+
+  <main class="content-wrapper">
+    <article class="page">
+      <header class="site-header">
+        <span class="badge">Guides</span>
+      </header>
+      <section class="hero">
+        <div class="eyebrow">Guides</div>
+        <h1>ADR 003 — Streamlit instead of FastAPI + React</h1>
+      </section>
+      <section class="section">
+<p><strong>Status:</strong> Accepted  
+<strong>Date:</strong> 2026-04-30  
+<strong>Deciders:</strong> Platform team</p>
+<hr>
+</section>
+<section class="section" id="context">
+<h2>Context</h2>
+<p>The Business Data Dictionary is an internal tool for non-technical business users. The primary interactions are:</p>
+<ul>
+  <li>Search (type a term, see a list of matching tables with descriptions)</li>
+  <li>Table detail (click a result, see columns, grants, lineage, comments)</li>
+  <li>Glossary browsing</li>
+  <li>Bookmarking and commenting (low-frequency writes) The team building the tool is small (two to three engineers) with strong Python skills and limited frontend experience. Time-to-first-demo was a key constraint: the tool needed to be usable by business stakeholders within two weeks of the decision to build it. <h3>Option A — FastAPI + React</h3> A REST or GraphQL API in FastAPI with a React (or Next.js) frontend. Advantages:</li>
+  <li>Full control over the UI — any design system, any interaction pattern</li>
+  <li>Standard HTTP semantics enable conventional load testing tools (k6, wrk, Gatling)</li>
+  <li>Stateless API is easy to scale horizontally Disadvantages:</li>
+  <li>Requires maintaining two codebases (Python API + JavaScript frontend)</li>
+  <li>React component development, state management (Redux or Zustand), and build tooling add significant overhead for a two-person team</li>
+  <li>Time-to-first-demo is weeks, not days</li>
+  <li>API authentication (session tokens, CSRF, CORS) requires explicit implementation</li>
+  <li>CI must cover both Python and JavaScript test suites <h3>Option B — Streamlit</h3> A single Python file that defines both the UI and the business logic. Streamlit handles the WebSocket connection, session state, and server-side rendering. Advantages:</li>
+  <li>Single Python codebase. The same team that writes the data pipeline writes the UI.</li>
+  <li>Rapid iteration: adding a new tab or card is tens of lines of Python</li>
+  <li>Built-in session state management removes the need for external state stores</li>
+  <li>OIDC authentication is implemented once in Python; no separate frontend auth concern</li>
+  <li>Existing Streamlit <code>AppTest</code> framework enables pytest-based integration tests without a browser Disadvantages:</li>
+  <li>Interactive features (button clicks, widget state) are driven over a binary WebSocket protocol (protobuf). Conventional HTTP load testing tools cannot exercise real interactions — only the page-shell HTTP endpoint is testable with tools like Locust's HTTP user class.</li>
+  <li>The workaround for load testing is to test the query layer directly (DuckDB reads) using a separate <code>DuckDBQueryUser</code> class in Locust. This reflects the actual performance-sensitive path: DuckDB search queries, not HTTP page delivery.</li>
+  <li>Multi-page routing (Streamlit's file-based <code>pages/</code> directory) was not used because the app has a custom tab navigation model with permission-aware tab visibility. A single entry point (<code>app.py</code>) is simpler to reason about for this use case.</li>
+  <li><code>app.py</code> grows large without discipline. The refactoring roadmap (<a href="REFACTORING.html"><code>REFACTORING.md</code></a>) addresses this by extracting modules into <code>src/</code>. <hr></li>
+</ul>
+</section>
+<section class="section" id="decision">
+<h2>Decision</h2>
+<p>Use Streamlit for the initial version of the Business Data Dictionary.</p>
+<p>The business user audience, small team size, and rapid-iteration requirement favor a Python-native approach over a two-tier web architecture. The WebSocket interaction model is a known limitation for HTTP load testing, which is mitigated by testing the DuckDB query layer directly.</p>
+<p>A migration to FastAPI + a lightweight frontend remains a valid long-term option if the team grows or if more complex UI interactions are required, but is out of scope for v0.x.</p>
+<hr>
+</section>
+<section class="section" id="consequences">
+<h2>Consequences</h2>
+<p><strong>Positive:</strong>
+<ul>
+  <li>Single Python codebase with pytest integration tests</li>
+  <li>New screens can be added in hours, not days</li>
+  <li>OIDC auth, permission enforcement, and DuckDB queries are all in one language <strong>Negative:</strong></li>
+  <li>Full end-to-end interaction testing requires Playwright or a similar browser automation tool; pytest AppTest covers rendering but not real click flows</li>
+  <li>HTTP load testing (Locust <code>DictionaryHTTPUser</code>) tests only page delivery, not the actual app logic. The <code>DuckDBQueryUser</code> in <code>tests/load/locustfile.py</code> fills this gap by directly executing the search SQL that the app would run</li>
+  <li>Streamlit's execution model (top-to-bottom re-run on every interaction) requires careful use of <code>st.cache_data</code> and <code>st.session_state</code> to avoid redundant database queries</li>
+  <li><code>app.py</code> at 4 000+ lines is currently a monolith. Extraction to <code>src/</code> modules is tracked in <a href="REFACTORING.html"><code>REFACTORING.md</code></a></li>
+</ul></p>
+</section>
+      <footer class="site-footer">
+        <p>Data Dictionary · Documented by Data Engineering</p>
+        <p>Internal Use Only</p>
+      </footer>
+    </article>
+  </main>
+</body>
+</html>

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Dictionary — ADR 006 — Entra ID groups overage handling</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <a href="product-overview.html" style="text-decoration:none; color:inherit;">
+      <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:24px">
+        <g transform="translate(4,2)">
+          <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
+          <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
+          <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
+        </g>
+        <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
+      </svg>
+    </a>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-section-title">Guides</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="user-guide.html">User Guide</a></li>
+      <li class="nav-item "><a href="steward-guide.html">Steward Guide</a></li>
+      <li class="nav-item "><a href="admin-runbook.html">Admin Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Product</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="product-overview.html">Product Overview</a></li>
+      <li class="nav-item "><a href="business-requirements.html">Business Requirements</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Features</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="feature-unified-search.html">Unified Search</a></li>
+      <li class="nav-item "><a href="feature-personalization.html">Personalization</a></li>
+      <li class="nav-item "><a href="feature-data-quality.html">Data Quality</a></li>
+      <li class="nav-item "><a href="feature-data-preview.html">Data Preview</a></li>
+      <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
+      <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
+      <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Architecture</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="architecture.html">Architecture Overview</a></li>
+      <li class="nav-item "><a href="dependencies.html">Dependencies</a></li>
+      <li class="nav-item "><a href="adr-001-duckdb-local-cache.html">ADR 001: DuckDB Cache</a></li>
+      <li class="nav-item "><a href="adr-002-push-down-sql-auth.html">ADR 002: SQL Auth</a></li>
+      <li class="nav-item "><a href="adr-003-streamlit-not-fastapi.html">ADR 003: Streamlit</a></li>
+      <li class="nav-item "><a href="adr-004-sidecar-sync-worker.html">ADR 004: Sync Worker</a></li>
+      <li class="nav-item "><a href="adr-005-storage-abstraction.html">ADR 005: Storage Abstraction</a></li>
+      <li class="nav-item active"><a href="adr-006-entra-groups-overage.html">ADR 006: Groups Overage</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Operations</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="runbook-sync-worker.html">Sync Worker Runbook</a></li>
+      <li class="nav-item "><a href="runbook-secret-rotation.html">Secret Rotation Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Reference</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="reference-locale-keys.html">Locale Keys</a></li>
+    </ul>
+  </nav>
+</aside>
+
+  <main class="content-wrapper">
+    <article class="page">
+      <header class="site-header">
+        <span class="badge">Guides</span>
+      </header>
+      <section class="hero">
+        <div class="eyebrow">Guides</div>
+        <h1>ADR 006 — Entra ID groups overage handling</h1>
+      </section>
+      <section class="section">
+<p><strong>Status:</strong> Accepted
+<strong>Date:</strong> 2026-05-08
+<strong>Deciders:</strong> Platform team, Identity team</p>
+<hr>
+</section>
+<section class="section" id="context">
+<h2>Context</h2>
+<p>Authorisation in this app is push-down SQL: the <code>permissions_cache</code>
+table stores one row per <code>(table, principal, privilege)</code>, and every
+result-returning query joins <code>tables_metadata</code> against
+<code>permissions_cache WHERE principal IN (user's Entra security groups)</code>.
+The user's group set comes from the <code>groups</code> claim on their Entra ID
+ID token, which the app reads on sign-in:</p>
+<pre><code class="language-python">st.session_state.user_groups = claims.get("groups", [])</code></pre>
+<p>This works for typical users. It silently fails for users with
+<strong>more than ~150 Entra security-group memberships</strong>. Microsoft Entra
+omits the inline <code>groups</code> claim in that case and adds a pointer:</p>
+<pre><code class="language-json">{
+  "_claim_names":   { "groups": "src1" },
+  "_claim_sources": { "src1": { "endpoint": "https://graph.microsoft.com/..." } }
+}</code></pre>
+<p>Without explicit handling, <code>claims.get("groups", [])</code> returns <code>[]</code>,
+the join returns no rows, and the user sees zero tables. This is
+invisible in dev (small group counts) but a hard production failure
+for enterprise tenants — IT admins, partner teams, anyone with broad
+group membership.</p>
+<p>A senior-developer audit (TODO #2) flagged this as a critical
+production-failure mode worth fixing immediately.</p>
+<h3>Alternatives considered</h3>
+<p><strong>Reduce Entra group emission to security-enabled-only.</strong>
+Entra has a token configuration option that only emits security
+groups, raising the overage threshold. Helps but doesn't eliminate the
+class of failure: tenants with >150 <em>security</em> groups (large
+enterprises) still hit it. And it's a tenant-wide setting, not
+something an app can rely on. Rejected as a sole solution.</p>
+<p><strong>Switch the auth model to per-table grants in the app's own DB.</strong>
+Move authorisation out of Entra entirely and maintain our own
+permission store. Far too invasive for the problem at hand and
+abandons the "Entra is the source of truth" principle the app was
+built on. Rejected.</p>
+<p><strong>Read the access token's <code>groups</code> claim instead of the ID token.</strong>
+Same overage limit applies. Rejected.</p>
+<p><em></em>Document the limit and tell affected users to reduce their group
+count.<em></em>
+Not viable — a user can't reduce their own group count, and IT
+admins can't either without security review.</p>
+<hr>
+</section>
+<section class="section" id="decision">
+<h2>Decision</h2>
+<p>Detect the overage shape in <code>check_auth</code> and call Microsoft Graph's
+<code>getMemberObjects</code> to fetch the transitive security-group list using
+the access token MSAL has already produced.</p>
+<h3>Detection</h3>
+<p><code>src.auth_graph.has_groups_overage(claims)</code> returns True iff:</p>
+<pre><code class="language-python">"groups" not in claims and "groups" in (claims.get("_claim_names") or {})</code></pre>
+<p>Both conditions matter. A token with both inline groups and a
+<code>_claim_names</code> entry (rare, but possible) still uses the inline list.</p>
+<h3>Resolution</h3>
+<p>When overage is detected, <code>_resolve_user_groups</code> calls
+<code>fetch_member_groups(access_token, user_oid)</code>:</p>
+<p><code></code>`http
+POST https://graph.microsoft.com/v1.0/me/getMemberObjects
+Authorization: Bearer <access_token>
+Content-Type: application/json</p>
+<p>{"securityEnabledOnly": true}
+<code></code>`</p>
+<p>Response is paginated via <code>@odata.nextLink</code> — first page is POST,
+subsequent pages are GET against the absolute URL Graph returns. The
+implementation caps pagination at 50 pages so a buggy server can't
+loop forever. With the default 11 000-IDs-per-call from Graph that's
+plenty.</p>
+<h3>Caching</h3>
+<p>Results are cached in a process-level dict keyed by user OID with a
+1 h TTL. Lock-protected because Streamlit's script-runner threads can
+call into the cache concurrently.</p>
+<p><code>@st.cache_data</code> was deliberately rejected — it's
+session-scoped, so each browser tab would force a fresh Graph call.
+For a feature that exists to handle "this user is in many groups"
+that's exactly the wrong default.</p>
+<h3>Failure modes</h3>
+<p>Any error (network, 4xx including 403, 5xx) returns <code>[]</code> and logs a
+warning. The user sees no tables. We <strong>never silently grant access</strong>
+by returning a wider set on failure — fail-closed is the only correct
+default for an authorisation layer.</p>
+<h3>Cache invalidation</h3>
+<p>Two triggers:</p>
+<ol class="steps">
+  <li><strong>Sign-out</strong> drops the user's cache entry (<code>_clear_auth_session</code> calls <code>clear_groups_cache(user_oid)</code>). Without this, "sign out and sign back in" would still read 1 h-stale group memberships and defeat the user's instinct for fixing access issues. 2. <strong>Fresh OIDC code-exchange</strong> clears the cache for the new user OID before resolving groups, so a successful sign-in always reflects current Entra state regardless of whether the previous session was signed out cleanly. 3. <strong>Admin button</strong> (<code>§ Group permissions cache → Flush groups cache</code>) drops every cached entry. Use case: an admin grants a user a new group, the user is still signed in, the admin clicks the button, the user reloads and sees the new tables. <h3>Required scope</h3> <code>SCOPE</code> in <code>src/config.py</code> includes <code>GroupMember.Read.All</code>. This was</li>
+</ol>already in the scope list before this ADR but was load-bearing only
+once we added the Graph call. Removing it would break overage users —
+documented inline in <code>src/config.py</code> so future readers don't think
+it's safe to drop.
+<hr>
+</section>
+<section class="section" id="consequences">
+<h2>Consequences</h2>
+<p><strong>Positive:</strong></p>
+<ul>
+  <li>Affected users (>150 groups) now see the catalog. Before this, they saw zero rows with no error message and no clear path to a fix.</li>
+  <li>The cache invalidation invariants (sign-out, sign-in, admin flush) give admins three predictable ways to refresh permissions, all documented in the runbook and CLAUDE.md.</li>
+  <li>Tests cover overage detection, pagination, all failure modes, cache hit/miss, and the three cache-clear paths. <strong>Negative:</strong> - One Microsoft Graph call per affected user per cache TTL — small cost. <code>getMemberObjects</code> returns up to 11 000 IDs per page; the cache amortises the cost across all renders for that user in the next hour.</li>
+  <li>Pagination cap (50 pages, 550 000 IDs) is far above any real-world ceiling. If exceeded the daemon logs a warning and truncates; the user sees a subset of their groups. Acceptable given the contrived threshold.</li>
+  <li>The admin "Flush groups cache" button affects every active user, not one. This is intentional — admins normally don't know which user needs the refresh, and the cost (one Graph call per active user on next render) is bounded. <strong>Out of scope:</strong> - SSO logout / forced silent re-auth on group-membership change. Group changes propagate at the next token refresh (≤1 h) plus the cache TTL (≤1 h). Combined with the explicit invalidation triggers above, the worst case is ~1 h delay; tighter latency would require webhooks or polling Graph, neither of which is justified at current scale.</li>
+  <li>Pre-computing group lists at sync time. Group membership is a per- user concern at request time, not a property of the catalog data — caching it cluster-wide doesn't help.</li>
+</ul>
+</section>
+      <footer class="site-footer">
+        <p>Data Dictionary · Documented by Data Engineering</p>
+        <p>Internal Use Only</p>
+      </footer>
+    </article>
+  </main>
+</body>
+</html>

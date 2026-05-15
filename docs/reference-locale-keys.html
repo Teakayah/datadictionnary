@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Dictionary — Locale key reference</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <a href="product-overview.html" style="text-decoration:none; color:inherit;">
+      <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:24px">
+        <g transform="translate(4,2)">
+          <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
+          <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
+          <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
+        </g>
+        <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
+      </svg>
+    </a>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-section-title">Guides</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="user-guide.html">User Guide</a></li>
+      <li class="nav-item "><a href="steward-guide.html">Steward Guide</a></li>
+      <li class="nav-item "><a href="admin-runbook.html">Admin Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Product</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="product-overview.html">Product Overview</a></li>
+      <li class="nav-item "><a href="business-requirements.html">Business Requirements</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Features</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="feature-unified-search.html">Unified Search</a></li>
+      <li class="nav-item "><a href="feature-personalization.html">Personalization</a></li>
+      <li class="nav-item "><a href="feature-data-quality.html">Data Quality</a></li>
+      <li class="nav-item "><a href="feature-data-preview.html">Data Preview</a></li>
+      <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
+      <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
+      <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Architecture</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="architecture.html">Architecture Overview</a></li>
+      <li class="nav-item "><a href="dependencies.html">Dependencies</a></li>
+      <li class="nav-item "><a href="adr-001-duckdb-local-cache.html">ADR 001: DuckDB Cache</a></li>
+      <li class="nav-item "><a href="adr-002-push-down-sql-auth.html">ADR 002: SQL Auth</a></li>
+      <li class="nav-item "><a href="adr-003-streamlit-not-fastapi.html">ADR 003: Streamlit</a></li>
+      <li class="nav-item "><a href="adr-004-sidecar-sync-worker.html">ADR 004: Sync Worker</a></li>
+      <li class="nav-item "><a href="adr-005-storage-abstraction.html">ADR 005: Storage Abstraction</a></li>
+      <li class="nav-item "><a href="adr-006-entra-groups-overage.html">ADR 006: Groups Overage</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Operations</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="runbook-sync-worker.html">Sync Worker Runbook</a></li>
+      <li class="nav-item "><a href="runbook-secret-rotation.html">Secret Rotation Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Reference</div>
+    <ul class="nav-list">
+      <li class="nav-item active"><a href="reference-locale-keys.html">Locale Keys</a></li>
+    </ul>
+  </nav>
+</aside>
+
+  <main class="content-wrapper">
+    <article class="page">
+      <header class="site-header">
+        <span class="badge">Reference</span>
+      </header>
+      <section class="hero">
+        <div class="eyebrow">Reference</div>
+        <h1>Locale key reference</h1>
+      </section>
+      <section class="section">
+<p>All i18n keys available via the <code>t()</code> function, with English and French values side by side.</p>
+<p>Keys are dot-separated paths into the locale JSON structure (e.g. <code>t("search.placeholder")</code>). Curly-brace tokens (e.g. <code>{count}</code>) are substituted by keyword arguments passed to <code>t()</code>.</p>
+<hr>
+</section>
+<section class="section" id="nav">
+<h2>nav</h2>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>EN</th><th>FR</th></tr>
+</thead>
+<tbody>
+<tr><td><code>nav.search</code></td><td>Search</td><td>Recherche</td></tr>
+<tr><td><code>nav.catalog</code></td><td>Catalog</td><td>Catalogue</td></tr>
+<tr><td><code>nav.discovery</code></td><td>Discovery</td><td>Découverte</td></tr>
+<tr><td><code>nav.health</code></td><td>Health</td><td>Santé</td></tr>
+<tr><td><code>nav.glossary</code></td><td>Glossary</td><td>Glossaire</td></tr>
+<tr><td><code>nav.admin</code></td><td>Admin</td><td>Admin</td></tr>
+<tr><td><code>nav.sign_out</code></td><td>Sign out</td><td>Déconnexion</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="auth">
+<h2>auth</h2>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>EN</th><th>FR</th></tr>
+</thead>
+<tbody>
+<tr><td><code>auth.title</code></td><td>A card catalog for your warehouse.</td><td>Un catalogue pour votre entrepôt.</td></tr>
+<tr><td><code>auth.subtitle</code></td><td>Search tables, columns, and business terms across Unity Catalog — filtered to what you have permission to see.</td><td>Recherchez des tables, des colonnes et des termes métier dans Unity Catalog — filtrés selon vos accès.</td></tr>
+<tr><td><code>auth.sign_in_button</code></td><td>Sign in with Entra ID</td><td>Se connecter avec Entra ID</td></tr>
+<tr><td><code>auth.mock_button</code></td><td>Sign in with Entra ID (mock)</td><td>Se connecter avec Entra ID (démo)</td></tr>
+<tr><td><code>auth.signed_in_as</code></td><td>Signed in as</td><td>Connecté en tant que</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="search">
+<h2>search</h2>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>EN</th><th>FR</th></tr>
+</thead>
+<tbody>
+<tr><td><code>search.hero_title</code></td><td>Search the catalog.</td><td>Rechercher dans le catalogue.</td></tr>
+<tr><td><code>search.hero_subtitle</code></td><td>Find data assets across the organization.</td><td>Trouvez des données dans toute l'organisation.</td></tr>
+<tr><td><code>search.placeholder</code></td><td>Search tables or columns...</td><td>Rechercher des tables ou des colonnes…</td></tr>
+<tr><td><code>search.results_count</code></td><td>{count} results</td><td>{count} résultats</td></tr>
+<tr><td><code>search.no_results</code></td><td>No results found for '{query}'</td><td>Aucun résultat pour « {query} »</td></tr>
+<tr><td><code>search.loading</code></td><td>Searching...</td><td>Recherche en cours…</td></tr>
+<tr><td><code>search.eyebrow</code></td><td>§ Catalog search</td><td>§ Recherche au catalogue</td></tr>
+<tr><td><code>search.load_error</code></td><td>Error loading catalog.</td><td>Erreur lors du chargement du catalogue.</td></tr>
+<tr><td><code>search.public_tables_filter</code></td><td>Showing publicly accessible tables</td><td>Affichage des tables accessibles à tous</td></tr>
+<tr><td><code>search.group_filter_active</code></td><td>Filtered by group: {group}</td><td>Filtré par groupe : {group}</td></tr>
+<tr><td><code>search.view_details</code></td><td>View details</td><td>Voir les détails</td></tr>
+<tr><td><code>search.view_details_help</code></td><td>View details for this table</td><td>Afficher les détails de cette table</td></tr>
+<tr><td><code>search.back_to_results</code></td><td>Back to results</td><td>Retour aux résultats</td></tr>
+<tr><td><code>search.back_to_results_help</code></td><td>Back to search results</td><td>Retour aux résultats de recherche</td></tr>
+<tr><td><code>search.start_typing</code></td><td>Start typing to search the catalog.</td><td>Commencez à saisir pour rechercher dans le catalogue.</td></tr>
+<tr><td><code>search.no_access</code></td><td>You don't have access to any tables yet. Contact your administrator to request access.</td><td>Vous n'avez accès à aucune table pour l'instant. Contactez votre administrateur pour demander l'accès.</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="catalog">
+<h2>catalog</h2>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>EN</th><th>FR</th></tr>
+</thead>
+<tbody>
+<tr><td><code>catalog.eyebrow</code></td><td>§ Catalog browser</td><td>§ Navigateur de catalogue</td></tr>
+<tr><td><code>catalog.hero_title</code></td><td>Explore the hierarchy.</td><td>Explorez la hiérarchie.</td></tr>
+<tr><td><code>catalog.hero_subtitle</code></td><td>Drill down from catalogs to schemas and tables.</td><td>Naviguez des catalogues aux schémas et aux tables.</td></tr>
+<tr><td><code>catalog.no_catalogs</code></td><td>No catalogs accessible.</td><td>Aucun catalogue accessible.</td></tr>
+<tr><td><code>catalog.load_error</code></td><td>Could not load catalog hierarchy.</td><td>Impossible de charger la hiérarchie du catalogue.</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="table">
+<h2>table</h2>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>EN</th><th>FR</th></tr>
+</thead>
+<tbody>
+<tr><td><code>table.columns</code></td><td>Columns</td><td>Colonnes</td></tr>
+<tr><td><code>table.grants</code></td><td>Grants</td><td>Permissions</td></tr>
+<tr><td><code>table.lineage</code></td><td>Lineage</td><td>Lignage</td></tr>
+<tr><td><code>table.comments</code></td><td>Comments</td><td>Commentaires</td></tr>
+<tr><td><code>table.business_name</code></td><td>Business name</td><td>Nom métier</td></tr>
+<tr><td><code>table.description</code></td><td>Description</td><td>Description</td></tr>
+<tr><td><code>table.type</code></td><td>Type</td><td>Type</td></tr>
+<tr><td><code>table.open_in_databricks</code></td><td>Open in Databricks</td><td>Ouvrir dans Databricks</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="detail">
+<h2>detail</h2>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>EN</th><th>FR</th></tr>
+</thead>
+<tbody>
+<tr><td><code>detail.section_columns</code></td><td>§ Columns</td><td>§ Colonnes</td></tr>
+<tr><td><code>detail.section_grants</code></td><td>§ Group permissions</td><td>§ Permissions des groupes</td></tr>
+<tr><td><code>detail.section_lineage</code></td><td>§ Lineage</td><td>§ Lignage</td></tr>
+<tr><td><code>detail.section_comments</code></td><td>§ Comments</td><td>§ Commentaires</td></tr>
+<tr><td><code>detail.section_related</code></td><td>§ Related tables</td><td>§ Tables liées</td></tr>
+<tr><td><code>detail.title</code></td><td>§ Table detail</td><td>§ Détails de la table</td></tr>
+<tr><td><code>detail.related_count</code></td><td>related</td><td>liées</td></tr>
+<tr><td><code>detail.same_schema</code></td><td>Same schema</td><td>Même schéma</td></tr>
+<tr><td><code>detail.shared_column</code></td><td>Shared column</td><td>Colonne partagée</td></tr>
+<tr><td><code>detail.open_related</code></td><td>Open →</td><td>Ouvrir →</td></tr>
+<tr><td><code>detail.search_tables_accessible</code></td><td>Search tables accessible to: {principal} ({privilege})</td><td>Rechercher les tables accessibles à: {principal} ({privilege})</td></tr>
+<tr><td><code>detail.browse_public_tables</code></td><td>Browse tables accessible to all users ({privilege})</td><td>Parcourir les tables accessibles à tous ({privilege})</td></tr>
+<tr><td><code>detail.load_error</code></td><td>Error displaying details.</td><td>Erreur lors de l'affichage des détails.</td></tr>
+<tr><td><code>detail.preview_data</code></td><td>Preview data</td><td>Aperçu des données</td></tr>
+<tr><td><code>detail.export_dictionary</code></td><td>Export dictionary</td><td>Exporter le dictionnaire</td></tr>
+<tr><td><code>detail.edit_table</code></td><td>Edit table metadata</td><td>Modifier les métadonnées</td></tr>
+<tr><td><code>detail.table_description</code></td><td>Table description</td><td>Description de la table</td></tr>
+<tr><td><code>detail.steward_email</code></td><td>Data steward email</td><td>Email du responsable</td></tr>
+<tr><td><code>detail.unauthorized</code></td><td>You do not have permission to access this asset.</td><td>Vous n'avez pas la permission d'accéder à cet élément.</td></tr>
+<tr><td><code>detail.data_sample</code></td><td>Data sample</td><td>Aperçu des données</td></tr>
+<tr><td><code>detail.lineage_graph</code></td><td>Lineage graph</td><td>Graphe de lignage</td></tr>
+<tr><td><code>detail.lineage_graph_subtitle</code></td><td>{table} — full lineage</td><td>{table} — lignage complet</td></tr>
+<tr><td><code>detail.preview_not_available</code></td><td>Preview not available for this table in local mode.</td><td>Aperçu non disponible pour cette table en mode local.</td></tr>
+<tr><td><code>detail.preview_needs_data</code></td><td>No row data found. Regenerate the test dataset with --with-data to enable preview.</td><td>Aucune donnée trouvée. Régénérez le jeu de test avec --with-data pour activer l'aperçu.</td></tr>
+<tr><td><code>detail.preview_error</code></td><td>Could not fetch data sample. You may not have permission to view the underlying data.</td><td>Impossible de récupérer l'échantillon. Vous n'avez peut-être pas la permission d'accéder aux données.</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="comment">
+<h2>comment</h2>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>EN</th><th>FR</th></tr>
+</thead>
+<tbody>
+<tr><td><code>comment.add_comment</code></td><td>Add a comment</td><td>Ajouter un commentaire</td></tr>
+<tr><td><code>comment.reply</code></td><td>Reply</td><td>Répondre</td></tr>
+<tr><td><code>comment.save</code></td><td>Save comment</td><td>Enregistrer le commentaire</td></tr>
+<tr><td><code>comment.cancel</code></td><td>Cancel</td><td>Annuler</td></tr>
+<tr><td><code>comment.steward</code></td><td>Steward</td><td>Responsable</td></tr>
+<tr><td><code>comment.posted_by</code></td><td>Posted by</td><td>Posté par</td></tr>
+<tr><td><code>comment.no_comments</code></td><td>No comments yet.</td><td>Aucun commentaire pour le moment.</td></tr>
+<tr><td><code>comment.leave_a_comment</code></td><td>Leave a comment</td><td>Laisser un commentaire</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="editor">
+<h2>editor</h2>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>EN</th><th>FR</th></tr>
+</thead>
+<tbody>
+<tr><td><code>editor.edit_business_name</code></td><td>Edit business name</td><td>Modifier le nom métier</td></tr>
+<tr><td><code>editor.business_name_label</code></td><td>Business name</td><td>Nom métier</td></tr>
+<tr><td><code>editor.definition_label</code></td><td>Definition</td><td>Définition</td></tr>
+<tr><td><code>editor.save</code></td><td>Save</td><td>Enregistrer</td></tr>
+<tr><td><code>editor.cancel</code></td><td>Cancel</td><td>Annuler</td></tr>
+<tr><td><code>editor.saved_by</code></td><td>Saved by {user}</td><td>Enregistré par {user}</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="admin">
+<h2>admin</h2>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>EN</th><th>FR</th></tr>
+</thead>
+<tbody>
+<tr><td><code>admin.title</code></td><td>§ Admin</td><td>§ Admin</td></tr>
+<tr><td><code>admin.subtitle</code></td><td>System health, usage statistics, and sync logs.</td><td>Santé du système, statistiques d'utilisation et journaux de synchronisation.</td></tr>
+<tr><td><code>admin.stats_tables</code></td><td>Total tables</td><td>Total tables</td></tr>
+<tr><td><code>admin.stats_columns</code></td><td>Total columns</td><td>Total colonnes</td></tr>
+<tr><td><code>admin.stats_comments</code></td><td>Total comments</td><td>Total commentaires</td></tr>
+<tr><td><code>admin.stats_overrides</code></td><td>Business name overrides</td><td>Surcharges de noms métier</td></tr>
+<tr><td><code>admin.biz_log_title</code></td><td>Business name change log</td><td>Historique des noms métier</td></tr>
+<tr><td><code>admin.comment_log_title</code></td><td>Comment log</td><td>Historique des commentaires</td></tr>
+<tr><td><code>admin.sync_title</code></td><td>Synchronization status</td><td>État de la synchronisation</td></tr>
+<tr><td><code>admin.no_data</code></td><td>No audit data available.</td><td>Aucune donnée d'audit disponible.</td></tr>
+<tr><td><code>admin.access_denied</code></td><td>Admin access required.</td><td>Accès administrateur requis.</td></tr>
+<tr><td><code>admin.expand_log</code></td><td>Expand log</td><td>Agrandir l'historique</td></tr>
+<tr><td><code>admin.editing_title</code></td><td>Inline editing</td><td>Édition en ligne</td></tr>
+<tr><td><code>admin.editing_toggle</code></td><td>Allow power users to edit metadata</td><td>Autoriser les utilisateurs avancés à modifier les métadonnées</td></tr>
+<tr><td><code>admin.editing_help</code></td><td>When off, edit buttons are hidden for all users — useful during data migrations or audits.</td><td>Quand désactivé, les boutons de modification sont masqués pour tous — utile lors de migrations ou d'audits.</td></tr>
+<tr><td><code>admin.editing_enabled</code></td><td>Editing is enabled.</td><td>L'édition est activée.</td></tr>
+<tr><td><code>admin.editing_disabled</code></td><td>Editing is locked.</td><td>L'édition est verrouillée.</td></tr>
+<tr><td><code>admin.groups_cache_title</code></td><td>Group permissions cache</td><td>Cache des groupes</td></tr>
+<tr><td><code>admin.groups_cache_subtitle</code></td><td>Drop the in-process Microsoft Entra group cache. Run after granting a user a new group so the change is picked up immediately instead of waiting up to an hour for the cache to expire.</td><td>Vider le cache des appartenances de groupes Microsoft Entra conservé en mémoire. À utiliser après l'ajout d'un utilisateur à un groupe pour que le changement soit immédiat plutôt que de patienter jusqu'à une heure.</td></tr>
+<tr><td><code>admin.groups_cache_flush</code></td><td>Flush groups cache</td><td>Vider le cache des groupes</td></tr>
+<tr><td><code>admin.groups_cache_flushed</code></td><td>Cleared {n} cached entries. Active users will re-fetch group membership on their next render.</td><td>{n} entrées supprimées. Les sessions actives ré-interrogeront Entra au prochain rendu.</td></tr>
+<tr><td><code>admin.tab_ops</code></td><td>Operations</td><td>Opérations</td></tr>
+<tr><td><code>admin.tab_insights</code></td><td>Quality Insights</td><td>Qualité & Insights</td></tr>
+<tr><td><code>admin.tab_audit</code></td><td>Audit Logs</td><td>Journaux d'Audit</td></tr>
+<tr><td><code>admin.reviews_title</code></td><td>Pending reviews</td><td>Révisions en attente</td></tr>
+<tr><td><code>admin.reviews_subtitle</code></td><td>Proposed metadata changes awaiting approval. Approve to publish to Unity Catalog; reject to discard.</td><td>Modifications de métadonnées proposées en attente d'approbation.</td></tr>
+<tr><td><code>admin.reviews_empty</code></td><td>No pending reviews.</td><td>Aucune révision en attente.</td></tr>
+<tr><td><code>admin.reviews_approve</code></td><td>Approve</td><td>Approuver</td></tr>
+<tr><td><code>admin.reviews_reject</code></td><td>Reject</td><td>Rejeter</td></tr>
+<tr><td><code>admin.reviews_proposed_by</code></td><td>Proposed by {user} · {date}</td><td>Proposé par {user} · {date}</td></tr>
+<tr><td><code>admin.reviews_old_value</code></td><td>Current</td><td>Actuel</td></tr>
+<tr><td><code>admin.reviews_new_value</code></td><td>Proposed</td><td>Proposé</td></tr>
+<tr><td><code>admin.integrity_title</code></td><td>Data Integrity Insights</td><td>Aperçu de l'Intégrité des Données</td></tr>
+<tr><td><code>admin.integrity_subtitle</code></td><td>Identify documentation and quality gaps to improve the end-user experience.</td><td>Identifiez les lacunes de documentation et de qualité pour améliorer l'expérience utilisateur.</td></tr>
+<tr><td><code>admin.integrity_impact_title</code></td><td>High-Impact Gaps</td><td>Lacunes à fort impact</td></tr>
+<tr><td><code>admin.integrity_impact_subtitle</code></td><td>Popular assets missing descriptions or stewards.</td><td>Actifs populaires manquant de descriptions ou de responsables.</td></tr>
+<tr><td><code>admin.integrity_stewardship_title</code></td><td>Missing Stewardship</td><td>Intendance manquante</td></tr>
+<tr><td><code>admin.integrity_stewardship_subtitle</code></td><td>Tables without an assigned owner or steward email.</td><td>Tables sans propriétaire ou email de responsable assigné.</td></tr>
+<tr><td><code>admin.integrity_dq_alerts_title</code></td><td>Quality Alerts</td><td>Alertes Qualité</td></tr>
+<tr><td><code>admin.integrity_dq_alerts_subtitle</code></td><td>Tables failing automated data quality checks.</td><td>Tables échouant aux contrôles de qualité automatisés.</td></tr>
+<tr><td><code>admin.integrity_popularity</code></td><td>Interactions</td><td>Interactions</td></tr>
+<tr><td><code>admin.integrity_table</code></td><td>Table</td><td>Table</td></tr>
+<tr><td><code>admin.integrity_issue</code></td><td>Issue</td><td>Problème</td></tr>
+<tr><td><code>admin.integrity_missing_desc</code></td><td>Missing description</td><td>Description manquante</td></tr>
+<tr><td><code>admin.integrity_missing_steward</code></td><td>Missing steward</td><td>Responsable manquant</td></tr>
+<tr><td><code>admin.integrity_dq_fail</code></td><td>DQ Failure</td><td>Échec DQ</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="health">
+<h2>health</h2>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>EN</th><th>FR</th></tr>
+</thead>
+<tbody>
+<tr><td><code>health.title</code></td><td>§ Catalog health</td><td>§ Santé du catalogue</td></tr>
+<tr><td><code>health.subtitle</code></td><td>Coverage and documentation status across the catalog.</td><td>Couverture et état de la documentation.</td></tr>
+<tr><td><code>health.hero_title</code></td><td>Documentation scorecard.</td><td>Tableau de bord documentaire.</td></tr>
+<tr><td><code>health.hero_subtitle</code></td><td>Audit the completeness and quality of your catalog metadata.</td><td>Vérifiez la complétude et la qualité de vos métadonnées.</td></tr>
+<tr><td><code>health.total_tables</code></td><td>Total tables</td><td>Total tables</td></tr>
+<tr><td><code>health.documented</code></td><td>Documented</td><td>Documenté</td></tr>
+<tr><td><code>health.with_grants</code></td><td>With grants</td><td>Avec permissions</td></tr>
+<tr><td><code>health.last_sync</code></td><td>Last sync 04:12 UTC</td><td>Dernière synchro à 04:12 UTC</td></tr>
+<tr><td><code>health.table_coverage</code></td><td>Table Coverage</td><td>Couverture des tables</td></tr>
+<tr><td><code>health.column_coverage</code></td><td>Column Coverage</td><td>Couverture des colonnes</td></tr>
+<tr><td><code>health.freshness_index</code></td><td>Freshness Index</td><td>Indice de fraîcheur</td></tr>
+<tr><td><code>health.tables_described</code></td><td>{n_desc} of {n_tables} described</td><td>{n_desc} sur {n_tables} décrites</td></tr>
+<tr><td><code>health.columns_defined</code></td><td>{n_col_desc} of {n_cols} defined</td><td>{n_col_desc} sur {n_cols} définies</td></tr>
+<tr><td><code>health.no_data</code></td><td>No data accessible to audit.</td><td>Aucune donnée accessible à auditer.</td></tr>
+<tr><td><code>health.missing_descriptions</code></td><td>The following tables are missing descriptions. Documentation is recommended.</td><td>Les tables suivantes manquent de descriptions. La documentation est recommandée.</td></tr>
+<tr><td><code>health.all_documented</code></td><td>All visible tables are documented. Great work!</td><td>Toutes les tables visibles sont documentées. Excellent travail !</td></tr>
+<tr><td><code>health.load_error</code></td><td>Could not load health metrics.</td><td>Impossible de charger les métriques de santé.</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="glossary">
+<h2>glossary</h2>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>EN</th><th>FR</th></tr>
+</thead>
+<tbody>
+<tr><td><code>glossary.title</code></td><td>§ Business glossary</td><td>§ Glossaire métier</td></tr>
+<tr><td><code>glossary.hero_title</code></td><td>Speak the same language.</td><td>Parlez le même langage.</td></tr>
+<tr><td><code>glossary.subtitle</code></td><td>Define business concepts and map them to technical data assets.</td><td>Définissez les concepts métier et liez-les aux données techniques.</td></tr>
+<tr><td><code>glossary.search_placeholder</code></td><td>Search for a term...</td><td>Rechercher un terme…</td></tr>
+<tr><td><code>glossary.no_terms</code></td><td>No terms found.</td><td>Aucun terme trouvé.</td></tr>
+<tr><td><code>glossary.term_details</code></td><td>§ Term Details</td><td>§ Détails du terme</td></tr>
+<tr><td><code>glossary.definition</code></td><td>Definition</td><td>Définition</td></tr>
+<tr><td><code>glossary.logic_calculation</code></td><td>Logic / Calculation</td><td>Logique / Calcul</td></tr>
+<tr><td><code>glossary.linked_tables</code></td><td>Linked Tables</td><td>Tables liées</td></tr>
+<tr><td><code>glossary.stewardship</code></td><td>§ Stewardship</td><td>§ Intendance</td></tr>
+<tr><td><code>glossary.domain</code></td><td>Domain</td><td>Domaine</td></tr>
+<tr><td><code>glossary.steward</code></td><td>Steward</td><td>Responsable</td></tr>
+<tr><td><code>glossary.business_domain</code></td><td>Business domain</td><td>Domaine métier</td></tr>
+<tr><td><code>glossary.data_steward</code></td><td>Data steward</td><td>Responsable des données</td></tr>
+<tr><td><code>glossary.concept_map</code></td><td>§ Concept Map</td><td>§ Carte des concepts</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="discovery">
+<h2>discovery</h2>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>EN</th><th>FR</th></tr>
+</thead>
+<tbody>
+<tr><td><code>discovery.title</code></td><td>§ Discovery</td><td>§ Découverte</td></tr>
+<tr><td><code>discovery.subtitle</code></td><td>Browse the catalog by catalog, schema, and table.</td><td>Parcourez le catalogue par catalogue, schéma et table.</td></tr>
+<tr><td><code>discovery.hero_title</code></td><td>New & Notable.</td><td>Nouveau & Remarquable.</td></tr>
+<tr><td><code>discovery.hero_subtitle</code></td><td>Recently updated data assets across your primary domains.</td><td>Données récemment mises à jour dans vos domaines principaux.</td></tr>
+<tr><td><code>discovery.group_highlights</code></td><td>Highlights for your primary group: {group}</td><td>Faits saillants pour votre groupe principal : {group}</td></tr>
+<tr><td><code>discovery.no_updates</code></td><td>No recent updates found for this group.</td><td>Aucune mise à jour récente pour ce groupe.</td></tr>
+<tr><td><code>discovery.load_error</code></td><td>Could not load discovery feed.</td><td>Impossible de charger le flux de découverte.</td></tr>
+<tr><td><code>discovery.sign_in_prompt</code></td><td>Please sign in or select a group to view discovery highlights.</td><td>Connectez-vous ou sélectionnez un groupe pour voir les faits saillants.</td></tr>
+<tr><td><code>discovery.date_format</code></td><td>%b %d, %H:%M UTC</td><td>%d %b, %H:%M UTC</td></tr>
+<tr><td><code>discovery.explore_button</code></td><td>Explore {name} →</td><td>Explorer {name} →</td></tr>
+<tr><td><code>discovery.updated</code></td><td>Updated</td><td>Mis à jour</td></tr>
+<tr><td><code>discovery.no_groups</code></td><td>Your account is not assigned to any data-access groups. Contact your administrator to request access.</td><td>Votre compte n'est associé à aucun groupe d'accès aux données. Contactez votre administrateur pour demander l'accès.</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="footer">
+<h2>footer</h2>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>EN</th><th>FR</th></tr>
+</thead>
+<tbody>
+<tr><td><code>footer.built_with</code></td><td>Data Dictionary · v0.1.0 · synced nightly from Unity Catalog</td><td>Data Dictionary · v0.1.0 · synchronisé chaque nuit depuis Unity Catalog</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="common">
+<h2>common</h2>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>EN</th><th>FR</th></tr>
+</thead>
+<tbody>
+<tr><td><code>common.loading</code></td><td>Loading...</td><td>Chargement…</td></tr>
+<tr><td><code>common.error</code></td><td>An error occurred.</td><td>Une erreur est survenue.</td></tr>
+<tr><td><code>common.empty</code></td><td>No data available.</td><td>Aucune donnée.</td></tr>
+<tr><td><code>common.save</code></td><td>Save</td><td>Enregistrer</td></tr>
+<tr><td><code>common.cancel</code></td><td>Cancel</td><td>Annuler</td></tr>
+<tr><td><code>common.edit</code></td><td>Edit</td><td>Modifier</td></tr>
+<tr><td><code>common.delete</code></td><td>Delete</td><td>Supprimer</td></tr>
+<tr><td><code>common.search</code></td><td>Search</td><td>Rechercher</td></tr>
+<tr><td><code>common.back</code></td><td>Back</td><td>Retour</td></tr>
+<tr><td><code>common.coming_soon</code></td><td>Coming soon in v0.4.0</td><td>Bientôt disponible en v0.4.0</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="language">
+<h2>language</h2>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>EN</th><th>FR</th></tr>
+</thead>
+<tbody>
+<tr><td><code>language.en</code></td><td>EN</td><td>EN</td></tr>
+<tr><td><code>language.fr</code></td><td>FR</td><td>FR</td></tr>
+<tr><td><code>language.switch_to_en</code></td><td>Switch to English</td><td>Switch to English</td></tr>
+<tr><td><code>language.switch_to_fr</code></td><td>Passer en français</td><td>Passer en français</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="personalization">
+<h2>personalization</h2>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>EN</th><th>FR</th></tr>
+</thead>
+<tbody>
+<tr><td><code>personalization.tab_notable</code></td><td>New & Notable</td><td>Nouveau & Notable</td></tr>
+<tr><td><code>personalization.tab_bookmarks</code></td><td>My Bookmarks</td><td>Mes favoris</td></tr>
+<tr><td><code>personalization.tab_recent</code></td><td>Recently Viewed</td><td>Récemment consulté</td></tr>
+<tr><td><code>personalization.tab_recommended</code></td><td>Recommended</td><td>Recommandé</td></tr>
+<tr><td><code>personalization.recommended_title</code></td><td>Recommended for you</td><td>Recommandé pour vous</td></tr>
+<tr><td><code>personalization.recommended_subtitle</code></td><td>Popular tables across your groups.</td><td>Tables populaires dans vos groupes.</td></tr>
+<tr><td><code>personalization.recommended_empty</code></td><td>No recommendations yet. Explore more tables to build your profile.</td><td>Aucune recommandation pour l'instant. Explorez plus de tables pour affiner votre profil.</td></tr>
+<tr><td><code>personalization.add_bookmark</code></td><td>Bookmark</td><td>Ajouter aux favoris</td></tr>
+<tr><td><code>personalization.remove_bookmark</code></td><td>Bookmarked</td><td>Favori enregistré</td></tr>
+<tr><td><code>personalization.no_bookmarks</code></td><td>No bookmarks yet. Star a table to save it here.</td><td>Aucun favori pour l'instant. Marquez une table pour la retrouver ici.</td></tr>
+<tr><td><code>personalization.no_recent</code></td><td>No recently viewed tables yet.</td><td>Aucune table consultée récemment.</td></tr>
+<tr><td><code>personalization.bookmarked_columns</code></td><td>Bookmarked columns</td><td>Colonnes favorites</td></tr>
+<tr><td><code>personalization.no_col_bookmarks</code></td><td>No column bookmarks yet. Star a column to save it here.</td><td>Aucune colonne favorite. Marquez une colonne pour la retrouver ici.</td></tr>
+</tbody>
+</table>
+</section>
+      <footer class="site-footer">
+        <p>Data Dictionary · Documented by Data Engineering</p>
+        <p>Internal Use Only</p>
+      </footer>
+    </article>
+  </main>
+</body>
+</html>
