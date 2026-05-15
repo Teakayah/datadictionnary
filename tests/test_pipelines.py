@@ -438,6 +438,22 @@ class TestPipelineDefAdminGuards:
         assert len(fake.list_all()) == 1
         assert fake.list_all()[0]["title"] == "My Pipe"
 
+    def test_delete_pipeline_def_admin_succeeds(self, admin_caller_context):
+        from src.pipelines import delete_pipeline_def
+        with patch("src.pipelines.get_pipeline_def_storage") as mock_def, \
+             patch("src.pipelines.get_pipeline_run_storage") as mock_run:
+
+            mock_def_storage = MagicMock()
+            mock_def.return_value = mock_def_storage
+
+            mock_run_storage = MagicMock()
+            mock_run.return_value = mock_run_storage
+
+            delete_pipeline_def("p1")
+
+        mock_def_storage.delete.assert_called_once_with("p1")
+        mock_run_storage.clear.assert_called_once_with("p1")
+
     def test_delete_pipeline_def_rejects_non_admin(self):
         from src.pipelines import delete_pipeline_def
         with patch("src.pipelines.is_admin", return_value=False), \
@@ -627,6 +643,54 @@ class TestStatusDatabricks:
         result = _status_databricks("run-123")
         assert result["status"] == "SUCCESS"
         assert result["progress"] == 100
+        assert result["is_terminal"] is True
+
+    @patch("requests.get")
+    @patch("src.pipelines._get_sp_token")
+    def test_status_adf(self, mock_get_token, mock_get):
+        from src.pipelines import _status_adf
+        mock_get_token.return_value = "fake-token"
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "status": "Succeeded",
+            "message": "Done"
+        }
+        mock_get.return_value = mock_resp
+
+        pipeline = {
+            "adf_subscription_id": "sub1",
+            "adf_resource_group": "rg1",
+            "adf_factory_name": "fact1"
+        }
+        result = _status_adf(pipeline, "run-123")
+
+        assert result["status"] == "Succeeded"
+        assert result["progress"] == 100
+        assert result["message"] == "Done"
+        assert result["is_terminal"] is True
+
+    @patch("requests.get")
+    @patch("src.pipelines._get_sp_token")
+    def test_status_ado(self, mock_get_token, mock_get):
+        from src.pipelines import _status_ado
+        mock_get_token.return_value = "fake-token"
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "state": "completed",
+            "result": "succeeded"
+        }
+        mock_get.return_value = mock_resp
+
+        pipeline = {
+            "ado_organization": "org1",
+            "ado_project": "proj1",
+            "ado_pipeline_id": "12"
+        }
+        result = _status_ado(pipeline, "run-123")
+
+        assert result["status"] == "succeeded"
+        assert result["progress"] == 100
+        assert result["message"] == ""
         assert result["is_terminal"] is True
 
 
