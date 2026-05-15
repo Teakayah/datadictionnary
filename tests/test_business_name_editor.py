@@ -40,6 +40,7 @@ EDIT_KEY = f"{FULL_NAME}__{COLUMN_NAME}"
 
 
 def authenticated_app() -> AppTest:
+    os.environ["ADMIN_GROUPS"] = "finance_dept_id,all_employees_id"
     at = AppTest.from_file(APP_PATH, default_timeout=15)
     at.session_state["authenticated"] = True
     at.session_state["user_groups"] = ["finance_dept_id", "all_employees_id"]

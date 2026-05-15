@@ -111,7 +111,7 @@ def run_query(query, params=None):
             )
         if _has_groups:
             return _DEMO_TABLES
-        fn = p.get("table_full_name", "")
+        fn = p.get("table_full_name") or p.get("full_name") or p.get("fn", "")
         if "lineage_cache" in query:
             return _DEMO_LINEAGE.get(
                 fn,
@@ -121,6 +121,9 @@ def run_query(query, params=None):
             return _DEMO_COLUMNS.get(
                 fn, pd.DataFrame(columns=["column_name", "data_type", "comment"])
             )
+        if "tables_metadata" in query:
+            return _DEMO_TABLES[_DEMO_TABLES["full_name"] == fn]
+
         return _DEMO_GRANTS.get(fn, pd.DataFrame(columns=["principal", "privilege"]))
 
     return _base_run_query(query, params)

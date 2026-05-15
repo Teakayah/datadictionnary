@@ -61,12 +61,13 @@ from src.storage.audit_storage import (  # noqa: F401
 
 
 def _use_demo_backend() -> bool:
-    """Single source of truth for the demo/duckdb routing decision.
+    """Single source of truth for the demo/persistent routing decision.
 
-    Demo mode and missing DuckDB both fall back to session-state storage —
-    DuckDB is the only persistent backend today.
+    Only demo mode falls back to session-state storage. When demo mode is
+    off, we always use the DuckDB backends (which themselves handle the
+    read-fallback to Databricks if the local cache file is missing).
     """
-    return is_demo_mode() or not _duckdb_available()
+    return is_demo_mode()
 
 
 def get_cms_storage() -> CMSStorage:
