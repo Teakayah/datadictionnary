@@ -1,10 +1,9 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
 import streamlit as st
 import logging
 import html as _html
 from src.i18n import t
-from src.ui.cards import _dq_grade
+from src.ui.cards._shared import _dq_grade
 
 def render_catalog_browser(groups, get_authorized_tables_fn):
     st.markdown(f'''

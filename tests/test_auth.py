@@ -241,7 +241,6 @@ class TestTrySilentRefresh:
     @patch("src.auth.get_msal_app")
     def test_refresh_success(self, mock_get_msal, monkeypatch):
         from src.auth import _try_silent_refresh
-        import src.auth as auth_mod
 
         mock_msal_app = MagicMock()
         mock_get_msal.return_value = mock_msal_app

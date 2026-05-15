@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Search tab — result cards and table detail panel."""
 
 
@@ -22,10 +21,8 @@ from src.storage import get_business_name_override_storage
 from src.personalization import _pref_upsert, _pref_delete, is_power_user
 from src.comments import get_table_comments, save_comment
 from src.audit import save_business_name, get_table_steward
-from src.ui.cards import (
-    _dq_grade, _compute_live_completeness,
-    render_table_metadata_editor, render_data_sample,
-)
+from src.ui.cards._shared import _dq_grade, _compute_live_completeness
+from src.ui.cards.detail import render_table_metadata_editor, render_data_sample
 from src.ui.lineage import _build_lineage_graph, _lineage_vis_html, render_lineage_fullscreen
 
 
