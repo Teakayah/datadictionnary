@@ -162,9 +162,9 @@ The 1083-line `src/ui/cards.py` was split into 7 submodules (TODO #3):
 - `cms_admin.py`   — `_render_admin_cms_section` + create dialog
 - `detail.py`      — `render_table_metadata_editor`, `render_data_sample` (used by search page)
 
-`src/ui/cards/__init__.py` re-exports the public API for backwards compat. New code should import from the specific submodule.
+`src/ui/cards/__init__.py` has been deleted — all callers import directly from the specific submodule (e.g. `from src.ui.cards.discovery import render_discovery`).
 
 ## Roadmap context
 - TODO #1–7 (complete): sidecar sync worker, Entra groups overage, cards.py split, storage abstraction, server-side auth checks on writes, src/sync/push.py unit tests, deletion of the Databricks-direct write path.
 - Plus: groups-cache flush tool (admin page), sign-out/sign-in cache invalidation.
-- Open follow-ups (see `TODO.md`): PostgreSQL multi-writer if DuckDB contention shows up; migrate the 4 callers off the `cards/__init__.py` shim; fix `save_table_metadata`'s UPDATE against the read-only catalog cache; reuse `BusinessNameOverrideStorage` from `src/pages/search.py`.
+- Open follow-ups (see `TODO.md`): PostgreSQL multi-writer if DuckDB contention shows up; reuse `BusinessNameOverrideStorage` from `src/pages/search.py`.
