@@ -47,7 +47,11 @@ Keys are dot-separated paths into the locale JSON structure (e.g. `t("search.pla
 | `search.public_tables_filter` | Showing publicly accessible tables | Affichage des tables accessibles à tous |
 | `search.group_filter_active` | Filtered by group: {group} | Filtré par groupe : {group} |
 | `search.view_details` | View details | Voir les détails |
+| `search.view_details_help` | View details for this table | Afficher les détails de cette table |
 | `search.back_to_results` | Back to results | Retour aux résultats |
+| `search.back_to_results_help` | Back to search results | Retour aux résultats de recherche |
+| `search.start_typing` | Start typing to search the catalog. | Commencez à saisir pour rechercher dans le catalogue. |
+| `search.no_access` | You don't have access to any tables yet. Contact your administrator to request access. | Vous n'avez accès à aucune table pour l'instant. Contactez votre administrateur pour demander l'accès. |
 
 ---
 
@@ -166,6 +170,14 @@ Keys are dot-separated paths into the locale JSON structure (e.g. `t("search.pla
 | `admin.tab_ops` | Operations | Opérations |
 | `admin.tab_insights` | Quality Insights | Qualité & Insights |
 | `admin.tab_audit` | Audit Logs | Journaux d'Audit |
+| `admin.reviews_title` | Pending reviews | Révisions en attente |
+| `admin.reviews_subtitle` | Proposed metadata changes awaiting approval. Approve to publish to Unity Catalog; reject to discard. | Modifications de métadonnées proposées en attente d'approbation. |
+| `admin.reviews_empty` | No pending reviews. | Aucune révision en attente. |
+| `admin.reviews_approve` | Approve | Approuver |
+| `admin.reviews_reject` | Reject | Rejeter |
+| `admin.reviews_proposed_by` | Proposed by {user} · {date} | Proposé par {user} · {date} |
+| `admin.reviews_old_value` | Current | Actuel |
+| `admin.reviews_new_value` | Proposed | Proposé |
 | `admin.integrity_title` | Data Integrity Insights | Aperçu de l'Intégrité des Données |
 | `admin.integrity_subtitle` | Identify documentation and quality gaps to improve the end-user experience. | Identifiez les lacunes de documentation et de qualité pour améliorer l'expérience utilisateur. |
 | `admin.integrity_impact_title` | High-Impact Gaps | Lacunes à fort impact |
@@ -244,6 +256,7 @@ Keys are dot-separated paths into the locale JSON structure (e.g. `t("search.pla
 | `discovery.date_format` | %b %d, %H:%M UTC | %d %b, %H:%M UTC |
 | `discovery.explore_button` | Explore {name} → | Explorer {name} → |
 | `discovery.updated` | Updated | Mis à jour |
+| `discovery.no_groups` | Your account is not assigned to any data-access groups. Contact your administrator to request access. | Votre compte n'est associé à aucun groupe d'accès aux données. Contactez votre administrateur pour demander l'accès. |
 
 ---
 
@@ -290,6 +303,10 @@ Keys are dot-separated paths into the locale JSON structure (e.g. `t("search.pla
 | `personalization.tab_notable` | New & Notable | Nouveau & Notable |
 | `personalization.tab_bookmarks` | My Bookmarks | Mes favoris |
 | `personalization.tab_recent` | Recently Viewed | Récemment consulté |
+| `personalization.tab_recommended` | Recommended | Recommandé |
+| `personalization.recommended_title` | Recommended for you | Recommandé pour vous |
+| `personalization.recommended_subtitle` | Popular tables across your groups. | Tables populaires dans vos groupes. |
+| `personalization.recommended_empty` | No recommendations yet. Explore more tables to build your profile. | Aucune recommandation pour l'instant. Explorez plus de tables pour affiner votre profil. |
 | `personalization.add_bookmark` | Bookmark | Ajouter aux favoris |
 | `personalization.remove_bookmark` | Bookmarked | Favori enregistré |
 | `personalization.no_bookmarks` | No bookmarks yet. Star a table to save it here. | Aucun favori pour l'instant. Marquez une table pour la retrouver ici. |
