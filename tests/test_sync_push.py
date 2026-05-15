@@ -210,3 +210,189 @@ class TestPushToDatabricks:
         from src.sync.push import _push_to_databricks
         with pytest.raises(ValueError, match="catalog.schema.table"):
             _push_to_databricks("TABLE_DESC", "cat.sch.tbl.extra", {"definition": "x"})
+
+# ── Queue processing coverage ──────────────────────────────────────────────────
+
+class TestProcessSyncQueue:
+    def test_process_sync_queue_duckdb_unavailable(self, monkeypatch):
+        from src.sync import push as push_module
+        monkeypatch.setattr(push_module, "_duckdb_available", lambda: False)
+        assert push_module._process_sync_queue() == 0
+
+    def test_process_sync_queue_empty(self, monkeypatch):
+        from src.sync import push as push_module
+        from unittest.mock import MagicMock
+        monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_cursor.fetchall.return_value = []
+        monkeypatch.setattr(push_module, "_get_write_connection", lambda: mock_conn)
+        assert push_module._process_sync_queue() == 0
+
+    def test_process_sync_queue_db_error(self, monkeypatch):
+        from src.sync import push as push_module
+        from unittest.mock import MagicMock
+        monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
+        mock_conn = MagicMock()
+        mock_conn.cursor.side_effect = Exception("db connection error")
+        monkeypatch.setattr(push_module, "_get_write_connection", lambda: mock_conn)
+        assert push_module._process_sync_queue() == 0
+
+    def test_process_sync_queue_success(self, monkeypatch):
+        from src.sync import push as push_module
+        import json
+        from unittest.mock import MagicMock
+        monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_cursor.fetchall.return_value = [
+            ("sync1", "COLUMN_DEF", "tbl1", json.dumps({"col": "A"}), 0)
+        ]
+        monkeypatch.setattr(push_module, "_get_write_connection", lambda: mock_conn)
+
+        mock_push = MagicMock()
+        monkeypatch.setattr(push_module, "_push_to_databricks", mock_push)
+
+        assert push_module._process_sync_queue() == 1
+        mock_push.assert_called_once_with("COLUMN_DEF", "tbl1", {"col": "A"})
+
+        mock_cursor.execute_write.assert_any_call(
+            "UPDATE user_data.pending_sync SET status='syncing', attempts=%(att)s, last_attempt_at=current_localtimestamp() WHERE sync_id=%(id)s",
+            {"att": 1, "id": "sync1"}
+        )
+        mock_cursor.execute_write.assert_any_call(
+            "UPDATE user_data.pending_sync SET status='done', completed_at=current_localtimestamp(), last_error=NULL WHERE sync_id=%(id)s",
+            {"id": "sync1"}
+        )
+
+    def test_process_sync_queue_failure_retry(self, monkeypatch):
+        from src.sync import push as push_module
+        import json
+        from unittest.mock import MagicMock
+        monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_cursor.fetchall.return_value = [
+            ("sync1", "COLUMN_DEF", "tbl1", json.dumps({"col": "A"}), 0)
+        ]
+        monkeypatch.setattr(push_module, "_get_write_connection", lambda: mock_conn)
+
+        mock_push = MagicMock(side_effect=Exception("push error"))
+        monkeypatch.setattr(push_module, "_push_to_databricks", mock_push)
+
+        assert push_module._process_sync_queue() == 0
+        mock_push.assert_called_once()
+
+        mock_cursor.execute_write.assert_any_call(
+            "UPDATE user_data.pending_sync SET status=%(st)s, last_error=%(err)s WHERE sync_id=%(id)s",
+            {"st": "pending", "err": "push error", "id": "sync1"}
+        )
+
+    def test_process_sync_queue_failure_max_attempts(self, monkeypatch):
+        from src.sync import push as push_module
+        import json
+        from unittest.mock import MagicMock
+        monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_cursor.fetchall.return_value = [
+            ("sync1", "COLUMN_DEF", "tbl1", json.dumps({"col": "A"}), 2) # max attempts is 3
+        ]
+        monkeypatch.setattr(push_module, "_get_write_connection", lambda: mock_conn)
+
+        mock_push = MagicMock(side_effect=Exception("push error"))
+        monkeypatch.setattr(push_module, "_push_to_databricks", mock_push)
+
+        assert push_module._process_sync_queue() == 0
+
+        mock_cursor.execute_write.assert_any_call(
+            "UPDATE user_data.pending_sync SET status=%(st)s, last_error=%(err)s WHERE sync_id=%(id)s",
+            {"st": "failed", "err": "push error", "id": "sync1"}
+        )
+
+class TestEnqueueSync:
+    def test_enqueue_sync_duckdb_not_available(self, monkeypatch):
+        from src.sync import push as push_module
+        monkeypatch.setattr(push_module, "_duckdb_available", lambda: False)
+        assert push_module.enqueue_sync("COLUMN_DEF", "cat.sch.tbl", {}, "user") is None
+
+    def test_enqueue_column_sync_calls_enqueue_sync(self, monkeypatch):
+        from src.sync import push as push_module
+        calls = []
+        monkeypatch.setattr(push_module, "enqueue_sync", lambda *args: calls.append(args))
+        push_module.enqueue_column_sync("cat.sch.tbl", "col", "def", "user")
+        assert calls == [("COLUMN_DEF", "cat.sch.tbl", {"column_name": "col", "definition": "def"}, "user")]
+
+    def test_push_definition_legacy(self, monkeypatch):
+        from src.sync import push as push_module
+        calls = []
+        monkeypatch.setattr(push_module, "_push_to_databricks", lambda stype, table, payload: calls.append((stype, table, payload)))
+        push_module._push_definition_to_databricks("a.b.c", "col1", "def1")
+        assert calls == [("COLUMN_DEF", "a.b.c", {"column_name": "col1", "definition": "def1"})]
+
+    def test_enqueue_sync_column_def(self, monkeypatch):
+        from src.sync import push as push_module
+        import json
+        from unittest.mock import MagicMock
+        monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        monkeypatch.setattr(push_module, "_get_write_connection", lambda: mock_conn)
+
+        mock_cursor.fetchall.return_value = [("sync123", json.dumps({"column_name": "col_a"}))]
+        push_module.enqueue_sync("COLUMN_DEF", "cat.sch.tbl", {"column_name": "col_a", "definition": "test"}, "user")
+
+        mock_cursor.execute.assert_any_call("DELETE FROM user_data.pending_sync WHERE sync_id=%(id)s", {"id": "sync123"})
+        mock_cursor.execute_write.assert_called_once()
+
+    def test_enqueue_sync_column_def_json_error(self, monkeypatch):
+        from src.sync import push as push_module
+        from unittest.mock import MagicMock
+        monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        monkeypatch.setattr(push_module, "_get_write_connection", lambda: mock_conn)
+
+        mock_cursor.fetchall.return_value = [("sync123", "invalid json")]
+        push_module.enqueue_sync("COLUMN_DEF", "cat.sch.tbl", {"column_name": "col_a", "definition": "test"}, "user")
+
+        mock_cursor.execute_write.assert_called_once()
+
+    def test_enqueue_sync_table_desc(self, monkeypatch):
+        from src.sync import push as push_module
+        from unittest.mock import MagicMock
+        monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        monkeypatch.setattr(push_module, "_get_write_connection", lambda: mock_conn)
+
+        push_module.enqueue_sync("TABLE_DESC", "cat.sch.tbl", {"definition": "test"}, "user")
+
+        mock_cursor.execute_write.assert_any_call(
+            "DELETE FROM user_data.pending_sync WHERE sync_type = %(st)s AND status = 'pending' AND table_full_name = %(fn)s",
+            {"st": "TABLE_DESC", "fn": "cat.sch.tbl"}
+        )
+
+    def test_steward_sets_tag_error(self, monkeypatch, caplog):
+        from tests.test_sync_push import _push_cursor
+        mock_cursor = _push_cursor()
+        mock_cursor.execute.side_effect = Exception("Databricks offline")
+
+        import logging
+        caplog.set_level(logging.WARNING)
+
+        from src.sync import push as push_module
+        monkeypatch.setenv("DATABRICKS_HOST", "host.example.com")
+        monkeypatch.setenv("DATABRICKS_HTTP_PATH", "/sql/1.0/warehouses/abc")
+        monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-test-token")
+
+        push_module._push_to_databricks("STEWARD", "cat.sch.tbl", {"steward_email": "alice@x.com"})
+
+        assert any("Could not set steward tag on cat.sch.tbl" in record.message for record in caplog.records)
