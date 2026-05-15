@@ -13,3 +13,6 @@
 =======
 ## 2026-05-12 - [Pipelines] **Learning:** External dependencies like requests and msal need mock patches on their usage in the specific files they are imported, and error cases provide important coverage. **Action:** Added comprehensive unit tests for Databricks, ADF, and ADO pipelines including status polling, cancellation, and token logic.
 >>>>>>> origin/inspector-pipelines-coverage-9575987316161452967
+## 2024-05-18 - [Coverage Gap] Comment Email Notifications
+**Learning:** Significant coverage gaps existed in `src/comments.py` concerning email notifications for comments and replies (`send_comment_email`, `send_reply_email`), handling `st.session_state` parsing when looking up comment authors (`_fetch_comment_author_email`), and tree building for nested comments (`_build_comment_tree`). This gap could obscure SMTP failures and unhandled errors when DuckDB reads fail.
+**Action:** Added extensive unit tests to cover missing email, auth retrieval, and DB integration paths, increasing coverage for `src/comments.py` from 62% to 100%. Always ensure SMTP logic and custom session state interactions are mocked properly to verify error branches and fallback logic.
