@@ -117,7 +117,8 @@
     "your_reply": "Your reply",
     "max_chars": "Maximum 1000 characters.",
     "empty_error": "Comment cannot be empty.",
-    "no_steward": "No steward configured — comment will be saved but not emailed."
+    "no_steward": "No steward configured — comment will be saved but not emailed.",
+    "date_format": "%b %d, %Y %H:%M UTC"
   },
   "editor": {
     "edit_business_name": "Edit business name",
@@ -130,7 +131,8 @@
     "placeholder_biz_def": "e.g. Unique identifier assigned to each customer at registration.",
     "permission_error": "You do not have permission to edit business names.",
     "edit_mode_banner": "Edit mode — changes are saved immediately and visible to all users.",
-    "last_edited_by": "Last edited by {user} · {date}"
+    "last_edited_by": "Last edited by {user} · {date}",
+    "date_format": "%b %d, %Y %H:%M UTC"
   },
   "admin": {
     "title": "§ Admin",
