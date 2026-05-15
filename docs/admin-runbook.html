@@ -1,123 +1,103 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Data Dictionary — Admin Operations Runbook</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --paper:#FAF7F0; --paper-deep:#F2EDE1; --paper-ink:#E8E1D0;
-    --ink:#14110C; --ink-90:#2A2620; --ink-80:#3D3830; --ink-60:#6B645A;
-    --ink-40:#9A9388; --ink-20:#C9C2B4; --ink-10:#DCD6C8;
-    --accent:#B8362A; --accent-wash:#F3DFD9;
-    --forest:#3F5E3A; --forest-wash:#E3E9DE;
-    --ochre:#9A6D1C; --ochre-wash:#F0E5CC;
-    --deepblue:#2B4A6B; --deepblue-wash:#DDE4EC;
-    --font-display:"Fraunces","Cormorant Garamond",serif;
-    --font-sans:"Manrope","Segoe UI",system-ui,sans-serif;
-    --font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
-  }
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  html{font-size:16px;scroll-behavior:smooth}
-  body{background:var(--paper);color:var(--ink);font-family:var(--font-sans);font-size:15px;line-height:1.6;letter-spacing:-0.005em;-webkit-font-smoothing:antialiased}
-  ::selection{background:var(--accent-wash);color:var(--ink)}
-  .page{max-width:780px;margin:0 auto;padding:0 24px 120px}
-  .site-header{border-bottom:1px solid var(--ink-20);padding:24px 0 20px;margin-bottom:64px;display:flex;align-items:center;justify-content:space-between}
-  .site-header .badge{font-family:var(--font-sans);font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent);background:var(--accent-wash);border:1px solid #e8c4be;padding:3px 8px;border-radius:999px}
-  .hero{padding:48px 0 56px;border-bottom:1px solid var(--ink-20);margin-bottom:64px}
-  .hero .eyebrow{font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:16px}
-  .hero h1{font-family:var(--font-display);font-size:clamp(36px,5vw,64px);font-weight:300;line-height:1.05;letter-spacing:-0.02em;margin-bottom:20px}
-  .hero h1 em{font-style:italic;color:var(--ink-60)}
-  .hero .lead{font-size:17px;line-height:1.55;color:var(--ink-60);max-width:560px}
-  .section{margin-bottom:72px}
-  .section-eyebrow{font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-40);margin-bottom:10px}
-  h2{font-family:var(--font-display);font-size:32px;font-weight:400;letter-spacing:-0.015em;line-height:1.15;margin-bottom:20px}
-  h3{font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-60);margin:40px 0 16px}
-  h3:first-child{margin-top:0}
-  h4{font-size:14px;font-weight:600;color:var(--ink);margin:24px 0 10px}
-  p{margin-bottom:14px;color:var(--ink-80)}
-  p:last-child{margin-bottom:0}
-  hr{border:0;border-top:1px solid var(--ink-10);margin:56px 0}
-  code{font-family:var(--font-mono);font-size:0.88em;background:var(--paper-deep);border:1px solid var(--ink-10);padding:1px 5px;border-radius:2px;color:var(--ink-80)}
-  pre{font-family:var(--font-mono);font-size:13px;background:var(--paper-deep);border:1px solid var(--ink-10);padding:16px 18px;border-radius:2px;overflow-x:auto;line-height:1.5;color:var(--ink-80);margin:16px 0}
-  .callout{padding:14px 18px;border-radius:0 2px 2px 0;margin:20px 0;font-size:14px;color:var(--ink-80);line-height:1.55}
-  .callout{background:var(--deepblue-wash);border-left:3px solid var(--deepblue)}
-  .callout.warn{background:var(--ochre-wash);border-left-color:var(--ochre)}
-  .callout.danger{background:var(--accent-wash);border-left-color:var(--accent)}
-  .callout.ok{background:var(--forest-wash);border-left-color:var(--forest)}
-  .callout strong{color:var(--ink);font-weight:600}
-  .steps{list-style:none;counter-reset:steps;margin:0 0 24px}
-  .steps li{counter-increment:steps;display:grid;grid-template-columns:28px 1fr;gap:0 14px;padding:12px 0;border-bottom:1px solid var(--ink-10);font-size:14px;color:var(--ink-80);line-height:1.55}
-  .steps li::before{content:counter(steps);font-family:var(--font-mono);font-size:11px;font-weight:500;color:var(--accent);background:var(--accent-wash);border-radius:2px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
-  .steps li strong{color:var(--ink);font-weight:600}
-  .toc{background:var(--paper-deep);border:1px solid var(--ink-10);padding:24px 28px;margin-bottom:64px}
-  .toc-title{font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-40);margin-bottom:14px}
-  .toc ol{list-style:decimal;padding-left:18px}
-  .toc li{margin:6px 0;font-size:14px}
-  .toc a{color:var(--ink-60);text-decoration:none;border-bottom:1px solid transparent;transition:color 120ms,border-color 120ms}
-  .toc a:hover{color:var(--accent);border-bottom-color:var(--accent-wash)}
-  .status-table{width:100%;border-collapse:collapse;font-size:14px;margin:16px 0}
-  .status-table th{text-align:left;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-40);padding:8px 12px;border-bottom:1px solid var(--ink-20)}
-  .status-table td{padding:10px 12px;border-bottom:1px solid var(--ink-10);vertical-align:top;color:var(--ink-80)}
-  .status-table td:first-child{font-family:var(--font-mono);font-size:12px;color:var(--ink);white-space:nowrap}
-  .pill{display:inline-block;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:2px 7px;border-radius:2px}
-  .pill-ok{background:var(--forest-wash);color:var(--forest)}
-  .pill-warn{background:var(--ochre-wash);color:var(--ochre)}
-  .pill-err{background:var(--accent-wash);color:var(--accent)}
-  .site-footer{border-top:1px solid var(--ink-20);padding:32px 0;margin-top:80px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-  .site-footer p{font-size:12px;color:var(--ink-40);margin:0}
-  @media print{.toc{display:none}a{color:var(--ink)!important;text-decoration:none!important}}
-  @media(max-width:600px){.hero h1{font-size:34px}}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Dictionary — Admin Operations Runbook</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="page">
-
-  <header class="site-header">
-    <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:32px">
-      <g transform="translate(4,2)">
-        <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
-        <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
-        <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
-        <line x1="3" y1="13" x2="23" y2="13" stroke="#C9C2B4" stroke-width="0.8"/>
-        <line x1="3" y1="17" x2="23" y2="17" stroke="#C9C2B4" stroke-width="0.8"/>
-        <line x1="3" y1="21" x2="17" y2="21" stroke="#C9C2B4" stroke-width="0.8"/>
-      </g>
-      <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
-      <text x="194" y="25" font-family="Fraunces, serif" font-size="20" fill="#B8362A">§</text>
-    </svg>
-    <span class="badge">Admin Runbook</span>
-  </header>
-
-  <section class="hero">
-    <div class="eyebrow">Operations · Internal</div>
-    <h1>Admin operations<br><em>runbook.</em></h1>
-    <p class="lead">Procedures for platform administrators covering day-to-day monitoring, incident response, and catalog governance operations.</p>
-  </section>
-
-  <nav class="toc">
-    <div class="toc-title">Contents</div>
-    <ol>
-      <li><a href="#sync-queue">Sync queue monitoring</a></li>
-      <li><a href="#stale-rows">Stale-row recovery</a></li>
-      <li><a href="#dr-resync">DR resync management</a></li>
-      <li><a href="#group-cache">Group-cache operations</a></li>
-      <li><a href="#editing-toggle">Global editing toggle</a></li>
-      <li><a href="#approval-queue">Metadata approval queue</a></li>
-      <li><a href="#audit-log">Audit log access</a></li>
-      <li><a href="#pipeline-ops">Pipeline CRUD &amp; troubleshooting</a></li>
-      <li><a href="#troubleshooting">Troubleshooting reference</a></li>
-    </ol>
+  
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <a href="product-overview.html" style="text-decoration:none; color:inherit;">
+      <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:24px">
+        <g transform="translate(4,2)">
+          <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
+          <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
+          <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
+        </g>
+        <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
+      </svg>
+    </a>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-section-title">Guides</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="user-guide.html">User Guide</a></li>
+      <li class="nav-item "><a href="steward-guide.html">Steward Guide</a></li>
+      <li class="nav-item active"><a href="admin-runbook.html">Admin Runbook</a></li>
+    </ul>
   </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Product</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="product-overview.html">Product Overview</a></li>
+      <li class="nav-item "><a href="business-requirements.html">Business Requirements</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Features</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="feature-unified-search.html">Unified Search</a></li>
+      <li class="nav-item "><a href="feature-personalization.html">Personalization</a></li>
+      <li class="nav-item "><a href="feature-data-quality.html">Data Quality</a></li>
+      <li class="nav-item "><a href="feature-data-preview.html">Data Preview</a></li>
+      <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
+      <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
+      <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Architecture</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="architecture.html">Architecture Overview</a></li>
+      <li class="nav-item "><a href="dependencies.html">Dependencies</a></li>
+      <li class="nav-item "><a href="adr-001-duckdb-local-cache.html">ADR 001: DuckDB Cache</a></li>
+      <li class="nav-item "><a href="adr-002-push-down-sql-auth.html">ADR 002: SQL Auth</a></li>
+      <li class="nav-item "><a href="adr-003-streamlit-not-fastapi.html">ADR 003: Streamlit</a></li>
+      <li class="nav-item "><a href="adr-004-sidecar-sync-worker.html">ADR 004: Sync Worker</a></li>
+      <li class="nav-item "><a href="adr-005-storage-abstraction.html">ADR 005: Storage Abstraction</a></li>
+      <li class="nav-item "><a href="adr-006-entra-groups-overage.html">ADR 006: Groups Overage</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Operations</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="runbook-sync-worker.html">Sync Worker Runbook</a></li>
+      <li class="nav-item "><a href="runbook-secret-rotation.html">Secret Rotation Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Reference</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="reference-locale-keys.html">Locale Keys</a></li>
+    </ul>
+  </nav>
+</aside>
 
-  <!-- Sync queue -->
+  <main class="content-wrapper">
+    <article class="page">
+      <header class="site-header">
+        <span class="badge">Guides</span>
+      </header>
+      <section class="hero">
+        <div class="eyebrow">Guides</div>
+        <h1>Admin Operations Runbook</h1>
+      </section>
+      <section class="section" id="table-of-contents">
+        <h2>Table of contents</h2>
+        
+        <hr>
+      </section>
+      <!-- Sync queue -->
   <section class="section" id="sync-queue">
     <div class="section-eyebrow">§ 1 — Sync</div>
     <h2>Sync queue monitoring</h2>
-    <p>The sidecar sync worker drains <code>user_data.pending_sync</code> and pushes changes to Databricks. The Admin dashboard → Operations tab shows live queue stats.</p>
+    <p>The <a href="runbook-sync-worker.html">Sidecar sync worker</a> drains <code>user_data.pending_sync</code> and pushes changes to Databricks. The Admin dashboard → Operations tab shows live queue stats. For a high-level summary of the product goals, see the <a href="product-overview.html">Product Overview</a>.</p>
 
     <h3>Reading the sync panel</h3>
     <table class="status-table">
@@ -130,11 +110,11 @@
     </table>
 
     <h3>Heartbeat stale — worker is down</h3>
-    <div class="callout danger"><strong>Symptom:</strong> Heartbeat shows &gt; 60 s ago or "Daemon offline". The k8s liveness probe will restart the pod automatically. If it stays offline, check the pod logs.</div>
+    <div class="callout danger"><strong>Symptom:</strong> Heartbeat shows &gt; 60 s ago or "Daemon offline". The k8s liveness probe will restart the pod automatically. If it stays offline, check the pod logs. See <a href="adr-004-sidecar-sync-worker.html">ADR 004</a> for architecture details.</div>
     <ol class="steps">
       <li>Check the sidecar pod status: <code>kubectl get pods -l app=dd-sync-worker</code></li>
       <li>Read logs: <code>kubectl logs deploy/dd-sync-worker --tail=100</code></li>
-      <li>Common causes: DuckDB file lock contention, Databricks credential expiry, OOM. Address the root cause.</li>
+      <li>Common causes: DuckDB file lock contention, Databricks credential expiry, OOM. Address the root cause. See the <a href="runbook-sync-worker.html">Sync Worker Runbook</a> for detailed troubleshooting.</li>
       <li>If the pod is in <code>CrashLoopBackOff</code>, check <code>USER_DATA_PATH</code> is correctly mounted and the PVC is healthy.</li>
       <li>The worker restores itself on restart — no manual queue intervention needed unless rows are stuck in <code>'syncing'</code> state.</li>
     </ol>
@@ -211,10 +191,10 @@ WHERE status = 'syncing'
   <section class="section" id="group-cache">
     <div class="section-eyebrow">§ 4 — Access control</div>
     <h2>Group-cache operations</h2>
-    <p>The application caches each user's Entra ID group memberships in process memory for 1 hour (keyed by user OID). This prevents repeated Graph API calls for every page load. The cache is cleared per-user on sign-out.</p>
+    <p>The application caches each user's Entra ID group memberships in process memory for 1 hour (keyed by user OID). This prevents repeated Graph API calls for every page load. The cache is cleared per-user on sign-out. See <a href="adr-006-entra-groups-overage.html">ADR 006</a> for detailed identity architecture.</p>
 
     <h3>When to flush the cache</h3>
-    <ul style="margin:0 0 20px;padding-left:20px;font-size:14px;color:var(--ink-80);line-height:1.8">
+    <ul class="prose-list">
       <li>A user was added to or removed from an Entra group and needs immediate access change (without waiting up to 1 hour).</li>
       <li>You performed bulk group changes (e.g., during an org restructure) and want all users to see the new state.</li>
       <li>A user reports seeing tables they should no longer have access to.</li>
@@ -227,7 +207,7 @@ WHERE status = 'syncing'
       <li>Each user's cache is rebuilt on their next page load via a fresh Microsoft Graph API call.</li>
     </ol>
 
-    <div class="callout warn"><strong>Note for users with 150+ group memberships.</strong> These users trigger the Graph API overage path (<code>getMemberObjects</code>). The cache TTL is the same (1 hour), but the first page load after a flush will be slightly slower while Graph resolves their full membership list.</div>
+    <div class="callout warn"><strong>Note for users with 150+ group memberships.</strong> These users trigger the Graph API overage path (<code>getMemberObjects</code>). The cache TTL is the same (1 hour), but the first page load after a flush will be slightly slower while Graph resolves their full membership list. See <a href="adr-006-entra-groups-overage.html">ADR 006</a>.</div>
 
     <h3>Manual cache inspection (engineering)</h3>
     <p>The cache lives in <code>src/auth_graph.py</code> as a module-level dict <code>_groups_cache</code>. In a production context it is process-local and not observable from outside the pod. To inspect it, attach to the running pod:</p>
@@ -241,7 +221,7 @@ WHERE status = 'syncing'
   <section class="section" id="editing-toggle">
     <div class="section-eyebrow">§ 5 — Governance</div>
     <h2>Global editing toggle</h2>
-    <p>Inline editing can be disabled globally without redeploying the application. This is useful during catalog migrations, nightly sync windows, or whenever you need a temporary freeze.</p>
+    <p>Inline editing can be disabled globally without redeploying the application. This is useful during catalog migrations, nightly sync windows, or whenever you need a temporary freeze. For the steward's perspective on editing, see the <a href="steward-guide.html">Steward Guide</a>.</p>
 
     <h3>Toggle via Admin dashboard</h3>
     <ol class="steps">
@@ -253,7 +233,7 @@ WHERE status = 'syncing'
     <div class="callout"><strong>Where the flag lives.</strong> The state is stored in <code>user_data.site_settings</code> with <code>key='editing_enabled'</code>. It defaults to <code>True</code> when the row is absent (safe for first boot). The value is cached in each user's <code>st.session_state</code> and refreshed on re-render.</div>
 
     <h3>What disabling editing does</h3>
-    <ul style="margin:0 0 20px;padding-left:20px;font-size:14px;color:var(--ink-80);line-height:1.8">
+    <ul class="prose-list">
       <li>The edit icon disappears from all table description, steward, and column fields for all power users.</li>
       <li>Admins retain the ability to approve and reject proposals already in the queue.</li>
       <li>Existing <code>pending_approval</code> rows are not affected — they remain in the queue.</li>
@@ -267,7 +247,7 @@ WHERE status = 'syncing'
   <section class="section" id="approval-queue">
     <div class="section-eyebrow">§ 6 — Metadata governance</div>
     <h2>Metadata approval queue</h2>
-    <p>Column override proposals submitted by non-admin editors land in <code>user_data.business_name_overrides</code> with <code>status='pending_approval'</code>. They are visible in Admin → Operations → Pending reviews.</p>
+    <p>Column override proposals submitted by non-admin editors land in <code>user_data.business_name_overrides</code> with <code>status='pending_approval'</code>. They are visible in Admin → Operations → Pending reviews. For editor instructions, see the <a href="steward-guide.html">Steward Guide</a>.</p>
 
     <h3>Operational workflow</h3>
     <ol class="steps">
@@ -277,7 +257,7 @@ WHERE status = 'syncing'
       <li>Click <strong>Reject</strong> to discard. The row is deleted from the overrides table. An audit event is still logged with the rejecting admin's email.</li>
     </ol>
 
-    <div class="callout ok"><strong>Approved changes sync automatically.</strong> Approved overrides are pushed to Databricks via the standard <code>pending_sync</code> queue within minutes. No additional action is required.</div>
+    <div class="callout ok"><strong>Approved changes sync automatically.</strong> Approved overrides are pushed to Databricks via the standard <code>pending_sync</code> queue within minutes. No additional action is required. See the <a href="architecture.html#sidecar-sync-worker">Architecture Overview</a> for more.</div>
 
     <h3>Bulk review via SQL (engineering)</h3>
     <pre>SELECT table_full_name, column_name, business_name,
@@ -360,7 +340,7 @@ LIMIT 200;</pre>
     <pre>PIPELINE_SP_TENANT_ID=&lt;your-tenant-id&gt;
 PIPELINE_SP_CLIENT_ID=&lt;service-principal-client-id&gt;
 PIPELINE_SP_CLIENT_SECRET=&lt;service-principal-secret&gt;</pre>
-    <div class="callout warn"><strong>Secret rotation.</strong> When rotating <code>PIPELINE_SP_CLIENT_SECRET</code>, update the k8s secret and restart the app pod. The token cache is process-local and clears on restart. See <a href="runbooks/secret-rotation.md">secret-rotation runbook</a>.</div>
+    <div class="callout warn"><strong>Secret rotation.</strong> When rotating <code>PIPELINE_SP_CLIENT_SECRET</code>, update the k8s secret and restart the app pod. The token cache is process-local and clears on restart. See <a href="runbook-secret-rotation.html">secret-rotation runbook</a>.</div>
 
     <h3>Stuck run (status never reaches terminal)</h3>
     <ol class="steps">
@@ -400,12 +380,11 @@ WHERE pipeline_id = '&lt;id&gt;';</pre></li>
     <h4>Health dashboard shows "No data"</h4>
     <p>The user's groups have no matching rows in <code>permissions_cache</code>. Run a nightly sync (<code>python scripts/nightly_sync.py</code>) or check that the permissions fetch step completed without errors in the last sync run.</p>
   </section>
-
-  <footer class="site-footer">
-    <p>Data Dictionary · Admin Runbook · Internal use only</p>
-    <p><a href="user-guide.html">User guide</a> · <a href="runbooks/sync-worker.md">Sync worker runbook</a> · <a href="adr/">Architecture decisions</a></p>
-  </footer>
-
-</div>
+      <footer class="site-footer">
+        <p>Data Dictionary · Documented by Data Engineering</p>
+        <p>Internal Use Only</p>
+      </footer>
+    </article>
+  </main>
 </body>
 </html>

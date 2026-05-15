@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Dictionary — Data Dictionary — Product Overview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <a href="product-overview.html" style="text-decoration:none; color:inherit;">
+      <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:24px">
+        <g transform="translate(4,2)">
+          <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
+          <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
+          <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
+        </g>
+        <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
+      </svg>
+    </a>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-section-title">Guides</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="user-guide.html">User Guide</a></li>
+      <li class="nav-item "><a href="steward-guide.html">Steward Guide</a></li>
+      <li class="nav-item "><a href="admin-runbook.html">Admin Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Product</div>
+    <ul class="nav-list">
+      <li class="nav-item active"><a href="product-overview.html">Product Overview</a></li>
+      <li class="nav-item "><a href="business-requirements.html">Business Requirements</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Features</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="feature-unified-search.html">Unified Search</a></li>
+      <li class="nav-item "><a href="feature-personalization.html">Personalization</a></li>
+      <li class="nav-item "><a href="feature-data-quality.html">Data Quality</a></li>
+      <li class="nav-item "><a href="feature-data-preview.html">Data Preview</a></li>
+      <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
+      <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
+      <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Architecture</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="architecture.html">Architecture Overview</a></li>
+      <li class="nav-item "><a href="dependencies.html">Dependencies</a></li>
+      <li class="nav-item "><a href="adr-001-duckdb-local-cache.html">ADR 001: DuckDB Cache</a></li>
+      <li class="nav-item "><a href="adr-002-push-down-sql-auth.html">ADR 002: SQL Auth</a></li>
+      <li class="nav-item "><a href="adr-003-streamlit-not-fastapi.html">ADR 003: Streamlit</a></li>
+      <li class="nav-item "><a href="adr-004-sidecar-sync-worker.html">ADR 004: Sync Worker</a></li>
+      <li class="nav-item "><a href="adr-005-storage-abstraction.html">ADR 005: Storage Abstraction</a></li>
+      <li class="nav-item "><a href="adr-006-entra-groups-overage.html">ADR 006: Groups Overage</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Operations</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="runbook-sync-worker.html">Sync Worker Runbook</a></li>
+      <li class="nav-item "><a href="runbook-secret-rotation.html">Secret Rotation Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Reference</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="reference-locale-keys.html">Locale Keys</a></li>
+    </ul>
+  </nav>
+</aside>
+
+  <main class="content-wrapper">
+    <article class="page">
+      <header class="site-header">
+        <span class="badge">Product</span>
+      </header>
+      <section class="hero">
+        <div class="eyebrow">Product</div>
+        <h1>Data Dictionary — Product Overview</h1>
+      </section>
+      <section class="section">
+<div class="callout">A business-language, permission-trimmed data catalog for Databricks Unity Catalog.</div>
+<div class="callout">This document covers <strong>what</strong> the product is, <strong>why</strong> it exists, <strong>how</strong> it is built, and <strong>when</strong> it runs.</div>
+<hr>
+</section>
+<section class="section" id="table-of-contents">
+<h2>Table of contents</h2>
+<nav class="toc">
+  <ol>
+  <li><a href="#1-what-it-is">What it is</a></li>
+  <li><a href="#2-why-it-exists">Why it exists</a></li>
+  <li><a href="#3-who-uses-it">Who uses it</a></li>
+  <li><a href="#4-feature-map">Feature map</a></li>
+  <li><a href="#5-how-it-is-built--architecture">How it is built — architecture</a></li>
+  <li><a href="#6-security-model">Security model</a></li>
+  <li><a href="#7-when-things-run--operational-cadence">When things run — operational cadence</a></li>
+  <li><a href="#8-deployment-topology">Deployment topology</a></li>
+  <li><a href="#9-key-architectural-decisions">Key architectural decisions</a></li>
+  <li><a href="#10-non-functional-properties">Non-functional properties</a></li>
+  <li><a href="#11-out-of-scope">Out of scope</a></li>
+  <li><a href="#12-success-metrics">Success metrics</a> <hr></li>
+  </ol>
+</nav>
+</section>
+<section class="section" id="1-what-it-is">
+<h2>1. What it is</h2>
+<p>Data Dictionary is an internal web application that gives non-technical business users a <strong>searchable, business-language view</strong> of the data assets available to them in Databricks Unity Catalog.</p>
+<p>Users sign in with their Microsoft Entra ID account and immediately see only the tables and columns they are already authorized to access — no new permission model, no IT tickets. They can search across thousands of tables in milliseconds, read and write business definitions, preview data samples, monitor pipeline runs, and receive curated announcements from data stewards, all from a single browser tab.</p>
+<p><strong>Core proposition in one sentence:</strong> replace a daily tax of Slack threads and shadow spreadsheets with a 2-minute self-service lookup.</p>
+<hr>
+</section>
+<section class="section" id="2-why-it-exists">
+<h2>2. Why it exists</h2>
+<h3>The problem</h3>
+<p>Non-technical staff at the organisation cannot reliably find or understand the data assets they have access to in Databricks Unity Catalog. The native Unity Catalog UI is engineering-oriented: it exposes physical schema, internal IDs, and admin-flavored surfaces that make routine business questions ("which table holds approved invoices?", "who is the steward of this column?") expensive to answer.</p>
+<p>The result is a measurable daily cost:</p>
+<ul>
+  <li>Repeated <code>#ask-data</code> Slack threads directed at data engineers</li>
+  <li>Duplicated reports built from different, incompatible source tables</li>
+  <li>Shadow data dictionaries maintained in spreadsheets that drift from reality <h3>The goal</h3> A single, <strong>search-first, business-language</strong> view of the catalog that: <ol class="steps"> <li>Exposes only the data the user is <strong>already entitled to see</strong> (Entra ID groups + Unity Catalog grants) — no new permission model.</li> <li>Lets non-technical users discover, understand, and reference tables and columns without writing SQL or talking to data engineering.</li> <li>Lets data stewards keep business definitions current without raising a ticket against the data platform team. <hr></li></li>
+</ul></ol>
+</section>
+<section class="section" id="3-who-uses-it">
+<h2>3. Who uses it</h2>
+<table class="status-table">
+<thead>
+<tr><th>Persona</th><th>Profile</th><th>Primary needs</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Business analyst</strong></td><td>Finance / HR / Research / IT operations. SQL-aware but rarely writes it. Owns reports and dashboards.</td><td>Find the right table fast; understand columns in business terms; preview a sample of rows; export schema for a brief.</td></tr>
+<tr><td><strong>Data steward</strong></td><td>Domain SME (e.g. Finance Controller). Owns the business meaning of the data. Not a developer.</td><td>Curate business names, definitions, comments. See what's been changed and by whom.</td></tr>
+<tr><td><strong>Data engineer / platform admin</strong></td><td>Maintains the catalog and the pipelines that feed it.</td><td>Trigger / monitor pipelines; check sync queue; flush group caches; audit edits.</td></tr>
+<tr><td><strong>Compliance / audit</strong></td><td>Reads the audit log. Cares about who saw or edited what.</td><td>Trustworthy, tamper-resistant audit trail.</td></tr>
+<tr><td><strong>Read-only consumer</strong></td><td>Most logged-in users. May only see the discovery and search tabs.</td><td>Discover relevant tables; bookmark; receive announcements.</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="4-feature-map">
+<h2>4. Feature map</h2>
+<h3>F1 — Search and discovery</h3>
+Full-text search across catalogs, schemas, table names, column names, descriptions, and business-glossary terms. Results are returned in under 500 ms (p95) and are permission-filtered — the user only sees what they are authorized to access.
+<p>The Discovery tab has four sub-tabs:
+<ul>
+  <li><strong>Recommended</strong> — tables ranked by recent edit and comment activity across the organisation, excluding tables the user has already viewed (surfaces genuinely new assets)</li>
+  <li><strong>Notable</strong> — recently updated tables scoped to the user's primary group</li>
+  <li><strong>My bookmarks</strong> — tables and columns the user has starred</li>
+  <li><strong>Recently viewed</strong> — chronological navigation history A CMS banner above the sub-tabs allows admins to publish pinned announcements, featured tables, and guides with configurable expiry (2 / 7 / 30 days or never). <h3>F2 — Permission-trimmed visibility</h3></li>
+</ul>Every result-returning SQL query <code>JOIN</code>s the permissions cache, so unauthorized rows are excluded <strong>inside the database engine</strong> before any data leaves the SQL layer. Users with more than 150 Entra group memberships (the "overage" case) are handled transparently via a Microsoft Graph API fallback — they see the same results as any other user, with no manual intervention required.</p>
+<p>The sentinel principal <code>SELECT_ALL_USERS</code> marks tables that are publicly accessible to all authenticated users.</p>
+<h3>F3 — Table detail view</h3>
+Per-table page showing:
+<ul>
+  <li>Catalog / schema / table identifier (monospace)</li>
+  <li>Description, steward, table type, freshness</li>
+  <li>Full column list with data type, Unity Catalog comment, business name override, and definition override</li>
+  <li>Grant list (who can access the table and with what privilege)</li>
+  <li>Multi-hop lineage (upstream / downstream tables) — powered by a single recursive SQL CTE, replacing a previous N+1 hop-by-hop query pattern</li>
+  <li><strong>Downstream impact summary</strong> — count of downstream assets in the blast radius, with a warning when certified or production tables are affected</li>
+  <li>Data quality grade badge (A–F) when DQ data is available (sourced from Lakehouse Monitoring or Unity Catalog tags)</li>
+  <li>Data sample — top 100 rows, shown only if the user has <code>SELECT</code> on the table</li>
+  <li>CSV export of the schema including business names and definitions <h3>F4 — Inline metadata editing with approval workflow</h3></li>
+</ul>Power users (members of <code>EDITOR_GROUPS</code>) can edit:
+<ul>
+  <li>Table description and steward — written immediately to a local overrides table (<code>user_data.table_metadata_overrides</code>) and pushed to Unity Catalog by the sidecar</li>
+  <li>Column business name (max 255 chars) and definition (max 2000 chars) <strong>Approval workflow for column overrides:</strong> admins publish directly and changes sync to Databricks immediately. Non-admin power users create a <code>pending_approval</code> proposal that appears in the admin review queue. Admins approve or reject from the Admin dashboard; only approved changes are pushed to Unity Catalog. Every edit (and every approval / rejection) produces an audit-log entry with actor email, timestamp, and before/after values. Admins can globally disable editing (e.g., during a data migration) without redeploying. <h3>F5 — Comments</h3></li>
+</ul>Any authenticated user can leave a question or flag on any table or column (max 1000 chars), with one level of threaded replies. New comments trigger an email notification to the table steward when SMTP is configured; email failures do not block the comment from being saved.
+<h3>F6 — Health dashboard</h3>
+Catalog-wide documentation coverage metrics:
+<ul>
+  <li>Percentage of tables with a description</li>
+  <li>Percentage of columns with a description</li>
+  <li>Freshness grade per schema</li>
+  <li>"Priority actions" panel listing up to 5 undocumented tables, deep-linkable to their detail view <h3>F7 — Pipelines</h3></li>
+</ul>Members of <code>PIPELINE_GROUPS</code> (and admins) can trigger, monitor, and cancel named pipeline runs. Three backends are supported:
+<ul>
+  <li><strong>Databricks Jobs</strong> (Jobs API 2.1)</li>
+  <li><strong>Azure Data Factory</strong> (management API 2018-06-01)</li>
+  <li><strong>Azure DevOps Pipelines</strong> (API 7.0) One active run is allowed per pipeline at a time. The status panel auto-polls every 3 seconds while a run is in flight, showing live progress percentage and lifecycle state. Start and stop actions show toast notifications; the Save and Send buttons use primary styling for visual prominence. <h3>F8 — Admin dashboard</h3></li>
+</ul>Admin-only panel (members of <code>ADMIN_GROUPS</code>) with two tabs:
+<p><strong>Operations tab:</strong>
+<ul>
+  <li>Catalog statistics</li>
+  <li>Sync-queue status and daemon heartbeat</li>
+  <li>Pending metadata approvals — column override proposals submitted by non-admin editors, with approve / reject actions</li>
+  <li>Full audit log</li>
+  <li>Comment log</li>
+  <li>CMS post CRUD (create / publish / delete announcements)</li>
+  <li>Pipeline-definition CRUD (register / remove named pipelines)</li>
+  <li>Global editing toggle</li>
+  <li>Group-permissions cache flush <strong>Quality Insights tab:</strong></li>
+  <li>High-impact gaps — popular tables (by audit-log activity) that are missing a description or steward</li>
+  <li>Stewardship gaps — full list of tables without an assigned steward</li>
+  <li>DQ alerts — tables with a failing data-quality check (sourced from <code>data_quality_cache</code>) All write functions re-check authorization at the function boundary — defense-in-depth beyond the UI gate. <h3>F9 — Internationalisation</h3></li>
+</ul>The UI is available in English and French. Locale is auto-detected from the <code>Accept-Language</code> header and can be toggled per session with the <code>EN / FR</code> control in the header. All UI strings are stored in <code>locale/en.json</code> and <code>locale/fr.json</code>; French falls back to English for any key not yet translated. The sign-in page is fully internationalised (11 locale keys covering stats, card copy, mock-auth prompts, and policy text).</p>
+<h3>F10 — Personalisation</h3>
+Per-user bookmarks (tables and columns) and recently viewed tables, persisted across sessions, keyed by Entra ID Object ID (<code>oid</code>). Preferences load at session start and write back immediately on user action.
+<p>The <strong>Recommended</strong> feed (Discovery tab) is derived from the audit log: tables with recent edit or comment activity are ranked by popularity, with tables the current user has already viewed removed from the list to encourage discovery of genuinely new assets.</p>
+<h3>F11 — Accessibility</h3>
+WCAG 2.0 Level AA compliance on every public page, measured by axe-core. Two known Streamlit-framework violations are explicitly tracked as accepted exceptions; no new violations are permitted on any release.
+<hr>
+</section>
+<section class="section" id="5-how-it-is-built-architecture">
+<h2>5. How it is built — architecture</h2>
+<h3>Three-component design</h3>
+<div class="workflow-diagram">
+  <div class="wf-step"><span class="wf-label">Streamlit pods</span><span class="wf-actor">Read + Enqueue</span></div>
+  <div class="wf-arrow">→</div>
+  <div class="wf-step accent"><span class="wf-label">Sync worker</span><span class="wf-actor">Drain + Push</span></div>
+  <div class="wf-arrow">→</div>
+  <div class="wf-step ok"><span class="wf-label">Databricks</span><span class="wf-actor">Unity Catalog</span></div>
+</div>
+<details class="ascii-container">
+  <summary>View System Flow (Raw ASCII)</summary>
+<pre>┌─────────────────┐      ┌──────────────────┐      ┌──────────────┐
+│ Streamlit pods  │      │  Sync worker     │      │  Databricks  │
+│ (read + enqueue)│      │  (drain + push)  │      │  Unity Cat.  │
+│                 │ enq. │                  │ push │              │
+│  DuckDB local ◄─┼──────┤   DuckDB local ──┼──────┼─►            │
+│   ATTACH RO     │      │   user_data RW   │ pull │              │
+└────────┬────────┘      └─────────┬────────┘ ◄────┼──────────────┘
+         │                         │   DR resync
+         └────  PVC dd-data  ───────┘
+              dict.duckdb           (catalog cache, rebuilt nightly)
+              dict_user_data.duckdb (overrides, queue, audit, comments)</pre>
+</details>
+<p><strong>Component 1 — Nightly sync job (<code>scripts/nightly_sync.py</code>)</strong></p>
+<p>Runs as a Kubernetes CronJob every night at 03:00 UTC. Uses the <code>databricks-sdk</code> (<code>WorkspaceClient</code>) to crawl the Unity Catalog hierarchy (catalogs → schemas → tables → columns → grants → lineage). Writes the results via truncate-and-reload into five cache tables in the local DuckDB file and into <code>data_governance.dictionary_cache</code> on Databricks. The local file is replaced atomically (<code>os.replace</code>) so in-flight reads are never interrupted.</p>
+<p>Cache tables:</p>
+<table class="status-table">
+<thead>
+<tr><th>Table</th><th>Grain</th><th>Purpose</th></tr>
+</thead>
+<tbody>
+<tr><td><code>tables_metadata</code></td><td>One row per table</td><td>Full-text search, detail view</td></tr>
+<tr><td><code>columns_metadata</code></td><td>One row per column</td><td>Column search, detail view</td></tr>
+<tr><td><code>permissions_cache</code></td><td>One row per (table, principal, privilege)</td><td>Row-level security join</td></tr>
+<tr><td><code>lineage_cache</code></td><td>One row per lineage edge</td><td>Multi-hop lineage panel</td></tr>
+<tr><td><code>object_tags</code></td><td>One row per (object, tag key)</td><td>Glossary domain/steward/calculation</td></tr>
+</tbody>
+</table>
+<strong>Component 2 — Streamlit frontend (<code>app.py</code> + <code>src/</code>)</strong>
+<p>~180-line entry point (<code>app.py</code>). All business logic lives in <code>src/</code>:</p>
+<table class="status-table">
+<thead>
+<tr><th>Module</th><th>Responsibility</th></tr>
+</thead>
+<tbody>
+<tr><td><code>src/auth.py</code>, <code>src/auth_graph.py</code></td><td>MSAL OIDC flow, group resolution, Graph overage handling</td></tr>
+<tr><td><code>src/db/</code></td><td>DuckDB adapter, query layer, dialect translation</td></tr>
+<tr><td><code>src/storage/</code></td><td>Per-entity Protocol-based storage backends (Demo / DuckDB / Fake)</td></tr>
+<tr><td><code>src/ui/cards/</code></td><td>7-module UI component package (discovery, health, pipelines, admin, CMS, detail, shared)</td></tr>
+<tr><td><code>src/pages/</code></td><td>Search page, catalog page</td></tr>
+<tr><td><code>src/sync/</code></td><td>Sync daemon, push logic, DR resync, worker status helpers</td></tr>
+<tr><td><code>src/personalization.py</code></td><td>Bookmarks, recents, editing toggle</td></tr>
+<tr><td><code>src/cms.py</code></td><td>CMS post logic (thin wrapper over <code>CMSStorage</code>)</td></tr>
+<tr><td><code>src/pipelines.py</code></td><td>Pipeline trigger / poll / cancel</td></tr>
+</tbody>
+</table>
+At startup the app:
+<ol class="steps">
+  <li>Validates environment (refuses <code>ENABLE_MOCK_AUTH</code> outside <code>ENVIRONMENT=development</code>)</li>
+  <li>Runs the MSAL OIDC redirect or the mock-auth path</li>
+  <li>Resolves the user's Entra groups (inline claim or Graph fallback)</li>
+  <li>Opens the DuckDB catalog cache and attaches the user-data file</li>
+  <li>Renders the tab-based navigation shell <strong>Component 3 — Sidecar sync worker (<code>python -m src.sync.daemon</code>)</strong> A standalone process (<code>dd-sync-worker</code>, <code>replicas: 1</code>, <code>strategy: Recreate</code>) that:</li>
+</ol>- Drains <code>user_data.pending_sync</code> — applies each queued metadata change to Unity Catalog (<code>ALTER TABLE … COMMENT</code>, audit-log <code>INSERT</code>, etc.)
+<ul>
+  <li>Runs DR resync every 20 cycles — pulls late-arriving audit and comment rows from Databricks back into the local user_data file</li>
+  <li>Recovers stale rows — rows stuck in <code>'syncing'</code> for more than 5 minutes flip back to <code>'pending'</code></li>
+  <li>Exposes <code>/healthz</code> on port 8765 — returns 503 when the heartbeat is more than 60 seconds old; the Kubernetes liveness probe goes red automatically</li>
+  <li>Writes its heartbeat timestamp and DR resync status to <code>user_data.site_settings</code> so the admin sync panel can display them The sidecar replaces the previous in-process daemon thread, which corrupted the Streamlit-cached DuckDB connection and ran without a <code>ScriptRunContext</code>. <h3>Storage abstraction layer</h3> <code>src/storage/</code> collapses the demo / DuckDB branching that used to be duplicated across four modules into a single, consistent pattern. Each entity has:</li>
+  <li>A <code>Protocol</code> defining its read/write surface</li>
+  <li>A <code>Demo*Storage</code> (session state — used in <code>DEMO_DATA=true</code> mode)</li>
+  <li>A <code>DuckDB*Storage</code> (production)</li>
+  <li>A <code>Fake*Storage</code> (in-memory — used only by unit tests)</li>
+  <li>A factory function in <code>src/storage/__init__.py</code> that picks the backend at call time. Entities covered: <code>CMSStorage</code>, <code>PipelineDefStorage</code>, <code>PipelineRunStorage</code>, <code>PreferenceStorage</code>, <code>SiteSettingStorage</code>, <code>AuditStorage</code>, <code>BusinessNameOverrideStorage</code>.</li>
+</ul>
+<h3>Design system</h3>
+<p>All UI components follow the design system defined in <code>design_system/README.md</code>:</p>
+<ul class="prose-list">
+  <li><strong>Colors:</strong> warm paper (<code>#FAF7F0</code>), near-black ink (<code>#14110C</code>), one accent — oxidized red (<code>#B8362A</code>). No hard-coded hex values in code; only CSS variables.</li>
+  <li><strong>Fonts:</strong> Fraunces (headlines), Manrope (body), JetBrains Mono (all Unity Catalog identifiers, counts, SQL).</li>
+  <li><strong>Tone:</strong> sentence case throughout; <code>§</code> prefix on section headers; no emoji in the UI.</li>
+  <li><strong>CSS:</strong> injected via <code>st.markdown('&lt;style&gt;…&lt;/style&gt;')</code> at startup from <code>src/ui/css.py</code>. No inline styles. React JSX prototypes of every screen live in <code>design_system/ui_kits/app/</code> and serve as pixel-perfect design targets.</li>
+</ul>
+</section>
+<section class="section" id="6-security-model">
+<h2>6. Security model</h2>
+<h3>Push-down SQL authorization</h3>
+<p><strong>No Python-side filtering.</strong> Every query that returns table-level results uses this pattern:</p>
+<pre><code class="language-sql">SELECT t.full_name, t.description, t.table_type
+FROM tables_metadata t
+JOIN permissions_cache p ON p.full_name = t.full_name
+WHERE p.principal IN (%(group_1)s, %(group_2)s, 'SELECT_ALL_USERS')
+  AND t.full_name ILIKE %(query)s
+GROUP BY t.full_name, t.description, t.table_type</code></pre>
+<p>Unauthorized rows are discarded by the database engine before any data reaches the application. A bug in Python cannot accidentally expose unauthorized rows. Pagination and row counts are correct from the first query. Every logged SQL statement is self-contained and shows exactly which groups were evaluated — fully auditable. (ADR 002)</p>
+<h3>Feature-level access control (three tiers)</h3>
+<table class="status-table">
+<thead>
+<tr><th>Env var</th><th>Grants access to</th></tr>
+</thead>
+<tbody>
+<tr><td><code>EDITOR_GROUPS</code></td><td>Save business name overrides, column definitions, table descriptions</td></tr>
+<tr><td><code>PIPELINE_GROUPS</code></td><td>Trigger, monitor, and cancel pipeline runs</td></tr>
+<tr><td><code>ADMIN_GROUPS</code></td><td>Admin dashboard, audit log, CMS management, pipeline definition management, editing toggle, group-cache flush</td></tr>
+</tbody>
+</table>
+Every write function raises <code>PermissionError</code> at the function boundary — independent of the UI gate.
+<h3>Entra ID groups overage</h3>
+<p>Microsoft Entra omits the <code>groups</code> claim in the ID token when a user belongs to more than ~150 security groups. Without handling, those users see zero tables and receive no error message — a silent production failure.</p>
+<p>The app detects this shape (<code>_claim_names.groups</code> present, <code>groups</code> absent) and calls <code>POST /v1.0/me/getMemberObjects {"securityEnabledOnly": true}</code> to retrieve the full transitive list via Microsoft Graph. Results are cached per user OID for 1 hour in a process-level lock-protected dict (not <code>@st.cache_data</code>, which is session-scoped and would defeat the purpose). On any Graph failure — network, 4xx, 5xx — the app returns an empty group list and the user sees no tables. We never silently grant access on failure. (ADR 006)</p>
+<p>Admins can flush the entire group cache from the admin page. Sign-out clears the individual user's entry so "sign out and sign back in" always reflects current Entra state.</p>
+<h3>Additional hardening</h3>
+<ul>
+  <li>User-supplied display values are HTML-escaped before rendering</li>
+  <li>SMTP headers are sanitized to prevent header injection in comment notification emails</li>
+  <li>Parameterized queries throughout; <code>_to_duckdb_sql()</code> preserves the parameterized pattern across both backends (no string concatenation)</li>
+  <li>Kubernetes <code>NetworkPolicy</code> restricts egress to HTTPS only and ingress to the ingress controller namespace <hr></li>
+</ul>
+</section>
+<section class="section" id="7-when-things-run-operational-cadence">
+<h2>7. When things run — operational cadence</h2>
+<table class="status-table">
+<thead>
+<tr><th>What</th><th>When</th><th>Where</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Catalog rebuild</strong></td><td>Every night at 03:00 UTC</td><td>Kubernetes <code>CronJob</code> (<code>dd-sync</code>); retries up to 2× on failure</td></tr>
+<tr><td><strong>Write-back to Databricks</strong></td><td>Every 5 s (active queue) / 30 s (idle)</td><td>Sidecar daemon (<code>dd-sync-worker</code>), continuous</td></tr>
+<tr><td><strong>DR resync (pull)</strong></td><td>Every 20 drain cycles (~100 s active / 600 s idle)</td><td>Sidecar daemon, continuous</td></tr>
+<tr><td><strong>Stale-row recovery</strong></td><td>Top of every drain cycle</td><td>Sidecar daemon; rows in <code>'syncing'</code> for >5 min flip back to <code>'pending'</code></td></tr>
+<tr><td><strong>Daemon heartbeat</strong></td><td>Every drain cycle</td><td>Written to <code>user_data.site_settings</code>; liveness probe fails if >60 s stale</td></tr>
+<tr><td><strong>Group cache TTL</strong></td><td>1 hour per user OID</td><td>Process-level dict; cleared on sign-out or admin flush</td></tr>
+<tr><td><strong>Write retry limit</strong></td><td>3 attempts per row</td><td>Rows that exhaust retries are marked <code>'failed'</code>; visible in admin sync panel</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="8-deployment-topology">
+<h2>8. Deployment topology</h2>
+<p>All components run in the <code>data-dictionary</code> Kubernetes namespace.</p>
+<table class="status-table">
+<thead>
+<tr><th>Resource</th><th>Kind</th><th>Notes</th></tr>
+</thead>
+<tbody>
+<tr><td><code>dd-app</code></td><td><code>Deployment</code></td><td>Streamlit UI; HPA manages replicas; <code>PodDisruptionBudget minAvailable: 1</code>; probes target <code>/_stcore/health:8501</code>; <code>readOnlyRootFilesystem: true</code> with <code>/tmp</code> emptyDir for runtime writes</td></tr>
+<tr><td><code>dd-sync-worker</code></td><td><code>Deployment</code></td><td>Sidecar daemon; <code>replicas: 1</code>, <code>strategy: Recreate</code> (single writer); probes target <code>/healthz:8765</code>; <code>readOnlyRootFilesystem: true</code> with <code>/tmp</code> emptyDir</td></tr>
+<tr><td><code>dd-sync</code></td><td><code>CronJob</code></td><td>Nightly catalog rebuild at 03:00 UTC; <code>concurrencyPolicy: Forbid</code>; <code>backoffLimit: 2</code></td></tr>
+<tr><td><code>dd-data</code></td><td><code>PersistentVolumeClaim</code></td><td><code>ReadWriteMany</code>; mounted at <code>/data</code> by all three above; holds both DuckDB files</td></tr>
+<tr><td><code>dd-config</code></td><td><code>ConfigMap</code></td><td>Non-secret env vars (<code>DATABRICKS_HOST</code>, etc.)</td></tr>
+<tr><td><code>dd-secrets</code></td><td><code>Secret</code></td><td>Credentials (<code>DATABRICKS_TOKEN</code>, <code>CLIENT_SECRET</code>, etc.)</td></tr>
+<tr><td><code>NetworkPolicy</code></td><td><code>NetworkPolicy</code></td><td>Ingress from ingress-controller namespace only; egress HTTPS only</td></tr>
+<tr><td><code>ResourceQuota</code></td><td><code>ResourceQuota</code></td><td>Namespace ceiling: 8 CPU / 8 Gi memory (limits)</td></tr>
+</tbody>
+</table>
+<strong>Local development</strong> — no Kubernetes or Databricks credentials required:
+<pre><code class="language-bash">ENABLE_MOCK_AUTH=true ENVIRONMENT=development DEMO_DATA=true streamlit run app.py</code></pre>
+<p>The mock-auth path renders a department selector. <code>DEMO_DATA=true</code> uses fixture data entirely in memory — no DuckDB file required.</p>
+<hr>
+</section>
+<section class="section" id="9-key-architectural-decisions">
+<h2>9. Key architectural decisions</h2>
+<p>The full rationale for each is in <code>docs/adr/</code>.</p>
+<h3>ADR 001 — DuckDB as the local metadata cache</h3>
+<p><strong>Decision:</strong> Serve all read queries from an embedded DuckDB file rather than routing every request to the Databricks SQL Warehouse over the network.</p>
+<p><strong>Why:</strong> The catalog (~800 tables, ~15 columns each, ~3 000 permission rows) fits comfortably on local disk. DuckDB runs in-process with no server, speaks SQL, and handles the analytical join patterns (GROUP BY, multi-table JOIN, UNION) the app needs. Search queries hit p95 < 8 ms locally versus ~300 ms over the network.</p>
+<p><strong>Trade-off:</strong> Requires a shared <code>ReadWriteMany</code> PVC when running multiple Streamlit replicas. The catalog file is replaced atomically by the sync job, so readers always see a consistent snapshot; during the swap window (30–90 s) they continue reading the previous file.</p>
+<h3>ADR 002 — Push-down SQL authorization</h3>
+<p><strong>Decision:</strong> Enforce permissions via a <code>JOIN</code> inside the SQL engine, not by fetching all results and filtering in Python.</p>
+<p><strong>Why:</strong> A Python filter is a single point of failure — one bug exposes unauthorized rows. Push-down SQL means unauthorized rows are mathematically impossible to return. Row counts and pagination are correct from the first query without reading all results first.</p>
+<h3>ADR 003 — Streamlit, not FastAPI</h3>
+<p><strong>Decision:</strong> Build the UI with Streamlit rather than a separate React/FastAPI stack.</p>
+<p><strong>Why:</strong> The target user base needs a read-mostly, form-driven catalog browser — not a real-time collaborative editor. Streamlit delivers that in one Python process with no client–server API boundary. The trade-off (limited UI flexibility, no server-sent events) is acceptable given the use case. Engineers familiar with Python can maintain the UI without learning a JavaScript framework.</p>
+<h3>ADR 004 — Sidecar sync worker</h3>
+<p><strong>Decision:</strong> Move the write-back loop out of the Streamlit process into a separate sidecar process.</p>
+<p><strong>Why:</strong> The previous in-process daemon thread shared a Streamlit-cached DuckDB connection with the UI (corrupting concurrent reads), ran without a Streamlit <code>ScriptRunContext</code> (undefined behaviour), and tracked UI activity in two diverging state objects. A separate process with its own DuckDB connection and a clear queue-based interface eliminates all three problems. The Streamlit pods are now read-only from Databricks' perspective; the sidecar is the sole intentional writer.</p>
+<h3>ADR 005 — Per-entity storage abstraction</h3>
+<p><strong>Decision:</strong> Replace ~13 duplicated three-way switches (<code>demo / DuckDB / Databricks</code>) across four modules with per-entity Protocol-based backends and factory functions.</p>
+<p><strong>Why:</strong> Each entity had a slightly different exception-handling shape, so a fix to one didn't reach the others. Tests were brittle because they mocked <code>_duckdb_available</code> directly. The Protocol pattern makes adding a new entity mechanical (define → implement Demo/DuckDB/Fake → add factory), and tests now inject <code>Fake*Storage</code> directly without touching routing internals.</p>
+<h3>ADR 006 — Entra ID groups overage handling</h3>
+<p><strong>Decision:</strong> Detect the <code>_claim_names.groups</code> pointer in the ID token and call Microsoft Graph <code>getMemberObjects</code> when the inline <code>groups</code> claim is absent.</p>
+<p><strong>Why:</strong> Entra omits the inline groups claim for users with >150 group memberships. Without this handling, those users see zero tables with no error — a silent, invisible production failure that only affects enterprise users (IT admins, partner teams). The Graph fallback is cached per-user for 1 hour, fail-closed on any error, and clears on sign-out.</p>
+<hr>
+</section>
+<section class="section" id="10-non-functional-properties">
+<h2>10. Non-functional properties</h2>
+<table class="status-table">
+<thead>
+<tr><th>Property</th><th>Target</th></tr>
+</thead>
+<tbody>
+<tr><td>Search latency</td><td>p95 < 8 ms (DuckDB local cache, 800-table dataset)</td></tr>
+<tr><td>Page shell latency</td><td>p95 HTTP < 20 ms</td></tr>
+<tr><td>Concurrent users</td><td>300 authenticated users, no failures, within latency targets (load-tested baseline)</td></tr>
+<tr><td>Authentication</td><td>Microsoft Entra ID OIDC only. No local accounts. No password storage.</td></tr>
+<tr><td>Data at rest</td><td>DuckDB files on a PVC; user-data file holds personalisation, audit log, comments, overrides, pipeline definitions</td></tr>
+<tr><td>Databricks down</td><td>Reads continue from local cache; writes queue locally and retry when connectivity returns</td></tr>
+<tr><td>SMTP down</td><td>Comments still save; only the notification email is lost</td></tr>
+<tr><td>Graph API down</td><td>Users with overage tokens see no tables (fail-closed — never silently grants access)</td></tr>
+<tr><td>Audit retention</td><td>Audit log is append-only; no hard delete from the UI</td></tr>
+<tr><td>Languages</td><td>English and French at parity; other locales are not in scope</td></tr>
+<tr><td>Compliance</td><td>No PII stored beyond what Entra (name, email, OID) and Unity Catalog (steward email) already provide. Every metadata change carries actor, timestamp, and before/after values; the daemon mirrors entries to Databricks for tamper resistance.</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="11-out-of-scope">
+<h2>11. Out of scope</h2>
+<ul>
+  <li>DDL changes or <code>GRANT</code> modifications to Unity Catalog from this app — metadata editing only.</li>
+  <li>Replacement for the data-engineering Databricks UX — engineers use Databricks for schema work, lineage debugging, cluster config.</li>
+  <li>Self-service permission requests — access requests go through the existing IT-ticketing flow.</li>
+  <li>Free-form SQL execution — the data preview is a fixed top-100 read.</li>
+  <li>Data quality enforcement — the health dashboard surfaces metrics from other systems; it does not run checks itself.</li>
+  <li>Real-time collaborative editing — no live cursors, no row-level locking.</li>
+  <li>Mobile web layout — target is desktop / large tablet.</li>
+  <li>Multi-tenant deployment — one install per environment, one Entra tenant. <hr></li>
+</ul>
+</section>
+<section class="section" id="12-success-metrics">
+<h2>12. Success metrics</h2>
+<table class="status-table">
+<thead>
+<tr><th>Metric</th><th>Target</th></tr>
+</thead>
+<tbody>
+<tr><td>Search adoption</td><td>≥ 70 % of authenticated weekly users execute at least one search per session (90-day rolling)</td></tr>
+<tr><td>Steward edits</td><td>≥ 10 business-name overrides created per week across all stewards</td></tr>
+<tr><td>Mean time to find a table</td><td>< 2 minutes from sign-in to detail view (replaces the ~hours "ask a data engineer in Slack" baseline)</td></tr>
+<tr><td>Audit completeness</td><td>100 % of catalog edits map to an audit-log row produced by this app (sampled monthly)</td></tr>
+<tr><td>Accessibility</td><td>Zero new WCAG 2.0 AA violations beyond the two known Streamlit framework issues, on every release</td></tr>
+</tbody>
+</table>
+<hr>
+<p><em>Generated from the codebase, ADRs, and business requirements document using the knowledge-base + Gemini digest workflow — 2026-05-13.</em></p>
+</section>
+      <footer class="site-footer">
+        <p>Data Dictionary · Documented by Data Engineering</p>
+        <p>Internal Use Only</p>
+      </footer>
+    </article>
+  </main>
+</body>
+</html>

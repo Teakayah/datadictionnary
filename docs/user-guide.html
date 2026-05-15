@@ -1,408 +1,127 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Data Dictionary — User Guide</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-  /* ── Design tokens ── */
-  :root {
-    --paper:       #FAF7F0;
-    --paper-deep:  #F2EDE1;
-    --paper-ink:   #E8E1D0;
-    --ink:         #14110C;
-    --ink-90:      #2A2620;
-    --ink-80:      #3D3830;
-    --ink-60:      #6B645A;
-    --ink-40:      #9A9388;
-    --ink-20:      #C9C2B4;
-    --ink-10:      #DCD6C8;
-    --accent:      #B8362A;
-    --accent-wash: #F3DFD9;
-    --forest:      #3F5E3A;
-    --forest-wash: #E3E9DE;
-    --ochre:       #9A6D1C;
-    --ochre-wash:  #F0E5CC;
-    --deepblue:    #2B4A6B;
-    --deepblue-wash:#DDE4EC;
-    --font-display:"Fraunces","Cormorant Garamond","Times New Roman",serif;
-    --font-sans:   "Manrope","Segoe UI",system-ui,sans-serif;
-    --font-mono:   "JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
-  }
-
-  /* ── Reset & base ── */
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { font-size: 16px; scroll-behavior: smooth; }
-  body {
-    background: var(--paper);
-    color: var(--ink);
-    font-family: var(--font-sans);
-    font-size: 15px;
-    line-height: 1.6;
-    letter-spacing: -0.005em;
-    -webkit-font-smoothing: antialiased;
-  }
-  ::selection { background: var(--accent-wash); color: var(--ink); }
-
-  /* ── Layout ── */
-  .page { max-width: 780px; margin: 0 auto; padding: 0 24px 120px; }
-
-  /* ── Header ── */
-  .site-header {
-    border-bottom: 1px solid var(--ink-20);
-    padding: 24px 0 20px;
-    margin-bottom: 64px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .site-header .badge {
-    font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--ink-40);
-    background: var(--paper-deep);
-    border: 1px solid var(--ink-10);
-    padding: 3px 8px;
-    border-radius: 999px;
-  }
-
-  /* ── Hero ── */
-  .hero {
-    padding: 48px 0 56px;
-    border-bottom: 1px solid var(--ink-20);
-    margin-bottom: 64px;
-  }
-  .hero .eyebrow {
-    font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 16px;
-  }
-  .hero h1 {
-    font-family: var(--font-display);
-    font-size: clamp(40px, 6vw, 72px);
-    font-weight: 300;
-    line-height: 1.05;
-    letter-spacing: -0.02em;
-    color: var(--ink);
-    margin-bottom: 20px;
-  }
-  .hero h1 em { font-style: italic; color: var(--ink-60); }
-  .hero .lead {
-    font-family: var(--font-sans);
-    font-size: 17px;
-    line-height: 1.55;
-    color: var(--ink-60);
-    max-width: 560px;
-  }
-
-  /* ── Section headings ── */
-  .section { margin-bottom: 72px; }
-  .section-eyebrow {
-    font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--ink-40);
-    margin-bottom: 10px;
-  }
-  h2 {
-    font-family: var(--font-display);
-    font-size: 32px;
-    font-weight: 400;
-    letter-spacing: -0.015em;
-    line-height: 1.15;
-    color: var(--ink);
-    margin-bottom: 20px;
-  }
-  h3 {
-    font-family: var(--font-sans);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink-60);
-    margin: 40px 0 16px;
-  }
-  h3:first-child { margin-top: 0; }
-  p { margin-bottom: 14px; color: var(--ink-80); }
-  p:last-child { margin-bottom: 0; }
-
-  /* ── Rule ── */
-  hr { border: 0; border-top: 1px solid var(--ink-10); margin: 56px 0; }
-
-  /* ── Role badge ── */
-  .role {
-    display: inline-block;
-    font-family: var(--font-sans);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 2px 7px;
-    border-radius: 2px;
-    vertical-align: middle;
-    margin-left: 8px;
-    position: relative;
-    top: -1px;
-  }
-  .role-all    { background: var(--forest-wash);  color: var(--forest); }
-  .role-power  { background: var(--ochre-wash);   color: var(--ochre); }
-  .role-admin  { background: var(--accent-wash);  color: var(--accent); }
-
-  /* ── Feature list ── */
-  .feature-group { margin-bottom: 48px; }
-  .feature-group-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 0;
-    border-top: 1px solid var(--ink-20);
-    border-bottom: 1px solid var(--ink-10);
-    margin-bottom: 0;
-  }
-  .feature-group-header .role { margin-left: 0; }
-  .feature-group-title {
-    font-family: var(--font-sans);
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--ink-60);
-  }
-  .feature-item {
-    display: grid;
-    grid-template-columns: 200px 1fr;
-    gap: 0 24px;
-    padding: 16px 0;
-    border-bottom: 1px solid var(--ink-10);
-    align-items: start;
-  }
-  .feature-name {
-    font-family: var(--font-sans);
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--ink);
-    padding-top: 1px;
-  }
-  .feature-desc {
-    font-size: 14px;
-    line-height: 1.5;
-    color: var(--ink-60);
-    margin: 0;
-  }
-
-  /* ── How-to steps ── */
-  .steps { list-style: none; counter-reset: steps; margin: 0 0 24px; }
-  .steps li {
-    counter-increment: steps;
-    display: grid;
-    grid-template-columns: 28px 1fr;
-    gap: 0 14px;
-    padding: 12px 0;
-    border-bottom: 1px solid var(--ink-10);
-    font-size: 14px;
-    color: var(--ink-80);
-    line-height: 1.55;
-  }
-  .steps li::before {
-    content: counter(steps);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--accent);
-    background: var(--accent-wash);
-    border-radius: 2px;
-    width: 22px;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    margin-top: 1px;
-  }
-  .steps li strong { color: var(--ink); font-weight: 600; }
-
-  /* ── Callout ── */
-  .callout {
-    background: var(--deepblue-wash);
-    border-left: 3px solid var(--deepblue);
-    padding: 14px 18px;
-    border-radius: 0 2px 2px 0;
-    margin: 20px 0;
-    font-size: 14px;
-    color: var(--ink-80);
-    line-height: 1.55;
-  }
-  .callout.warn {
-    background: var(--ochre-wash);
-    border-left-color: var(--ochre);
-  }
-  .callout.tip {
-    background: var(--forest-wash);
-    border-left-color: var(--forest);
-  }
-  .callout strong { color: var(--ink); font-weight: 600; }
-
-  /* ── FAQ ── */
-  .faq-item {
-    padding: 18px 0;
-    border-bottom: 1px solid var(--ink-10);
-  }
-  .faq-q {
-    font-family: var(--font-sans);
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--ink);
-    margin-bottom: 8px;
-  }
-  .faq-a {
-    font-size: 14px;
-    color: var(--ink-60);
-    line-height: 1.55;
-    margin: 0;
-  }
-
-  /* ── Inline code ── */
-  code {
-    font-family: var(--font-mono);
-    font-size: 0.88em;
-    background: var(--paper-deep);
-    border: 1px solid var(--ink-10);
-    padding: 1px 5px;
-    border-radius: 2px;
-    color: var(--ink-80);
-  }
-
-  /* ── Table of contents ── */
-  .toc {
-    background: var(--paper-deep);
-    border: 1px solid var(--ink-10);
-    padding: 24px 28px;
-    margin-bottom: 64px;
-  }
-  .toc-title {
-    font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--ink-40);
-    margin-bottom: 14px;
-  }
-  .toc ol { list-style: decimal; padding-left: 18px; }
-  .toc li { margin: 6px 0; font-size: 14px; }
-  .toc a {
-    color: var(--ink-60);
-    text-decoration: none;
-    border-bottom: 1px solid transparent;
-    transition: color 120ms, border-color 120ms;
-  }
-  .toc a:hover { color: var(--accent); border-bottom-color: var(--accent-wash); }
-
-  /* ── Footer ── */
-  .site-footer {
-    border-top: 1px solid var(--ink-20);
-    padding: 32px 0;
-    margin-top: 80px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  .site-footer p {
-    font-size: 12px;
-    color: var(--ink-40);
-    margin: 0;
-  }
-
-  /* ── Print ── */
-  @media print {
-    body { font-size: 13px; }
-    .site-header .badge { display: none; }
-    .toc { display: none; }
-    a { color: var(--ink) !important; text-decoration: none !important; }
-    .callout { border: 1px solid var(--ink-20); }
-  }
-
-  /* ── Responsive ── */
-  @media (max-width: 600px) {
-    .feature-item { grid-template-columns: 1fr; gap: 4px; }
-    .feature-name { font-size: 13px; }
-    .hero h1 { font-size: 38px; }
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Dictionary — User Guide</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="page">
-
-  <!-- Header -->
-  <header class="site-header">
-    <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:32px">
-      <g transform="translate(4,2)">
-        <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
-        <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
-        <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
-        <line x1="3" y1="13" x2="23" y2="13" stroke="#C9C2B4" stroke-width="0.8"/>
-        <line x1="3" y1="17" x2="23" y2="17" stroke="#C9C2B4" stroke-width="0.8"/>
-        <line x1="3" y1="21" x2="17" y2="21" stroke="#C9C2B4" stroke-width="0.8"/>
-      </g>
-      <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
-      <text x="194" y="25" font-family="Fraunces, serif" font-size="20" fill="#B8362A">§</text>
-    </svg>
-    <span class="badge">User Guide</span>
-  </header>
-
-  <!-- Hero -->
-  <section class="hero">
-    <div class="eyebrow">Documentation</div>
-    <h1>A card catalog<br><em>for your warehouse.</em></h1>
-    <p class="lead">Everything you need to find, understand, and describe data assets across Unity Catalog — filtered to what you have permission to see.</p>
-  </section>
-
-  <!-- Table of contents -->
-  <nav class="toc" aria-label="Table of contents">
-    <div class="toc-title">Contents</div>
-    <ol>
-      <li><a href="#what-is-it">What is the Data Dictionary</a></li>
-      <li><a href="#features">Full feature list</a></li>
-      <li><a href="#get-started">Getting started</a></li>
-      <li><a href="#howto-search">How to search the catalog</a></li>
-      <li><a href="#howto-detail">How to read a table detail page</a></li>
-      <li><a href="#howto-bookmarks">How to bookmark and track tables</a></li>
-      <li><a href="#howto-comments">How to leave a comment or question</a></li>
-      <li><a href="#howto-edit">How to propose a metadata change</a></li>
-      <li><a href="#howto-approve">How to approve or reject a proposal <span class="role role-admin">Admin</span></a></li>
-      <li><a href="#howto-pipeline">How to trigger and monitor a pipeline <span class="role role-admin">Admin</span></a></li>
-      <li><a href="#faq">Frequently asked questions</a></li>
-    </ol>
+  
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <a href="product-overview.html" style="text-decoration:none; color:inherit;">
+      <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:24px">
+        <g transform="translate(4,2)">
+          <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
+          <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
+          <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
+        </g>
+        <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
+      </svg>
+    </a>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-section-title">Guides</div>
+    <ul class="nav-list">
+      <li class="nav-item active"><a href="user-guide.html">User Guide</a></li>
+      <li class="nav-item "><a href="steward-guide.html">Steward Guide</a></li>
+      <li class="nav-item "><a href="admin-runbook.html">Admin Runbook</a></li>
+    </ul>
   </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Product</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="product-overview.html">Product Overview</a></li>
+      <li class="nav-item "><a href="business-requirements.html">Business Requirements</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Features</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="feature-unified-search.html">Unified Search</a></li>
+      <li class="nav-item "><a href="feature-personalization.html">Personalization</a></li>
+      <li class="nav-item "><a href="feature-data-quality.html">Data Quality</a></li>
+      <li class="nav-item "><a href="feature-data-preview.html">Data Preview</a></li>
+      <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
+      <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
+      <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Architecture</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="architecture.html">Architecture Overview</a></li>
+      <li class="nav-item "><a href="dependencies.html">Dependencies</a></li>
+      <li class="nav-item "><a href="adr-001-duckdb-local-cache.html">ADR 001: DuckDB Cache</a></li>
+      <li class="nav-item "><a href="adr-002-push-down-sql-auth.html">ADR 002: SQL Auth</a></li>
+      <li class="nav-item "><a href="adr-003-streamlit-not-fastapi.html">ADR 003: Streamlit</a></li>
+      <li class="nav-item "><a href="adr-004-sidecar-sync-worker.html">ADR 004: Sync Worker</a></li>
+      <li class="nav-item "><a href="adr-005-storage-abstraction.html">ADR 005: Storage Abstraction</a></li>
+      <li class="nav-item "><a href="adr-006-entra-groups-overage.html">ADR 006: Groups Overage</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Operations</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="runbook-sync-worker.html">Sync Worker Runbook</a></li>
+      <li class="nav-item "><a href="runbook-secret-rotation.html">Secret Rotation Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Reference</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="reference-locale-keys.html">Locale Keys</a></li>
+    </ul>
+  </nav>
+</aside>
+
+  <main class="content-wrapper">
+    <article class="page">
+      <header class="site-header">
+        <span class="badge">Guides</span>
+      </header>
+      <section class="hero">
+        <div class="eyebrow">Guides</div>
+        <h1>User Guide</h1>
+      </section>
+      <section class="section" id="table-of-contents">
+        <h2>Table of contents</h2>
+        <nav class="toc">
+          <ol>
+            <li><a href="#what-is-it">What is the Data Dictionary</a></li>
+            <li><a href="#features">Full feature list</a></li>
+            <li><a href="#get-started">Getting started</a></li>
+            <li><a href="#howto-search">How to search the catalog</a></li>
+            <li><a href="#howto-detail">How to read a table detail page</a></li>
+            <li><a href="#howto-bookmarks">How to bookmark and track tables</a></li>
+            <li><a href="#howto-comments">How to leave a comment or question</a></li>
+            <li><a href="#howto-edit">How to propose a metadata change</a></li>
+            <li><a href="#howto-approve">How to approve or reject a proposal</a></li>
+            <li><a href="#howto-pipeline">How to trigger and monitor a pipeline</a></li>
+            <li><a href="#faq">Frequently asked questions</a></li>
+          </ol>
+        </nav>
+        <hr>
+      </section>
 
   <!-- What is it -->
   <section class="section" id="what-is-it">
     <div class="section-eyebrow">§ 1 — Overview</div>
     <h2>What is the Data Dictionary?</h2>
-    <p>The Data Dictionary is an internal web application that gives everyone in the organisation a searchable, plain-English view of the data assets held in Databricks Unity Catalog. It shows you which tables exist, what they contain, who owns them, and who is allowed to access them — without requiring any technical knowledge of Databricks or SQL.</p>
-    <p>All results are automatically filtered to the tables you have permission to see. You will never encounter a table you cannot access, and you will never be asked to request access to something you already have.</p>
-    <div class="callout tip"><strong>Synced nightly.</strong> Catalog metadata (table names, descriptions, column types, grants) is refreshed every night from Unity Catalog. Changes you make via inline editing are applied immediately in the app and pushed to Databricks in the background.</div>
+    <p>The Data Dictionary is an internal web application that gives everyone in the organisation a searchable, plain-English view of the data assets held in Databricks Unity Catalog. It shows you which tables exist, what they contain, who owns them, and who is allowed to access them — without requiring any technical knowledge of Databricks or SQL. For a high-level summary of the product goals, see the <a href="product-overview.html">Product Overview</a>.</p>
+    <p>All results are automatically filtered to the tables you have permission to see. You will never encounter a table you cannot access, and you will never be asked to request access to something you already have. This "push-down" security model is detailed in <a href="adr-002-push-down-sql-auth.html">ADR 002</a>.</p>
+    <div class="callout ok"><strong>Synced nightly.</strong> Catalog metadata (table names, descriptions, column types, grants) is refreshed every night from Unity Catalog. Changes you make via inline editing are applied immediately in the app and pushed to Databricks in the background by the <a href="adr-004-sidecar-sync-worker.html">Sync Worker</a>.</div>
   </section>
 
   <!-- Features -->
   <section class="section" id="features">
     <div class="section-eyebrow">§ 2 — Features</div>
     <h2>Full feature list</h2>
-    <p>Features are grouped by the role required to use them.</p>
+    <p>Features are grouped by the role required to use them. For technical details on how these are implemented, see the <a href="architecture.html">Architecture Overview</a>.</p>
 
     <!-- All users -->
     <div class="feature-group">
@@ -412,7 +131,7 @@
       </div>
       <div class="feature-item">
         <span class="feature-name">Catalog search</span>
-        <p class="feature-desc">Full-text search across table names, column names, descriptions, and business glossary terms. Results return in under 500 ms and include only tables you are authorised to access.</p>
+        <p class="feature-desc">Full-text search across table names, column names, descriptions, and business glossary terms. Results return in under 500 ms and include only tables you are authorised to access. See <a href="feature-unified-search.html">Unified Search</a>.</p>
       </div>
       <div class="feature-item">
         <span class="feature-name">Table detail view</span>
@@ -420,11 +139,11 @@
       </div>
       <div class="feature-item">
         <span class="feature-name">Downstream impact</span>
-        <p class="feature-desc">In the table detail sidebar: shows how many downstream assets depend on the selected table, with a warning when certified or production tables are in the blast radius.</p>
+        <p class="feature-desc">In the table detail sidebar: shows how many downstream assets depend on the selected table, with a warning when certified or production tables are in the blast radius. See <a href="feature-enhanced-lineage.html">Enhanced Lineage</a>.</p>
       </div>
       <div class="feature-item">
         <span class="feature-name">Discovery tab</span>
-        <p class="feature-desc">Four sub-tabs — <strong>Recommended</strong> (audit-log popularity, excludes already-viewed), <strong>New &amp; Notable</strong> (recent edits in your group), <strong>My Bookmarks</strong>, and <strong>Recently Viewed</strong>.</p>
+        <p class="feature-desc">Four sub-tabs — <strong>Recommended</strong> (audit-log popularity), <strong>New &amp; Notable</strong> (recent edits in your group), <strong>My Bookmarks</strong>, and <strong>Recently Viewed</strong>. See <a href="feature-personalization.html">Personalization features</a>.</p>
       </div>
       <div class="feature-item">
         <span class="feature-name">Catalog browser</span>
@@ -440,23 +159,35 @@
       </div>
       <div class="feature-item">
         <span class="feature-name">Bookmarks</span>
-        <p class="feature-desc">Star tables and columns to save them across sessions. Bookmarks are private to your account and persist when you sign out.</p>
+        <p class="feature-desc">Star tables and columns to save them across sessions. Bookmarks are private to your account and persist when you sign out. See <a href="feature-personalization.html">Personalization features</a>.</p>
       </div>
       <div class="feature-item">
         <span class="feature-name">Recently viewed</span>
-        <p class="feature-desc">Automatic chronological history of the last 50 tables you opened, updated on every visit to a detail page.</p>
+        <p class="feature-desc">Automatic chronological history of the last 50 tables you opened, updated on every visit to a detail page. See <a href="feature-personalization.html">Personalization features</a>.</p>
       </div>
       <div class="feature-item">
         <span class="feature-name">Health dashboard</span>
-        <p class="feature-desc">Catalog-wide documentation coverage: percentage of tables and columns with descriptions, coverage by schema, and a priority-actions panel listing the five most under-documented tables.</p>
+        <p class="feature-desc">Catalog-wide documentation coverage: percentage of tables and columns with descriptions, coverage by schema, and a priority-actions panel listing the five most under-documented tables. See <a href="feature-data-quality.html">Data Quality</a>.</p>
       </div>
       <div class="feature-item">
         <span class="feature-name">Data quality badges</span>
-        <p class="feature-desc">A–F grade badge on each discovery card and search result, sourced from Lakehouse Monitoring or Unity Catalog tags when available.</p>
+        <p class="feature-desc">A–F grade badge on each discovery card and search result, sourced from Lakehouse Monitoring or Unity Catalog tags when available. See <a href="feature-data-quality.html">Data Quality</a>.</p>
+      </div>
+      <div class="feature-item">
+        <span class="feature-name">Sample Data Preview</span>
+        <p class="feature-desc">View the first 10 rows of a table directly in the dictionary to understand its content. See <a href="feature-data-preview.html">Data Preview</a>.</p>
+      </div>
+      <div class="feature-item">
+        <span class="feature-name">Metadata Export</span>
+        <p class="feature-desc">Export table schemas to CSV including business definitions and overrides. See <a href="feature-metadata-export.html">Metadata Export</a>.</p>
+      </div>
+      <div class="feature-item">
+        <span class="feature-name">Recommendation Engine</span>
+        <p class="feature-desc">Discover high-value data assets through an activity-based popularity heuristic, filtered by your permissions and excluding recently viewed tables. See <a href="feature-recommendation-engine.html">Recommendation Engine</a>.</p>
       </div>
       <div class="feature-item">
         <span class="feature-name">EN / FR interface</span>
-        <p class="feature-desc">The full interface is available in English and French. Language is auto-detected and can be toggled per session with the EN / FR control in the header.</p>
+        <p class="feature-desc">The full interface is available in English and French. Language is auto-detected and can be toggled per session with the EN / FR control in the header. Key reference is in <a href="reference-locale-keys.html">Locale Keys</a>.</p>
       </div>
     </div>
 
@@ -468,11 +199,11 @@
       </div>
       <div class="feature-item">
         <span class="feature-name">Inline metadata editing</span>
-        <p class="feature-desc">Edit table descriptions, steward email, and column business names and definitions directly on the detail page. Changes appear instantly in the app.</p>
+        <p class="feature-desc">Edit table descriptions, steward email, and column business names and definitions directly on the detail page. Changes appear instantly in the app. For steward procedures, see the <a href="steward-guide.html">Steward Guide</a>.</p>
       </div>
       <div class="feature-item">
         <span class="feature-name">Metadata proposals</span>
-        <p class="feature-desc">Column overrides submitted by non-admin editors are queued as <em>pending approval</em> and must be reviewed by an admin before syncing to Databricks. Table-level edits (description, steward) are applied immediately.</p>
+        <p class="feature-desc">Column overrides submitted by non-admin editors are queued as <em>pending approval</em> and must be reviewed by an admin before syncing to Databricks. For steward procedures, see the <a href="steward-guide.html">Steward Guide</a>.</p>
       </div>
     </div>
 
@@ -484,7 +215,7 @@
       </div>
       <div class="feature-item">
         <span class="feature-name">Metadata approval queue</span>
-        <p class="feature-desc">Review column override proposals submitted by editors. Approve to publish to Unity Catalog immediately; reject to discard. Every action is audit-logged.</p>
+        <p class="feature-desc">Review column override proposals submitted by editors. Approve to publish to Unity Catalog immediately; reject to discard. Every action is audit-logged. Admin procedures are in the <a href="admin-runbook.html">Admin Runbook</a>.</p>
       </div>
       <div class="feature-item">
         <span class="feature-name">Quality Insights tab</span>
@@ -492,15 +223,15 @@
       </div>
       <div class="feature-item">
         <span class="feature-name">CMS announcements</span>
-        <p class="feature-desc">Publish pinned cards above the Discovery feed — announcements, featured tables, and guides — with configurable expiry (2 / 7 / 30 days or never).</p>
+        <p class="feature-desc">Publish pinned cards above the Discovery feed — announcements, featured tables, and guides — with configurable expiry (2 / 7 / 30 days or never). Admin procedures are in the <a href="admin-runbook.html">Admin Runbook</a>.</p>
       </div>
       <div class="feature-item">
         <span class="feature-name">Pipeline management</span>
-        <p class="feature-desc">Define, trigger, monitor, and cancel named pipeline runs. Three backends: Databricks Jobs, Azure Data Factory, Azure DevOps Pipelines. Live status polls every 3 seconds.</p>
+        <p class="feature-desc">Define, trigger, monitor, and cancel named pipeline runs. Three backends: Databricks Jobs, Azure Data Factory, Azure DevOps Pipelines. Live status polls every 3 seconds. See <a href="admin-runbook.html#pipeline-ops">Pipeline Operations</a>.</p>
       </div>
       <div class="feature-item">
         <span class="feature-name">Sync queue dashboard</span>
-        <p class="feature-desc">Inspect the pending-sync drain queue, daemon heartbeat, and DR resync status. Identify stalled rows and confirm successful propagation to Databricks.</p>
+        <p class="feature-desc">Inspect the pending-sync drain queue, daemon heartbeat, and DR resync status. Identify stalled rows and confirm successful propagation to Databricks. See the <a href="runbook-sync-worker.html">Sync Worker Runbook</a>.</p>
       </div>
       <div class="feature-item">
         <span class="feature-name">Audit log</span>
@@ -508,11 +239,11 @@
       </div>
       <div class="feature-item">
         <span class="feature-name">Global editing toggle</span>
-        <p class="feature-desc">Disable inline editing for all users without redeploying — useful during data migrations or catalog freezes.</p>
+        <p class="feature-desc">Disable inline editing for all users without redeploying — useful during data migrations or catalog freezes. See <a href="admin-runbook.html#editing-toggle">Global editing toggle</a>.</p>
       </div>
       <div class="feature-item">
         <span class="feature-name">Group-cache flush</span>
-        <p class="feature-desc">Clear the in-process Entra group cache (1-hour TTL per user) to pick up new group assignments immediately for all active users.</p>
+        <p class="feature-desc">Clear the in-process Entra group cache (1-hour TTL per user) to pick up new group assignments immediately for all active users. Admin procedures are in the <a href="admin-runbook.html">Admin Runbook</a>.</p>
       </div>
     </div>
   </section>
@@ -537,7 +268,7 @@
 
     <h3>Navigate the application</h3>
     <p>The navigation bar at the top of every page has six sections:</p>
-    <div class="feature-item" style="border-top:1px solid var(--ink-10)">
+    <div class="feature-item feature-item-first">
       <span class="feature-name"><code>Search</code></span>
       <p class="feature-desc">Full-text search and table detail view. This is the main page for most users.</p>
     </div>
@@ -639,6 +370,17 @@
       <li>Enter the new value (business name max 255 chars, definition max 2,000 chars) and click <strong>Save</strong>.</li>
       <li>Your change is submitted as a proposal. It will appear in the admin review queue before being published to Unity Catalog.</li>
     </ol>
+
+    <div class="workflow-diagram">
+      <div class="wf-step"><span class="wf-label">Editor saves</span><span class="wf-actor">Power user</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step accent"><span class="wf-label">Pending approval</span><span class="wf-actor">Admin queue</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step ok"><span class="wf-label">Approved</span><span class="wf-actor">Admin</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step ok"><span class="wf-label">Synced</span><span class="wf-actor">Sidecar</span></div>
+    </div>
+
     <div class="callout warn"><strong>Note.</strong> Column overrides require admin approval before they are visible to other users and synced to Databricks. Table-level changes (description, steward) are published immediately.</div>
   </section>
 
@@ -715,13 +457,11 @@
       <p class="faq-a">Inline editing is available to members of <code>EDITOR_GROUPS</code>. It may also be temporarily disabled globally by an admin (e.g., during a catalog migration). Check with your admin if the edit icon is missing from fields you expect to be able to edit.</p>
     </div>
   </section>
-
-  <!-- Footer -->
-  <footer class="site-footer">
-    <p>Data Dictionary · synced nightly from Unity Catalog</p>
-    <p>Internal use only · <a href="PRODUCT_OVERVIEW.md">Product overview</a> · <a href="adr/">Architecture decisions</a></p>
-  </footer>
-
-</div>
+      <footer class="site-footer">
+        <p>Data Dictionary · Documented by Data Engineering</p>
+        <p>Internal Use Only</p>
+      </footer>
+    </article>
+  </main>
 </body>
 </html>
