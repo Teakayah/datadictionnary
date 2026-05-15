@@ -163,6 +163,23 @@ Keys are dot-separated paths into the locale JSON structure (e.g. `t("search.pla
 | `admin.groups_cache_subtitle` | Drop the in-process Microsoft Entra group cache. Run after granting a user a new group so the change is picked up immediately instead of waiting up to an hour for the cache to expire. | Vider le cache des appartenances de groupes Microsoft Entra conservé en mémoire. À utiliser après l'ajout d'un utilisateur à un groupe pour que le changement soit immédiat plutôt que de patienter jusqu'à une heure. |
 | `admin.groups_cache_flush` | Flush groups cache | Vider le cache des groupes |
 | `admin.groups_cache_flushed` | Cleared {n} cached entries. Active users will re-fetch group membership on their next render. | {n} entrées supprimées. Les sessions actives ré-interrogeront Entra au prochain rendu. |
+| `admin.tab_ops` | Operations | Opérations |
+| `admin.tab_insights` | Quality Insights | Qualité & Insights |
+| `admin.tab_audit` | Audit Logs | Journaux d'Audit |
+| `admin.integrity_title` | Data Integrity Insights | Aperçu de l'Intégrité des Données |
+| `admin.integrity_subtitle` | Identify documentation and quality gaps to improve the end-user experience. | Identifiez les lacunes de documentation et de qualité pour améliorer l'expérience utilisateur. |
+| `admin.integrity_impact_title` | High-Impact Gaps | Lacunes à fort impact |
+| `admin.integrity_impact_subtitle` | Popular assets missing descriptions or stewards. | Actifs populaires manquant de descriptions ou de responsables. |
+| `admin.integrity_stewardship_title` | Missing Stewardship | Intendance manquante |
+| `admin.integrity_stewardship_subtitle` | Tables without an assigned owner or steward email. | Tables sans propriétaire ou email de responsable assigné. |
+| `admin.integrity_dq_alerts_title` | Quality Alerts | Alertes Qualité |
+| `admin.integrity_dq_alerts_subtitle` | Tables failing automated data quality checks. | Tables échouant aux contrôles de qualité automatisés. |
+| `admin.integrity_popularity` | Interactions | Interactions |
+| `admin.integrity_table` | Table | Table |
+| `admin.integrity_issue` | Issue | Problème |
+| `admin.integrity_missing_desc` | Missing description | Description manquante |
+| `admin.integrity_missing_steward` | Missing steward | Responsable manquant |
+| `admin.integrity_dq_fail` | DQ Failure | Échec DQ |
 
 ---
 

@@ -20,8 +20,11 @@ import streamlit as st
 
 from src.auth import is_admin
 from src.cms import delete_post, get_active_posts
+from src.config import is_demo_mode
+from src.db.duckdb_adapter import _duckdb_available
+from src.db.queries import run_query
 from src.i18n import t
-from src.ui.cards._shared import _POST_COLOR
+from src.ui.cards._shared import _POST_COLOR, _dq_grade
 
 
 def _render_table_card(row, key_prefix: str, _pref_delete_fn=None, _pref_upsert_fn=None) -> None:
@@ -36,11 +39,29 @@ def _render_table_card(row, key_prefix: str, _pref_delete_fn=None, _pref_upsert_
     _tname = str(getattr(row, "table_name", ""))
     _is_bk = _full in st.session_state.get("bookmarks", set())
 
+    _dq_score  = str(getattr(row, "dq_score", "") or "")
+    _dq_status = str(getattr(row, "dq_status", "") or "")
+    _grade, _gcls = _dq_grade(_dq_score)
+    _status_color = (
+        "var(--accent)"  if _dq_status.lower() == "fail"
+        else "#2D6A4F"   if _dq_status.lower() == "pass"
+        else "var(--ink-40)"
+    )
+    _dq_html = (
+        f'<span class="dd-dq-badge {_gcls}" title="Data quality grade {_grade}">{_grade}</span>'
+        f'<span style="font-family:var(--font-mono);font-size:10px;color:{_status_color};'
+        f'margin-left:4px;">{_html.escape(_dq_status)}</span>'
+        if _dq_score else ""
+    )
+
     st.markdown(f'''
     <div style="background:var(--paper); border:1px solid var(--ink-10); padding:16px 20px 4px; margin-bottom:4px; border-radius:2px;">
         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
             <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(getattr(row, "catalog_name", "")))} · {_html.escape(str(getattr(row, "schema_name", "")))}</div>
-            <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{t("discovery.updated")} {_time_str}</div>
+            <div style="display:flex;align-items:center;gap:6px;">
+                {_dq_html}
+                <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{t("discovery.updated")} {_time_str}</span>
+            </div>
         </div>
         <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:4px 0 8px;">{_html.escape(str(getattr(row, "table_description", "")))}</p>
     </div>
@@ -154,6 +175,7 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
         t("personalization.tab_notable"),
         t("personalization.tab_bookmarks"),
         t("personalization.tab_recent"),
+        t("personalization.tab_recommended"),
     ]
 
     if "discovery_active_tab" not in st.session_state:
@@ -185,6 +207,8 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
         _render_bookmarks_tab(groups, get_authorized_tables_fn, pref_delete_fn, pref_upsert_fn)
     elif _disc_active == _disc_tab_labels[2]:
         _render_recent_tab(groups, get_authorized_tables_fn, pref_delete_fn, pref_upsert_fn)
+    elif _disc_active == _disc_tab_labels[3]:
+        _render_recommended_tab(groups, get_authorized_tables_fn, pref_delete_fn, pref_upsert_fn)
 
 
 def _render_notable_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, pref_upsert_fn=None):
@@ -290,6 +314,65 @@ def _render_bookmarks_tab(groups, get_authorized_tables_fn, pref_delete_fn=None,
                     if pref_delete_fn:
                         pref_delete_fn(_bk_id, "col_bookmark")
                     st.rerun()
+
+
+def _get_recommended_tables(groups: tuple, authorized_full_names: set, top_n: int = 10) -> list[str]:
+    """Return full_names of popular tables in the user's groups, from audit_log."""
+    if is_demo_mode() or not _duckdb_available():
+        return []
+    try:
+        result = run_query(
+            "SELECT object_name, COUNT(*) AS views "
+            "FROM user_data.audit_log "
+            "WHERE event_type IN ('table_description_change', 'business_name_change', 'comment_added') "
+            "GROUP BY object_name ORDER BY views DESC LIMIT %(n)s",
+            {"n": top_n * 3},
+        )
+        if result is None or result.empty:
+            return []
+        # Filter to only authorized tables the user hasn't recently viewed
+        recent = set(st.session_state.get("recent_views", [])[:5])
+        return [
+            str(r.object_name).split(".")[0] + "." + ".".join(str(r.object_name).split(".")[1:])
+            if "." in str(r.object_name) else str(r.object_name)
+            for r in result.itertuples(index=False)
+            if str(r.object_name) in authorized_full_names
+            and str(r.object_name) not in recent
+        ][:top_n]
+    except Exception as exc:
+        logging.warning("Recommended tab query failed: %s", exc)
+        return []
+
+
+def _render_recommended_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, pref_upsert_fn=None):
+    st.markdown(
+        f'<div class="dd-section-header"><span class="dd-eyebrow" '
+        f'style="margin-bottom:0;color:#14110C">{t("personalization.recommended_title")}</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);'
+        f'margin-bottom:12px;">{t("personalization.recommended_subtitle")}</p>',
+        unsafe_allow_html=True,
+    )
+    try:
+        all_tables = get_authorized_tables_fn(groups)
+        if all_tables is None or all_tables.empty:
+            st.info(t("personalization.recommended_empty"))
+            return
+        authorized_fns = set(all_tables["full_name"].tolist())
+        recommended_fns = _get_recommended_tables(groups, authorized_fns)
+        if not recommended_fns:
+            st.info(t("personalization.recommended_empty"))
+            return
+        rec_df = all_tables[all_tables["full_name"].isin(recommended_fns)].copy()
+        rec_df["_order"] = rec_df["full_name"].map({fn: i for i, fn in enumerate(recommended_fns)})
+        rec_df = rec_df.sort_values("_order").drop(columns=["_order"])
+        for row in rec_df.itertuples(index=False):
+            _render_table_card(row, "rec", pref_delete_fn, pref_upsert_fn)
+    except Exception as e:
+        logging.error("Error loading recommendations: %s", e)
+        st.error(t("discovery.load_error"))
 
 
 def _render_recent_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, pref_upsert_fn=None):

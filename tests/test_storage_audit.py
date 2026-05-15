@@ -114,7 +114,24 @@ class TestDuckDBStorageRoundTrip:
         from src.storage.audit_storage import (
     DuckDBAuditStorage, DuckDBBusinessNameOverrideStorage,
         )
-        return DuckDBAuditStorage(), DuckDBBusinessNameOverrideStorage()
+        yield DuckDBAuditStorage(), DuckDBBusinessNameOverrideStorage()
+
+        # Teardown: reload modules back to empty DUCKDB_PATH so subsequent
+        # tests don't inherit a stale module-level constant pointing at the
+        # now-gone tmp_path file (monkeypatch already reverted os.environ).
+        import importlib
+        import src.config
+        importlib.reload(src.config)
+        import src.db.duckdb_adapter
+        importlib.reload(src.db.duckdb_adapter)
+        try:
+            src.db.duckdb_adapter._get_shared_duckdb_connection.clear()
+        except Exception:
+            pass
+        import src.db.queries
+        importlib.reload(src.db.queries)
+        import src.storage.audit_storage
+        importlib.reload(src.storage.audit_storage)
 
     def test_audit_append_round_trip(self, storages):
         audit, _ = storages

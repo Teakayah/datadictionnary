@@ -23,10 +23,12 @@ import logging
 import pandas as pd
 import streamlit as st
 
+from src.audit import approve_business_name, reject_business_name
 from src.auth import is_admin
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import _get_write_connection, run_query
+from src.storage import get_business_name_override_storage
 from src.i18n import t
 from src.personalization import is_editing_enabled, set_editing_enabled
 from src.ui.cards.cms_admin import _render_admin_cms_section, _show_cms_create_dialog  # noqa: F401
@@ -151,6 +153,63 @@ def get_sync_queue_stats() -> dict:
         return {"pending": 0, "processing": 0, "done": 0, "failed": 0}
 
 
+def get_high_impact_gaps() -> pd.DataFrame:
+    """Identify popular tables missing descriptions or stewards."""
+    if is_demo_mode() or not _duckdb_available():
+        return pd.DataFrame()
+    
+    query = f"""
+        WITH usage AS (
+            SELECT object_name, COUNT(*) as interactions
+            FROM user_data.audit_log
+            GROUP BY object_name
+        )
+        SELECT 
+            u.object_name as full_name,
+            u.interactions,
+            CASE 
+                WHEN (m.comment IS NULL OR m.comment = '') THEN 'Missing description'
+                WHEN (m.steward_email IS NULL OR m.steward_email = '') THEN 'Missing steward'
+                ELSE 'Other'
+            END as issue
+        FROM usage u
+        JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata m ON u.object_name = m.full_name
+        WHERE (m.comment IS NULL OR m.comment = '' OR m.steward_email IS NULL OR m.steward_email = '')
+        ORDER BY u.interactions DESC
+        LIMIT 20
+    """
+    return run_query(query)
+
+
+def get_stewardship_gaps() -> pd.DataFrame:
+    """List tables without assigned stewards."""
+    if is_demo_mode() or not _duckdb_available():
+        return pd.DataFrame()
+    
+    query = f"""
+        SELECT full_name, table_name, catalog_name, schema_name
+        FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata
+        WHERE steward_email IS NULL OR steward_email = ''
+        LIMIT 100
+    """
+    return run_query(query)
+
+
+def get_dq_alerts() -> pd.DataFrame:
+    """List tables with failing DQ status."""
+    if is_demo_mode() or not _duckdb_available():
+        return pd.DataFrame()
+    
+    query = f"""
+        SELECT m.full_name, m.table_name, dq.dq_score, dq.last_run_status
+        FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata m
+        JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache dq ON m.full_name = dq.table_full_name
+        WHERE dq.last_run_status = 'FAIL'
+        ORDER BY dq.dq_score ASC
+    """
+    return run_query(query)
+
+
 # ── Audit / sync sections ────────────────────────────────────────────────────
 
 @st.dialog(t("admin.biz_log_title"), width="large")
@@ -199,6 +258,74 @@ def _render_admin_stats_section():
         st.metric(t("admin.stats_comments"), f"{stats.get('comments', 0):,}")
     with c4:
         st.metric(t("admin.stats_overrides"), f"{stats.get('overrides', 0):,}")
+
+
+def _render_admin_integrity_report():
+    """Admin section: Data Integrity Insights."""
+    st.markdown(
+        f'<div class="dd-section-header" style="margin-top:16px;">'
+        f'<span class="dd-eyebrow">§ {t("admin.integrity_title")}</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);'
+        f'line-height:1.5;margin:8px 0 24px;">{t("admin.integrity_subtitle")}</p>',
+        unsafe_allow_html=True,
+    )
+
+    col_l, col_r = st.columns(2, gap="large")
+
+    with col_l:
+        st.markdown(f"**{t('admin.integrity_impact_title')}**")
+        st.caption(t("admin.integrity_impact_subtitle"))
+        gaps = get_high_impact_gaps()
+        if not gaps.empty:
+            # Map issues to localized strings
+            _issue_map = {
+                "Missing description": t("admin.integrity_missing_desc"),
+                "Missing steward": t("admin.integrity_missing_steward"),
+            }
+            gaps["issue"] = gaps["issue"].map(lambda x: _issue_map.get(x, x))
+            
+            st.dataframe(
+                gaps,
+                column_config={
+                    "full_name": t("admin.integrity_table"),
+                    "interactions": st.column_config.NumberColumn(t("admin.integrity_popularity"), format="%d"),
+                    "issue": t("admin.integrity_issue"),
+                },
+                hide_index=True,
+                use_container_width=True,
+            )
+        else:
+            st.info(t("common.empty"))
+
+    with col_r:
+        st.markdown(f"**{t('admin.integrity_dq_alerts_title')}**")
+        st.caption(t("admin.integrity_dq_alerts_subtitle"))
+        alerts = get_dq_alerts()
+        if not alerts.empty:
+            st.dataframe(
+                alerts,
+                column_config={
+                    "full_name": t("admin.integrity_table"),
+                    "dq_score": st.column_config.ProgressColumn("Score", format="%.0f%%", min_value=0, max_value=100),
+                    "last_run_status": "Status",
+                },
+                hide_index=True,
+                use_container_width=True,
+            )
+        else:
+            st.success("No critical DQ failures detected.")
+
+    st.markdown(f"<div style='margin-top:24px'></div>", unsafe_allow_html=True)
+    with st.expander(t("admin.integrity_stewardship_title")):
+        st.caption(t("admin.integrity_stewardship_subtitle"))
+        stew_gaps = get_stewardship_gaps()
+        if not stew_gaps.empty:
+            st.dataframe(stew_gaps, use_container_width=True, hide_index=True)
+        else:
+            st.success("All tables have an assigned steward.")
 
 
 def _render_admin_sync_section():
@@ -300,14 +427,7 @@ def _render_admin_editing_section():
 
 
 def _render_admin_groups_cache_section():
-    """Admin tool: flush every user's cached Entra group membership.
-
-    After granting a user a new Entra group, click this to drop the
-    process-level groups cache so the next render of every active
-    session re-fetches via Graph (for overage users) or the inline
-    claim. Without this, group changes can take up to 1h to propagate
-    (the cache TTL).
-    """
+    """Admin tool: flush every user's cached Entra group membership."""
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:32px;">'
         f'<span class="dd-eyebrow">§ {t("admin.groups_cache_title")}</span></div>',
@@ -329,6 +449,88 @@ def _render_admin_groups_cache_section():
         st.success(t("admin.groups_cache_flushed", n=n))
 
 
+def _render_pending_reviews_section():
+    """Admin section: list pending column-override proposals and approve/reject them."""
+    import html as _html
+    st.markdown(
+        f'<div class="dd-section-header" style="margin-top:32px;">'
+        f'<span class="dd-eyebrow">§ {t("admin.reviews_title")}</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);'
+        f'line-height:1.5;margin:8px 0 12px;">{t("admin.reviews_subtitle")}</p>',
+        unsafe_allow_html=True,
+    )
+    try:
+        pending = get_business_name_override_storage().list_pending()
+    except Exception as exc:
+        logging.warning("Could not load pending reviews: %s", exc)
+        pending = []
+
+    if not pending:
+        st.markdown(
+            f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-40);">'
+            f'{t("admin.reviews_empty")}</p>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    for item in pending:
+        tbl  = str(item.get("table_full_name", ""))
+        col  = str(item.get("column_name", ""))
+        biz  = str(item.get("business_name", "") or "")
+        defn = str(item.get("definition", "") or "")
+        by   = str(item.get("edited_by", ""))
+        at   = str(item.get("edited_at", ""))
+        st.markdown(
+            f'<div style="background:var(--paper);border:1px solid var(--ink-10);'
+            f'border-radius:4px;padding:12px 16px;margin-bottom:8px;">'
+            f'<div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);'
+            f'text-transform:uppercase;margin-bottom:4px;">'
+            f'{_html.escape(tbl)} · {_html.escape(col)}</div>'
+            f'<div style="display:flex;gap:24px;margin:6px 0;">'
+            f'<div><span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-40);">'
+            f'{t("admin.reviews_new_value")}</span>'
+            f'<div style="font-family:var(--font-sans);font-size:13px;color:var(--ink);">'
+            f'{_html.escape(biz)}</div>'
+            f'<div style="font-family:var(--font-sans);font-size:12px;color:var(--ink-60);">'
+            f'{_html.escape(defn)}</div></div>'
+            f'</div>'
+            f'<div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);'
+            f'margin-top:4px;">'
+            f'{t("admin.reviews_proposed_by", user=_html.escape(by), date=_html.escape(at))}'
+            f'</div></div>',
+            unsafe_allow_html=True,
+        )
+        _c_approve, _c_reject, _ = st.columns([2, 2, 8], gap="small")
+        with _c_approve:
+            if st.button(
+                t("admin.reviews_approve"),
+                key=f"rev_approve_{tbl}_{col}",
+                type="primary",
+                use_container_width=True,
+            ):
+                try:
+                    approve_business_name(tbl, col)
+                    st.toast(f"Approved {col}")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(str(exc))
+        with _c_reject:
+            if st.button(
+                t("admin.reviews_reject"),
+                key=f"rev_reject_{tbl}_{col}",
+                use_container_width=True,
+            ):
+                try:
+                    reject_business_name(tbl, col)
+                    st.toast(f"Rejected {col}")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(str(exc))
+
+
 def render_admin_page():
     if not is_admin():
         st.error(t("admin.access_denied"))
@@ -342,11 +544,24 @@ def render_admin_page():
     </div>
     ''', unsafe_allow_html=True)
 
-    _render_admin_stats_section()
-    _render_admin_cms_section()
-    _render_admin_pipelines_section()
-    _render_admin_editing_section()
-    _render_admin_groups_cache_section()
-    _render_admin_sync_section()
-    _render_admin_biz_log_section()
-    _render_admin_comment_log_section()
+    tab_ops, tab_insights, tab_audit = st.tabs([
+        t("admin.tab_ops"),
+        t("admin.tab_insights"),
+        t("admin.tab_audit"),
+    ])
+
+    with tab_ops:
+        _render_pending_reviews_section()
+        _render_admin_cms_section()
+        _render_admin_pipelines_section()
+        _render_admin_editing_section()
+        _render_admin_groups_cache_section()
+        _render_admin_sync_section()
+
+    with tab_insights:
+        _render_admin_stats_section()
+        _render_admin_integrity_report()
+
+    with tab_audit:
+        _render_admin_biz_log_section()
+        _render_admin_comment_log_section()
