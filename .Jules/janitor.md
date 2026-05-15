@@ -15,3 +15,7 @@
 **Action:** Always manually review and fix F841 to avoid leaving dead code or invalid syntax, rather than relying solely on `--unsafe-fixes`.
 
 ## 2026-05-14 - [Avoid Unstopped Patches] **Learning:** When refactoring tests to use actual storage dependencies and mocking those dependencies, using `unittest.mock.patch("...").start()` without explicitly stopping the mock will cause test pollution. Since pytest fixtures (like `monkeypatch`) do not have `self.addCleanup` like `unittest.TestCase` does, adding cleanup requires setting an explicit teardown mechanism (e.g. `monkeypatch.setattr("pytest.MonkeyPatch", lambda: patcher.stop())` or using a `with` block). **Action:** Always clean up global mocks created via `.start()` inside pytest functions to avoid cascading failures in subsequent tests.
+
+## 2026-05-15 - [Remove src/ui/cards re-export shim]
+**Learning:** The `src/ui/cards/__init__.py` re-export shim was kept for backwards compatibility during a refactor. It's better to update the callers to import from specific submodules directly to remove this technical debt.
+**Action:** Migrated the remaining callers (`app.py`, `src/pages/catalog.py`, `src/pages/search.py`, `tests/test_admin.py`) off the shim and deleted `src/ui/cards/__init__.py`.
