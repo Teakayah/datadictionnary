@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Dictionary — Data Steward Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper:#FAF7F0; --paper-deep:#F2EDE1; --paper-ink:#E8E1D0;
+    --ink:#14110C; --ink-90:#2A2620; --ink-80:#3D3830; --ink-60:#6B645A;
+    --ink-40:#9A9388; --ink-20:#C9C2B4; --ink-10:#DCD6C8;
+    --accent:#B8362A; --accent-wash:#F3DFD9;
+    --forest:#3F5E3A; --forest-wash:#E3E9DE;
+    --ochre:#9A6D1C; --ochre-wash:#F0E5CC;
+    --deepblue:#2B4A6B; --deepblue-wash:#DDE4EC;
+    --font-display:"Fraunces","Cormorant Garamond",serif;
+    --font-sans:"Manrope","Segoe UI",system-ui,sans-serif;
+    --font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html{font-size:16px;scroll-behavior:smooth}
+  body{background:var(--paper);color:var(--ink);font-family:var(--font-sans);font-size:15px;line-height:1.6;letter-spacing:-0.005em;-webkit-font-smoothing:antialiased}
+  ::selection{background:var(--accent-wash);color:var(--ink)}
+  .page{max-width:780px;margin:0 auto;padding:0 24px 120px}
+  .site-header{border-bottom:1px solid var(--ink-20);padding:24px 0 20px;margin-bottom:64px;display:flex;align-items:center;justify-content:space-between}
+  .site-header .badge{font-family:var(--font-sans);font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--forest);background:var(--forest-wash);border:1px solid #c2d4bd;padding:3px 8px;border-radius:999px}
+  .hero{padding:48px 0 56px;border-bottom:1px solid var(--ink-20);margin-bottom:64px}
+  .hero .eyebrow{font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--forest);margin-bottom:16px}
+  .hero h1{font-family:var(--font-display);font-size:clamp(36px,5vw,64px);font-weight:300;line-height:1.05;letter-spacing:-0.02em;margin-bottom:20px}
+  .hero h1 em{font-style:italic;color:var(--ink-60)}
+  .hero .lead{font-size:17px;line-height:1.55;color:var(--ink-60);max-width:560px}
+  .section{margin-bottom:72px}
+  .section-eyebrow{font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-40);margin-bottom:10px}
+  h2{font-family:var(--font-display);font-size:32px;font-weight:400;letter-spacing:-0.015em;line-height:1.15;margin-bottom:20px}
+  h3{font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-60);margin:40px 0 16px}
+  h3:first-child{margin-top:0}
+  p{margin-bottom:14px;color:var(--ink-80)}
+  p:last-child{margin-bottom:0}
+  hr{border:0;border-top:1px solid var(--ink-10);margin:56px 0}
+  code{font-family:var(--font-mono);font-size:0.88em;background:var(--paper-deep);border:1px solid var(--ink-10);padding:1px 5px;border-radius:2px;color:var(--ink-80)}
+  ul{margin:0 0 20px;padding-left:20px;font-size:14px;color:var(--ink-80);line-height:1.8}
+  .callout{padding:14px 18px;border-radius:0 2px 2px 0;margin:20px 0;font-size:14px;color:var(--ink-80);line-height:1.55}
+  .callout{background:var(--deepblue-wash);border-left:3px solid var(--deepblue)}
+  .callout.warn{background:var(--ochre-wash);border-left-color:var(--ochre)}
+  .callout.ok{background:var(--forest-wash);border-left-color:var(--forest)}
+  .callout strong{color:var(--ink);font-weight:600}
+  .steps{list-style:none;counter-reset:steps;margin:0 0 24px}
+  .steps li{counter-increment:steps;display:grid;grid-template-columns:28px 1fr;gap:0 14px;padding:12px 0;border-bottom:1px solid var(--ink-10);font-size:14px;color:var(--ink-80);line-height:1.55}
+  .steps li::before{content:counter(steps);font-family:var(--font-mono);font-size:11px;font-weight:500;color:var(--forest);background:var(--forest-wash);border-radius:2px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+  .steps li strong{color:var(--ink);font-weight:600}
+  .toc{background:var(--paper-deep);border:1px solid var(--ink-10);padding:24px 28px;margin-bottom:64px}
+  .toc-title{font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-40);margin-bottom:14px}
+  .toc ol{list-style:decimal;padding-left:18px}
+  .toc li{margin:6px 0;font-size:14px}
+  .toc a{color:var(--ink-60);text-decoration:none;border-bottom:1px solid transparent;transition:color 120ms,border-color 120ms}
+  .toc a:hover{color:var(--forest);border-bottom-color:var(--forest-wash)}
+  .do-dont{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}
+  .do-dont-col{padding:16px;font-size:14px;line-height:1.55}
+  .do-col{background:var(--forest-wash);border-top:3px solid var(--forest)}
+  .dont-col{background:var(--accent-wash);border-top:3px solid var(--accent)}
+  .do-dont-label{font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px}
+  .do-col .do-dont-label{color:var(--forest)}
+  .dont-col .do-dont-label{color:var(--accent)}
+  .do-dont-col ul{margin:0;padding-left:16px;color:var(--ink-80)}
+  .workflow-diagram{display:flex;align-items:center;gap:0;margin:24px 0;overflow-x:auto}
+  .wf-step{background:var(--paper-deep);border:1px solid var(--ink-10);padding:12px 16px;font-size:13px;text-align:center;min-width:110px;flex-shrink:0;line-height:1.3}
+  .wf-step .wf-label{font-weight:600;color:var(--ink);display:block;margin-bottom:3px}
+  .wf-step .wf-actor{font-size:11px;color:var(--ink-40);text-transform:uppercase;letter-spacing:0.08em}
+  .wf-arrow{font-size:18px;color:var(--ink-20);padding:0 4px;flex-shrink:0}
+  .wf-step.accent{background:var(--accent-wash);border-color:#e8c4be}
+  .wf-step.accent .wf-label{color:var(--accent)}
+  .wf-step.ok{background:var(--forest-wash);border-color:#c2d4bd}
+  .wf-step.ok .wf-label{color:var(--forest)}
+  .site-footer{border-top:1px solid var(--ink-20);padding:32px 0;margin-top:80px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  .site-footer p{font-size:12px;color:var(--ink-40);margin:0}
+  @media print{.toc{display:none}a{color:var(--ink)!important;text-decoration:none!important}}
+  @media(max-width:600px){.hero h1{font-size:34px}.do-dont{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="site-header">
+    <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:32px">
+      <g transform="translate(4,2)">
+        <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
+        <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
+        <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
+        <line x1="3" y1="13" x2="23" y2="13" stroke="#C9C2B4" stroke-width="0.8"/>
+        <line x1="3" y1="17" x2="23" y2="17" stroke="#C9C2B4" stroke-width="0.8"/>
+        <line x1="3" y1="21" x2="17" y2="21" stroke="#C9C2B4" stroke-width="0.8"/>
+      </g>
+      <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
+      <text x="194" y="25" font-family="Fraunces, serif" font-size="20" fill="#B8362A">§</text>
+    </svg>
+    <span class="badge">Data Steward Guide</span>
+  </header>
+
+  <section class="hero">
+    <div class="eyebrow">Stewardship · Editorial</div>
+    <h1>The steward's<br><em>handbook.</em></h1>
+    <p class="lead">Your guide to describing, maintaining, and governing the data assets you own — so that everyone in the organisation can find and trust them.</p>
+  </section>
+
+  <nav class="toc">
+    <div class="toc-title">Contents</div>
+    <ol>
+      <li><a href="#role">What is a data steward?</a></li>
+      <li><a href="#your-tables">Finding your tables</a></li>
+      <li><a href="#descriptions">Writing good descriptions</a></li>
+      <li><a href="#business-names">Column business names and definitions</a></li>
+      <li><a href="#approval-cycle">The approval workflow</a></li>
+      <li><a href="#comments">Handling comments and questions</a></li>
+      <li><a href="#tracking">Tracking changes via audit log</a></li>
+      <li><a href="#health">Using the Health dashboard</a></li>
+      <li><a href="#best-practices">Best practices and style guide</a></li>
+    </ol>
+  </nav>
+
+  <!-- Role -->
+  <section class="section" id="role">
+    <div class="section-eyebrow">§ 1 — Role</div>
+    <h2>What is a data steward?</h2>
+    <p>A data steward is the person responsible for the accuracy, completeness, and trustworthiness of a set of data assets. In the Data Dictionary, stewardship is expressed through two things: your email address appears in the <strong>Steward</strong> field on each table you own, and you are notified whenever a user leaves a comment or question on those tables.</p>
+    <p>You do not need to be a data engineer to be a steward. Your job is to describe what the data means in business terms — what a table is for, what each column represents, what caveats or limitations apply. The engineering team handles the technical structure.</p>
+
+    <div class="callout ok"><strong>Your stewardship shows up everywhere.</strong> The description and steward email you write appear in search results, the discovery feed, the health dashboard, and the glossary. Good stewardship directly improves findability for every user in the organisation.</div>
+  </section>
+
+  <hr>
+
+  <!-- Finding your tables -->
+  <section class="section" id="your-tables">
+    <div class="section-eyebrow">§ 2 — Getting oriented</div>
+    <h2>Finding your tables</h2>
+    <p>There are two ways to find the tables assigned to you.</p>
+
+    <h3>Via Search</h3>
+    <ol class="steps">
+      <li>Open the <strong>Search</strong> tab and type the table name or schema.</li>
+      <li>Click <strong>View details →</strong> to open the detail panel.</li>
+      <li>Confirm your email appears in the <strong>Steward</strong> field. If it is blank or incorrect, update it (see § 4).</li>
+    </ol>
+
+    <h3>Via the Health dashboard</h3>
+    <ol class="steps">
+      <li>Open the <strong>Health</strong> tab.</li>
+      <li>The <strong>Priority actions</strong> panel lists tables in your accessible groups that are missing descriptions — these are likely your most urgent stewardship tasks.</li>
+      <li>Click any table name in the priority list to jump directly to its detail page.</li>
+    </ol>
+
+    <div class="callout"><strong>Not seeing your tables?</strong> Your view is filtered to the groups your Entra ID account belongs to. If a table you own is not visible, contact your platform administrator to verify the Unity Catalog grants for your group.</div>
+  </section>
+
+  <hr>
+
+  <!-- Descriptions -->
+  <section class="section" id="descriptions">
+    <div class="section-eyebrow">§ 3 — Writing</div>
+    <h2>Writing good table descriptions</h2>
+    <p>A table description answers three questions: <em>what</em> is in this table, <em>where</em> does it come from, and <em>when</em> is it updated. Business users should be able to decide whether to use the table from the description alone, without opening it.</p>
+
+    <h3>How to update a description</h3>
+    <ol class="steps">
+      <li>Open the table detail page.</li>
+      <li>Click the pencil icon next to the <strong>Description</strong> field.</li>
+      <li>Type or paste your description (no hard limit, but 1–3 sentences is ideal).</li>
+      <li>Click <strong>Save</strong>. The change is visible immediately and pushed to Unity Catalog within minutes.</li>
+    </ol>
+
+    <h3>Do and do not</h3>
+    <div class="do-dont">
+      <div class="do-dont-col do-col">
+        <div class="do-dont-label">Do</div>
+        <ul>
+          <li>State what the table contains in the first sentence</li>
+          <li>Mention the source system or feed</li>
+          <li>Note update frequency (nightly, real-time, on-demand)</li>
+          <li>Flag known caveats or exclusions</li>
+          <li>Use sentence case and plain language</li>
+        </ul>
+      </div>
+      <div class="do-dont-col dont-col">
+        <div class="do-dont-label">Do not</div>
+        <ul>
+          <li>Repeat the table name as the entire description</li>
+          <li>Use acronyms without defining them</li>
+          <li>Reference internal ticket numbers or sprint names</li>
+          <li>Write in first person ("I created this table…")</li>
+          <li>Leave the description as the auto-generated placeholder</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Examples</h3>
+    <div class="callout ok"><strong>Good:</strong> One row per confirmed customer order placed via the web or mobile channels since 2021. Excludes internal test orders. Updated nightly from the transactional database via the orders ETL pipeline.</div>
+    <div class="callout warn"><strong>Needs work:</strong> Orders table. Contains order data. Created by the data team.</div>
+
+    <h3>Updating the steward field</h3>
+    <ol class="steps">
+      <li>Open the table detail page and click the pencil icon next to <strong>Steward</strong>.</li>
+      <li>Enter the email address of the person responsible for this table (you, or a colleague).</li>
+      <li>Click <strong>Save</strong>.</li>
+    </ol>
+    <div class="callout warn"><strong>Use a shared mailbox or team address if available.</strong> If you set your personal email and then leave the team, comments will stop reaching anyone. A team distribution list ensures continuity.</div>
+  </section>
+
+  <hr>
+
+  <!-- Column business names -->
+  <section class="section" id="business-names">
+    <div class="section-eyebrow">§ 4 — Columns</div>
+    <h2>Column business names and definitions</h2>
+    <p>Column names in Unity Catalog are often technical identifiers (<code>cust_ltv_90d</code>, <code>acq_src_cd</code>). Business names and definitions translate these into language that business users can understand and trust.</p>
+
+    <h3>Business name vs. definition</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0 24px">
+      <div style="padding:14px;background:var(--paper-deep);border:1px solid var(--ink-10)">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-40);margin-bottom:6px">Business name</div>
+        <p style="font-size:14px;margin:0;color:var(--ink-80)">A short, human-readable label. Replaces the technical column name in the UI. Max 255 characters. Example: <em>90-day customer lifetime value</em></p>
+      </div>
+      <div style="padding:14px;background:var(--paper-deep);border:1px solid var(--ink-10)">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-40);margin-bottom:6px">Definition</div>
+        <p style="font-size:14px;margin:0;color:var(--ink-80)">A full explanation of what the column contains, how it is calculated, and any caveats. Max 2,000 characters. Example: <em>Sum of all revenue attributed to the customer in the 90 days prior to the reference date, net of refunds. Null if the customer has fewer than 3 orders.</em></p>
+      </div>
+    </div>
+
+    <h3>How to add or update a column override</h3>
+    <ol class="steps">
+      <li>Open the table detail page and scroll to the <strong>Columns</strong> section.</li>
+      <li>Click the pencil icon next to the column's business name or definition field.</li>
+      <li>Enter your text and click <strong>Save</strong>.</li>
+      <li>If you are an admin: the change publishes immediately and syncs to Databricks. If you are a power user: the change is submitted as a proposal and appears in the admin approval queue.</li>
+    </ol>
+
+    <div class="callout"><strong>Proposals are not visible to other users until approved.</strong> You will see your proposed value immediately in your own session (marked as pending), but other users continue to see the previous value until an admin approves it.</div>
+  </section>
+
+  <hr>
+
+  <!-- Approval cycle -->
+  <section class="section" id="approval-cycle">
+    <div class="section-eyebrow">§ 5 — Workflow</div>
+    <h2>The metadata approval workflow</h2>
+    <p>Column business name and definition changes from non-admin editors go through a lightweight review before publication. Table-level changes (description, steward) publish immediately.</p>
+
+    <h3>The full lifecycle</h3>
+    <div class="workflow-diagram">
+      <div class="wf-step"><span class="wf-label">Editor saves</span><span class="wf-actor">Power user</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step accent"><span class="wf-label">Pending approval</span><span class="wf-actor">Admin queue</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step ok"><span class="wf-label">Approved</span><span class="wf-actor">Admin</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step ok"><span class="wf-label">Synced</span><span class="wf-actor">Sidecar</span></div>
+    </div>
+
+    <h3>What happens at each stage</h3>
+    <ul>
+      <li><strong>Pending approval:</strong> The proposed value is stored in <code>user_data.business_name_overrides</code> with <code>status='pending_approval'</code>. It is visible only to the submitting editor (in their session) and to admins in the review queue.</li>
+      <li><strong>Approved:</strong> An admin clicks Approve. The status changes to <code>'published'</code>, an audit event is logged, and the change is added to the sync queue.</li>
+      <li><strong>Synced:</strong> The sidecar worker pushes the change to Unity Catalog as a column comment within minutes.</li>
+      <li><strong>Rejected:</strong> The admin clicks Reject. The proposed value is deleted. An audit event records the rejection. The column retains its previous value.</li>
+    </ul>
+
+    <h3>Checking the status of your proposal</h3>
+    <p>Open the table detail page and find the column you edited. If your proposal is pending, the field shows your proposed value with a subtle pending indicator. Once approved, the value is published and shows normally. If rejected, the field reverts to the previous value — you will need to resubmit with a revised value.</p>
+
+    <div class="callout ok"><strong>Table descriptions and steward updates bypass approval.</strong> These changes go live instantly and sync to Databricks in the background, without requiring admin review.</div>
+  </section>
+
+  <hr>
+
+  <!-- Comments -->
+  <section class="section" id="comments">
+    <div class="section-eyebrow">§ 6 — Communication</div>
+    <h2>Handling comments and questions</h2>
+    <p>Users can leave questions, flags, or notes on any table or column you steward. When SMTP is configured, you receive an email notification for each new comment. Replies also trigger notifications.</p>
+
+    <h3>Finding comments on your tables</h3>
+    <ol class="steps">
+      <li>Open the table detail page for any table you steward.</li>
+      <li>Scroll to the <strong>Comments</strong> section at the bottom of the detail panel.</li>
+      <li>All comments and replies are shown in chronological order.</li>
+    </ol>
+
+    <h3>Responding to a comment</h3>
+    <ol class="steps">
+      <li>Click <strong>Reply</strong> beneath the comment you want to respond to.</li>
+      <li>Type your reply (max 1,000 characters) and click <strong>Send</strong>.</li>
+      <li>The person who left the original comment is notified by email.</li>
+    </ol>
+
+    <h3>Comment triage guide</h3>
+    <ul>
+      <li><strong>"What does this column mean?"</strong> → Add or improve the column definition (see § 4). Reply with a brief answer and note that you've updated the definition.</li>
+      <li><strong>"This table seems outdated."</strong> → Check the freshness field on the table detail page. If the nightly sync is working correctly, the data is as fresh as Unity Catalog. Reply with the update cadence from the table description.</li>
+      <li><strong>"I see unexpected nulls in column X."</strong> → Flag this to your data engineering contact. Update the column definition with a caveat note once you have an answer.</li>
+      <li><strong>"Can I get access to this table?"</strong> → Access is managed in Entra ID, not in the Data Dictionary. Direct the user to their manager or the data platform team.</li>
+    </ul>
+  </section>
+
+  <hr>
+
+  <!-- Tracking changes -->
+  <section class="section" id="tracking">
+    <div class="section-eyebrow">§ 7 — Audit trail</div>
+    <h2>Tracking changes via audit log</h2>
+    <p>Every metadata change — description updates, column override proposals, approvals, rejections — is recorded in the audit log with the actor's email, timestamp, and before/after values. Admins can view the full log in the Admin panel.</p>
+
+    <h3>What is logged</h3>
+    <ul>
+      <li><strong>Table description change</strong> — actor email, old description, new description, timestamp</li>
+      <li><strong>Table steward change</strong> — actor email, old steward, new steward, timestamp</li>
+      <li><strong>Business name change</strong> — actor email, column identifier, old value, new value, timestamp (also records approvals and rejections)</li>
+      <li><strong>Comment added / reply added</strong> — actor email, table identifier, timestamp</li>
+    </ul>
+
+    <h3>Requesting an audit extract (admins only)</h3>
+    <p>The full audit log is accessible in the Admin dashboard → Audit Logs tab. If you need a CSV extract or a historical view beyond what the UI shows, ask your platform administrator to query <code>user_data.audit_log</code> or the Databricks mirror at <code>data_governance.dictionary_cache.audit_log</code> directly.</p>
+  </section>
+
+  <hr>
+
+  <!-- Health dashboard -->
+  <section class="section" id="health">
+    <div class="section-eyebrow">§ 8 — Coverage monitoring</div>
+    <h2>Using the Health dashboard</h2>
+    <p>The Health tab shows documentation coverage across the entire catalog — broken down by schema. It is the fastest way to find your gaps and prioritise your stewardship effort.</p>
+
+    <h3>Reading the metrics</h3>
+    <ul>
+      <li><strong>Table coverage %</strong> — percentage of tables in your accessible schemas that have a non-empty description.</li>
+      <li><strong>Column coverage %</strong> — percentage of columns across those tables that have a business name or definition override.</li>
+      <li><strong>Schema breakdown</strong> — a table showing total / described counts per schema. Sort by the <em>coverage</em> column to find the most under-documented schemas.</li>
+    </ul>
+
+    <h3>Using the Priority actions panel</h3>
+    <ol class="steps">
+      <li>The panel lists up to 5 undocumented tables — these are the tables with the highest interaction activity (views, comments, edits) that still lack a description.</li>
+      <li>Click any table name to open its detail page directly.</li>
+      <li>Add a description and save. The table disappears from the priority list on the next page load.</li>
+    </ol>
+
+    <div class="callout ok"><strong>Tip.</strong> High-interaction undocumented tables cause the most user confusion. Addressing the Priority actions list first has the highest return on your stewardship time.</div>
+  </section>
+
+  <hr>
+
+  <!-- Best practices -->
+  <section class="section" id="best-practices">
+    <div class="section-eyebrow">§ 9 — Style guide</div>
+    <h2>Best practices and style guide</h2>
+
+    <h3>Voice and tone</h3>
+    <p>Write as if you are explaining the data to an intelligent colleague who is not a data engineer. Factual, specific, and brief. No jargon without definition. No internal project names that will lose meaning in 6 months.</p>
+
+    <h3>Naming conventions</h3>
+    <ul>
+      <li>Business names: title-style capitalisation for proper nouns, otherwise sentence case. <em>Customer lifetime value</em>, not <em>Customer Lifetime Value</em> and not <em>CLV</em>.</li>
+      <li>Definitions: full sentences. End with a period. State the unit of measure where relevant (<em>in USD</em>, <em>in days</em>, <em>as a percentage</em>).</li>
+      <li>When an acronym is widely understood in your organisation (e.g., SKU, CRM), you can use it — but define it on first use in the table description.</li>
+    </ul>
+
+    <h3>What belongs in a description vs. a comment</h3>
+    <ul>
+      <li><strong>Description:</strong> stable facts about the data — what it is, where it comes from, how often it updates, known caveats.</li>
+      <li><strong>Comment:</strong> time-sensitive notes, open questions, or flags that may be resolved — not permanent documentation.</li>
+    </ul>
+
+    <h3>Keeping descriptions current</h3>
+    <p>Descriptions drift as data structures change. A practical habit: whenever you modify a table's schema in Unity Catalog, update the table description in the Data Dictionary in the same session. If a column is deprecated or renamed, update its business name and add a deprecation note to the definition.</p>
+
+    <h3>Review cadence</h3>
+    <p>A quarterly sweep of your tables is enough for most stewards: check that descriptions are still accurate, that the steward email is current, and that any columns added since the last review have business names and definitions. The Health dashboard makes this quick — a schema with 100 % coverage takes minutes to verify, not hours.</p>
+  </section>
+
+  <footer class="site-footer">
+    <p>Data Dictionary · Data Steward Guide</p>
+    <p><a href="user-guide.html">User guide</a> · <a href="admin-runbook.html">Admin runbook</a> · <a href="PRODUCT_OVERVIEW.md">Product overview</a></p>
+  </footer>
+
+</div>
+</body>
+</html>

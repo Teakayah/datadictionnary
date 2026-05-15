@@ -534,6 +534,9 @@ def render_search_page(query_groups: tuple) -> None:
     </div>
     ''', unsafe_allow_html=True)
 
+    with st.expander(t("help.search_expander")):
+        st.markdown(t("help.search_content"))
+
     if "dd_search_override" in st.session_state:
         _over_q = st.session_state.pop("dd_search_override")
         st.session_state["catalog_search"] = _over_q
@@ -577,7 +580,7 @@ def render_search_page(query_groups: tuple) -> None:
         placeholder=t("search.placeholder"),
         label_visibility="collapsed",
         key="catalog_search",
-        help=t("search.placeholder"),
+        help=t("search.start_typing"),
     )
 
     _prev_query = st.session_state.get("_dd_current_search_query")
