@@ -346,6 +346,10 @@
     "admin_audit_content": "Full append-only log of all metadata edits, approvals, and rejections with actor email, timestamp, and before/after values.\n\nComment log shows all comment and reply activity across the catalog.",
     "btn_approve": "Approve this proposal and publish it to Unity Catalog",
     "btn_reject": "Reject and discard this proposal",
-    "btn_priority_fix": "Open this table to add a description"
+    "btn_priority_fix": "Open this table to add a description",
+    "search_extra_editor": "**Edit metadata** — click the pencil icon on any description, steward, or column field to propose a change. Column proposals go to admin review before publishing.",
+    "search_extra_admin": "**Approve changes** — column override proposals from editors appear in Admin → Pending reviews. Approve to publish directly to Unity Catalog.",
+    "health_priority_editor": "Click a table name to open it and add a description. Saving a description removes it from this list.",
+    "health_priority_viewer": "Click a table name to open its detail page. Contact the table steward to request a description update."
   }
 }
