@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Dictionary — Runbook — Sync worker (sidecar)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .mermaid-wrap { background:var(--paper-deep); border:1px solid var(--ink-10); border-radius:2px; padding:24px; margin:20px 0; overflow-x:auto; }
+    .mermaid-wrap .mermaid { min-width:520px; }
+    .mermaid svg { max-width:100%; }
+  </style>
+</head>
+<body>
+  
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <a href="product-overview.html" style="text-decoration:none; color:inherit;">
+      <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:24px">
+        <g transform="translate(4,2)">
+          <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
+          <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
+          <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
+        </g>
+        <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
+      </svg>
+    </a>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-section-title">Guides</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="user-guide.html">User Guide</a></li>
+      <li class="nav-item "><a href="steward-guide.html">Steward Guide</a></li>
+      <li class="nav-item "><a href="admin-runbook.html">Admin Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Product</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="product-overview.html">Product Overview</a></li>
+      <li class="nav-item "><a href="business-requirements.html">Business Requirements</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Features</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="feature-unified-search.html">Unified Search</a></li>
+      <li class="nav-item "><a href="feature-personalization.html">Personalization</a></li>
+      <li class="nav-item "><a href="feature-data-quality.html">Data Quality</a></li>
+      <li class="nav-item "><a href="feature-data-preview.html">Data Preview</a></li>
+      <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
+      <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
+      <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Architecture</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="architecture.html">Architecture Overview</a></li>
+      <li class="nav-item "><a href="dependencies.html">Dependencies</a></li>
+      <li class="nav-item "><a href="adr-001-duckdb-local-cache.html">ADR 001: DuckDB Cache</a></li>
+      <li class="nav-item "><a href="adr-002-push-down-sql-auth.html">ADR 002: SQL Auth</a></li>
+      <li class="nav-item "><a href="adr-003-streamlit-not-fastapi.html">ADR 003: Streamlit</a></li>
+      <li class="nav-item "><a href="adr-004-sidecar-sync-worker.html">ADR 004: Sync Worker</a></li>
+      <li class="nav-item "><a href="adr-005-storage-abstraction.html">ADR 005: Storage Abstraction</a></li>
+      <li class="nav-item "><a href="adr-006-entra-groups-overage.html">ADR 006: Groups Overage</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Operations</div>
+    <ul class="nav-list">
+      <li class="nav-item active"><a href="runbook-sync-worker.html">Sync Worker Runbook</a></li>
+      <li class="nav-item "><a href="runbook-secret-rotation.html">Secret Rotation Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Reference</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="reference-locale-keys.html">Locale Keys</a></li>
+    </ul>
+  </nav>
+</aside>
+
+  <main class="content-wrapper">
+    <article class="page">
+      <header class="site-header">
+        <span class="badge">Operations</span>
+      </header>
+      <section class="hero">
+        <div class="eyebrow">Operations</div>
+        <h1>Runbook — Sync worker (sidecar)</h1>
+      </section>
+      <section class="section">
+<p>The sync worker is a long-lived process that drains
+<code>user_data.pending_sync</code> to Databricks Unity Catalog and runs DR resync
+(pulls late-arriving rows from Databricks back into the local user_data
+file). It runs in its own pod, separate from the Streamlit app.</p>
+<table class="status-table">
+<thead>
+<tr><th></th><th></th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Entry point</strong></td><td><code>python -m src.sync.daemon</code></td></tr>
+<tr><td><strong>Source</strong></td><td><code>src/sync/daemon.py</code>, <code>src/sync/daemon_db.py</code>, <code>src/sync/dr_resync.py</code>, <code>src/sync/push.py</code></td></tr>
+<tr><td><strong>k8s manifest</strong></td><td><code>k8s/deployment-sync-worker.yaml</code> (<code>Deployment dd-sync-worker</code>, <code>replicas: 1</code>, <code>Recreate</code>)</td></tr>
+<tr><td><strong>Image</strong></td><td>Same image as <code>dd-app</code>; <code>command:</code> is overridden in the manifest.</td></tr>
+<tr><td><strong>Healthz</strong></td><td><code>GET :8765/healthz</code> — 200 if heartbeat is fresh, 503 if stale.</td></tr>
+<tr><td><strong>State</strong></td><td><code>user_data.pending_sync</code> (queue) + <code>user_data.site_settings</code> (status keys).</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="architecture-in-one-diagram">
+<h2>Architecture in one diagram</h2>
+<div class="mermaid-wrap">
+  <div class="mermaid">
+graph LR
+    subgraph K8S["Kubernetes cluster"]
+        direction TB
+        APP["dd-app pods\n(HPA: 2–10)\nStreamlit UI + DuckDB attach"]
+        WORKER["dd-sync-worker\n(replicas: 1)\npython -m src.sync.daemon"]
+        PVC[("PVC dd-data\ndict.duckdb — catalog cache\ndict_user_data.duckdb — queue + overrides")]
+        APP -->|"enqueue writes\nto pending_sync"| PVC
+        WORKER <-->|"read queue / write heartbeat\n+ dr_resync_status"| PVC
+    end
+    WORKER -->|"push: ALTER TABLE\n/ INSERT / COMMENT"| DB[("Databricks\nSQL Warehouse\n/ Unity Catalog")]
+    WORKER -->|"DR resync:\npull late rows"| DB
+    PROBE["k8s liveness probe"] -->|"GET /healthz:8765"| WORKER
+  </div>
+</div>
+<details class="ascii-container"><summary>View raw ASCII diagram</summary><pre>┌────────────────────┐            ┌────────────────────┐         ┌──────────────┐
+│  dd-app pods       │            │  dd-sync-worker    │         │  Databricks  │
+│  (HPA: 2–10)       │            │  (replicas: 1)     │         │  SQL Wh / UC │
+│                    │  enqueue   │                    │  push   │              │
+│  Streamlit UI      │ ────────▶  │  python -m         │ ──────▶ │              │
+│  + DuckDB attach   │            │  src.sync.daemon   │ ◀────── │              │
+│                    │            │                    │  pull   │              │
+│                    │            │                    │  (DR)   │              │
+└──────────┬─────────┘            └─────────┬──────────┘         └──────────────┘
+           │                                │
+           └────────────  PVC dd-data  ─────┘
+                  /data/dict.duckdb              (catalog cache, written by nightly_sync)
+                  /data/dict_user_data.duckdb    (queue + overrides + audit log + comments)
+                       ↑ daemon writes worker_heartbeat + dr_resync_status here;
+                         Streamlit reads them back via user_data.site_settings</pre></details>
+<p>Streamlit pods only <strong>enqueue</strong> into <code>pending_sync</code> and write user
+overrides directly. The sync worker is the only process that pushes to
+Databricks. The pending_sync table is the IPC bus — no message broker,
+no extra infrastructure.</p>
+<hr>
+</section>
+<section class="section" id="operational-basics">
+<h2>Operational basics</h2>
+<h3>Find the pod</h3>
+<pre><code class="language-bash">kubectl -n data-dictionary get pods -l app=dd-sync-worker
+kubectl -n data-dictionary logs -l app=dd-sync-worker -f</code></pre>
+<p>Logs use <code>name=sync_daemon</code> for daemon-level events and
+<code>name=src.sync.dr_resync</code> / <code>name=src.sync.push</code> for module-level events.</p>
+<h3>Probe healthz</h3>
+<p>From inside the cluster:</p>
+<pre><code class="language-bash">kubectl -n data-dictionary port-forward deploy/dd-sync-worker 8765:8765
+curl -s localhost:8765/healthz | jq
+# {"status": "ok", "heartbeat_age_s": 4.2}</code></pre>
+<p>A heartbeat older than <code>SYNC_HEALTHZ_TIMEOUT_S</code> (default 60s) returns 503
+and the liveness probe will restart the pod.</p>
+<h3>Inspect queue state</h3>
+<pre><code class="language-bash">kubectl -n data-dictionary exec -it deploy/dd-sync-worker -- \
+  python -c "
+import duckdb, os
+con = duckdb.connect(os.getenv('DUCKDB_PATH').replace('.duckdb', '_user_data.duckdb'))
+print(con.execute('''
+  SELECT status, count(*) FROM user_data.pending_sync GROUP BY 1 ORDER BY 1
+''').fetchall())
+print(con.execute('''
+  SELECT key, value, updated_at FROM user_data.site_settings
+  WHERE key IN ('dr_resync_status', 'worker_heartbeat')
+''').fetchall())
+"</code></pre>
+<h3>Run a single cycle (one-shot mode)</h3>
+<p>Useful for CI, post-deploy flush, or to debug a specific cycle:</p>
+<pre><code class="language-bash">kubectl -n data-dictionary exec -it deploy/dd-sync-worker -- \
+  python -m src.sync.daemon --once --healthz-port 0</code></pre>
+<p><code>--healthz-port 0</code> disables the HTTP listener (avoids port collision when
+running ad hoc).</p>
+<hr>
+</section>
+<section class="section" id="configuration">
+<h2>Configuration</h2>
+<p>All configuration is via environment variables (set in <code>k8s/configmap.yaml</code>
+or per-pod env). Defaults are sensible — only override if you have a reason.</p>
+<table class="status-table">
+<thead>
+<tr><th>Variable</th><th>Default</th><th>Purpose</th></tr>
+</thead>
+<tbody>
+<tr><td><code>DUCKDB_PATH</code></td><td>— (required)</td><td>Catalog cache file. The worker derives <code>USER_DATA_PATH</code> by replacing <code>.duckdb</code> with <code>_user_data.duckdb</code>.</td></tr>
+<tr><td><code>DATABRICKS_HOST</code> / <code>_HTTP_PATH</code> / <code>_TOKEN</code></td><td>—</td><td>Required for write-back AND DR resync. If unset the daemon still runs (drains nothing, DR resync logs <code>Skipped</code>).</td></tr>
+<tr><td><code>SYNC_POLL_ACTIVE_S</code></td><td><code>5</code></td><td>Sleep between cycles when the previous cycle drained ≥1 row.</td></tr>
+<tr><td><code>SYNC_POLL_IDLE_S</code></td><td><code>30</code></td><td>Sleep between cycles when the previous cycle was empty.</td></tr>
+<tr><td><code>SYNC_DR_EVERY_N</code></td><td><code>20</code></td><td>Run DR resync every N cycles. Default ≈ every 10 min in active mode.</td></tr>
+<tr><td><code>SYNC_STALE_ROW_S</code></td><td><code>300</code></td><td>Rows in <code>'syncing'</code> state for longer than this flip back to <code>'pending'</code> at the top of every cycle.</td></tr>
+<tr><td><code>SYNC_HEALTHZ_PORT</code></td><td><code>8765</code></td><td>HTTP port for <code>/healthz</code>. Set to <code>0</code> to disable.</td></tr>
+<tr><td><code>SYNC_HEALTHZ_TIMEOUT_S</code></td><td><code>60</code></td><td>Heartbeat age above which <code>/healthz</code> returns 503.</td></tr>
+<tr><td><code>LOG_LEVEL</code></td><td><code>INFO</code></td><td>Stdlib logging level. <code>DEBUG</code> enables verbose cycle logs.</td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="state-written-to-user-data-site-settings">
+<h2>State written to user_data.site_settings</h2>
+<p>The daemon writes two keys the UI reads back:</p>
+<table class="status-table">
+<thead>
+<tr><th>Key</th><th>Value</th><th>Owner</th></tr>
+</thead>
+<tbody>
+<tr><td><code>worker_heartbeat</code></td><td>ISO-8601 timestamp, refreshed every cycle</td><td>sync_daemon</td></tr>
+<tr><td><code>dr_resync_status</code></td><td><code>Idle</code> / <code>Checking</code> / <code>Syncing <table></code> / <code>Up-to-date</code> / <code>Skipped (no Databricks creds)</code> / <code>Error: <msg></code></td><td>sync_daemon</td></tr>
+</tbody>
+</table>
+The admin "§ Synchronization status" panel reads these via
+<code>src.sync.worker.read_dr_resync_status()</code> and <code>read_worker_heartbeat()</code>.
+<hr>
+</section>
+<section class="section" id="common-operations">
+<h2>Common operations</h2>
+<h3>Restart after a config change</h3>
+<p><code>Recreate</code> rollout strategy (single writer, no overlap):</p>
+<pre><code class="language-bash">kubectl -n data-dictionary rollout restart deploy/dd-sync-worker
+kubectl -n data-dictionary rollout status deploy/dd-sync-worker --timeout=60s</code></pre>
+<h3>Drain the queue manually</h3>
+<p>If the worker is failing repeatedly and the queue is backing up, you can
+mark all pending rows as <code>failed</code> to stop the retry storm and inspect them
+out of band:</p>
+<pre><code class="language-sql">UPDATE user_data.pending_sync
+   SET status = 'failed',
+       last_error = 'manually drained'
+ WHERE status IN ('pending', 'syncing');</code></pre>
+<p>Then fix the underlying issue, re-enqueue from the audit log, and let the
+daemon resume.</p>
+<h3>Force a DR resync</h3>
+<p>Either bounce the pod (the first cycle always runs DR resync), or set the
+counter to a multiple of <code>SYNC_DR_EVERY_N</code> by waiting it out.</p>
+<hr>
+</section>
+<section class="section" id="failure-modes">
+<h2>Failure modes</h2>
+<h3><code>/healthz</code> returns 503 with <code>heartbeat_age_s: null</code></h3>
+<p>The daemon never wrote a heartbeat. Almost always a startup error —
+<code>DUCKDB_PATH</code> unset, file permissions on <code>/data</code>, or a parse error in the
+schema migration. Check the pod logs.</p>
+<h3><code>/healthz</code> returns 503 with <code>heartbeat_age_s: 9999</code></h3>
+<p>The daemon is alive but stuck. Check logs for the most recent
+<code>Daemon cycle error:</code> entry. If <code>_recover_stale_rows</code> is failing the whole
+cycle aborts. Common causes: catalog file corruption (rare; check
+PVC), or a Databricks auth failure that throws inside DR resync (the
+loop catches this but logs ERROR — confirm token freshness).</p>
+<h3><code>dr_resync_status</code> stuck on <code>Error: …</code></h3>
+<p>Read the full error from logs. If transient (network blip), the next
+cycle will retry. If persistent (auth, schema mismatch), the daemon is
+otherwise healthy — pending_sync drain still happens on every cycle.</p>
+<h3>Pending queue grows unbounded</h3>
+<p>Indicates one of:</p>
+<ol class="steps">
+  <li>Databricks creds are wrong or expired → all pushes fail, attempts counter increments. After <code>_SYNC_MAX_ATTEMPTS</code> (3) rows go to <code>'failed'</code> and stop retrying.</li>
+  <li>The daemon is crashing every cycle → check liveness probe events.</li>
+  <li>The schema in Databricks doesn't match what the push expects → look at <code>last_error</code> on a stuck row. <pre><code class="language-sql">SELECT sync_type, count(*), max(last_error) FROM user_data.pending_sync WHERE status IN ('pending', 'failed') GROUP BY sync_type;</code></pre> <h3>Two writers contention (DuckDB OS lock)</h3> Multiple processes write to <code>USER_DATA_PATH</code>: the sync worker and the</li>
+</ol>Streamlit pods (which enqueue and write user overrides). DuckDB serialises
+them via an OS-level file lock. At low write volume (typical for this
+app) you'll never notice. If write contention shows up under load the
+fix is migrating <code>user_data</code> to PostgreSQL — tracked in TODO.md.
+<hr>
+</section>
+<section class="section" id="related-runbooks-adrs">
+<h2>Related runbooks / ADRs</h2>
+<ul>
+  <li>ADR 001 — DuckDB as local metadata cache (<a href="adr-001-duckdb-local-cache.html"><code>docs/adr/001-duckdb-local-cache.md</code></a>)</li>
+  <li>ADR 002 — Push-down SQL auth (<a href="adr-002-push-down-sql-auth.html"><code>docs/adr/002-push-down-sql-auth.md</code></a>)</li>
+  <li>ADR 004 — Sidecar sync worker (<a href="adr-004-sidecar-sync-worker.html"><code>docs/adr/004-sidecar-sync-worker.md</code></a>)</li>
+  <li>Runbook — Secret rotation (<a href="runbook-secret-rotation.html"><code>docs/runbooks/secret-rotation.md</code></a>)</li>
+</ul>
+</section>
+      <footer class="site-footer">
+        <p>Data Dictionary · Documented by Data Engineering</p>
+        <p>Internal Use Only</p>
+      </footer>
+    </article>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#F2EDE1', primaryTextColor: '#14110C', primaryBorderColor: '#C9C2B4',
+        lineColor: '#6B645A', secondaryColor: '#E3E9DE', tertiaryColor: '#DDE4EC',
+        background: '#FAF7F0', mainBkg: '#F2EDE1', nodeBorder: '#C9C2B4',
+        clusterBkg: '#FAF7F0', clusterBorder: '#C9C2B4', titleColor: '#14110C',
+        edgeLabelBackground: '#FAF7F0', fontFamily: 'Manrope, "Segoe UI", system-ui, sans-serif',
+        fontSize: '13px',
+      }
+    });
+  </script>
+</body>
+</html>
