@@ -13,3 +13,7 @@
 ## 2026-05-10 - [Ruff Unused Variable Fixes Limitation]
 **Learning:** Ruff's `--fix` flag for unused variables (F841) might only remove the left-hand variable assignment, leaving the right-hand pure expressions hanging (e.g., set comprehensions, or method calls). This can lead to SyntaxErrors if the assignment was part of a multiline `with` block patch statement.
 **Action:** Always manually review and fix F841 to avoid leaving dead code or invalid syntax, rather than relying solely on `--unsafe-fixes`.
+
+## 2026-05-15 - [Remove src/ui/cards re-export shim]
+**Learning:** The `src/ui/cards/__init__.py` re-export shim was kept for backwards compatibility during a refactor. It's better to update the callers to import from specific submodules directly to remove this technical debt.
+**Action:** Migrated the remaining callers (`app.py`, `src/pages/catalog.py`, `src/pages/search.py`, `tests/test_admin.py`) off the shim and deleted `src/ui/cards/__init__.py`.
