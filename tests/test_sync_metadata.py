@@ -151,9 +151,10 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
         }
     )
     mock_cursor.fetchall_as_pandas.side_effect = [
-        grants_df,  # 1. Grants query
-        pd.DataFrame(),  # 2. Audit log query
-        pd.DataFrame(),  # 3. Business overrides query
+        grants_df,      # 1. Grants query (bulk permissions fetch)
+        pd.DataFrame(), # 2. DQ enrichment (enrich_dq_from_monitoring → Lakehouse Monitoring)
+        pd.DataFrame(), # 3. Audit log fetch for DuckDB export
+        pd.DataFrame(), # 4. push_business_name_overrides (no overrides → empty)
     ]
 
     # Mock ThreadPoolExecutor.map to return empty for lineage (since we aren't testing lineage specifically here)
@@ -189,39 +190,40 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
         catalog_name="my_catalog", schema_name="my_schema"
     )
 
-    # 6 truncates via execute (tables, columns, permissions, lineage, object_tags, dq_cache)
-    # + 1 SELECT from permissions bulk fetch
-    # + 1 SELECT from audit_log fetch for DuckDB export
-    # + 1 SELECT from push_business_name_overrides (no overrides to push → returns empty)
+    # [0]  SELECT from permissions bulk fetch
+    # [1]  SELECT from enrich_dq_from_monitoring (Lakehouse Monitoring)
+    # [2-7] 6 TRUNCATEs (tables, columns, permissions, lineage, object_tags, dq_cache)
+    # [8]  SELECT audit_log for DuckDB export
+    # [9]  SELECT from push_business_name_overrides (no overrides to push → returns empty)
     execute_calls = mock_cursor.execute.call_args_list
-    assert len(execute_calls) == 9
+    assert len(execute_calls) == 10
     assert "system.information_schema.table_privileges" in execute_calls[0][0][0]
     assert (
         f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata"
-        in execute_calls[1][0][0]
-    )
-    assert (
-        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata"
         in execute_calls[2][0][0]
     )
     assert (
-        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache"
+        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata"
         in execute_calls[3][0][0]
     )
     assert (
-        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache"
+        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache"
         in execute_calls[4][0][0]
     )
     assert (
-        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags"
+        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache"
         in execute_calls[5][0][0]
     )
     assert (
-        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache"
+        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags"
         in execute_calls[6][0][0]
     )
-    assert "audit_log" in execute_calls[7][0][0]
-    assert "business_name_overrides" in execute_calls[8][0][0]
+    assert (
+        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache"
+        in execute_calls[7][0][0]
+    )
+    assert "audit_log" in execute_calls[8][0][0]
+    assert "business_name_overrides" in execute_calls[9][0][0]
 
     # 5 executemany calls: tables, columns, permissions, data_quality, object_tags
     # (object_tags has 1 data row from table tags; dq data comes from mock_table.properties)
