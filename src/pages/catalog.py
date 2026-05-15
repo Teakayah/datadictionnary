@@ -14,6 +14,9 @@ def render_catalog_browser(groups, get_authorized_tables_fn):
     </div>
     ''', unsafe_allow_html=True)
 
+    with st.expander(t("help.catalog_expander")):
+        st.markdown(t("help.catalog_content"))
+
     try:
         all_data = get_authorized_tables_fn(groups)
         if all_data is None or all_data.empty or 'catalog_name' not in all_data.columns:

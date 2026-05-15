@@ -170,6 +170,9 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
 
     render_cms_banner()
 
+    with st.expander(t("help.discovery_expander")):
+        st.markdown(t("help.discovery_content"))
+
     _disc_tab_labels = [
         t("personalization.tab_notable"),
         t("personalization.tab_bookmarks"),

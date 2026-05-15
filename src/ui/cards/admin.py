@@ -510,6 +510,7 @@ def _render_pending_reviews_section():
                 key=f"rev_approve_{tbl}_{col}",
                 type="primary",
                 use_container_width=True,
+                help=t("help.btn_approve"),
             ):
                 try:
                     approve_business_name(tbl, col)
@@ -522,6 +523,7 @@ def _render_pending_reviews_section():
                 t("admin.reviews_reject"),
                 key=f"rev_reject_{tbl}_{col}",
                 use_container_width=True,
+                help=t("help.btn_reject"),
             ):
                 try:
                     reject_business_name(tbl, col)
@@ -551,6 +553,8 @@ def render_admin_page():
     ])
 
     with tab_ops:
+        with st.expander(t("help.admin_ops_expander")):
+            st.markdown(t("help.admin_ops_content"))
         _render_pending_reviews_section()
         _render_admin_cms_section()
         _render_admin_pipelines_section()
@@ -559,9 +563,13 @@ def render_admin_page():
         _render_admin_sync_section()
 
     with tab_insights:
+        with st.expander(t("help.admin_insights_expander")):
+            st.markdown(t("help.admin_insights_content"))
         _render_admin_stats_section()
         _render_admin_integrity_report()
 
     with tab_audit:
+        with st.expander(t("help.admin_audit_expander")):
+            st.markdown(t("help.admin_audit_content"))
         _render_admin_biz_log_section()
         _render_admin_comment_log_section()

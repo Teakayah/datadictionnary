@@ -23,6 +23,9 @@ def render_glossary(query_groups) -> None:
     </div>
     ''', unsafe_allow_html=True)
 
+    with st.expander(t("help.glossary_expander")):
+        st.markdown(t("help.glossary_content"))
+
     # Term Selection (Autocomplete)
     all_terms = _DEMO_GLOSSARY["term"].tolist()
     selected_term = st.selectbox(

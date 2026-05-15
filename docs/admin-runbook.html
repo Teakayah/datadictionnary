@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Dictionary — Admin Operations Runbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper:#FAF7F0; --paper-deep:#F2EDE1; --paper-ink:#E8E1D0;
+    --ink:#14110C; --ink-90:#2A2620; --ink-80:#3D3830; --ink-60:#6B645A;
+    --ink-40:#9A9388; --ink-20:#C9C2B4; --ink-10:#DCD6C8;
+    --accent:#B8362A; --accent-wash:#F3DFD9;
+    --forest:#3F5E3A; --forest-wash:#E3E9DE;
+    --ochre:#9A6D1C; --ochre-wash:#F0E5CC;
+    --deepblue:#2B4A6B; --deepblue-wash:#DDE4EC;
+    --font-display:"Fraunces","Cormorant Garamond",serif;
+    --font-sans:"Manrope","Segoe UI",system-ui,sans-serif;
+    --font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html{font-size:16px;scroll-behavior:smooth}
+  body{background:var(--paper);color:var(--ink);font-family:var(--font-sans);font-size:15px;line-height:1.6;letter-spacing:-0.005em;-webkit-font-smoothing:antialiased}
+  ::selection{background:var(--accent-wash);color:var(--ink)}
+  .page{max-width:780px;margin:0 auto;padding:0 24px 120px}
+  .site-header{border-bottom:1px solid var(--ink-20);padding:24px 0 20px;margin-bottom:64px;display:flex;align-items:center;justify-content:space-between}
+  .site-header .badge{font-family:var(--font-sans);font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent);background:var(--accent-wash);border:1px solid #e8c4be;padding:3px 8px;border-radius:999px}
+  .hero{padding:48px 0 56px;border-bottom:1px solid var(--ink-20);margin-bottom:64px}
+  .hero .eyebrow{font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:16px}
+  .hero h1{font-family:var(--font-display);font-size:clamp(36px,5vw,64px);font-weight:300;line-height:1.05;letter-spacing:-0.02em;margin-bottom:20px}
+  .hero h1 em{font-style:italic;color:var(--ink-60)}
+  .hero .lead{font-size:17px;line-height:1.55;color:var(--ink-60);max-width:560px}
+  .section{margin-bottom:72px}
+  .section-eyebrow{font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-40);margin-bottom:10px}
+  h2{font-family:var(--font-display);font-size:32px;font-weight:400;letter-spacing:-0.015em;line-height:1.15;margin-bottom:20px}
+  h3{font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-60);margin:40px 0 16px}
+  h3:first-child{margin-top:0}
+  h4{font-size:14px;font-weight:600;color:var(--ink);margin:24px 0 10px}
+  p{margin-bottom:14px;color:var(--ink-80)}
+  p:last-child{margin-bottom:0}
+  hr{border:0;border-top:1px solid var(--ink-10);margin:56px 0}
+  code{font-family:var(--font-mono);font-size:0.88em;background:var(--paper-deep);border:1px solid var(--ink-10);padding:1px 5px;border-radius:2px;color:var(--ink-80)}
+  pre{font-family:var(--font-mono);font-size:13px;background:var(--paper-deep);border:1px solid var(--ink-10);padding:16px 18px;border-radius:2px;overflow-x:auto;line-height:1.5;color:var(--ink-80);margin:16px 0}
+  .callout{padding:14px 18px;border-radius:0 2px 2px 0;margin:20px 0;font-size:14px;color:var(--ink-80);line-height:1.55}
+  .callout{background:var(--deepblue-wash);border-left:3px solid var(--deepblue)}
+  .callout.warn{background:var(--ochre-wash);border-left-color:var(--ochre)}
+  .callout.danger{background:var(--accent-wash);border-left-color:var(--accent)}
+  .callout.ok{background:var(--forest-wash);border-left-color:var(--forest)}
+  .callout strong{color:var(--ink);font-weight:600}
+  .steps{list-style:none;counter-reset:steps;margin:0 0 24px}
+  .steps li{counter-increment:steps;display:grid;grid-template-columns:28px 1fr;gap:0 14px;padding:12px 0;border-bottom:1px solid var(--ink-10);font-size:14px;color:var(--ink-80);line-height:1.55}
+  .steps li::before{content:counter(steps);font-family:var(--font-mono);font-size:11px;font-weight:500;color:var(--accent);background:var(--accent-wash);border-radius:2px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+  .steps li strong{color:var(--ink);font-weight:600}
+  .toc{background:var(--paper-deep);border:1px solid var(--ink-10);padding:24px 28px;margin-bottom:64px}
+  .toc-title{font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-40);margin-bottom:14px}
+  .toc ol{list-style:decimal;padding-left:18px}
+  .toc li{margin:6px 0;font-size:14px}
+  .toc a{color:var(--ink-60);text-decoration:none;border-bottom:1px solid transparent;transition:color 120ms,border-color 120ms}
+  .toc a:hover{color:var(--accent);border-bottom-color:var(--accent-wash)}
+  .status-table{width:100%;border-collapse:collapse;font-size:14px;margin:16px 0}
+  .status-table th{text-align:left;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-40);padding:8px 12px;border-bottom:1px solid var(--ink-20)}
+  .status-table td{padding:10px 12px;border-bottom:1px solid var(--ink-10);vertical-align:top;color:var(--ink-80)}
+  .status-table td:first-child{font-family:var(--font-mono);font-size:12px;color:var(--ink);white-space:nowrap}
+  .pill{display:inline-block;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:2px 7px;border-radius:2px}
+  .pill-ok{background:var(--forest-wash);color:var(--forest)}
+  .pill-warn{background:var(--ochre-wash);color:var(--ochre)}
+  .pill-err{background:var(--accent-wash);color:var(--accent)}
+  .site-footer{border-top:1px solid var(--ink-20);padding:32px 0;margin-top:80px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  .site-footer p{font-size:12px;color:var(--ink-40);margin:0}
+  @media print{.toc{display:none}a{color:var(--ink)!important;text-decoration:none!important}}
+  @media(max-width:600px){.hero h1{font-size:34px}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="site-header">
+    <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:32px">
+      <g transform="translate(4,2)">
+        <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
+        <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
+        <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
+        <line x1="3" y1="13" x2="23" y2="13" stroke="#C9C2B4" stroke-width="0.8"/>
+        <line x1="3" y1="17" x2="23" y2="17" stroke="#C9C2B4" stroke-width="0.8"/>
+        <line x1="3" y1="21" x2="17" y2="21" stroke="#C9C2B4" stroke-width="0.8"/>
+      </g>
+      <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
+      <text x="194" y="25" font-family="Fraunces, serif" font-size="20" fill="#B8362A">§</text>
+    </svg>
+    <span class="badge">Admin Runbook</span>
+  </header>
+
+  <section class="hero">
+    <div class="eyebrow">Operations · Internal</div>
+    <h1>Admin operations<br><em>runbook.</em></h1>
+    <p class="lead">Procedures for platform administrators covering day-to-day monitoring, incident response, and catalog governance operations.</p>
+  </section>
+
+  <nav class="toc">
+    <div class="toc-title">Contents</div>
+    <ol>
+      <li><a href="#sync-queue">Sync queue monitoring</a></li>
+      <li><a href="#stale-rows">Stale-row recovery</a></li>
+      <li><a href="#dr-resync">DR resync management</a></li>
+      <li><a href="#group-cache">Group-cache operations</a></li>
+      <li><a href="#editing-toggle">Global editing toggle</a></li>
+      <li><a href="#approval-queue">Metadata approval queue</a></li>
+      <li><a href="#audit-log">Audit log access</a></li>
+      <li><a href="#pipeline-ops">Pipeline CRUD &amp; troubleshooting</a></li>
+      <li><a href="#troubleshooting">Troubleshooting reference</a></li>
+    </ol>
+  </nav>
+
+  <!-- Sync queue -->
+  <section class="section" id="sync-queue">
+    <div class="section-eyebrow">§ 1 — Sync</div>
+    <h2>Sync queue monitoring</h2>
+    <p>The sidecar sync worker drains <code>user_data.pending_sync</code> and pushes changes to Databricks. The Admin dashboard → Operations tab shows live queue stats.</p>
+
+    <h3>Reading the sync panel</h3>
+    <table class="status-table">
+      <tr><th>Metric</th><th>Meaning</th><th>Normal range</th></tr>
+      <tr><td>Pending</td><td>Rows waiting to be processed</td><td>0–10 under normal load</td></tr>
+      <tr><td>Processing</td><td>Rows currently in flight (status = <code>'syncing'</code>)</td><td>0–5</td></tr>
+      <tr><td>Done</td><td>Successfully pushed to Databricks in this session</td><td>Any</td></tr>
+      <tr><td>Failed</td><td>Rows that exhausted 3 retry attempts</td><td>0 — investigate immediately</td></tr>
+      <tr><td>Heartbeat</td><td>Last time the sidecar wrote to <code>worker_heartbeat</code></td><td>&lt; 60 s ago</td></tr>
+    </table>
+
+    <h3>Heartbeat stale — worker is down</h3>
+    <div class="callout danger"><strong>Symptom:</strong> Heartbeat shows &gt; 60 s ago or "Daemon offline". The k8s liveness probe will restart the pod automatically. If it stays offline, check the pod logs.</div>
+    <ol class="steps">
+      <li>Check the sidecar pod status: <code>kubectl get pods -l app=dd-sync-worker</code></li>
+      <li>Read logs: <code>kubectl logs deploy/dd-sync-worker --tail=100</code></li>
+      <li>Common causes: DuckDB file lock contention, Databricks credential expiry, OOM. Address the root cause.</li>
+      <li>If the pod is in <code>CrashLoopBackOff</code>, check <code>USER_DATA_PATH</code> is correctly mounted and the PVC is healthy.</li>
+      <li>The worker restores itself on restart — no manual queue intervention needed unless rows are stuck in <code>'syncing'</code> state.</li>
+    </ol>
+
+    <h3>Failed rows</h3>
+    <ol class="steps">
+      <li>Failed rows are visible in the sync panel table. Note the <code>object_type</code> and <code>object_name</code>.</li>
+      <li>Query directly: <pre>SELECT * FROM user_data.pending_sync WHERE status = 'failed';</pre></li>
+      <li>Check the <code>last_error</code> column for the rejection reason from Databricks (most common: invalid identifier, privilege error, or token expiry).</li>
+      <li>Fix the underlying cause (e.g., re-grant <code>MODIFY</code> on the target table), then reset the row: <pre>UPDATE user_data.pending_sync SET status = 'pending', attempt_count = 0 WHERE status = 'failed';</pre></li>
+      <li>The worker will pick it up on the next poll cycle (default 5 s active, 30 s idle).</li>
+    </ol>
+  </section>
+
+  <hr>
+
+  <!-- Stale rows -->
+  <section class="section" id="stale-rows">
+    <div class="section-eyebrow">§ 2 — Recovery</div>
+    <h2>Stale-row recovery</h2>
+    <p>A row stuck in <code>'syncing'</code> for more than 5 minutes (configurable via <code>SYNC_STALE_ROW_S</code>) is automatically flipped back to <code>'pending'</code> at the top of each worker cycle. This handles crashes mid-flight without manual intervention.</p>
+
+    <h3>Manual recovery (if auto-recovery fails)</h3>
+    <ol class="steps">
+      <li>Identify stuck rows: <pre>SELECT * FROM user_data.pending_sync
+WHERE status = 'syncing'
+  AND updated_at &lt; NOW() - INTERVAL 10 MINUTES;</pre></li>
+      <li>Reset them manually: <pre>UPDATE user_data.pending_sync
+SET status = 'pending'
+WHERE status = 'syncing'
+  AND updated_at &lt; NOW() - INTERVAL 10 MINUTES;</pre></li>
+      <li>Confirm the worker picks them up within one poll cycle. Watch the heartbeat timestamp in the Admin panel.</li>
+    </ol>
+
+    <div class="callout warn"><strong>Do not delete rows from <code>pending_sync</code></strong> unless you intentionally want to abandon a change. Deletion bypasses the audit trail.</div>
+  </section>
+
+  <hr>
+
+  <!-- DR resync -->
+  <section class="section" id="dr-resync">
+    <div class="section-eyebrow">§ 3 — DR resync</div>
+    <h2>DR resync management</h2>
+    <p>Every 20 worker cycles the sidecar runs a DR resync: it pulls the current audit log, business-name overrides, and table-metadata overrides back from Databricks into the local DuckDB file. This keeps the local cache consistent with the source of truth after a pod restart or PVC swap.</p>
+
+    <h3>Reading resync status</h3>
+    <table class="status-table">
+      <tr><th>Status</th><th>Meaning</th></tr>
+      <tr><td><span class="pill pill-ok">ok</span></td><td>Last resync completed without errors.</td></tr>
+      <tr><td><span class="pill pill-warn">running</span></td><td>Resync in progress (completes in seconds under normal load).</td></tr>
+      <tr><td><span class="pill pill-err">error</span></td><td>Last resync failed. Check worker logs for the specific SQL error.</td></tr>
+      <tr><td><span class="pill pill-warn">never</span></td><td>Worker has not yet run a resync cycle (normal on first boot).</td></tr>
+    </table>
+
+    <h3>Force a resync immediately</h3>
+    <ol class="steps">
+      <li>Run the worker in single-cycle mode: <code>python -m src.sync.daemon --once</code></li>
+      <li>Or restart the sidecar pod — it runs a full cycle on startup.</li>
+      <li>Confirm status changes to <span class="pill pill-ok">ok</span> in the Admin panel within 30 s.</li>
+    </ol>
+
+    <h3>Resync fails repeatedly</h3>
+    <ol class="steps">
+      <li>Check worker logs for the SQL error. Common causes: Databricks SQL Warehouse offline, token expired, schema version mismatch.</li>
+      <li>Verify the warehouse is running: open Databricks UI → SQL Warehouses → confirm state is <strong>Running</strong>.</li>
+      <li>Check token expiry: <code>kubectl get secret dd-databricks-secret -o yaml</code> and verify <code>DATABRICKS_TOKEN</code> is not expired.</li>
+      <li>If schema has drifted, run <code>python scripts/nightly_sync.py</code> manually to recreate <code>dictionary_cache</code> tables with the correct schema.</li>
+    </ol>
+  </section>
+
+  <hr>
+
+  <!-- Group cache -->
+  <section class="section" id="group-cache">
+    <div class="section-eyebrow">§ 4 — Access control</div>
+    <h2>Group-cache operations</h2>
+    <p>The application caches each user's Entra ID group memberships in process memory for 1 hour (keyed by user OID). This prevents repeated Graph API calls for every page load. The cache is cleared per-user on sign-out.</p>
+
+    <h3>When to flush the cache</h3>
+    <ul style="margin:0 0 20px;padding-left:20px;font-size:14px;color:var(--ink-80);line-height:1.8">
+      <li>A user was added to or removed from an Entra group and needs immediate access change (without waiting up to 1 hour).</li>
+      <li>You performed bulk group changes (e.g., during an org restructure) and want all users to see the new state.</li>
+      <li>A user reports seeing tables they should no longer have access to.</li>
+    </ul>
+
+    <h3>Flush via Admin dashboard</h3>
+    <ol class="steps">
+      <li>Open the <strong>Admin</strong> tab → <strong>Operations</strong> → <strong>Group cache</strong> section.</li>
+      <li>Click <strong>Flush group cache</strong>. This clears all cached group memberships for all active users.</li>
+      <li>Each user's cache is rebuilt on their next page load via a fresh Microsoft Graph API call.</li>
+    </ol>
+
+    <div class="callout warn"><strong>Note for users with 150+ group memberships.</strong> These users trigger the Graph API overage path (<code>getMemberObjects</code>). The cache TTL is the same (1 hour), but the first page load after a flush will be slightly slower while Graph resolves their full membership list.</div>
+
+    <h3>Manual cache inspection (engineering)</h3>
+    <p>The cache lives in <code>src/auth_graph.py</code> as a module-level dict <code>_groups_cache</code>. In a production context it is process-local and not observable from outside the pod. To inspect it, attach to the running pod:</p>
+    <pre>kubectl exec -it deploy/dd-app -- python -c \
+  "from src.auth_graph import _groups_cache; print(list(_groups_cache.keys()))"</pre>
+  </section>
+
+  <hr>
+
+  <!-- Editing toggle -->
+  <section class="section" id="editing-toggle">
+    <div class="section-eyebrow">§ 5 — Governance</div>
+    <h2>Global editing toggle</h2>
+    <p>Inline editing can be disabled globally without redeploying the application. This is useful during catalog migrations, nightly sync windows, or whenever you need a temporary freeze.</p>
+
+    <h3>Toggle via Admin dashboard</h3>
+    <ol class="steps">
+      <li>Open the <strong>Admin</strong> tab → <strong>Operations</strong> → <strong>Inline editing</strong> section.</li>
+      <li>The current state is shown as <strong>Editing enabled</strong> or <strong>Editing disabled</strong>.</li>
+      <li>Click the toggle. The change takes effect immediately for all users on the next page load — no restart required.</li>
+    </ol>
+
+    <div class="callout"><strong>Where the flag lives.</strong> The state is stored in <code>user_data.site_settings</code> with <code>key='editing_enabled'</code>. It defaults to <code>True</code> when the row is absent (safe for first boot). The value is cached in each user's <code>st.session_state</code> and refreshed on re-render.</div>
+
+    <h3>What disabling editing does</h3>
+    <ul style="margin:0 0 20px;padding-left:20px;font-size:14px;color:var(--ink-80);line-height:1.8">
+      <li>The edit icon disappears from all table description, steward, and column fields for all power users.</li>
+      <li>Admins retain the ability to approve and reject proposals already in the queue.</li>
+      <li>Existing <code>pending_approval</code> rows are not affected — they remain in the queue.</li>
+      <li>The toggle state is visible in the Admin panel at all times.</li>
+    </ul>
+  </section>
+
+  <hr>
+
+  <!-- Approval queue -->
+  <section class="section" id="approval-queue">
+    <div class="section-eyebrow">§ 6 — Metadata governance</div>
+    <h2>Metadata approval queue</h2>
+    <p>Column override proposals submitted by non-admin editors land in <code>user_data.business_name_overrides</code> with <code>status='pending_approval'</code>. They are visible in Admin → Operations → Pending reviews.</p>
+
+    <h3>Operational workflow</h3>
+    <ol class="steps">
+      <li>Review the proposal: check the column identifier (<code>catalog.schema.table.column</code>), the current value, and the proposed business name / definition.</li>
+      <li>Verify the proposed value is accurate, follows naming conventions, and is appropriate for the business glossary.</li>
+      <li>Click <strong>Approve</strong> to publish. The row status changes to <code>'published'</code>, the change is enqueued for Databricks sync, and an audit event is logged.</li>
+      <li>Click <strong>Reject</strong> to discard. The row is deleted from the overrides table. An audit event is still logged with the rejecting admin's email.</li>
+    </ol>
+
+    <div class="callout ok"><strong>Approved changes sync automatically.</strong> Approved overrides are pushed to Databricks via the standard <code>pending_sync</code> queue within minutes. No additional action is required.</div>
+
+    <h3>Bulk review via SQL (engineering)</h3>
+    <pre>SELECT table_full_name, column_name, business_name,
+       definition, edited_by, updated_at
+FROM user_data.business_name_overrides
+WHERE status = 'pending_approval'
+ORDER BY updated_at DESC;</pre>
+
+    <h3>Approval history</h3>
+    <p>Every approval and rejection is recorded in <code>user_data.audit_log</code> with <code>event_type='business_name_change'</code> and the acting admin's email. Use the <strong>Audit log</strong> section in the Admin panel to filter and export.</p>
+  </section>
+
+  <hr>
+
+  <!-- Audit log -->
+  <section class="section" id="audit-log">
+    <div class="section-eyebrow">§ 7 — Audit</div>
+    <h2>Audit log access</h2>
+    <p>All metadata edits, approvals, rejections, and comment activity are recorded in <code>user_data.audit_log</code>. The table is append-only and is mirrored to <code>data_governance.dictionary_cache.audit_log</code> via DR resync.</p>
+
+    <h3>Via Admin dashboard</h3>
+    <ol class="steps">
+      <li>Open <strong>Admin</strong> → <strong>Audit Logs</strong> tab.</li>
+      <li>The change log shows the last 100 metadata events with actor, timestamp, object, and before/after values.</li>
+      <li>The comment log shows the last 100 comment and reply events.</li>
+      <li>Click <strong>Expand log</strong> to see the full history.</li>
+    </ol>
+
+    <h3>Direct SQL query (engineering)</h3>
+    <pre>-- Recent metadata changes by actor
+SELECT event_type, object_type, object_name,
+       old_value, new_value, actor_email, created_at
+FROM user_data.audit_log
+WHERE created_at > NOW() - INTERVAL 7 DAYS
+ORDER BY created_at DESC
+LIMIT 200;</pre>
+
+    <h3>Schema reference</h3>
+    <table class="status-table">
+      <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+      <tr><td>event_type</td><td>VARCHAR</td><td><code>table_description_change</code>, <code>table_steward_change</code>, <code>business_name_change</code>, <code>comment_added</code>, <code>reply_added</code></td></tr>
+      <tr><td>object_type</td><td>VARCHAR</td><td><code>TABLE</code>, <code>COLUMN</code></td></tr>
+      <tr><td>object_name</td><td>VARCHAR</td><td>Full Unity Catalog identifier</td></tr>
+      <tr><td>old_value</td><td>VARCHAR</td><td>Previous value (<code>N/A</code> for new entries)</td></tr>
+      <tr><td>new_value</td><td>VARCHAR</td><td>New value</td></tr>
+      <tr><td>actor_email</td><td>VARCHAR</td><td>Entra ID email of the acting user</td></tr>
+      <tr><td>created_at</td><td>TIMESTAMP</td><td>UTC timestamp of the event</td></tr>
+    </table>
+  </section>
+
+  <hr>
+
+  <!-- Pipeline ops -->
+  <section class="section" id="pipeline-ops">
+    <div class="section-eyebrow">§ 8 — Pipelines</div>
+    <h2>Pipeline CRUD &amp; troubleshooting</h2>
+
+    <h3>Register a new pipeline</h3>
+    <ol class="steps">
+      <li>Open <strong>Admin</strong> → <strong>Operations</strong> → <strong>Pipelines</strong> section → <strong>New pipeline</strong>.</li>
+      <li>Set the name (displayed in the Pipelines tab) and select the backend.</li>
+      <li>Fill in backend-specific fields:</li>
+    </ol>
+    <table class="status-table">
+      <tr><th>Backend</th><th>Required fields</th></tr>
+      <tr><td>Databricks</td><td>Job ID (from the Jobs UI URL)</td></tr>
+      <tr><td>Azure Data Factory</td><td>Subscription ID, resource group, factory name, pipeline name</td></tr>
+      <tr><td>Azure DevOps</td><td>Organisation, project name, pipeline ID</td></tr>
+    </table>
+
+    <h3>Delete a pipeline definition</h3>
+    <ol class="steps">
+      <li>Open <strong>Admin</strong> → <strong>Operations</strong> → <strong>Pipelines</strong>.</li>
+      <li>Click the delete icon (🗑) next to the pipeline. Confirm in the dialog.</li>
+      <li>Any active run associated with this pipeline is cancelled automatically before deletion.</li>
+    </ol>
+
+    <h3>Service principal credentials</h3>
+    <p>All three backends authenticate via MSAL client-credentials. Required environment variables:</p>
+    <pre>PIPELINE_SP_TENANT_ID=&lt;your-tenant-id&gt;
+PIPELINE_SP_CLIENT_ID=&lt;service-principal-client-id&gt;
+PIPELINE_SP_CLIENT_SECRET=&lt;service-principal-secret&gt;</pre>
+    <div class="callout warn"><strong>Secret rotation.</strong> When rotating <code>PIPELINE_SP_CLIENT_SECRET</code>, update the k8s secret and restart the app pod. The token cache is process-local and clears on restart. See <a href="runbooks/secret-rotation.md">secret-rotation runbook</a>.</div>
+
+    <h3>Stuck run (status never reaches terminal)</h3>
+    <ol class="steps">
+      <li>Check the backend directly (Databricks Jobs UI, ADF Monitor, ADO Pipelines) to confirm the true run state.</li>
+      <li>If the run is already complete in the backend but the Data Dictionary still shows it as running, clear the stale row: <pre>DELETE FROM user_data.pipeline_runs
+WHERE pipeline_id = '&lt;id&gt;';</pre></li>
+      <li>The Pipelines tab will show the pipeline as idle on the next page load.</li>
+    </ol>
+  </section>
+
+  <hr>
+
+  <!-- Troubleshooting -->
+  <section class="section" id="troubleshooting">
+    <div class="section-eyebrow">§ 9 — Troubleshooting</div>
+    <h2>Troubleshooting reference</h2>
+
+    <h4>User sees tables they should not have access to</h4>
+    <p>Likely cause: stale group cache. Flush via Admin → Operations → Group cache → <strong>Flush group cache</strong>. If the problem persists after the user signs out and back in, verify the Unity Catalog grant has actually been revoked for their group.</p>
+
+    <h4>User cannot see any tables after being added to a group</h4>
+    <p>The cache TTL is 1 hour. Ask the user to sign out and sign back in (sign-out clears their personal cache). If they still see nothing, verify the Entra group was granted <code>SELECT</code> on the target tables in Unity Catalog.</p>
+
+    <h4>Metadata changes are not reaching Databricks</h4>
+    <ol class="steps">
+      <li>Check the sync queue in Admin → Operations. If rows are stuck in <code>Failed</code>, read the <code>last_error</code> and address the root cause.</li>
+      <li>Check the heartbeat. If the worker is offline, see <a href="#sync-queue">§ 1 Sync queue — heartbeat stale</a>.</li>
+      <li>Confirm the service principal has <code>MODIFY</code> on the target tables in Unity Catalog.</li>
+    </ol>
+
+    <h4>The app returns "Error loading catalog" on the Search page</h4>
+    <p>The SQL Warehouse is likely offline or the token has expired. Check <code>DATABRICKS_HOST</code>, <code>DATABRICKS_HTTP_PATH</code>, and <code>DATABRICKS_TOKEN</code> in the k8s secret. Verify the warehouse is running in the Databricks UI.</p>
+
+    <h4>Admin panel shows no sync stats (all zeros)</h4>
+    <p>DuckDB is unavailable (empty <code>USER_DATA_PATH</code> or the PVC is not mounted). Check the pod's volume mounts: <code>kubectl describe pod &lt;dd-app-pod&gt;</code>.</p>
+
+    <h4>Health dashboard shows "No data"</h4>
+    <p>The user's groups have no matching rows in <code>permissions_cache</code>. Run a nightly sync (<code>python scripts/nightly_sync.py</code>) or check that the permissions fetch step completed without errors in the last sync run.</p>
+  </section>
+
+  <footer class="site-footer">
+    <p>Data Dictionary · Admin Runbook · Internal use only</p>
+    <p><a href="user-guide.html">User guide</a> · <a href="runbooks/sync-worker.md">Sync worker runbook</a> · <a href="adr/">Architecture decisions</a></p>
+  </footer>
+
+</div>
+</body>
+</html>

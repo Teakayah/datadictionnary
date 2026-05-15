@@ -326,5 +326,26 @@
     "no_recent": "Aucune table consultée récemment.",
     "bookmarked_columns": "Colonnes favorites",
     "no_col_bookmarks": "Aucune colonne favorite. Marquez une colonne pour la retrouver ici."
+  },
+  "help": {
+    "search_expander": "Comment utiliser cette page",
+    "search_content": "**Recherche** — saisissez un nom de table, de colonne ou un terme métier. Les résultats n'affichent que les tables auxquelles vous avez accès.\n\n**Voir les détails** — cliquez sur un résultat pour ouvrir la fiche complète : colonnes, droits, lignage, qualité et aperçu des données.\n\n**Favoris** — ajoutez une table à vos favoris depuis sa fiche pour la retrouver dans Découverte → Mes favoris.\n\n**Commentaires** — faites défiler jusqu'à la section Commentaires pour poser une question au responsable de la table.",
+    "discovery_expander": "Comment utiliser cette page",
+    "discovery_content": "**Recommandé** — tables avec une activité récente dans vos groupes, hors tables déjà consultées.\n\n**Nouveau & Notable** — tables récemment mises à jour dans votre groupe principal.\n\n**Mes favoris** — tables et colonnes que vous avez enregistrées.\n\n**Récemment consulté** — les 50 dernières tables ouvertes, mises à jour automatiquement.",
+    "health_expander": "Comment utiliser cette page",
+    "health_content": "**Couverture tables** — pourcentage de tables accessibles ayant une description.\n\n**Couverture colonnes** — pourcentage de colonnes avec un nom métier ou une définition.\n\n**Par schéma** — comptages par schéma pour identifier les lacunes.\n\n**Actions prioritaires** — jusqu'à 5 tables très consultées sans description. Cliquez pour ouvrir la fiche et ajouter une description.",
+    "glossary_expander": "Comment utiliser cette page",
+    "glossary_content": "Parcourez et recherchez les termes métier définis dans Unity Catalog.\n\n**Fiche terme** — sélectionnez un terme pour voir sa définition, sa logique de calcul, son domaine et ses tables liées.\n\n**Carte conceptuelle** — graphe visuel des relations entre le terme sélectionné et le reste du catalogue.",
+    "catalog_expander": "Comment utiliser cette page",
+    "catalog_content": "Naviguez dans la hiérarchie : catalogue → schéma → table.\n\nChaque table affiche un badge de qualité (A–F) si disponible. Cliquez sur un nom de table pour voir ses métadonnées complètes.\n\nUtilisez Recherche pour une recherche par mot-clé ; utilisez ce navigateur quand vous connaissez le schéma à explorer.",
+    "admin_ops_expander": "À propos de cet onglet",
+    "admin_ops_content": "**Révisions en attente** — approuvez ou rejetez les propositions de modifications soumises par les éditeurs.\n\n**File de synchronisation** — surveillez le worker qui pousse les changements vers Unity Catalog.\n\n**CMS** — publiez des annonces dans le fil Découverte.\n\n**Pipelines** — enregistrez, déclenchez et surveillez les pipelines de données.",
+    "admin_insights_expander": "À propos de cet onglet",
+    "admin_insights_content": "**Lacunes à fort impact** — tables populaires sans description ni responsable.\n\n**Lacunes de gouvernance** — toutes les tables sans responsable assigné.\n\n**Alertes qualité** — tables en échec aux contrôles qualité automatisés.",
+    "admin_audit_expander": "À propos de cet onglet",
+    "admin_audit_content": "Journal complet de toutes les modifications de métadonnées avec l'auteur, l'horodatage et les valeurs avant/après.\n\nJournal des commentaires : toute l'activité de commentaires et de réponses dans le catalogue.",
+    "btn_approve": "Approuver cette proposition et la publier dans Unity Catalog",
+    "btn_reject": "Rejeter et supprimer cette proposition",
+    "btn_priority_fix": "Ouvrir cette table pour ajouter une description"
   }
 }

@@ -326,5 +326,26 @@
     "no_recent": "No recently viewed tables yet.",
     "bookmarked_columns": "Bookmarked columns",
     "no_col_bookmarks": "No column bookmarks yet. Star a column to save it here."
+  },
+  "help": {
+    "search_expander": "How to use this page",
+    "search_content": "**Search** — type a table name, column name, or business term. Results show tables you are authorised to access, ranked by relevance.\n\n**View details** — click any result to open the full table detail: columns, grants, lineage, data quality, and data sample.\n\n**Bookmark** — star any table from its detail page to save it in Discovery → My Bookmarks.\n\n**Comment** — scroll to the Comments section on any detail page to leave a question or note for the table steward.",
+    "discovery_expander": "How to use this page",
+    "discovery_content": "**Recommended** — tables with recent activity across your groups, excluding ones you have already viewed.\n\n**New & Notable** — recently updated tables in your primary group.\n\n**My Bookmarks** — tables and columns you have starred. Bookmark any table from its detail page.\n\n**Recently Viewed** — the last 50 tables you opened, updated automatically as you browse.",
+    "health_expander": "How to use this page",
+    "health_content": "**Table coverage** — percentage of accessible tables that have a description. Higher is better.\n\n**Column coverage** — percentage of columns across those tables with a business name or definition.\n\n**Schema breakdown** — per-schema counts of total and described tables. Sort by coverage to find gaps.\n\n**Priority actions** — up to 5 high-interaction tables that are missing descriptions. Click a table name to open its detail page and add a description.",
+    "glossary_expander": "How to use this page",
+    "glossary_content": "Browse and search business terms defined in Unity Catalog.\n\n**Term detail** — select a term to see its definition, calculation logic, domain, steward, and linked tables.\n\n**Concept map** — a visual graph of how the selected term relates to other tables and terms in the catalog.",
+    "catalog_expander": "How to use this page",
+    "catalog_content": "Drill down through the catalog hierarchy: catalog → schema → table.\n\nEach table shows a data quality badge (A–F) when available. Click any table name to view its full metadata, columns, and lineage on the Search page.\n\nUse Search for keyword-based lookup; use this browser when you know the schema you want to explore.",
+    "admin_ops_expander": "About this tab",
+    "admin_ops_content": "**Pending reviews** — approve or reject column override proposals submitted by editors.\n\n**Sync queue** — monitor the background worker that pushes metadata changes to Unity Catalog.\n\n**CMS** — publish pinned announcements and featured tables in the Discovery feed.\n\n**Pipelines** — register, trigger, and monitor data pipeline runs.",
+    "admin_insights_expander": "About this tab",
+    "admin_insights_content": "**High-impact gaps** — popular tables missing descriptions or stewards, ranked by interaction count.\n\n**Stewardship gaps** — all tables without an assigned steward email.\n\n**DQ alerts** — tables currently failing automated data quality checks.",
+    "admin_audit_expander": "About this tab",
+    "admin_audit_content": "Full append-only log of all metadata edits, approvals, and rejections with actor email, timestamp, and before/after values.\n\nComment log shows all comment and reply activity across the catalog.",
+    "btn_approve": "Approve this proposal and publish it to Unity Catalog",
+    "btn_reject": "Reject and discard this proposal",
+    "btn_priority_fix": "Open this table to add a description"
   }
 }

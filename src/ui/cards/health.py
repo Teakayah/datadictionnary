@@ -170,6 +170,7 @@ def _render_priority_actions(undocumented: pd.DataFrame):
                 f"📄 {getattr(row, 'table_name', '')}",
                 key=f"health_fix_{getattr(row, 'full_name', '')}",
                 use_container_width=True,
+                help=t("help.btn_priority_fix"),
             ):
                 st.query_params["tab"] = "search"
                 st.session_state["dd_search_override"] = getattr(row, 'table_name', '')
@@ -187,6 +188,9 @@ def render_health(groups: tuple, _unused_fn=None):
       <p class="lead">{t("health.hero_subtitle")}</p>
     </div>
     ''', unsafe_allow_html=True)
+
+    with st.expander(t("help.health_expander")):
+        st.markdown(t("help.health_content"))
 
     try:
         # 1. Fetch all metrics via SQL push-down
