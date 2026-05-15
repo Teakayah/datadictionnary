@@ -347,33 +347,36 @@ def search_all_metadata(query: str, groups: tuple):
 
     q_lower = query.lower()
 
-    # ⚡ Bolt: Replaced `.apply()` with vectorized NumPy/Pandas operations.
-    # `.apply()` executes with significant overhead as it loops in Python.
-    # Vectorized string operations and `np.select` are dramatically faster for large result sets.
+    # ⚡ Bolt: Replace .apply() with vectorized scoring for faster performance
     combined = combined.copy()
-    name = combined["name"].fillna("").astype(str).str.lower()
-    mtype = combined["match_type"].fillna("").astype(str)
 
-    is_table = mtype == "Table"
-    is_col = mtype == "Column"
+    # Safely convert to string and lower
+    names = combined["name"].fillna("").astype(str).str.lower()
+    mtypes = combined["match_type"].fillna("").astype(str)
 
-    is_exact = name == q_lower
-    is_start = name.str.startswith(q_lower)
-    is_in = name.str.contains(q_lower, regex=False)
+    # Initialize scores with default Glossary value
+    scores = np.where(mtypes == "Glossary", 1, 0)
 
-    conditions = [
-        is_table & is_exact,
-        is_table & is_start,
-        is_table & is_in,
-        is_table,
-        is_col & is_exact,
-        is_col & is_start,
-        is_col,
-    ]
-    choices = [5, 4, 3, 2, 2, 1, 0]
+    # Table masks
+    table_mask = mtypes == "Table"
+    if table_mask.any():
+        table_names = names[table_mask]
+        t_scores = np.full(table_mask.sum(), 2)
+        t_scores[table_names.str.contains(q_lower, regex=False)] = 3
+        t_scores[table_names.str.startswith(q_lower)] = 4
+        t_scores[table_names == q_lower] = 5
+        scores[table_mask] = t_scores
 
-    combined["_score"] = np.select(conditions, choices, default=1)
+    # Column masks
+    col_mask = mtypes == "Column"
+    if col_mask.any():
+        col_names = names[col_mask]
+        c_scores = np.full(col_mask.sum(), 0)
+        c_scores[col_names.str.startswith(q_lower)] = 1
+        c_scores[col_names == q_lower] = 2
+        scores[col_mask] = c_scores
 
+    combined["_score"] = scores
     return (
         combined.sort_values("_score", ascending=False)
         .drop(columns=["_score"])
