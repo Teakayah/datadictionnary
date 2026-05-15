@@ -45,7 +45,8 @@
     "back_to_results": "Back to results",
     "view_details_help": "View details for this table",
     "back_to_results_help": "Back to search results",
-    "start_typing": "Start typing to search the catalog."
+    "start_typing": "Start typing to search the catalog.",
+    "no_access": "You don't have access to any tables yet. Contact your administrator to request access."
   },
   "catalog": {
     "eyebrow": "§ Catalog browser",
@@ -229,7 +230,8 @@
     "sign_in_prompt": "Please sign in or select a group to view discovery highlights.",
     "date_format": "%b %d, %H:%M UTC",
     "explore_button": "Explore {name} →",
-    "updated": "Updated"
+    "updated": "Updated",
+    "no_groups": "Your account is not assigned to any data-access groups. Contact your administrator to request access."
   },
   "pipelines": {
     "eyebrow": "§ Pipelines",

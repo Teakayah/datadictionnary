@@ -560,10 +560,13 @@ def render_search_page(query_groups: tuple) -> None:
     if _all_tables is None:
         st.error(t("search.load_error"))
         _table_options = []
+    elif _all_tables.empty:
+        st.info(t("search.no_access"))
+        _table_options = []
     else:
         _table_options = (
             sorted(_all_tables["table_name"].unique().tolist())
-            if not _all_tables.empty and "table_name" in _all_tables.columns
+            if "table_name" in _all_tables.columns
             else []
         )
 

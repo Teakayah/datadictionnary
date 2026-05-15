@@ -220,6 +220,11 @@ def _render_notable_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, p
     if not primary_group and groups:
         primary_group = groups[0]
 
+    # "none" is the sentinel app.py uses when user_groups is empty
+    if not primary_group or primary_group == "none":
+        st.info(t("discovery.no_groups"))
+        return
+
     if primary_group:
         st.info(t("discovery.group_highlights", group=primary_group))
         try:

@@ -45,7 +45,8 @@
     "back_to_results": "Retour aux résultats",
     "view_details_help": "Afficher les détails de cette table",
     "back_to_results_help": "Retour aux résultats de recherche",
-    "start_typing": "Commencez à taper pour rechercher dans le catalogue."
+    "start_typing": "Commencez à taper pour rechercher dans le catalogue.",
+    "no_access": "Vous n'avez accès à aucune table pour l'instant. Contactez votre administrateur pour demander l'accès."
   },
   "catalog": {
     "eyebrow": "§ Navigateur de catalogue",
@@ -229,7 +230,8 @@
     "sign_in_prompt": "Connectez-vous ou sélectionnez un groupe pour voir les faits saillants.",
     "date_format": "%d %b, %H:%M UTC",
     "explore_button": "Explorer {name} →",
-    "updated": "Mis à jour"
+    "updated": "Mis à jour",
+    "no_groups": "Votre compte n'est associé à aucun groupe d'accès aux données. Contactez votre administrateur pour demander l'accès."
   },
   "pipelines": {
     "eyebrow": "§ Pipelines",
