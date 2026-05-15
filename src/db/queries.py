@@ -7,10 +7,6 @@ that dispatches to DuckDB (if available) or Databricks.  Demo-mode
 interception (returning _DEMO_* fixtures) lives in app.py's wrapper so
 that this module stays importable without triggering a circular re-import
 of app.py.
-
-NOTE — Phase 4b (deferred): get_authorized_tables(), search_all_metadata(),
-get_column_business_names(), and get_multi_hop_lineage() still live in
-app.py because they depend on the _DEMO_* DataFrames defined there.
 """
 
 
