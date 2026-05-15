@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
+from typing import Optional, Protocol, runtime_checkable
 """CMS storage backends.
 
 Three implementations against the same Protocol:

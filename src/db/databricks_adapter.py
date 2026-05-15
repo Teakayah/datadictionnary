@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """Databricks SQL Warehouse adapter — read path only.
 
 Writes from Streamlit pods are no longer made directly to Databricks. Per

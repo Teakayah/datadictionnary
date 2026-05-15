@@ -625,6 +625,23 @@ class TestBusinessNameEditorDB:
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
         monkeypatch.setenv("DEMO_DATA", "false")
 
+        from unittest.mock import patch
+
+        # Mock the storage since search.py now uses it instead of get_column_business_names
+        mock_patcher = patch("src.pages.search.get_business_name_override_storage")
+        mock_store = mock_patcher.start()
+        # Add cleanup to monkeypatch instead of using self.addCleanup which is for TestCase
+        monkeypatch.setattr("pytest.MonkeyPatch", lambda: mock_patcher.stop())
+
+        mock_store.return_value.get_for_table.return_value = {
+            COLUMN_NAME: {
+                "business_name": "Customer ID",
+                "definition": "",
+                "edited_by": "bob@example.com",
+                "edited_at": "2026-04-24 10:00:00"
+            }
+        }
+
         audit_overrides = pd.DataFrame(
             {
                 "column_name": [COLUMN_NAME],

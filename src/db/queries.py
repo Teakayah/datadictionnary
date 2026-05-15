@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
 """DB connection router and base query executor.
 
 Provides the write-connection helper and a backend-agnostic run_query()
@@ -232,7 +231,6 @@ def search_all_metadata(query: str, groups: tuple):
     @param groups: tuple of Entra ID group Object IDs the user belongs to.
     @returns:      pandas DataFrame of combined results, sorted by score desc.
     """
-    import logging
 
     logging.info("GLOBAL SEARCH query=%s groups=%s", query, groups)
 
@@ -383,44 +381,7 @@ def search_all_metadata(query: str, groups: tuple):
     )
 
 
-def get_column_business_names(table_full_name: str) -> dict:
-    """Return column business name overrides for a table as a dict."""
-    if is_demo_mode():
-        return st.session_state.get("demo_business_names", {}).get(table_full_name, {})
-    try:
-        conn = get_db_connection()
-        tbl = (
-            "user_data.business_name_overrides"
-            if _duckdb_available()
-            else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
-        )
-        with conn.cursor() as cursor:
-            cursor.execute(
-                f"SELECT column_name, business_name, definition, edited_by, edited_at "
-                f"FROM {tbl} "
-                f"WHERE table_full_name = %(table_full_name)s",  # nosec B608
-                {"table_full_name": table_full_name},
-            )
-            rows = cursor.fetchall_as_pandas()
-            if rows is not None and not rows.empty:
-                return {
-                    str(getattr(r, "column_name", "")): {
-                        "business_name": str(getattr(r, "business_name", ""))
-                        if getattr(r, "business_name", None)
-                        else "",
-                        "definition": str(getattr(r, "definition", ""))
-                        if getattr(r, "definition", None)
-                        else "",
-                        "edited_by": str(getattr(r, "edited_by", "")),
-                        "edited_at": str(getattr(r, "edited_at", "")),
-                    }
-                    for r in rows.itertuples(index=False)
-                }
-    except Exception as e:
-        logging.warning(
-            "Could not fetch column business names for %s: %s", table_full_name, e
-        )
-    return {}
+
 
 
 def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:

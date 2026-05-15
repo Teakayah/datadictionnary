@@ -325,7 +325,7 @@ class TestAuditLog:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 from unittest.mock import patch  # noqa: E402
-from src.ui.cards import get_admin_stats  # noqa: E402
+from src.ui.cards.admin import get_admin_stats  # noqa: E402
 
 @patch("src.ui.cards.admin.run_query")
 @patch("src.ui.cards.admin.is_demo_mode", return_value=False)
