@@ -269,7 +269,9 @@
     "delete": "Supprimer",
     "search": "Rechercher",
     "back": "Retour",
-    "coming_soon": "Bientôt disponible en v0.4.0"
+    "coming_soon": "Bientôt disponible en v0.4.0",
+    "app_title": "Dictionnaire de Données",
+    "beta": "Bêta"
   },
   "language": {
     "en": "EN",
