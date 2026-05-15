@@ -19,6 +19,7 @@ from src.db.queries import (
 )
 from src.storage import get_business_name_override_storage
 from src.personalization import _pref_upsert, _pref_delete, is_power_user
+from src.auth import is_admin
 from src.comments import get_table_comments, save_comment
 from src.audit import save_business_name, get_table_steward
 from src.ui.cards._shared import _dq_grade, _compute_live_completeness
@@ -535,7 +536,12 @@ def render_search_page(query_groups: tuple) -> None:
     ''', unsafe_allow_html=True)
 
     with st.expander(t("help.search_expander")):
-        st.markdown(t("help.search_content"))
+        _help = t("help.search_content")
+        if is_power_user():
+            _help += "\n\n" + t("help.search_extra_editor")
+        if is_admin():
+            _help += "\n\n" + t("help.search_extra_admin")
+        st.markdown(_help)
 
     if "dd_search_override" in st.session_state:
         _over_q = st.session_state.pop("dd_search_override")

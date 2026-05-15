@@ -346,6 +346,10 @@
     "admin_audit_content": "Journal complet de toutes les modifications de métadonnées avec l'auteur, l'horodatage et les valeurs avant/après.\n\nJournal des commentaires : toute l'activité de commentaires et de réponses dans le catalogue.",
     "btn_approve": "Approuver cette proposition et la publier dans Unity Catalog",
     "btn_reject": "Rejeter et supprimer cette proposition",
-    "btn_priority_fix": "Ouvrir cette table pour ajouter une description"
+    "btn_priority_fix": "Ouvrir cette table pour ajouter une description",
+    "search_extra_editor": "**Modifier les métadonnées** — cliquez sur l'icône crayon pour proposer une modification. Les propositions de colonnes passent par une révision admin avant publication.",
+    "search_extra_admin": "**Approuver les modifications** — les propositions des éditeurs apparaissent dans Admin → Révisions en attente. Approuvez pour publier directement dans Unity Catalog.",
+    "health_priority_editor": "Cliquez sur un nom de table pour l'ouvrir et ajouter une description. La sauvegarder la retire de cette liste.",
+    "health_priority_viewer": "Cliquez sur un nom de table pour ouvrir sa fiche. Contactez le responsable pour demander une description."
   }
 }

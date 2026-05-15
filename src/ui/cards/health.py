@@ -17,6 +17,7 @@ import streamlit as st
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, is_demo_mode
 from src.db.queries import run_query
 from src.i18n import t
+from src.personalization import is_power_user
 
 @dataclass
 class HealthMetrics:
@@ -190,7 +191,8 @@ def render_health(groups: tuple, _unused_fn=None):
     ''', unsafe_allow_html=True)
 
     with st.expander(t("help.health_expander")):
-        st.markdown(t("help.health_content"))
+        _priority_note = t("help.health_priority_editor") if is_power_user() else t("help.health_priority_viewer")
+        st.markdown(t("help.health_content") + "\n\n" + _priority_note)
 
     try:
         # 1. Fetch all metrics via SQL push-down
