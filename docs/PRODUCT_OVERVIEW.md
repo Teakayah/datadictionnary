@@ -71,7 +71,8 @@ A single, **search-first, business-language** view of the catalog that:
 ### F1 — Search and discovery
 Full-text search across catalogs, schemas, table names, column names, descriptions, and business-glossary terms. Results are returned in under 500 ms (p95) and are permission-filtered — the user only sees what they are authorized to access.
 
-The Discovery tab has three sub-tabs:
+The Discovery tab has four sub-tabs:
+- **Recommended** — tables ranked by recent edit and comment activity across the organisation, excluding tables the user has already viewed (surfaces genuinely new assets)
 - **Notable** — recently updated tables scoped to the user's primary group
 - **My bookmarks** — tables and columns the user has starred
 - **Recently viewed** — chronological navigation history
@@ -90,16 +91,17 @@ Per-table page showing:
 - Full column list with data type, Unity Catalog comment, business name override, and definition override
 - Grant list (who can access the table and with what privilege)
 - Multi-hop lineage (upstream / downstream tables) — powered by a single recursive SQL CTE, replacing a previous N+1 hop-by-hop query pattern
-- Data quality grade (when available)
+- **Downstream impact summary** — count of downstream assets in the blast radius, with a warning when certified or production tables are affected
+- Data quality grade badge (A–F) when DQ data is available (sourced from Lakehouse Monitoring or Unity Catalog tags)
 - Data sample — top 100 rows, shown only if the user has `SELECT` on the table
 - CSV export of the schema including business names and definitions
 
-### F4 — Inline metadata editing
+### F4 — Inline metadata editing with approval workflow
 Power users (members of `EDITOR_GROUPS`) can edit:
-- Table description and steward
+- Table description and steward — written immediately to a local overrides table (`user_data.table_metadata_overrides`) and pushed to Unity Catalog by the sidecar
 - Column business name (max 255 chars) and definition (max 2000 chars)
 
-Edits are written to the local cache immediately — the user sees them instantly. A background sidecar process pushes the changes to Unity Catalog asynchronously. Every edit produces an audit-log entry with actor email, timestamp, and before/after values.
+**Approval workflow for column overrides:** admins publish directly and changes sync to Databricks immediately. Non-admin power users create a `pending_approval` proposal that appears in the admin review queue. Admins approve or reject from the Admin dashboard; only approved changes are pushed to Unity Catalog. Every edit (and every approval / rejection) produces an audit-log entry with actor email, timestamp, and before/after values.
 
 Admins can globally disable editing (e.g., during a data migration) without redeploying.
 
@@ -122,15 +124,23 @@ Members of `PIPELINE_GROUPS` (and admins) can trigger, monitor, and cancel named
 One active run is allowed per pipeline at a time. The status panel auto-polls every 3 seconds while a run is in flight, showing live progress percentage and lifecycle state. Start and stop actions show toast notifications; the Save and Send buttons use primary styling for visual prominence.
 
 ### F8 — Admin dashboard
-Admin-only panel (members of `ADMIN_GROUPS`) with:
+Admin-only panel (members of `ADMIN_GROUPS`) with two tabs:
+
+**Operations tab:**
 - Catalog statistics
 - Sync-queue status and daemon heartbeat
+- Pending metadata approvals — column override proposals submitted by non-admin editors, with approve / reject actions
 - Full audit log
 - Comment log
 - CMS post CRUD (create / publish / delete announcements)
 - Pipeline-definition CRUD (register / remove named pipelines)
 - Global editing toggle
-- Group-permissions cache flush (forces re-resolution of Entra group membership for all active users on next page load)
+- Group-permissions cache flush
+
+**Quality Insights tab:**
+- High-impact gaps — popular tables (by audit-log activity) that are missing a description or steward
+- Stewardship gaps — full list of tables without an assigned steward
+- DQ alerts — tables with a failing data-quality check (sourced from `data_quality_cache`)
 
 All write functions re-check authorization at the function boundary — defense-in-depth beyond the UI gate.
 
@@ -139,6 +149,8 @@ The UI is available in English and French. Locale is auto-detected from the `Acc
 
 ### F10 — Personalisation
 Per-user bookmarks (tables and columns) and recently viewed tables, persisted across sessions, keyed by Entra ID Object ID (`oid`). Preferences load at session start and write back immediately on user action.
+
+The **Recommended** feed (Discovery tab) is derived from the audit log: tables with recent edit or comment activity are ranked by popularity, with tables the current user has already viewed removed from the list to encourage discovery of genuinely new assets.
 
 ### F11 — Accessibility
 WCAG 2.0 Level AA compliance on every public page, measured by axe-core. Two known Streamlit-framework violations are explicitly tracked as accepted exceptions; no new violations are permitted on any release.
