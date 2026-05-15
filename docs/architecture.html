@@ -219,6 +219,31 @@ graph TD
 
         <h3>Sidecar sync worker</h3>
         <p>A separate process (<code>python -m src.sync.daemon</code>, deployed as <code>dd-sync-worker</code> with <code>replicas: 1</code>) drains <code>user_data.pending_sync</code> to Databricks and runs DR resync (pulling late-arriving rows from Databricks back into the local user_data file). The Streamlit pods only ever enqueue; the daemon is the sole intentional Databricks writer. See <a href="adr-004-sidecar-sync-worker.html">ADR 004</a> and <a href="runbook-sync-worker.html">the sync worker runbook</a>.</p>
+
+        <div class="mermaid-wrap">
+          <div class="mermaid">
+flowchart TD
+    START([daemon start]) --> POLL
+    POLL["Poll pending_sync\nfor pending rows"] --> STALE
+    STALE["Flip 'syncing' rows stale\n> SYNC_STALE_ROW_S back to 'pending'"] --> CHECK
+    CHECK{Any pending\nrows?}
+    CHECK -->|yes| PUSH["Push row to Databricks\nALTER TABLE / INSERT / COMMENT"]
+    PUSH --> RESULT{Success?}
+    RESULT -->|ok| DONE["Mark 'done'\nincrement cycle counter"]
+    RESULT -->|error| RETRY{attempts\n&lt; 3?}
+    RETRY -->|yes| REQUEUE["Re-queue\nincrement attempt_count"]
+    RETRY -->|no| FAIL["Mark 'failed'"]
+    DONE --> CHECK
+    REQUEUE --> CHECK
+    FAIL --> CHECK
+    CHECK -->|none| DR{"Every\nSYNC_DR_EVERY_N\ncycles?"}
+    DR -->|yes| RESYNC["DR resync — pull\nlate rows from\nDatabricks → DuckDB"]
+    DR -->|no| HB
+    RESYNC --> HB["Write heartbeat\nto site_settings"]
+    HB --> SLEEP["Sleep\nactive: SYNC_POLL_ACTIVE_S\nidle: SYNC_POLL_IDLE_S"]
+    SLEEP --> POLL
+          </div>
+        </div>
         <p>The previous in-process daemon thread (<code>_start_sync_worker_thread</code>) was removed — it shared a Streamlit-cached DuckDB connection with the UI, ran from a thread without a <code>ScriptRunContext</code>, and tracked UI activity in two diverging state objects. The sidecar resolves all three.</p>
         <p>The daemon writes its status (heartbeat ISO timestamp, DR resync state) into <code>user_data.site_settings</code> so the admin sync panel can display it. An HTTP <code>/healthz</code> listener returns 503 when the heartbeat goes stale (&gt;60 s by default).</p>
 
