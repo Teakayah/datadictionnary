@@ -17,6 +17,7 @@ def is_demo_mode() -> bool:
 
 
 
+from src.i18n import t  # noqa: E402
 from src.config import (  # noqa: E402
     MOCK_DEPT,
 )
@@ -124,8 +125,8 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
   <div class="dd-header-inner">
     <span class="dd-logo-link">
       {LOGO_MARK_SVG}
-      <span class="dd-logo-text">Data Dictionary</span>
-      <span class="dd-pill">Beta</span>
+      <span class="dd-logo-text">{t("common.app_title")}</span>
+      <span class="dd-pill">{t("common.beta")}</span>
     </span>
   </div>
 </div>
