@@ -15,7 +15,7 @@ from src.config import CATALOG_CACHE, SCHEMA_CACHE, MAX_BUSINESS_NAME_LEN
 from src.i18n import t
 from src.db.queries import (
     get_authorized_tables, search_all_metadata,
-    get_column_business_names, get_multi_hop_lineage, run_query, export_schema_to_csv,
+    get_multi_hop_lineage, run_query, export_schema_to_csv,
 )
 from src.storage import get_business_name_override_storage
 from src.personalization import _pref_upsert, _pref_delete, is_power_user
