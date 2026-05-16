@@ -181,7 +181,9 @@
     "integrity_dq_fail": "DQ Failure",
     "tab_ops": "Operations",
     "tab_insights": "Quality Insights",
-    "tab_audit": "Audit Logs"
+    "tab_audit": "Audit Logs",
+    "integrity_dq_alerts_success": "No critical DQ failures detected.",
+    "integrity_stewardship_success": "All tables have an assigned steward."
   },
   "health": {
     "title": "§ Catalog health",

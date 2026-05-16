@@ -316,7 +316,7 @@ def _render_admin_integrity_report():
                 use_container_width=True,
             )
         else:
-            st.success("No critical DQ failures detected.")
+            st.success(t("admin.integrity_dq_alerts_success"))
 
     st.markdown(f"<div style='margin-top:24px'></div>", unsafe_allow_html=True)
     with st.expander(t("admin.integrity_stewardship_title")):
@@ -325,7 +325,7 @@ def _render_admin_integrity_report():
         if not stew_gaps.empty:
             st.dataframe(stew_gaps, use_container_width=True, hide_index=True)
         else:
-            st.success("All tables have an assigned steward.")
+            st.success(t("admin.integrity_stewardship_success"))
 
 
 def _render_admin_sync_section():
