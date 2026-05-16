@@ -144,6 +144,18 @@ class TestDuckDBCMSStorage:
         assert "expired" in all_titles
         assert "expired" not in active_titles
 
+    def test_list_active_handles_exception(self, storage, monkeypatch):
+        def mock_get_db_connection():
+            raise Exception("DB error")
+        monkeypatch.setattr("src.storage.cms_storage.get_db_connection", mock_get_db_connection)
+        assert storage.list_active() == []
+
+    def test_list_all_handles_exception(self, storage, monkeypatch):
+        def mock_get_db_connection():
+            raise Exception("DB error")
+        monkeypatch.setattr("src.storage.cms_storage.get_db_connection", mock_get_db_connection)
+        assert storage.list_all() == []
+
 
 # ── Factory routing ──────────────────────────────────────────────────────────
 
@@ -183,3 +195,31 @@ class TestGetCmsStorage:
         import src.storage
         importlib.reload(src.storage)
         assert type(src.storage.get_cms_storage()).__name__ == "DuckDBCMSStorage"
+
+class TestDemoCMSStorage:
+    def test_demo_create(self):
+        import streamlit as st
+        st.session_state.clear()
+        from src.storage.cms_storage import DemoCMSStorage
+        storage = DemoCMSStorage()
+        storage.create(_make_post("first", expires_in_days=1))
+        assert len(storage.list_all()) == 1
+
+    def test_demo_delete(self):
+        import streamlit as st
+        st.session_state.clear()
+        from src.storage.cms_storage import DemoCMSStorage
+        storage = DemoCMSStorage()
+        p = _make_post("first")
+        storage.create(p)
+        storage.delete(p["post_id"])
+        assert len(storage.list_all()) == 0
+
+    def test_demo_list_active(self):
+        import streamlit as st
+        st.session_state.clear()
+        from src.storage.cms_storage import DemoCMSStorage
+        storage = DemoCMSStorage()
+        storage.create(_make_post("active", expires_in_days=1))
+        storage.create(_make_post("expired", expires_in_days=-1))
+        assert len(storage.list_active()) == 1
