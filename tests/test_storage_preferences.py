@@ -153,3 +153,57 @@ class TestDuckDBStoragesRoundTrip:
         assert settings.get("editing_enabled") == "1"
         settings.set("editing_enabled", "0", "admin@test.com")
         assert settings.get("editing_enabled") == "0"
+
+class TestDuckDBPreferenceStorageExceptions:
+    def test_upsert_exception(self, monkeypatch):
+        def mock_get_db_connection():
+            raise Exception("DB error")
+        monkeypatch.setattr("src.storage.preference_storage.get_db_connection", mock_get_db_connection)
+        from src.storage.preference_storage import DuckDBPreferenceStorage
+        storage = DuckDBPreferenceStorage()
+        storage.upsert("oid", "tbl", "fav") # should catch
+
+    def test_delete_exception(self, monkeypatch):
+        def mock_get_db_connection():
+            raise Exception("DB error")
+        monkeypatch.setattr("src.storage.preference_storage.get_db_connection", mock_get_db_connection)
+        from src.storage.preference_storage import DuckDBPreferenceStorage
+        storage = DuckDBPreferenceStorage()
+        storage.delete("oid", "tbl", "fav") # should catch
+
+    def test_list_by_type_exception(self, monkeypatch):
+        def mock_get_db_connection():
+            raise Exception("DB error")
+        monkeypatch.setattr("src.storage.preference_storage.get_db_connection", mock_get_db_connection)
+        from src.storage.preference_storage import DuckDBPreferenceStorage
+        storage = DuckDBPreferenceStorage()
+        assert storage.list_by_type("oid", "fav") == []
+
+class TestDuckDBSiteSettingStorageExceptions:
+    def test_get_exception(self, monkeypatch):
+        def mock_get_db_connection():
+            raise Exception("DB error")
+        monkeypatch.setattr("src.storage.preference_storage.get_db_connection", mock_get_db_connection)
+        from src.storage.preference_storage import DuckDBSiteSettingStorage
+        storage = DuckDBSiteSettingStorage()
+        assert storage.get("key") is None
+
+    def test_set_exception(self, monkeypatch):
+        def mock_get_db_connection():
+            raise Exception("DB error")
+        monkeypatch.setattr("src.storage.preference_storage._get_write_connection", mock_get_db_connection)
+        from src.storage.preference_storage import DuckDBSiteSettingStorage
+        storage = DuckDBSiteSettingStorage()
+        storage.set("key", "val", "alice") # should catch
+
+class TestGetSiteSettingStorage:
+    def test_returns_demo_when_demo_mode(self, monkeypatch):
+        monkeypatch.setenv("DEMO_DATA", "true")
+        from src.storage import get_site_setting_storage
+        assert type(get_site_setting_storage()).__name__ == "DemoSiteSettingStorage"
+
+class TestGetPreferenceStorage:
+    def test_returns_demo_when_demo_mode(self, monkeypatch):
+        monkeypatch.setenv("DEMO_DATA", "true")
+        from src.storage import get_preference_storage
+        assert type(get_preference_storage()).__name__ == "DemoPreferenceStorage"
