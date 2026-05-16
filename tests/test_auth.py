@@ -8,8 +8,9 @@ and is_power_user().
 from __future__ import annotations
 
 import pytest
+from unittest.mock import patch
 
-from src.auth import is_pipeline_user, is_admin
+from src.auth import is_pipeline_user, is_admin, _resolve_user_groups
 from src.personalization import is_power_user
 
 @pytest.fixture(autouse=True)
@@ -17,6 +18,36 @@ def mock_session_state(monkeypatch):
     """Ensure st.session_state is clean for each test and mocked safely."""
     monkeypatch.setattr("src.auth.st.session_state", {})
     monkeypatch.setattr("src.personalization.st.session_state", {})
+
+class TestResolveUserGroups:
+    def test_inline_groups_preferred(self):
+        """_resolve_user_groups returns inline groups if present in claims."""
+        claims = {"groups": ["group1", "group2"]}
+        groups = _resolve_user_groups(claims, "fake_token")
+        assert groups == ["group1", "group2"]
+
+    @patch("src.auth_graph.has_groups_overage")
+    @patch("src.auth_graph.fetch_member_groups")
+    def test_overage_fetches_from_graph(self, mock_fetch, mock_has_overage):
+        """_resolve_user_groups calls Graph API when overage is detected."""
+        mock_has_overage.return_value = True
+        mock_fetch.return_value = ["graph_group1", "graph_group2"]
+
+        claims = {"oid": "fake_oid"}
+        groups = _resolve_user_groups(claims, "fake_token")
+
+        mock_has_overage.assert_called_once_with(claims)
+        mock_fetch.assert_called_once_with("fake_token", "fake_oid")
+        assert groups == ["graph_group1", "graph_group2"]
+
+    @patch("src.auth_graph.has_groups_overage")
+    def test_no_groups_returns_empty(self, mock_has_overage):
+        """_resolve_user_groups returns empty list when no groups and no overage."""
+        mock_has_overage.return_value = False
+        claims = {"oid": "fake_oid"}
+        groups = _resolve_user_groups(claims, "fake_token")
+        assert groups == []
+
 
 class TestIsPipelineUser:
     def test_false_when_env_unset(self, monkeypatch):
