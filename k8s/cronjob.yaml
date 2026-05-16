@@ -9,6 +9,7 @@ metadata:
 spec:
   # Run every day at 03:00 UTC
   schedule: "0 3 * * *"
+  startingDeadlineSeconds: 300
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
