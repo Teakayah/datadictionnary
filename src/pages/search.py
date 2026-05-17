@@ -37,7 +37,7 @@ def _render_comment_form(
     _open_key = f"dd_comment_open_{key_suffix}"
     if not st.session_state.get(_open_key):
         _label = t("comment.reply") if parent_comment_id else t("comment.leave_a_comment")
-        if st.button(_label, key=f"dd_comment_btn_{key_suffix}"):
+        if st.button(_label, key=f"dd_comment_btn_{key_suffix}", type="primary"):
             st.session_state[_open_key] = True
             st.rerun()
     else:
