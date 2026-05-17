@@ -231,7 +231,7 @@ def render_pipelines_page():
                 if st.button(
                     t("pipelines.start"), key=f"pl_start_{pid}",
                     help=t("pipelines.start_help"),
-                    type="secondary", use_container_width=False,
+                    type="primary", use_container_width=False,
                 ):
                     try:
                         trigger_pipeline(pl, actor)
