@@ -189,6 +189,145 @@ class MockSessionState(dict):
 
 from unittest.mock import MagicMock, patch
 
+class TestResolveUserGroups:
+    def test_inline_groups_returns_list(self):
+        from src.auth import _resolve_user_groups
+        claims = {"groups": ["g1", "g2"]}
+        assert _resolve_user_groups(claims, "token") == ["g1", "g2"]
+
+    @patch("src.auth_graph.has_groups_overage")
+    @patch("src.auth_graph.fetch_member_groups")
+    def test_overage_fetches_from_graph(self, mock_fetch, mock_has_overage):
+        from src.auth import _resolve_user_groups
+        mock_has_overage.return_value = True
+        mock_fetch.return_value = ["g3", "g4"]
+        claims = {"oid": "user123"}
+
+        result = _resolve_user_groups(claims, "token")
+
+        assert result == ["g3", "g4"]
+        mock_has_overage.assert_called_once_with(claims)
+        mock_fetch.assert_called_once_with("token", "user123")
+
+    @patch("src.auth_graph.has_groups_overage")
+    def test_no_groups_claim_and_no_overage_returns_empty(self, mock_has_overage):
+        from src.auth import _resolve_user_groups
+        mock_has_overage.return_value = False
+        claims = {}
+
+        result = _resolve_user_groups(claims, "token")
+
+        assert result == []
+        mock_has_overage.assert_called_once_with(claims)
+
+
+class TestGetCatalogStats:
+    @patch("src.config.is_demo_mode")
+    def test_demo_mode(self, mock_demo_mode):
+        from src.auth import _get_catalog_stats
+        mock_demo_mode.return_value = True
+        with patch("src.demo.data._DEMO_TABLES") as mock_demo_tables:
+            mock_demo_tables.__len__.return_value = 10
+            mock_demo_tables.__getitem__.return_value.nunique.return_value = 5
+
+            result = _get_catalog_stats()
+            assert result == ("10", "5")
+
+    @patch("src.config.is_demo_mode")
+    @patch("src.db.queries.run_query")
+    def test_live_mode_success(self, mock_run_query, mock_demo_mode):
+        from src.auth import _get_catalog_stats
+        mock_demo_mode.return_value = False
+        import pandas as pd
+        mock_run_query.side_effect = [
+            pd.DataFrame({"n": [100]}),
+            pd.DataFrame({"n": [20]})
+        ]
+
+        result = _get_catalog_stats()
+        assert result == ("100", "20")
+
+    @patch("src.config.is_demo_mode")
+    @patch("src.db.queries.run_query")
+    def test_live_mode_empty_results(self, mock_run_query, mock_demo_mode):
+        from src.auth import _get_catalog_stats
+        mock_demo_mode.return_value = False
+        import pandas as pd
+        mock_run_query.side_effect = [
+            pd.DataFrame(),
+            pd.DataFrame()
+        ]
+
+        result = _get_catalog_stats()
+        assert result == ("—", "—")
+
+    @patch("src.config.is_demo_mode")
+    def test_exception_returns_fallback(self, mock_demo_mode):
+        from src.auth import _get_catalog_stats
+        mock_demo_mode.side_effect = Exception("DB error")
+
+        result = _get_catalog_stats()
+        assert result == ("—", "—")
+
+
+class TestRenderSigninPage:
+    @patch("src.auth.st.columns")
+    @patch("src.auth.st.markdown")
+    @patch("src.auth._get_catalog_stats")
+    @patch("src.auth.t", lambda k: k)
+    def test_render_signin_page_live(self, mock_get_stats, mock_markdown, mock_columns):
+        from src.auth import render_signin_page
+        col_hero = MagicMock()
+        col_card = MagicMock()
+        mock_columns.return_value = [col_hero, col_card]
+        mock_get_stats.return_value = ("100", "10")
+
+        # We need to simulate the "with" context manager
+        col_hero.__enter__ = MagicMock(return_value=col_hero)
+        col_hero.__exit__ = MagicMock(return_value=None)
+        col_card.__enter__ = MagicMock(return_value=col_card)
+        col_card.__exit__ = MagicMock(return_value=None)
+
+        render_signin_page(auth_url="https://auth.example.com", mock=False)
+
+        mock_columns.assert_called_once_with([1.1, 0.9], gap="large")
+        mock_get_stats.assert_called_once()
+        assert mock_markdown.call_count == 5
+
+    @patch("src.auth.st.columns")
+    @patch("src.auth.st.markdown")
+    @patch("src.auth.st.selectbox")
+    @patch("src.auth.st.button")
+    @patch("src.auth.st.rerun")
+    @patch("src.auth._get_catalog_stats")
+    @patch("src.auth.st.session_state", new_callable=MockSessionState)
+    @patch("src.auth.t", lambda k: k)
+    def test_render_signin_page_mock_mode_submit(self, mock_session, mock_get_stats, mock_rerun, mock_button, mock_selectbox, mock_markdown, mock_columns):
+        from src.auth import render_signin_page
+        col_hero = MagicMock()
+        col_card = MagicMock()
+        mock_columns.return_value = [col_hero, col_card]
+        mock_get_stats.return_value = ("100", "10")
+
+        col_hero.__enter__ = MagicMock(return_value=col_hero)
+        col_hero.__exit__ = MagicMock(return_value=None)
+        col_card.__enter__ = MagicMock(return_value=col_card)
+        col_card.__exit__ = MagicMock(return_value=None)
+
+        mock_selectbox.return_value = "Finance"
+        mock_button.return_value = True
+
+        render_signin_page(mock=True)
+
+        mock_selectbox.assert_called_once()
+        mock_button.assert_called_once()
+        assert mock_session["authenticated"] is True
+        assert mock_session["user_groups"] == ["finance_group", "SELECT_ALL_USERS"]
+        assert mock_session["user_name"] == "Finance User"
+        assert mock_session["user_email"] == "finance.user@research-org.ca"
+        mock_rerun.assert_called_once()
+
+
 class TestClearAuthSession:
     def test_clears_session_keys(self, monkeypatch):
         from src.auth import _clear_auth_session
@@ -400,6 +539,7 @@ class TestCheckAuth:
         sync_prefs_mock.assert_called_once()
         mock_rerun.assert_called_once()
 
+
     @patch("src.auth.get_msal_app")
     @patch("src.auth.render_signin_page")
     @patch("src.auth.st.error")
@@ -450,6 +590,41 @@ class TestCheckAuth:
         mock_msal_app = MagicMock()
         mock_get_msal.return_value = mock_msal_app
         mock_msal_app.acquire_token_by_authorization_code.return_value = {"error": "invalid_grant"}
+
+        with pytest.raises(Exception, match="StopIteration"):
+            check_auth()
+
+        mock_error.assert_called_once()
+
+    @patch("src.auth.get_msal_app")
+    @patch("src.auth.render_signin_page")
+    @patch("src.auth.st.error")
+    @patch("src.auth.st.query_params")
+    def test_oidc_callback_nonce_mismatch(self, mock_qp, mock_error, mock_render, mock_get_msal, monkeypatch):
+        from src.auth import check_auth
+        import pytest
+
+        session = MockSessionState({
+            "oauth_state": "expected_state",
+            "oauth_nonce": "expected_nonce"
+        })
+        monkeypatch.setattr("src.auth.st.session_state", session)
+        monkeypatch.setattr("src.auth.t", lambda k: k)
+
+        def mock_stop(): raise Exception("StopIteration")
+        monkeypatch.setattr("src.auth.st.stop", mock_stop)
+
+        mock_qp.__contains__.return_value = True
+        mock_qp.get.side_effect = lambda k, d=None: {"code": "auth_code", "state": "expected_state"}.get(k, d)
+
+        mock_msal_app = MagicMock()
+        mock_get_msal.return_value = mock_msal_app
+        mock_msal_app.acquire_token_by_authorization_code.return_value = {
+            "access_token": "token",
+            "id_token_claims": {
+                "nonce": "wrong_nonce"
+            }
+        }
 
         with pytest.raises(Exception, match="StopIteration"):
             check_auth()
