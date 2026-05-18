@@ -316,7 +316,7 @@ def _render_admin_integrity_report():
                 use_container_width=True,
             )
         else:
-            st.success("No critical DQ failures detected.")
+            st.success(t("admin.integrity_dq_success"))
 
     st.markdown(f"<div style='margin-top:24px'></div>", unsafe_allow_html=True)
     with st.expander(t("admin.integrity_stewardship_title")):
@@ -325,7 +325,7 @@ def _render_admin_integrity_report():
         if not stew_gaps.empty:
             st.dataframe(stew_gaps, use_container_width=True, hide_index=True)
         else:
-            st.success("All tables have an assigned steward.")
+            st.success(t("admin.integrity_stewardship_success"))
 
 
 def _render_admin_sync_section():
@@ -342,12 +342,12 @@ def _render_admin_sync_section():
 
     sc1, sc2 = st.columns([7, 3], gap="large")
     with sc1:
-        st.progress(pct_complete / 100.0, text=f"{pct_complete:.1f}% synced with Databricks")
+        st.progress(pct_complete / 100.0, text=t("admin.sync_progress", pct=f"{pct_complete:.1f}"))
         bc1, bc2, bc3, bc4 = st.columns(4)
-        bc1.caption(f"Pending: {sync_stats.get('pending', 0)}")
-        bc2.caption(f"Processing: {sync_stats.get('processing', 0)}")
-        bc3.caption(f"Done: {sync_stats.get('done', 0)}")
-        bc4.caption(f"Failed: {sync_stats.get('failed', 0)}")
+        bc1.caption(t("admin.sync_pending", count=sync_stats.get("pending", 0)))
+        bc2.caption(t("admin.sync_processing", count=sync_stats.get("processing", 0)))
+        bc3.caption(t("admin.sync_done", count=sync_stats.get("done", 0)))
+        bc4.caption(t("admin.sync_failed", count=sync_stats.get("failed", 0)))
 
     with sc2:
         # Sidecar daemon status, written into user_data.site_settings.
@@ -360,11 +360,11 @@ def _render_admin_sync_section():
             f'<div style="background:var(--paper-deep); padding:12px; border-radius:4px; '
             f'border-left:4px solid {accent};">'
             f'<div style="font-family:var(--font-mono); font-size:10px; color:var(--ink-40); '
-            f'text-transform:uppercase;">Self-Healing (DR)</div>'
+            f'text-transform:uppercase;">{t("admin.sync_self_healing")}</div>'
             f'<div style="font-family:var(--font-sans); font-size:14px; font-weight:600; '
             f'color:var(--ink);">{dr_status}</div>'
             f'<div style="margin-top:12px; font-family:var(--font-mono); font-size:10px; '
-            f'color:var(--ink-40); text-transform:uppercase;">Worker heartbeat</div>'
+            f'color:var(--ink-40); text-transform:uppercase;">{t("admin.sync_worker_heartbeat")}</div>'
             f'<div style="font-family:var(--font-mono); font-size:11px; '
             f'color:var(--ink-60);">{heartbeat}</div>'
             f'</div>',
@@ -514,7 +514,7 @@ def _render_pending_reviews_section():
             ):
                 try:
                     approve_business_name(tbl, col)
-                    st.toast(f"Approved {col}")
+                    st.toast(t("admin.reviews_approved_toast", col=col))
                     st.rerun()
                 except Exception as exc:
                     st.error(str(exc))
@@ -527,7 +527,7 @@ def _render_pending_reviews_section():
             ):
                 try:
                     reject_business_name(tbl, col)
-                    st.toast(f"Rejected {col}")
+                    st.toast(t("admin.reviews_rejected_toast", col=col))
                     st.rerun()
                 except Exception as exc:
                     st.error(str(exc))
