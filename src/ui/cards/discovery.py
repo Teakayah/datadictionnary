@@ -150,7 +150,7 @@ def render_cms_banner() -> None:
 
         if post["post_type"] == "featured_table" and post.get("table_ref"):
             _tref = post["table_ref"]
-            if st.button(f"→ {_tref}", key=f"cms_nav_{post['post_id']}", type="secondary"):
+            if st.button(f"→ {_tref}", key=f"cms_nav_{post['post_id']}", help=t("search.view_details_help"), type="secondary"):
                 st.query_params["tab"] = "search"
                 st.session_state["dd_search_override"] = _tref.split(".")[-1]
                 st.session_state["dd_nav_select"] = _tref
@@ -305,6 +305,7 @@ def _render_bookmarks_tab(groups, get_authorized_tables_fn, pref_delete_fn=None,
                 )
                 if st.button(
                     f"→ {_bk_tbl_label}", key=f"colbk_open_{_bk_id}",
+                    help=t("search.view_details_help"),
                     use_container_width=True, type="secondary",
                 ):
                     st.query_params["tab"] = "search"
