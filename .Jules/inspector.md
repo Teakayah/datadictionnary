@@ -16,3 +16,6 @@
 ## 2024-05-18 - [Coverage Gap] Comment Email Notifications
 **Learning:** Significant coverage gaps existed in `src/comments.py` concerning email notifications for comments and replies (`send_comment_email`, `send_reply_email`), handling `st.session_state` parsing when looking up comment authors (`_fetch_comment_author_email`), and tree building for nested comments (`_build_comment_tree`). This gap could obscure SMTP failures and unhandled errors when DuckDB reads fail.
 **Action:** Added extensive unit tests to cover missing email, auth retrieval, and DB integration paths, increasing coverage for `src/comments.py` from 62% to 100%. Always ensure SMTP logic and custom session state interactions are mocked properly to verify error branches and fallback logic.
+## 2025-05-18 - Audit Approval State Coverage Gap
+**Learning:** Found a specific blind spot in the `src/audit.py` module where role-based access control state transitions (`approve_business_name` and `reject_business_name`) were completely untested, leaving admin-only approval logic vulnerable to regressions.
+**Action:** Always ensure critical state-altering mutations that require specific RBAC roles (like `is_admin`) have corresponding isolated tests asserting both positive and negative permission flows.
