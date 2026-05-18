@@ -19,3 +19,7 @@
 **Learning:** Security context requirements shouldn't be wholesale disabled (`readOnlyRootFilesystem: false`) to appease a framework's temporary file needs. By mounting an `emptyDir` volume specifically to the required temporary path (`/tmp`), the application has the scratch space it needs while keeping the entire container root filesystem locked down.
 **Resilience:** Enforced `readOnlyRootFilesystem: true` on both the `dd-app` deployment and the `dd-sync` cronjob, and paired it with an `emptyDir` mount at `/tmp`. This satisfies the strict security posture without sacrificing application functionality.
 ## 2024-05-15 - [CRITICAL] Container Ephemeral Storage Request and Limit **Cluster Quirk:** Missing ephemeral-storage requests and limits in workloads. **Learning:** Workloads can be evicted or take down nodes if they leak data to ephemeral storage (like `/tmp`). **Resilience:** Add `ephemeral-storage` requests and limits to container resource blocks to prevent node-level disk pressure issues.
+## 2026-05-18 - [CRITICAL] Container Security Context User Group ID
+**Cluster Quirk:** Workloads running with user or group IDs below 10,000 can conflict with host users.
+**Learning:** A userid and groupid above 10,000 is recommended to avoid conflicts with the host system.
+**Resilience:** Set `securityContext.runAsUser`, `securityContext.runAsGroup`, and `fsGroup` to a value > 10000 (e.g., `10001`).
