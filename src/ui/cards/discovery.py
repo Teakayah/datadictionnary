@@ -180,7 +180,13 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
         t("personalization.tab_recommended"),
     ]
 
-    if "discovery_active_tab" not in st.session_state:
+    # Remap stored label → current locale whenever locale has changed.
+    # discovery_active_tab holds a translated string; after a language switch
+    # the stored value is stale and won't match any option in _disc_tab_labels,
+    # causing the segmented_control to silently reset to the first tab.
+    # _disc_tab_idx is locale-independent so we use it to remap.
+    _stored = st.session_state.get("discovery_active_tab")
+    if _stored not in _disc_tab_labels:
         _disc_idx = st.session_state.get("_disc_tab_idx", 0)
         st.session_state["discovery_active_tab"] = (
             _disc_tab_labels[_disc_idx]
