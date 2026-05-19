@@ -290,11 +290,17 @@ class TestResolveUserGroups:
                     "value": ["g1"],
                     "@odata.nextLink": "https://graph.microsoft.com/v1.0/$page1",
                 })
-                # Always return a nextLink to simulate an infinite loop
-                r.get.return_value = _resp(200, {
-                    "value": ["g_next"],
-                    "@odata.nextLink": "https://graph.microsoft.com/v1.0/$page_next",
-                })
+                # Always return a *new* nextLink to simulate an infinite loop
+                # without triggering the duplicate URL safeguard.
+                def mock_get(url, *args, **kwargs):
+                    # extract the page number from url to generate the next one
+                    # url is like https://graph.microsoft.com/v1.0/$page1
+                    page = int(url.split("$page")[-1])
+                    return _resp(200, {
+                        "value": ["g_next"],
+                        "@odata.nextLink": f"https://graph.microsoft.com/v1.0/$page{page + 1}",
+                    })
+                r.get.side_effect = mock_get
 
                 result = fetch_member_groups("tok", "user-oid-loop")
 
@@ -303,3 +309,26 @@ class TestResolveUserGroups:
         assert r.post.call_count == 1
         assert r.get.call_count == 50
         assert any("pagination exceeded 50 pages" in rec.message for rec in caplog.records)
+
+    def test_pagination_breaks_on_duplicate_url(self, caplog):
+        from src.auth_graph import fetch_member_groups
+        with caplog.at_level(logging.WARNING, logger="src.auth_graph"):
+            with patch("src.auth_graph.requests") as r:
+                r.post.return_value = _resp(200, {
+                    "value": ["g1"],
+                    "@odata.nextLink": "https://graph.microsoft.com/v1.0/$page1",
+                })
+                # Always return the exact same nextLink to simulate a buggy server
+                r.get.return_value = _resp(200, {
+                    "value": ["g_next"],
+                    "@odata.nextLink": "https://graph.microsoft.com/v1.0/$page1",
+                })
+
+                result = fetch_member_groups("tok", "user-oid-buggy-loop")
+
+        # 1 from post + 1 from the first get loop = 2 total items
+        # It breaks on the second get loop iteration because it sees the same URL
+        assert len(result) == 2
+        assert r.post.call_count == 1
+        assert r.get.call_count == 1
+        assert any("duplicate @odata.nextLink" in rec.message for rec in caplog.records)
