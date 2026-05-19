@@ -6,3 +6,7 @@
 ## 2026-05-15 - [Pandas] Vectorized operations vs .apply() for complex scoring
 **Learning:** Pandas `.apply()` executes with significant overhead as it loops in Python. Vectorized `.str` operations and `numpy.select()` for conditional logic are dramatically faster, especially on large datasets like metadata searches.
 **Action:** Always prioritize native vectorized methods and `numpy.select()` over `.apply()` for complex row-by-row scoring or conditional logic in DataFrames.
+
+## 2025-02-20 - [Pandas Mapping]
+**Learning:** Using `.map(lambda x: my_dict.get(x, x))` executes row-by-row in a slow Python loop and should be avoided in Pandas.
+**Action:** Use vectorized `.replace(my_dict)` or `.map(my_dict).fillna(df["column"])` for much faster performance when mapping string columns with dictionary lookups and default fallbacks.
