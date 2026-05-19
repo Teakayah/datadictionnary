@@ -117,9 +117,14 @@ def _call_get_member_objects(access_token: str) -> list[str]:
 
     # Subsequent pages: GET against the URL Graph returned. Cap iterations
     # so a buggy server can't loop us forever.
+    seen_urls = set()
     for _ in range(50):
         if not next_url:
             break
+        if next_url in seen_urls:
+            log.warning("Buggy server returned duplicate @odata.nextLink — breaking loop.")
+            break
+        seen_urls.add(next_url)
         resp = requests.get(next_url, headers=headers, timeout=_GRAPH_TIMEOUT_S)
         resp.raise_for_status()
         data = resp.json()
