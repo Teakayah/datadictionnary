@@ -181,7 +181,9 @@
     "integrity_dq_fail": "Échec DQ",
     "tab_ops": "Opérations",
     "tab_insights": "Qualité & Insights",
-    "tab_audit": "Journaux d'Audit"
+    "tab_audit": "Journaux d'Audit",
+    "integrity_no_dq_fails": "Aucun échec DQ critique détecté.",
+    "integrity_all_stewards_assigned": "Toutes les tables ont un responsable attribué."
   },
   "health": {
     "title": "§ Santé du catalogue",

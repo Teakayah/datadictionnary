@@ -12,3 +12,4 @@
 ## 2024-05-14 - Localizing strftime formats
 **Learning:** To localize date formats effectively in this Streamlit app without an external i18n date library, the format string itself (e.g., "%b %d, %Y") can be stored inside the JSON localization dictionaries.
 **Action:** When formatting dates using Python's strftime, pass the localized format string directly into the datetime object's formatting method: `dt.strftime(t('namespace.date_format_key'))`.
+## 2024-05-19 - [Extract st.success alerts] **Learning:** Streamlit status messages (like st.success, st.error) frequently contain hardcoded user-facing strings that need to be wrapped in the localization function t(). **Action:** Always ensure Streamlit status components use t() rather than hardcoded text.
