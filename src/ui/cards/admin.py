@@ -484,7 +484,8 @@ def _render_pending_reviews_section():
         biz  = str(item.get("business_name", "") or "")
         defn = str(item.get("definition", "") or "")
         by   = str(item.get("edited_by", ""))
-        at   = str(item.get("edited_at", ""))
+        _raw_at = item.get("edited_at")
+        at   = _raw_at.strftime(t("admin.date_format")) if hasattr(_raw_at, "strftime") else str(_raw_at or "")
         st.markdown(
             f'<div style="background:var(--paper);border:1px solid var(--ink-10);'
             f'border-radius:4px;padding:12px 16px;margin-bottom:8px;">'
