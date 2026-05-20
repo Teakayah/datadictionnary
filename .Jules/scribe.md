@@ -5,3 +5,6 @@
 ## 2024-05-15 - Outdated Architectural Notes
 **Learning:** Found an outdated architectural note (`NOTE — Phase 4b (deferred)`) in `src/db/queries.py` claiming several core functions (`get_authorized_tables`, `search_all_metadata`, etc.) were still located in `app.py`. These had already been correctly relocated to `src/db/queries.py`, making the note actively misleading to future developers.
 **Action:** When working in core routing or abstraction files (like `src/db/queries.py`), always verify that module-level docstrings describing the location of other components are still accurate, and remove them if they have become stale.
+## 2024-05-18 - Outdated Architectural Notes
+**Learning:** Found an outdated architectural note in `src/db/queries.py` claiming demo-mode interception lived in `app.py`. The interception logic had already been relocated to `run_query` inside `src/db/queries.py`, making the module docstring actively misleading.
+**Action:** When working in core routing or abstraction files, always verify that module-level docstrings describing the location of other components are still accurate, and remove or update them if they have become stale.
