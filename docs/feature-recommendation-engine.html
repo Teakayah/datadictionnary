@@ -86,39 +86,66 @@
       </header>
       <section class="hero">
         <div class="eyebrow">Features</div>
-        <h1>Feature: Activity-Based Recommendation Engine</h1>
+        <h1>Activity-Based Recommendation Engine</h1>
       </section>
+
+      <section class="section" id="table-of-contents">
+        <h2>Table of contents</h2>
+        <nav class="toc">
+          <ol>
+            <li><a href="#description">Description</a></li>
+            <li><a href="#how-it-works">How it works</a></li>
+            <li><a href="#implementation">Implementation logic</a></li>
+            <li><a href="#security">Security and personalization</a></li>
+          </ol>
+        </nav>
+        <hr>
+      </section>
+
       <section class="section" id="description">
 <h2>Description</h2>
-<p>The Recommendation Engine surface's popular and active data assets to users, encouraging the discovery of high-value tables within their authorized scope. It powers the "Recommended" sub-tab in the Discovery interface.</p>
+<p>The Recommendation Engine surfaces popular and active data assets to users, encouraging the discovery of high-value tables within their authorized scope. It powers the <strong>Recommended</strong> sub-tab in the Discovery interface.</p>
 </section>
+
 <section class="section" id="how-it-works">
-<h2>How it Works</h2>
-<p>The engine uses a popularity-based heuristic derived from organization-wide activity, rather than complex collaborative filtering. This ensures relevance even with smaller user bases.</p>
-<h3>1. Activity Aggregation</h3>
-The engine queries the <code>user_data.audit_log</code> to identify tables with the highest recent engagement. It specifically tracks:
+<h2>How it works</h2>
+<p>The engine uses a popularity-based heuristic derived from organization-wide activity, rather than complex collaborative filtering. This ensures relevance even with smaller user bases. For technical details on the activity store, see the <a href="architecture.html#personalisation-persistence">Architecture Overview</a>.</p>
+
+<div class="callout ok"><strong>Self-starting.</strong> Because it relies on the audit log rather than training data, the engine starts producing recommendations as soon as users begin interacting with the catalog.</div>
+
+<h3>1. Activity aggregation</h3>
+<p>The engine queries the <code>user_data.audit_log</code> to identify tables with the highest recent engagement. It specifically tracks:</p>
 <ul>
-  <li><strong>Metadata Edits:</strong> Changes to table descriptions or column business names.</li>
-  <li><strong>Social Signals:</strong> New comments or threaded replies added to a table. <h3>2. Personalization & Security</h3></li>
-</ul>To ensure the recommendations are safe and helpful, the engine applies two layers of filtering:
-<ul>
-  <li><strong>Authorization Filter:</strong> Results are cross-referenced with the <code>permissions_cache</code>. A user only ever sees recommendations for tables they are authorized to access.</li>
-  <li><strong>Novelty Filter:</strong> Tables that appear in the user's "Recently Viewed" list (last 5 interactions) are excluded. This prevents the engine from recommending assets the user is already actively using. <h3>3. Implementation Logic</h3></li>
-</ul>The recommendation is performed via a single SQL query against the local DuckDB cache:
+  <li><strong>Metadata Edits</strong> — Changes to table descriptions or column business names.</li>
+  <li><strong>Social Signals</strong> — New comments or threaded replies added to a table.</li>
+</ul>
+</section>
+
+<section class="section" id="implementation">
+<h2>Implementation logic</h2>
+<p>The recommendation is performed via a single SQL query against the local <a href="adr-001-duckdb-local-cache.html">DuckDB cache</a>. The query aggregates events and ranks objects by their total engagement count.</p>
+
 <pre><code class="language-sql">SELECT object_name, COUNT(*) AS engagement_score
 FROM user_data.audit_log
-WHERE event_type IN ('table_description_change', 'business_name_change', 'comment_added')
+WHERE event_type IN (
+  'table_description_change', 
+  'business_name_change', 
+  'comment_added'
+)
 GROUP BY object_name 
 ORDER BY engagement_score DESC 
 LIMIT 30;</code></pre>
 </section>
-<section class="section" id="initial-scaffolding">
-<h2>Initial Scaffolding</h2>
-<ul>
-  <li>Implemented <code>_get_recommended_tables</code> in <code>src/ui/cards/discovery.py</code>.</li>
-  <li>Added the "Recommended" tab to the Discovery dashboard.</li>
-  <li>Integrated with <code>st.session_state.recent_views</code> for the novelty filter.</li>
-</ul>
+
+<section class="section" id="security">
+<h2>Security and personalization</h2>
+<p>To ensure recommendations are both safe and helpful, the engine applies two layers of filtering in the application layer before rendering. See the <a href="user-guide.html#howto-bookmarks">User Guide</a> for the end-user experience.</p>
+
+<h3>1. Authorization filter</h3>
+<p>Results are cross-referenced with the <code>permissions_cache</code>. A user only ever sees recommendations for tables they are authorized to access. This follows our <a href="adr-002-push-down-sql-auth.html">push-down authorization</a> principle.</p>
+
+<h3>2. Novelty filter (Novelty)</h3>
+<p>Tables that appear in the user's "Recently Viewed" list (the last 5 interactions) are excluded. This prevents the engine from recommending assets the user is already actively using, prioritizing the discovery of <em>new</em> high-value data.</p>
 </section>
       <footer class="site-footer">
         <p>Data Dictionary · Documented by Data Engineering</p>
