@@ -196,6 +196,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                     mime="text/csv",
                     key=f"export_{full_name}",
                     use_container_width=True,
+                    help=t("detail.export_dictionary_help"),
                 )
 
         st.markdown(

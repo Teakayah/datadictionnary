@@ -100,7 +100,8 @@
     "edit_table_help": "Edit table metadata",
     "expand_lineage": "Expand lineage graph",
     "no_columns": "No columns recorded.",
-    "no_grants": "No grants recorded."
+    "no_grants": "No grants recorded.",
+    "export_dictionary_help": "Download schema dictionary as CSV"
   },
   "comment": {
     "add_comment": "Add a comment",
@@ -279,7 +280,9 @@
     "stop_error": "Could not stop pipeline",
     "error_title": "Title is required.",
     "date_format": "%b %d %H:%M UTC",
-    "started_by": "started by {user} · {date}"
+    "started_by": "started by {user} · {date}",
+    "field_title_placeholder": "e.g. Nightly Data Sync",
+    "field_desc_placeholder": "Describe what this pipeline does..."
   },
   "cms": {
     "section_title": "Content management",
@@ -302,7 +305,9 @@
     "date_format_short": "%b %d",
     "date_format_long": "%b %d, %Y",
     "date_range": "{start} → expires {end}",
-    "author_date": "{author} · {date}"
+    "author_date": "{author} · {date}",
+    "post_title_placeholder": "e.g. New Dataset Available",
+    "post_body_placeholder": "Write your announcement here..."
   },
   "footer": {
     "built_with": "Data Dictionary · v0.1.0 · synced nightly from Unity Catalog"
