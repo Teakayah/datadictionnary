@@ -21,7 +21,7 @@ import streamlit as st
 from src.audit import save_table_metadata
 from src.config import CATALOG_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
-from src.db.queries import get_authorized_tables, run_query
+from src.db.queries import get_authorized_tables, get_authorized_table_names, run_query
 from src.i18n import t
 from src.ui.css import VIS_WIDE_CSS
 
@@ -69,11 +69,7 @@ def render_data_sample(table_full_name: str):
     )
     active_group = st.session_state.get("group_filter")
     query_groups = (active_group,) if active_group else groups
-    _auth_df = get_authorized_tables(query_groups)
-    _allowed = (
-        set(_auth_df["full_name"].tolist())
-        if _auth_df is not None and not _auth_df.empty else set()
-    )
+    _allowed = get_authorized_table_names(query_groups)
     if table_full_name not in _allowed:
         st.error(t("detail.unauthorized"))
         return

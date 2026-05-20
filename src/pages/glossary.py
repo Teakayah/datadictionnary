@@ -8,7 +8,7 @@ import json
 import streamlit as st
 import streamlit.components.v1 as components
 
-from src.db.queries import get_authorized_tables
+from src.db.queries import get_authorized_table_names
 from src.demo.data import _DEMO_GLOSSARY
 from src.i18n import t
 from src.personalization import _pref_upsert, _pref_delete
@@ -60,7 +60,7 @@ def render_glossary(query_groups) -> None:
             <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:32px; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.linked_tables")}</div>
             ''', unsafe_allow_html=True)
 
-            _authorized_fns = set(get_authorized_tables(query_groups)["full_name"].tolist()) if query_groups else set()
+            _authorized_fns = get_authorized_table_names(query_groups)
             for table_fn in term_row["related_tables"]:
                 if table_fn not in _authorized_fns:
                     continue  # hide tables the current user cannot access
