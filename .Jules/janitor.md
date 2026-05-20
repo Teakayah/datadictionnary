@@ -19,3 +19,7 @@
 ## 2026-05-15 - [Remove src/ui/cards re-export shim]
 **Learning:** The `src/ui/cards/__init__.py` re-export shim was kept for backwards compatibility during a refactor. It's better to update the callers to import from specific submodules directly to remove this technical debt.
 **Action:** Migrated the remaining callers (`app.py`, `src/pages/catalog.py`, `src/pages/search.py`, `tests/test_admin.py`) off the shim and deleted `src/ui/cards/__init__.py`.
+
+## 2026-05-20 - [Fix Module Docstring Ordering]
+**Learning:** In Python, module docstrings must be the very first statement in the file, even before `from __future__ import` statements. Placing `from __future__ import annotations` before the module docstring causes subsequent imports to trigger `E402 Module level import not at top of file` linting errors because the docstring is then parsed as a regular string literal expression occurring after an import.
+**Action:** Always place module docstrings at the absolute top of the file (line 1), followed immediately by `__future__` imports, and then standard imports.
