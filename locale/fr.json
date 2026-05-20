@@ -100,7 +100,8 @@
     "edit_table_help": "Modifier les métadonnées de la table",
     "expand_lineage": "Développer le graphe de lignage",
     "no_columns": "Aucune colonne enregistrée.",
-    "no_grants": "Aucune autorisation enregistrée."
+    "no_grants": "Aucune autorisation enregistrée.",
+    "export_dictionary_help": "Télécharger le dictionnaire de schéma au format CSV"
   },
   "comment": {
     "add_comment": "Ajouter un commentaire",
@@ -279,7 +280,9 @@
     "stop_error": "Impossible d'arrêter le pipeline",
     "error_title": "Le titre est requis.",
     "date_format": "%d %b %H:%M UTC",
-    "started_by": "lancé par {user} · {date}"
+    "started_by": "lancé par {user} · {date}",
+    "field_title_placeholder": "ex. Synchronisation nocturne",
+    "field_desc_placeholder": "Décrivez ce que fait ce pipeline..."
   },
   "cms": {
     "section_title": "Gestion de contenu",
@@ -302,7 +305,9 @@
     "date_format_short": "%d %b",
     "date_format_long": "%d %b %Y",
     "date_range": "{start} → expire {end}",
-    "author_date": "{author} · {date}"
+    "author_date": "{author} · {date}",
+    "post_title_placeholder": "ex. Nouveau jeu de données",
+    "post_body_placeholder": "Rédigez votre annonce ici..."
   },
   "footer": {
     "built_with": "Data Dictionary · v0.1.0 · synchronisé chaque nuit depuis Unity Catalog"

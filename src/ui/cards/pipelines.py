@@ -63,8 +63,8 @@ def _show_pipeline_create_dialog():
     )
     backend = next(b for b in BACKENDS if _BACKEND_LABEL[b] == sel_label)
 
-    title = st.text_input(t("pipelines.field_title"), max_chars=120, key="pl_create_title")
-    desc  = st.text_area(t("pipelines.field_desc"),  max_chars=300, height=80, key="pl_create_desc")
+    title = st.text_input(t("pipelines.field_title"), placeholder=t("pipelines.field_title_placeholder"), max_chars=120, key="pl_create_title")
+    desc  = st.text_area(t("pipelines.field_desc"), placeholder=t("pipelines.field_desc_placeholder"), max_chars=300, height=80, key="pl_create_desc")
 
     db_job_id = adf_sub = adf_rg = adf_fact = adf_pipe = ado_org = ado_proj = ado_pid = None
     if backend == "databricks":
@@ -113,7 +113,13 @@ def _render_admin_pipelines_section():
 
     pipelines = get_pipelines()
     if not pipelines:
-        st.caption(t("pipelines.no_pipelines"))
+        st.markdown(
+            f'<div style="padding: 24px; text-align: center; background: var(--paper-deep); border: 1px dashed var(--ink-20); border-radius: 4px;">'
+            f'<div style="font-size: 24px; color: var(--ink-40); margin-bottom: 8px;">⚙️</div>'
+            f'<div style="font-family: var(--font-sans); font-size: 14px; color: var(--ink-60);">{t("pipelines.no_pipelines")}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
         return
 
     for pl in pipelines:
@@ -156,7 +162,13 @@ def render_pipelines_page():
 
     pipelines = get_pipelines()
     if not pipelines:
-        st.info(t("pipelines.no_pipelines"))
+        st.markdown(
+            f'<div style="padding: 32px; text-align: center; background: var(--paper-deep); border: 1px dashed var(--ink-20); border-radius: 4px; margin-top: 24px;">'
+            f'<div style="font-size: 32px; color: var(--ink-40); margin-bottom: 12px;">⚡</div>'
+            f'<div style="font-family: var(--font-sans); font-size: 15px; color: var(--ink-60);">{t("pipelines.no_pipelines")}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
         return
 
     _any_active = False
