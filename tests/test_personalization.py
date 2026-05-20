@@ -147,7 +147,15 @@ class TestEditingEnabled:
             assert is_editing_enabled() is True
             assert st.session_state["_editing_enabled_cache"] is True
 
+import pytest
+
 class TestSetEditingEnabled:
+    def test_set_editing_enabled_not_admin(self):
+        st.session_state.clear()
+        with patch("src.personalization.is_admin", return_value=False):
+            with pytest.raises(PermissionError, match="Only admins can toggle the editing flag."):
+                set_editing_enabled(True, "user@example.com")
+
     def test_set_editing_enabled_true(self):
         st.session_state.clear()
         fake = FakeSiteSettingStorage()
@@ -191,3 +199,17 @@ class TestPowerUser:
         st.session_state["user_groups"] = ["reader", "editor"]
         with patch("os.getenv", return_value="admin, editor "):
             assert is_power_user() is True
+
+    def test_is_power_user_missing_user_groups_in_session(self):
+        st.session_state.clear()
+        st.session_state["_editing_enabled_cache"] = True
+        # user_groups is missing entirely from session state
+        with patch("os.getenv", return_value="admin,editor"):
+            assert is_power_user() is False
+
+    def test_is_power_user_empty_user_groups(self):
+        st.session_state.clear()
+        st.session_state["_editing_enabled_cache"] = True
+        st.session_state["user_groups"] = []
+        with patch("os.getenv", return_value="admin,editor"):
+            assert is_power_user() is False
