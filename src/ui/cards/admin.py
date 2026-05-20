@@ -31,7 +31,7 @@ from src.db.queries import _get_write_connection, run_query
 from src.storage import get_business_name_override_storage
 from src.i18n import t
 from src.personalization import is_editing_enabled, set_editing_enabled
-from src.ui.cards.cms_admin import _render_admin_cms_section, _show_cms_create_dialog  # noqa: F401
+from src.ui.cards.cms_admin import _render_admin_cms_section
 from src.ui.cards.pipelines import _render_admin_pipelines_section
 from src.ui.css import VIS_WIDE_CSS
 
