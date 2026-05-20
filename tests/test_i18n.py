@@ -57,3 +57,27 @@ def test_ensure_locale():
         mock_st.session_state = {}
         t("some.key")
         assert mock_st.session_state["locale"] == "fr"
+
+def test_set_locale_explicit_coverage():
+    """Explicitly test set_locale to fulfill testing requirement."""
+    from src.i18n import set_locale
+    with patch("src.i18n.st") as mock_st:
+        mock_st.session_state = {}
+        set_locale("en")
+        assert mock_st.session_state["locale"] == "en"
+
+def test_t_handles_key_error_in_format_with_kwargs():
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"hello": "Hello {name}"}}):
+        mock_st.session_state = {"locale": "en"}
+        assert t("hello", other="World") == "Hello {name}"
+
+def test_t_handles_index_error_in_format_with_kwargs():
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"hello": "Hello {0}"}}):
+        mock_st.session_state = {"locale": "en"}
+        assert t("hello", other="World") == "Hello {0}"
+
+def test_load_locales_exception():
+    from src.i18n import _load_locales
+    with patch("builtins.open", side_effect=Exception("mocked error")):
+        locales = _load_locales()
+        assert locales == {"en": {}, "fr": {}}
