@@ -523,6 +523,22 @@ class TestGetSpToken:
             _get_sp_token("res")
 
 
+class TestGetPipelines:
+    @patch("src.pipelines.get_pipeline_def_storage")
+    def test_get_pipelines(self, mock_get_storage):
+        from src.pipelines import get_pipelines
+
+        mock_storage = MagicMock()
+        mock_storage.list_all.return_value = [{"id": "pipe1"}, {"id": "pipe2"}]
+        mock_get_storage.return_value = mock_storage
+
+        result = get_pipelines()
+
+        mock_get_storage.assert_called_once()
+        mock_storage.list_all.assert_called_once()
+        assert result == [{"id": "pipe1"}, {"id": "pipe2"}]
+
+
 class TestRunStatePersistence:
     @patch("src.pipelines.get_pipeline_run_storage")
     def test_get_active_run(self, mock_get_storage):
