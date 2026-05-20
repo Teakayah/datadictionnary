@@ -14,6 +14,7 @@ from src.i18n import t
 from src.personalization import _pref_upsert, _pref_delete
 
 
+
 def render_glossary(query_groups) -> None:
     st.markdown(f'''
     <div class="dd-search-hero">
