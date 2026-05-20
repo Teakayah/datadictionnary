@@ -111,6 +111,7 @@ class DemoBusinessNameOverrideStorage:
     """Backs to ``st.session_state['demo_business_names']`` (nested dict)."""
 
     _KEY = "demo_business_names"
+    _PENDING_KEY = "demo_business_names_pending"
 
     def get_for_table(self, table_full_name: str) -> dict:
         return {
@@ -120,38 +121,48 @@ class DemoBusinessNameOverrideStorage:
         }
 
     def upsert(self, override: ColumnOverride) -> None:
+        # ⚡ Bolt: Store pending items in a flat dictionary for O(1) list_pending lookups
         store = st.session_state.setdefault(self._KEY, {}).setdefault(override.table_full_name, {})
-        store[override.column_name] = {
+        pending_store = st.session_state.setdefault(self._PENDING_KEY, {})
+
+        item = {
             "business_name": override.business_name,
             "definition":    override.definition,
             "edited_by":     override.edited_by,
             "edited_at":     "just now",
             "status":        override.status,
         }
+        store[override.column_name] = item
+
+        key = (override.table_full_name, override.column_name)
+        if override.status == "pending_approval":
+            pending_store[key] = {
+                "table_full_name": override.table_full_name,
+                "column_name":     override.column_name,
+                "business_name":   item.get("business_name", ""),
+                "definition":      item.get("definition", ""),
+                "edited_by":       item.get("edited_by", ""),
+                "edited_at":       item.get("edited_at", ""),
+            }
+        else:
+            pending_store.pop(key, None)
 
     def list_pending(self) -> list:
-        results = []
-        for tbl_name, cols in st.session_state.get(self._KEY, {}).items():
-            for col_name, data in cols.items():
-                if data.get("status") == "pending_approval":
-                    results.append({
-                        "table_full_name": tbl_name,
-                        "column_name":     col_name,
-                        "business_name":   data.get("business_name", ""),
-                        "definition":      data.get("definition", ""),
-                        "edited_by":       data.get("edited_by", ""),
-                        "edited_at":       data.get("edited_at", ""),
-                    })
-        return results
+        # ⚡ Bolt: Return the O(1) flattened dictionary values to prevent O(N^2) iterations
+        return list(st.session_state.get(self._PENDING_KEY, {}).values())
 
     def approve(self, table_full_name: str, column_name: str) -> None:
         store = st.session_state.get(self._KEY, {}).get(table_full_name, {})
         if column_name in store:
             store[column_name]["status"] = "published"
+            pending_store = st.session_state.get(self._PENDING_KEY, {})
+            pending_store.pop((table_full_name, column_name), None)
 
     def reject(self, table_full_name: str, column_name: str) -> None:
         store = st.session_state.get(self._KEY, {}).get(table_full_name, {})
         store.pop(column_name, None)
+        pending_store = st.session_state.get(self._PENDING_KEY, {})
+        pending_store.pop((table_full_name, column_name), None)
 
 
 class DuckDBBusinessNameOverrideStorage:
@@ -253,6 +264,9 @@ class FakeBusinessNameOverrideStorage:
     def __init__(self) -> None:
         # {table_full_name: {column_name: override_dict}}
         self.data: dict[str, dict[str, dict]] = {}
+        # ⚡ Bolt: Store pending items in a flat dictionary for O(1) list_pending lookups
+        # {(table_full_name, column_name): pending_dict}
+        self.pending_data: dict[tuple[str, str], dict] = {}
 
     def get_for_table(self, table_full_name: str) -> dict:
         return {
@@ -262,33 +276,38 @@ class FakeBusinessNameOverrideStorage:
         }
 
     def upsert(self, override: ColumnOverride) -> None:
-        self.data.setdefault(override.table_full_name, {})[override.column_name] = {
+        item = {
             "business_name": override.business_name,
             "definition":    override.definition,
             "edited_by":     override.edited_by,
             "edited_at":     "just now",
             "status":        override.status,
         }
+        self.data.setdefault(override.table_full_name, {})[override.column_name] = item
+
+        key = (override.table_full_name, override.column_name)
+        if override.status == "pending_approval":
+            self.pending_data[key] = {
+                "table_full_name": override.table_full_name,
+                "column_name":     override.column_name,
+                "business_name":   item.get("business_name", ""),
+                "definition":      item.get("definition", ""),
+                "edited_by":       item.get("edited_by", ""),
+                "edited_at":       item.get("edited_at", ""),
+            }
+        else:
+            self.pending_data.pop(key, None)
 
     def list_pending(self) -> list:
-        return [
-            {
-                "table_full_name": tbl,
-                "column_name":     col,
-                "business_name":   d.get("business_name", ""),
-                "definition":      d.get("definition", ""),
-                "edited_by":       d.get("edited_by", ""),
-                "edited_at":       d.get("edited_at", ""),
-            }
-            for tbl, cols in self.data.items()
-            for col, d in cols.items()
-            if d.get("status") == "pending_approval"
-        ]
+        # ⚡ Bolt: Return the O(1) flattened dictionary values to prevent O(N^2) iterations
+        return list(self.pending_data.values())
 
     def approve(self, table_full_name: str, column_name: str) -> None:
         entry = self.data.get(table_full_name, {}).get(column_name)
         if entry:
             entry["status"] = "published"
+            self.pending_data.pop((table_full_name, column_name), None)
 
     def reject(self, table_full_name: str, column_name: str) -> None:
         self.data.get(table_full_name, {}).pop(column_name, None)
+        self.pending_data.pop((table_full_name, column_name), None)
