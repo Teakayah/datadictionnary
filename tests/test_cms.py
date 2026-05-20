@@ -182,6 +182,23 @@ class TestDeletePost:
         # Storage was not touched.
         assert len(fake.posts) == 1
 
+    def test_storage_error_is_logged_and_propagated(self, admin_context, caplog):
+        """delete_post catches storage exceptions, logs them, and re-raises."""
+        import logging
+        fake = FakeCMSStorage([
+            {"post_id": "abc", "title": "Keep", "post_type": "guide",
+             "body": "", "table_ref": None, "author_email": "x",
+             "created_at": datetime.now(UTC), "expires_at": None},
+        ])
+        with patch("src.cms.get_cms_storage", return_value=fake):
+            with patch.object(fake, "delete", side_effect=Exception("Storage offline")):
+                from src.cms import delete_post
+                with caplog.at_level(logging.ERROR):
+                    with pytest.raises(Exception, match="Storage offline"):
+                        delete_post("abc")
+
+        assert "Could not delete CMS post: Storage offline" in caplog.text
+
 
 # ── AppTest: discovery tab banner rendering ──────────────────────────────────
 # These tests exercise the full app via DEMO_DATA=true, which routes through
