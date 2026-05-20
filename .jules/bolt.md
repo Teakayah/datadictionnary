@@ -18,6 +18,10 @@
 **Learning:** Using `.map(lambda x: my_dict.get(x, x))` executes row-by-row in a slow Python loop and should be avoided in Pandas.
 **Action:** Use vectorized `.replace(my_dict)` or `.map(my_dict).fillna(df["column"])` for much faster performance when mapping string columns with dictionary lookups and default fallbacks.
 
+## 2026-05-18 - [Pandas] Vectorized Dictionary Mapping
+**Learning:** Pandas `.map()` executes with significant overhead when passed a Python `lambda` function, as it iterates row-by-row in the Python interpreter. Passing a dictionary to `.replace()` leverages vectorized C-level execution for exact-match replacement and naturally leaves unmatched values alone (mimicking `.get(x, x)`), which is much faster.
+**Action:** Always replace `.map(lambda x: my_dict.get(x, x))` with `.replace(my_dict)` when applying dictionary lookups to Pandas Series.
+
 ## 2026-05-20 - [Performance] Cache full names subset for get_authorized_tables
 **Learning:** Streamlit's `@st.cache_data` heavily deep-copies large DataFrames, leading to high CPU/memory deserialization overhead even when cached. When only a subset of the data (like a `set` of names) is required, extracting that logic into its own `@st.cache_data` function that returns the minimal primitive type drastically avoids this deserialization overhead.
 **Action:** Introduced `get_authorized_table_names` helper which returns a cached `set` rather than filtering/converting the full `DataFrame` repeatedly, reducing table access control checks from ~0.087s to ~0.028s per 100 calls.

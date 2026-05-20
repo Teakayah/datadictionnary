@@ -286,7 +286,7 @@ def _render_admin_integrity_report():
                 "Missing description": t("admin.integrity_missing_desc"),
                 "Missing steward": t("admin.integrity_missing_steward"),
             }
-            # ⚡ Bolt: Use vectorized replace instead of map with lambda for faster mapping
+            # ⚡ Bolt: Replace .map(lambda) with vectorized .replace() for faster execution
             gaps["issue"] = gaps["issue"].replace(_issue_map)
             
             st.dataframe(
