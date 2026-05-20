@@ -183,7 +183,18 @@
     "tab_insights": "Qualité & Insights",
     "tab_audit": "Journaux d'Audit",
     "integrity_no_dq_fails": "Aucun échec DQ critique détecté.",
-    "integrity_all_stewards_assigned": "Toutes les tables ont un responsable attribué."
+    "integrity_all_stewards_assigned": "Toutes les tables ont un responsable attribué.",
+    "integrity_dq_success": "Aucun échec critique de DQ détecté.",
+    "integrity_stewardship_success": "Toutes les tables ont un responsable assigné.",
+    "reviews_approved_toast": "Approuvé {col}",
+    "reviews_rejected_toast": "Rejeté {col}",
+    "sync_progress": "{pct}% synchronisé avec Databricks",
+    "sync_pending": "En attente : {count}",
+    "sync_processing": "En cours : {count}",
+    "sync_done": "Terminé : {count}",
+    "sync_failed": "Échoué : {count}",
+    "sync_self_healing": "Auto-réparation (DR)",
+    "sync_worker_heartbeat": "Heartbeat du worker"
   },
   "health": {
     "title": "§ Santé du catalogue",
