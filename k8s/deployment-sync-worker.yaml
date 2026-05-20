@@ -6,6 +6,9 @@ metadata:
   labels:
     app.kubernetes.io/name: data-dictionary
     app.kubernetes.io/component: sync-worker
+    app.kubernetes.io/version: ${IMAGE_TAG}
+    app.kubernetes.io/part-of: data-dictionary
+    app.kubernetes.io/managed-by: kubectl
   annotations:
     deployment.kubernetes.io/image: ghcr.io/org/data-dictionary:${IMAGE_TAG}
 spec:
@@ -23,6 +26,9 @@ spec:
         app: dd-sync-worker
         app.kubernetes.io/name: data-dictionary
         app.kubernetes.io/component: sync-worker
+        app.kubernetes.io/version: ${IMAGE_TAG}
+        app.kubernetes.io/part-of: data-dictionary
+        app.kubernetes.io/managed-by: kubectl
     spec:
       automountServiceAccountToken: false
       securityContext:
