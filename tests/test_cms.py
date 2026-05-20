@@ -67,6 +67,14 @@ class TestCreatePost:
 
 
 class TestGetActivePosts:
+    def test_empty_storage_returns_empty_list(self):
+        """get_active_posts returns an empty list when storage has no posts."""
+        fake = FakeCMSStorage([])
+        with patch("src.cms.get_cms_storage", return_value=fake):
+            from src.cms import get_active_posts
+            posts = get_active_posts()
+        assert posts == []
+
     def test_filters_expired_posts(self):
         """get_active_posts excludes posts whose expires_at is in the past."""
         now = datetime.now(UTC)
@@ -98,6 +106,35 @@ class TestGetActivePosts:
             from src.cms import get_active_posts
             posts = get_active_posts()
         assert any(p["title"] == "Permanent" for p in posts)
+
+
+class TestGetAllPosts:
+    def test_returns_all_posts_including_expired(self):
+        """get_all_posts returns all posts regardless of expiry."""
+        now = datetime.now(UTC)
+        fake = FakeCMSStorage([
+            {"post_id": "1", "post_type": "announcement", "title": "Live",
+             "body": "", "table_ref": None, "author_email": "a@b.com",
+             "created_at": now, "expires_at": now + timedelta(days=1)},
+            {"post_id": "2", "post_type": "announcement", "title": "Expired",
+             "body": "", "table_ref": None, "author_email": "a@b.com",
+             "created_at": now - timedelta(days=3),
+             "expires_at": now - timedelta(days=1)},
+        ])
+        with patch("src.cms.get_cms_storage", return_value=fake):
+            from src.cms import get_all_posts
+            posts = get_all_posts()
+        titles = [p["title"] for p in posts]
+        assert "Live" in titles
+        assert "Expired" in titles
+
+    def test_empty_storage_returns_empty_list(self):
+        """get_all_posts returns an empty list when storage has no posts."""
+        fake = FakeCMSStorage([])
+        with patch("src.cms.get_cms_storage", return_value=fake):
+            from src.cms import get_all_posts
+            posts = get_all_posts()
+        assert posts == []
 
 
 class TestDeletePost:
