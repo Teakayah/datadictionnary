@@ -464,7 +464,7 @@ class TestPipelineDefAdminGuards:
         mock_def.assert_not_called()
         mock_run.assert_not_called()
 
-class TestGetSpToken:
+class TestGetSpToken2:
     @patch("src.pipelines.PIPELINE_SP_TENANT_ID", "tenant")
     @patch("src.pipelines.PIPELINE_SP_CLIENT_ID", "client")
     @patch("src.pipelines.PIPELINE_SP_CLIENT_SECRET", "secret")

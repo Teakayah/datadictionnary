@@ -1,6 +1,5 @@
 import os
 import re
-import sys
 
 # Mapping of source files to target names
 MAPPING = {
