@@ -20,3 +20,8 @@ When mitigating XSS in Streamlit using `st.markdown(..., unsafe_allow_html=True)
 **Vulnerability:** A Cross-Site Scripting (XSS) vulnerability was found in the `src/ui/cards/admin.py`'s `_render_admin_sync_section` function. The operational status strings `dr_status` and `heartbeat` were dynamically injected into an `st.markdown(..., unsafe_allow_html=True)` block without sanitization.
 **Learning:** Operational status messages and system metrics that flow from external worker processes (e.g. `read_dr_resync_status()`) into the UI via `unsafe_allow_html=True` can become XSS vectors if those messages contain unescaped content or error strings.
 **Prevention:** Apply `_html.escape()` inline within f-string interpolations for all dynamic content rendered via `st.markdown(..., unsafe_allow_html=True)`, including internal system state and error messages.
+
+## 2026-05-20 - XSS via st.markdown(..., unsafe_allow_html=True)
+**Vulnerability:** Cross-Site Scripting (XSS) possible when rendering dynamic HTML via Streamlit's `st.markdown(..., unsafe_allow_html=True)` if any unescaped variables are included in the string.
+**Learning:** `unsafe_allow_html=True` exposes the application to XSS unless every single interpolated variable is perfectly escaped. In newer Streamlit versions, `st.html(...)` provides a safer API (it defaults to `unsafe_allow_javascript=False`).
+**Prevention:** Use `st.html(...)` instead of `st.markdown(..., unsafe_allow_html=True)` for rendering intentional HTML blocks. Ensure all dynamically interpolated variables—even internal state variables and localized strings—are wrapped in `html.escape()` before rendering.

@@ -6,13 +6,13 @@ from src.i18n import t
 from src.ui.cards._shared import _dq_grade
 
 def render_catalog_browser(groups, get_authorized_tables_fn):
-    st.markdown(f'''
+    st.html(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">{t("catalog.eyebrow")}</div>
-      <h1>{t("catalog.hero_title")}</h1>
-      <p class="lead">{t("catalog.hero_subtitle")}</p>
+      <div class="dd-eyebrow">{_html.escape(t("catalog.eyebrow"))}</div>
+      <h1>{_html.escape(t("catalog.hero_title"))}</h1>
+      <p class="lead">{_html.escape(t("catalog.hero_subtitle"))}</p>
     </div>
-    ''', unsafe_allow_html=True)
+    ''')
 
     with st.expander(t("help.catalog_expander")):
         st.markdown(t("help.catalog_content"))
@@ -31,7 +31,7 @@ def render_catalog_browser(groups, get_authorized_tables_fn):
                 cat_data = all_data[all_data['catalog_name'] == cat]
                 # Group by schema_name to avoid O(N^2) dataframe filtering
                 for sch, sch_data in cat_data.groupby('schema_name'):
-                    st.markdown(f'<div style="margin-left: 20px; font-weight: 500; color: var(--ink-60); margin-top: 10px; margin-bottom: 5px;">📂 {_html.escape(str(sch))}</div>', unsafe_allow_html=True)
+                    st.html(f'<div style="margin-left: 20px; font-weight: 500; color: var(--ink-60); margin-top: 10px; margin-bottom: 5px;">📂 {_html.escape(str(sch))}</div>')
                     _dq_lookup = dict(zip(sch_data["table_name"], sch_data["dq_score"])) if "dq_score" in sch_data.columns else {}
                     tables = sorted(sch_data['table_name'].unique().tolist())
 
@@ -42,12 +42,11 @@ def render_catalog_browser(groups, get_authorized_tables_fn):
                             full_n = f"{cat}.{sch}.{tbl}"
                             _grade, _gcls = _dq_grade(_dq_lookup.get(tbl, ""))
                             # Show grade badge above the button via markdown, then the clickable button
-                            st.markdown(
+                            st.html(
                                 f'<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">'
-                                f'<span class="dd-dq-badge {_gcls}" title="Completeness grade {_grade}">{_grade}</span>'
+                                f'<span class="dd-dq-badge {_html.escape(_gcls)}" title="Completeness grade {_html.escape(_grade)}">{_html.escape(_grade)}</span>'
                                 f'<span style="font-family:var(--font-mono);font-size:12px;color:var(--ink-60);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_html.escape(tbl)}</span>'
-                                f'</div>',
-                                unsafe_allow_html=True,
+                                f'</div>'
                             )
                             if st.button(f"📄 {tbl}", key=f"tree_{full_n}", help=t("catalog.tree_help"), use_container_width=True):
                                 st.query_params["tab"] = "search"
