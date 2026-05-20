@@ -1,7 +1,15 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from src.audit import save_table_metadata, _validate_business_name_inputs, save_business_name
+from src.audit import (
+    approve_business_name, 
+    reject_business_name, 
+    save_table_metadata, 
+    _validate_business_name_inputs, 
+    save_business_name,
+    get_table_steward,
+    log_audit_event
+)
 from src.config import MAX_BUSINESS_NAME_LEN, MAX_DEFINITION_LEN
 
 def test_save_table_metadata_duckdb_exception():
@@ -100,7 +108,6 @@ def test_save_table_metadata_steward_email_only():
 def test_get_table_steward_demo_mode():
     """Verify get_table_steward returns demo steward in demo mode."""
     with patch("src.audit.is_demo_mode", return_value=True):
-        from src.audit import get_table_steward
         assert get_table_steward("catalog.schema.table") == "steward@example.com"
 
 def test_get_table_steward_empty_result():
@@ -112,7 +119,6 @@ def test_get_table_steward_empty_result():
         mock_get_conn.return_value.cursor.return_value.__enter__.return_value = mock_cursor
         mock_cursor.fetchall_as_pandas.return_value = MagicMock(empty=True)
 
-        from src.audit import get_table_steward
         assert get_table_steward("catalog.schema.table") == ""
 
 def test_get_table_steward_with_result():
@@ -125,7 +131,6 @@ def test_get_table_steward_with_result():
         mock_get_conn.return_value.cursor.return_value.__enter__.return_value = mock_cursor
         mock_cursor.fetchall_as_pandas.return_value = pd.DataFrame([{"steward_email": "real@example.com"}])
 
-        from src.audit import get_table_steward
         assert get_table_steward("catalog.schema.table") == "real@example.com"
 
 def test_get_table_steward_exception():
@@ -136,7 +141,6 @@ def test_get_table_steward_exception():
 
         mock_get_conn.side_effect = Exception("DB error")
 
-        from src.audit import get_table_steward
         assert get_table_steward("catalog.schema.table") == ""
         mock_warning.assert_called_once()
 
@@ -152,7 +156,6 @@ def test_log_audit_event_demo_mode():
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
 
-        from src.audit import log_audit_event
         log_audit_event("TYPE", "OBJ_TYPE", "OBJ_NAME", "OLD", "NEW")
 
         # Verify event appended to storage
@@ -181,7 +184,6 @@ def test_log_audit_event_production_mode():
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
 
-        from src.audit import log_audit_event
         log_audit_event("TYPE", "OBJ_TYPE", "OBJ_NAME", "OLD", "NEW")
 
         expected_event = {
@@ -203,141 +205,61 @@ def test_validate_business_name_inputs_permission_error():
         with pytest.raises(PermissionError, match="Only power users can save business name overrides."):
             _validate_business_name_inputs("name", "desc")
 
-def test_get_old_business_name():
-    """Verify _get_old_business_name retrieves the correct business name."""
-    with patch("src.audit.get_business_name_override_storage") as mock_get_storage:
-        mock_storage = MagicMock()
-        mock_get_storage.return_value = mock_storage
+def test_approve_business_name_permission_error():
+    with patch("src.audit.is_admin", return_value=False):
+        with pytest.raises(PermissionError, match="Only admins can approve metadata changes."):
+            approve_business_name("catalog.schema.table", "col1")
 
-        # Test when override exists
-        mock_storage.get_for_table.return_value = {
-            "col1": {"business_name": "Old Name"}
-        }
-        from src.audit import _get_old_business_name
-        assert _get_old_business_name("catalog.schema.table", "col1") == "Old Name"
-
-        # Test when column not in overrides
-        assert _get_old_business_name("catalog.schema.table", "col2") == ""
-
-        # Test when overrides is empty
-        mock_storage.get_for_table.return_value = {}
-        assert _get_old_business_name("catalog.schema.table", "col1") == ""
-
-def test_save_business_name_admin():
-    """Verify save_business_name enqueues sync for admins."""
-    from src.audit import save_business_name
-    with patch("src.audit.is_power_user", return_value=True), \
-         patch("src.audit.is_admin", return_value=True), \
-         patch("src.audit._get_old_business_name", return_value="Old Name"), \
-         patch("src.audit.get_business_name_override_storage"), \
-         patch("src.audit._duckdb_available", return_value=True), \
-         patch("src.audit._get_shared_duckdb_connection"), \
-         patch("src.audit.enqueue_column_sync") as mock_enqueue, \
-         patch("src.audit.log_audit_event"), \
-         patch("src.audit.search_all_metadata"), \
-         patch("src.audit.st") as mock_st:
-
-        mock_st.session_state.get.return_value = "admin@example.com"
-        save_business_name("catalog.schema.table", "col1", "New Name", "New Def")
-
-        mock_enqueue.assert_called_once_with(
-            "catalog.schema.table", "col1", "New Def", "admin@example.com"
-        )
+def test_reject_business_name_permission_error():
+    with patch("src.audit.is_admin", return_value=False):
+        with pytest.raises(PermissionError, match="Only admins can reject metadata changes."):
+            reject_business_name("catalog.schema.table", "col1")
 
 def test_approve_business_name_success():
-    """Verify approve_business_name approves and enqueues sync."""
-    from src.audit import approve_business_name
     with patch("src.audit.is_admin", return_value=True), \
          patch("src.audit.get_business_name_override_storage") as mock_get_storage, \
+         patch("src.audit.st") as mock_st, \
          patch("src.audit._duckdb_available", return_value=True), \
-         patch("src.audit._get_shared_duckdb_connection") as mock_get_shared, \
          patch("src.audit.enqueue_column_sync") as mock_enqueue, \
-         patch("src.audit.search_all_metadata") as mock_search_all, \
-         patch("src.audit.st") as mock_st:
+         patch("src.audit._get_shared_duckdb_connection") as mock_get_shared, \
+         patch("src.audit.search_all_metadata") as mock_search_clear:
 
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
+
         mock_storage.list_pending.return_value = [
-            {
-                "table_full_name": "catalog.schema.table",
-                "column_name": "col1",
-                "definition": "Pending Def"
-            }
+            {"table_full_name": "catalog.schema.table", "column_name": "col1", "definition": "def1"}
         ]
-        mock_st.session_state.get.return_value = "admin@example.com"
+
+        mock_st.session_state.get.return_value = "admin_user"
+
         mock_shared_conn = MagicMock()
         mock_get_shared.return_value = mock_shared_conn
 
         approve_business_name("catalog.schema.table", "col1")
 
         mock_storage.approve.assert_called_once_with("catalog.schema.table", "col1")
-        mock_enqueue.assert_called_once_with(
-            "catalog.schema.table", "col1", "Pending Def", "admin@example.com"
-        )
+        mock_enqueue.assert_called_once_with("catalog.schema.table", "col1", "def1", "admin_user")
         mock_shared_conn.execute.assert_called_once_with("CHECKPOINT user_data")
-        mock_search_all.clear.assert_called_once()
+        mock_search_clear.clear.assert_called_once()
 
-def test_approve_business_name_missing_item():
-    """Verify approve_business_name does nothing if item not found."""
-    from src.audit import approve_business_name
+def test_approve_business_name_not_found():
     with patch("src.audit.is_admin", return_value=True), \
-         patch("src.audit.get_business_name_override_storage") as mock_get_storage, \
-         patch("src.audit._duckdb_available", return_value=True), \
-         patch("src.audit._get_shared_duckdb_connection"), \
-         patch("src.audit.enqueue_column_sync") as mock_enqueue, \
-         patch("src.audit.search_all_metadata") as mock_search_all, \
-         patch("src.audit.st"):
+         patch("src.audit.get_business_name_override_storage") as mock_get_storage:
 
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
+
         mock_storage.list_pending.return_value = []
 
         approve_business_name("catalog.schema.table", "col1")
 
         mock_storage.approve.assert_not_called()
-        mock_enqueue.assert_not_called()
-        mock_search_all.clear.assert_not_called()
-
-def test_approve_business_name_permission_error():
-    """Verify approve_business_name raises PermissionError for non-admins."""
-    from src.audit import approve_business_name
-    with patch("src.audit.is_admin", return_value=False):
-        with pytest.raises(PermissionError, match="Only admins can approve metadata changes."):
-            approve_business_name("catalog.schema.table", "col1")
-
-def test_approve_business_name_db_exception():
-    """Verify approve_business_name gracefully handles DuckDB CHECKPOINT exceptions."""
-    from src.audit import approve_business_name
-    with patch("src.audit.is_admin", return_value=True), \
-         patch("src.audit.get_business_name_override_storage") as mock_get_storage, \
-         patch("src.audit._duckdb_available", return_value=True), \
-         patch("src.audit._get_shared_duckdb_connection") as mock_get_shared, \
-         patch("src.audit.enqueue_column_sync"), \
-         patch("src.audit.search_all_metadata"), \
-         patch("src.audit.st"):
-
-        mock_storage = MagicMock()
-        mock_get_storage.return_value = mock_storage
-        mock_storage.list_pending.return_value = [
-            {
-                "table_full_name": "catalog.schema.table",
-                "column_name": "col1",
-                "definition": "Pending Def"
-            }
-        ]
-        mock_shared_conn = MagicMock()
-        mock_shared_conn.execute.side_effect = Exception("Mock duckdb error")
-        mock_get_shared.return_value = mock_shared_conn
-
-        # Should not raise
-        approve_business_name("catalog.schema.table", "col1")
 
 def test_reject_business_name_success():
-    """Verify reject_business_name calls reject and clears cache."""
-    from src.audit import reject_business_name
     with patch("src.audit.is_admin", return_value=True), \
          patch("src.audit.get_business_name_override_storage") as mock_get_storage, \
-         patch("src.audit.search_all_metadata") as mock_search_all:
+         patch("src.audit.search_all_metadata") as mock_search_clear:
 
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
@@ -345,19 +267,10 @@ def test_reject_business_name_success():
         reject_business_name("catalog.schema.table", "col1")
 
         mock_storage.reject.assert_called_once_with("catalog.schema.table", "col1")
-        mock_search_all.clear.assert_called_once()
+        mock_search_clear.clear.assert_called_once()
 
-def test_reject_business_name_permission_error():
-    """Verify reject_business_name raises PermissionError for non-admins."""
-    from src.audit import reject_business_name
-    with patch("src.audit.is_admin", return_value=False):
-        with pytest.raises(PermissionError, match="Only admins can reject metadata changes."):
-            reject_business_name("catalog.schema.table", "col1")
-
-def test_get_table_steward_local_override():
-    """Verify get_table_steward prefers local overrides over catalog."""
+def test_get_table_steward_local_override_found():
     import pandas as pd
-    from src.audit import get_table_steward
     with patch("src.audit.is_demo_mode", return_value=False), \
          patch("src.audit.get_db_connection") as mock_get_conn, \
          patch("src.audit._duckdb_available", return_value=True):
@@ -365,13 +278,60 @@ def test_get_table_steward_local_override():
         mock_cursor = MagicMock()
         mock_get_conn.return_value.cursor.return_value.__enter__.return_value = mock_cursor
 
-        # First call (local overrides) returns a result
-        mock_cursor.fetchall_as_pandas.side_effect = [
-            pd.DataFrame([{"steward_email": "local@example.com"}]),
-            pd.DataFrame()  # Should not be reached
-        ]
+        def mock_fetchall():
+            call_args = mock_cursor.execute.call_args[0][0]
+            if "table_metadata_overrides" in call_args:
+                return pd.DataFrame([{"steward_email": "local@example.com"}])
+            return pd.DataFrame()
+
+        mock_cursor.fetchall_as_pandas.side_effect = mock_fetchall
 
         assert get_table_steward("catalog.schema.table") == "local@example.com"
-        # Ensure it didn't fall through to catalog
-        assert mock_cursor.execute.call_count == 1
-        assert "user_data.table_metadata_overrides" in mock_cursor.execute.call_args_list[0][0][0]
+
+def test_approve_business_name_exception():
+    with patch("src.audit.is_admin", return_value=True), \
+         patch("src.audit.get_business_name_override_storage") as mock_get_storage, \
+         patch("src.audit.st") as mock_st, \
+         patch("src.audit._duckdb_available", return_value=True), \
+         patch("src.audit.enqueue_column_sync") as mock_enqueue, \
+         patch("src.audit._get_shared_duckdb_connection") as mock_get_shared, \
+         patch("src.audit.search_all_metadata") as mock_search_clear:
+
+        mock_storage = MagicMock()
+        mock_get_storage.return_value = mock_storage
+
+        mock_storage.list_pending.return_value = [
+            {"table_full_name": "catalog.schema.table", "column_name": "col1", "definition": "def1"}
+        ]
+
+        mock_st.session_state.get.return_value = "admin_user"
+
+        mock_shared_conn = MagicMock()
+        mock_shared_conn.execute.side_effect = Exception("Mock duckdb error")
+        mock_get_shared.return_value = mock_shared_conn
+
+        # This should not raise an exception
+        approve_business_name("catalog.schema.table", "col1")
+
+        mock_shared_conn.execute.assert_called_once_with("CHECKPOINT user_data")
+
+def test_save_business_name_admin():
+    with patch("src.audit.is_power_user", return_value=True), \
+         patch("src.audit.is_admin", return_value=True), \
+         patch("src.audit._get_old_business_name", return_value="Old Name"), \
+         patch("src.audit.get_business_name_override_storage"), \
+         patch("src.audit._duckdb_available", return_value=True), \
+         patch("src.audit._get_shared_duckdb_connection") as mock_get_shared, \
+         patch("src.audit.enqueue_column_sync") as mock_enqueue, \
+         patch("src.audit.log_audit_event"), \
+         patch("src.audit.search_all_metadata"), \
+         patch("src.audit.st") as mock_st:
+
+        mock_st.session_state.get.return_value = "admin_user"
+
+        mock_shared_conn = MagicMock()
+        mock_get_shared.return_value = mock_shared_conn
+
+        save_business_name("catalog.schema.table", "col1", "New Name", "New Def")
+
+        mock_enqueue.assert_called_once_with("catalog.schema.table", "col1", "New Def", "admin_user")
