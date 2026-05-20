@@ -1,11 +1,12 @@
 """Tests for src/sync/push.py.
 
 Coverage matches TODO.md #6:
-  - One test per sync type (COLUMN_DEF, TABLE_DESC, STEWARD, AUDIT, COMMENT).
-  - Unknown sync_type emits a warning and does not call cursor.execute.
-  - _safe_ident rejects backticks, dots, semicolons, non-ASCII.
-  - _split_full_name rejects 2-part and 4-part names.
-  - STEWARD with non-email value raises ValueError.
+  - [x] Identifier whitelist (`_safe_ident`)
+  - [x] 3-part name parser (`_split_full_name`)
+  - [x] Per-sync-type dispatch (COLUMN_DEF, TABLE_DESC, STEWARD, AUDIT, COMMENT)
+  - [x] STEWARD rejects non-email values (`ValueError`)
+  - [x] Unknown sync_type logs a warning
+  - [x] Missing credentials raise RuntimeError
 
 The Databricks SQL connector is stubbed at the conftest level
 (``sys.modules['databricks.sql']`` is a MagicMock) — so we just call
@@ -68,7 +69,7 @@ class TestSafeIdent:
     @pytest.mark.parametrize("bad", [
         "table`drop", "table.column", "table;DROP TABLE x",
         "table-name", "table name", "tαble", "café",
-        "", "   ",
+        "", "   ", "-", " ",
     ])
     def test_rejects_unsafe(self, bad):
         from src.sync.push import _safe_ident
@@ -87,6 +88,7 @@ class TestSplitFullName:
         "single",                   # 1 part
         "",                         # empty
         "cat..tbl",                 # empty schema
+        "cat.sch. ",                # whitespace
     ])
     def test_rejects_wrong_part_count(self, bad):
         from src.sync.push import _split_full_name
@@ -192,6 +194,18 @@ class TestPushToDatabricks:
     def test_missing_credentials_raises(self, monkeypatch):
         for var in ("DATABRICKS_HOST", "DATABRICKS_HTTP_PATH", "DATABRICKS_TOKEN"):
             monkeypatch.delenv(var, raising=False)
+        from src.sync.push import _push_to_databricks
+        with pytest.raises(RuntimeError, match="Databricks credentials"):
+            _push_to_databricks("COLUMN_DEF", "a.b.c", {})
+
+    @pytest.mark.parametrize("missing_var", [
+        "DATABRICKS_HOST", "DATABRICKS_HTTP_PATH", "DATABRICKS_TOKEN"
+    ])
+    def test_partial_credentials_raises(self, monkeypatch, missing_var):
+        monkeypatch.setenv("DATABRICKS_HOST", "host")
+        monkeypatch.setenv("DATABRICKS_HTTP_PATH", "path")
+        monkeypatch.setenv("DATABRICKS_TOKEN", "token")
+        monkeypatch.delenv(missing_var, raising=False)
         from src.sync.push import _push_to_databricks
         with pytest.raises(RuntimeError, match="Databricks credentials"):
             _push_to_databricks("COLUMN_DEF", "a.b.c", {})
