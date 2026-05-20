@@ -19,6 +19,11 @@
 **Learning:** Security context requirements shouldn't be wholesale disabled (`readOnlyRootFilesystem: false`) to appease a framework's temporary file needs. By mounting an `emptyDir` volume specifically to the required temporary path (`/tmp`), the application has the scratch space it needs while keeping the entire container root filesystem locked down.
 **Resilience:** Enforced `readOnlyRootFilesystem: true` on both the `dd-app` deployment and the `dd-sync` cronjob, and paired it with an `emptyDir` mount at `/tmp`. This satisfies the strict security posture without sacrificing application functionality.
 ## 2024-05-15 - [CRITICAL] Container Ephemeral Storage Request and Limit **Cluster Quirk:** Missing ephemeral-storage requests and limits in workloads. **Learning:** Workloads can be evicted or take down nodes if they leak data to ephemeral storage (like `/tmp`). **Resilience:** Add `ephemeral-storage` requests and limits to container resource blocks to prevent node-level disk pressure issues.
+## 2024-05-16 - [Hardened dd-sync CronJob with startingDeadlineSeconds]
+**Cluster Quirk:** The `dd-sync` CronJob was missing a `startingDeadlineSeconds` configuration.
+**Learning:** If a CronJob cannot be scheduled due to a missed schedule window (e.g. control plane downtime), it will wait indefinitely, potentially causing concurrent runs when the cluster recovers. `startingDeadlineSeconds` makes sure that jobs are automatically cancelled if they can not be scheduled within the given window.
+**Resilience:** Added `startingDeadlineSeconds: 300` to the CronJob spec so the job is skipped if it misses its 5-minute start window.
+
 ## 2026-05-17 - [Resource Quota preventing HPA scaling]
 **Cluster Quirk:** The HPA is configured to scale `dd-app` to a maximum of 10 replicas, each requesting 512Mi of memory. However, the namespace `ResourceQuota` hard limits memory requests to `4Gi`.
 **Learning:** When the HPA scales the deployment beyond 7 replicas, the K8s API rejects the new pods because the namespace quota is exceeded, causing scaling failures during traffic spikes. The ResourceQuota must always be >= (HPA maxReplicas * Pod requests) + auxiliary workloads.
