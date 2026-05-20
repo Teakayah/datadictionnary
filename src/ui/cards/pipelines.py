@@ -207,7 +207,7 @@ def render_pipelines_page():
                     ) if message else ""
                     st.markdown(
                         f'<div style="font-family:var(--font-mono);font-size:11px;">'
-                        f'<span style="color:{st_color};">{_html.escape(status)}</span>'
+                        f'<span style="color:{st_color};">{_html.escape(str(status))}</span>'
                         f'<span style="color:var(--ink-40);margin-left:10px;">'
                         f'{t("pipelines.started_by", user=_html.escape(run.get("triggered_by", "?")), date=_html.escape(triggered_str))}</span>'
                         f'{_msg_html}'
