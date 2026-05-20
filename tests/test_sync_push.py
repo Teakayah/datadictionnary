@@ -220,6 +220,46 @@ class TestPushToDatabricks:
         with pytest.raises(RuntimeError, match="Databricks credentials"):
             _push_to_databricks("COLUMN_DEF", "a.b.c", {})
 
+    def test_network_error_on_connect_bubbles_up(self, databricks_env):
+        """Simulate a network timeout or DNS error when connecting to Databricks."""
+        import sys
+        from src.sync.push import _push_to_databricks
+        db_sql_mock = sys.modules["databricks.sql"]
+        db_sql_mock.connect.side_effect = Exception("Connection timeout")
+
+        with pytest.raises(Exception, match="Connection timeout"):
+            _push_to_databricks("TABLE_DESC", "cat.sch.tbl", {"definition": "x"})
+
+        db_sql_mock.connect.side_effect = None
+
+    def test_network_error_on_execute_bubbles_up(self, databricks_env):
+        """Simulate a network error during query execution (e.g., connection lost)."""
+        from src.sync.push import _push_to_databricks
+        _push_cursor().execute.side_effect = Exception("Network dropped during execute")
+
+        with pytest.raises(Exception, match="Network dropped during execute"):
+            _push_to_databricks("AUDIT", None, {"event_id": "e1"})
+
+    def test_column_def_empty_column_name(self, databricks_env):
+        """An empty column name should be rejected by the identifier validator."""
+        from src.sync.push import _push_to_databricks
+        with pytest.raises(ValueError, match="unsafe identifier"):
+            _push_to_databricks("COLUMN_DEF", "cat.sch.tbl", {"column_name": "", "definition": "x"})
+
+    def test_column_def_missing_definition_defaults_to_empty(self, databricks_env):
+        """If definition is omitted, it should default to empty string."""
+        from src.sync.push import _push_to_databricks
+        _push_to_databricks("COLUMN_DEF", "cat.sch.tbl", {"column_name": "col_a"})
+        sql, params = _push_cursor().execute.call_args.args
+        assert params["comment"] == ""
+
+    def test_table_desc_missing_definition_defaults_to_empty(self, databricks_env):
+        """If definition is omitted for TABLE_DESC, it should default to empty string."""
+        from src.sync.push import _push_to_databricks
+        _push_to_databricks("TABLE_DESC", "cat.sch.tbl", {})
+        sql, params = _push_cursor().execute.call_args.args
+        assert params["comment"] == ""
+
     @pytest.mark.parametrize("bad_col", [
         "col`; DROP",
         "col name",
