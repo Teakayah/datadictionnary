@@ -147,6 +147,15 @@ class TestFetchMemberGroups:
         assert result == []
         assert any("dns" in rec.message for rec in caplog.records)
 
+    def test_network_error_with_empty_oid_logs_fallback(self, caplog):
+        from src.auth_graph import fetch_member_groups
+        with caplog.at_level(logging.WARNING, logger="src.auth_graph"):
+            with patch("src.auth_graph.requests") as r:
+                r.post.side_effect = requests.ConnectionError("dns")
+                result = fetch_member_groups("tok", "")
+        assert result == []
+        assert any("<no oid>" in rec.message for rec in caplog.records)
+
     def test_cache_hit_within_ttl(self):
         from src.auth_graph import fetch_member_groups
         with patch("src.auth_graph.requests") as r:
