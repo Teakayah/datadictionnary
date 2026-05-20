@@ -48,6 +48,18 @@ class TestIsEditingEnabled:
         ):
             assert is_editing_enabled() is False
 
+    def test_reads_enabled_from_storage(self):
+        """Returns True when site_settings holds value='1'."""
+        import streamlit as st
+        from src.personalization import is_editing_enabled
+        from src.storage.preference_storage import FakeSiteSettingStorage
+        st.session_state.pop("_editing_enabled_cache", None)
+        with patch(
+            "src.personalization.get_site_setting_storage",
+            return_value=FakeSiteSettingStorage({"editing_enabled": "1"}),
+        ):
+            assert is_editing_enabled() is True
+
     def test_returns_cached_value(self):
         """Returns cached session state value without hitting the backend."""
         import streamlit as st
