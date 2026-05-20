@@ -6,6 +6,10 @@
 ## 2026-05-15 - [Pandas] Vectorized operations vs .apply() for complex scoring
 **Learning:** Pandas `.apply()` executes with significant overhead as it loops in Python. Vectorized `.str` operations and `numpy.select()` for conditional logic are dramatically faster, especially on large datasets like metadata searches.
 **Action:** Always prioritize native vectorized methods and `numpy.select()` over `.apply()` for complex row-by-row scoring or conditional logic in DataFrames.
+## 2024-05-18 - Optimize N+1 query in pending sync cleanup
+**Learning:** Python-level fetching and filtering of JSON columns out of DuckDB creates massive N+1 query overhead.
+**Action:** Replaced the Python `SELECT`, loop, and individual `DELETE`s with a single vectorized DuckDB SQL statement leveraging `json_extract_string(payload_json, '$.column_name')`.
+
 ## 2024-05-20 - Cache authorized tables set transformation
 **Learning:** Even when a database query function is cached by Streamlit, repeatedly transforming its returned Pandas DataFrame into a Python set using `.tolist()` and `set()` on every re-run incurs measurable CPU overhead, especially as the number of tables grows.
 **Action:** Created a dedicated Streamlit-cached helper function that performs the set transformation internally, caching the final `set` object instead of forcing the frontend code to rebuild it from the cached DataFrame on every interaction.

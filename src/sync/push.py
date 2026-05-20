@@ -75,17 +75,10 @@ def enqueue_sync(sync_type: str, table_full_name: Optional[str], payload: dict, 
                 _params["fn"] = table_full_name
 
             if _match_val:
-                # We fetch and filter in Python for simplicity with DuckDB JSON extensions
-                cursor.execute("SELECT sync_id, payload_json FROM user_data.pending_sync WHERE sync_type='COLUMN_DEF' AND status='pending' AND table_full_name=%(fn)s", {"fn": table_full_name})
-                for row in cursor.fetchall():
-                    try:
-                        p = json.loads(row[1])
-                        if p.get("column_name") == _match_val:
-                            cursor.execute("DELETE FROM user_data.pending_sync WHERE sync_id=%(id)s", {"id": row[0]})
-                    except Exception:
-                        pass
-            else:
-                cursor.execute_write(_del_q, _params)
+                # ⚡ Bolt: vectorized deletion using DuckDB JSON extension to fix N+1
+                _del_q += " AND json_extract_string(payload_json, '$.column_name') = %(col)s"
+                _params["col"] = _match_val
+            cursor.execute_write(_del_q, _params)
 
         cursor.execute_write(
             "INSERT INTO user_data.pending_sync (sync_id, sync_type, table_full_name, payload_json, queued_by, queued_at) VALUES (%(id)s, %(type)s, %(tbl)s, %(json)s, %(by)s, current_timestamp())",

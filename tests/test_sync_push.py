@@ -336,7 +336,6 @@ class TestEnqueueSync:
 
     def test_enqueue_sync_column_def(self, monkeypatch):
         from src.sync import push as push_module
-        import json
         from unittest.mock import MagicMock
         monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
         mock_conn = MagicMock()
@@ -344,25 +343,14 @@ class TestEnqueueSync:
         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
         monkeypatch.setattr(push_module, "_get_write_connection", lambda: mock_conn)
 
-        mock_cursor.fetchall.return_value = [("sync123", json.dumps({"column_name": "col_a"}))]
         push_module.enqueue_sync("COLUMN_DEF", "cat.sch.tbl", {"column_name": "col_a", "definition": "test"}, "user")
 
-        mock_cursor.execute.assert_any_call("DELETE FROM user_data.pending_sync WHERE sync_id=%(id)s", {"id": "sync123"})
-        mock_cursor.execute_write.assert_called_once()
+        assert mock_cursor.execute_write.call_count == 2
+        delete_call_args = mock_cursor.execute_write.call_args_list[0][0]
+        assert "DELETE FROM user_data.pending_sync WHERE sync_type = %(st)s" in delete_call_args[0]
+        assert "json_extract_string(payload_json, '$.column_name') = %(col)s" in delete_call_args[0]
+        assert delete_call_args[1] == {"st": "COLUMN_DEF", "fn": "cat.sch.tbl", "col": "col_a"}
 
-    def test_enqueue_sync_column_def_json_error(self, monkeypatch):
-        from src.sync import push as push_module
-        from unittest.mock import MagicMock
-        monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
-        mock_conn = MagicMock()
-        mock_cursor = MagicMock()
-        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
-        monkeypatch.setattr(push_module, "_get_write_connection", lambda: mock_conn)
-
-        mock_cursor.fetchall.return_value = [("sync123", "invalid json")]
-        push_module.enqueue_sync("COLUMN_DEF", "cat.sch.tbl", {"column_name": "col_a", "definition": "test"}, "user")
-
-        mock_cursor.execute_write.assert_called_once()
 
     def test_enqueue_sync_table_desc(self, monkeypatch):
         from src.sync import push as push_module
