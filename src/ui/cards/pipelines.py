@@ -123,7 +123,7 @@ def _render_admin_pipelines_section():
             f'<div style="border-left:3px solid {color};padding:8px 12px;'
             f'background:var(--paper-deep);border-radius:0 4px 4px 0;">'
             f'<span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;'
-            f'color:{color};letter-spacing:.08em;">{lbl}</span>'
+            f'color:{color};letter-spacing:.08em;">{_html.escape(lbl)}</span>'
             f'<span style="font-family:var(--font-sans);font-size:14px;color:var(--ink);margin-left:10px;">'
             f'{_html.escape(pl["title"])}</span>'
             f'</div>'
@@ -177,7 +177,7 @@ def render_pipelines_page():
                 f'<div style="border-left:3px solid {color};padding:12px 16px;'
                 f'background:var(--paper-deep);border-radius:0 4px 4px 0;margin-bottom:8px;">'
                 f'<span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;'
-                f'color:{color};letter-spacing:.08em;">{blabel}</span>'
+                f'color:{color};letter-spacing:.08em;">{_html.escape(blabel)}</span>'
                 f'<div style="font-family:var(--font-display);font-size:20px;color:var(--ink);margin-top:2px;">'
                 f'{_html.escape(pl["title"])}</div>'
                 f'{_pl_desc_html}'
@@ -207,9 +207,9 @@ def render_pipelines_page():
                     ) if message else ""
                     st.markdown(
                         f'<div style="font-family:var(--font-mono);font-size:11px;">'
-                        f'<span style="color:{st_color};">{status}</span>'
+                        f'<span style="color:{st_color};">{_html.escape(status)}</span>'
                         f'<span style="color:var(--ink-40);margin-left:10px;">'
-                        f'{t("pipelines.started_by", user=_html.escape(run.get("triggered_by", "?")), date=triggered_str)}</span>'
+                        f'{t("pipelines.started_by", user=_html.escape(run.get("triggered_by", "?")), date=_html.escape(triggered_str))}</span>'
                         f'{_msg_html}'
                         f'</div>',
                         unsafe_allow_html=True,
