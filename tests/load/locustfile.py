@@ -48,11 +48,8 @@ from __future__ import annotations
 import csv
 import io
 import os
-import os
 import random
 import time
-import csv
-import io
 import shutil
 import tempfile
 import duckdb

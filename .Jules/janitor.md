@@ -19,3 +19,6 @@
 ## 2026-05-15 - [Remove src/ui/cards re-export shim]
 **Learning:** The `src/ui/cards/__init__.py` re-export shim was kept for backwards compatibility during a refactor. It's better to update the callers to import from specific submodules directly to remove this technical debt.
 **Action:** Migrated the remaining callers (`app.py`, `src/pages/catalog.py`, `src/pages/search.py`, `tests/test_admin.py`) off the shim and deleted `src/ui/cards/__init__.py`.
+## 2026-05-20 - Ensure Linter Cleanup Avoids Removing Active Tests
+**Learning:** Tools like `ruff --fix` for `F811` (redefined names) or unused variable checkers might suggest deleting entire classes if their names are identical within the same file. Test files, which rely on test runners implicitly calling classes, are especially susceptible to this.
+**Action:** Always manually inspect `F811` redefinition errors in test files, opting to rename conflicting suites (e.g., append `2` to the class name) rather than deleting active tests to preserve test coverage.
