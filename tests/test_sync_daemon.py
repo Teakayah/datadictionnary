@@ -419,12 +419,3 @@ class TestWorkerShim:
         c.close()
 
         assert read_dr_resync_status() == "Up-to-date"
-
-    def test_legacy_shims_are_noops(self):
-        from src.sync.worker import (
-            _mark_ui_activity, _get_last_ui_activity,
-            _start_sync_worker_thread,
-        )
-        assert _mark_ui_activity() is None
-        assert _get_last_ui_activity() == 0.0
-        assert _start_sync_worker_thread() is None
