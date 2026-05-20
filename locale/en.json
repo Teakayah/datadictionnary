@@ -183,7 +183,18 @@
     "tab_insights": "Quality Insights",
     "tab_audit": "Audit Logs",
     "integrity_no_dq_fails": "No critical DQ failures detected.",
-    "integrity_all_stewards_assigned": "All tables have an assigned steward."
+    "integrity_all_stewards_assigned": "All tables have an assigned steward.",
+    "integrity_dq_success": "No critical DQ failures detected.",
+    "integrity_stewardship_success": "All tables have an assigned steward.",
+    "reviews_approved_toast": "Approved {col}",
+    "reviews_rejected_toast": "Rejected {col}",
+    "sync_progress": "{pct}% synced with Databricks",
+    "sync_pending": "Pending: {count}",
+    "sync_processing": "Processing: {count}",
+    "sync_done": "Done: {count}",
+    "sync_failed": "Failed: {count}",
+    "sync_self_healing": "Self-Healing (DR)",
+    "sync_worker_heartbeat": "Worker heartbeat"
   },
   "health": {
     "title": "§ Catalog health",
