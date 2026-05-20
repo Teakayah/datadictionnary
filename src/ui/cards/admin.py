@@ -21,6 +21,7 @@ from __future__ import annotations
 import logging
 
 import pandas as pd
+import html as _html
 import streamlit as st
 
 from src.audit import approve_business_name, reject_business_name
@@ -362,11 +363,11 @@ def _render_admin_sync_section():
             f'<div style="font-family:var(--font-mono); font-size:10px; color:var(--ink-40); '
             f'text-transform:uppercase;">{t("admin.sync_self_healing")}</div>'
             f'<div style="font-family:var(--font-sans); font-size:14px; font-weight:600; '
-            f'color:var(--ink);">{dr_status}</div>'
+            f'color:var(--ink);">{_html.escape(dr_status)}</div>'
             f'<div style="margin-top:12px; font-family:var(--font-mono); font-size:10px; '
             f'color:var(--ink-40); text-transform:uppercase;">{t("admin.sync_worker_heartbeat")}</div>'
             f'<div style="font-family:var(--font-mono); font-size:11px; '
-            f'color:var(--ink-60);">{heartbeat}</div>'
+            f'color:var(--ink-60);">{_html.escape(heartbeat)}</div>'
             f'</div>',
             unsafe_allow_html=True,
         )
