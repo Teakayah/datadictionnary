@@ -1,6 +1,10 @@
 """Tests for src/sync/push.py.
 
 Coverage matches TODO.md #6:
+- [x] _safe_ident validation
+- [x] _safe_email validation
+- [x] _sync_comments batch processing
+- [x] _sync_business_names error handling
   - One test per sync type (COLUMN_DEF, TABLE_DESC, STEWARD, AUDIT, COMMENT).
   - Unknown sync_type emits a warning and does not call cursor.execute.
   - _safe_ident rejects backticks, dots, semicolons, non-ASCII.
@@ -141,21 +145,32 @@ class TestPushToDatabricks:
         assert params["tbl"] == ["cat", "sch", "tbl"]
         assert params["steward"] == "alice@example.com"
 
-    def test_steward_rejects_non_email(self, databricks_env):
+    @pytest.mark.parametrize("bad_email", [
+        "alice'; DROP TABLE x;--",
+        "alice@x",
+        "alice.com",
+        "alice@ x.com",
+        "alice@x.c",
+    ])
+    def test_steward_rejects_non_email(self, databricks_env, bad_email):
         from src.sync.push import _push_to_databricks
         with pytest.raises(ValueError, match="non-email steward"):
             _push_to_databricks(
                 "STEWARD", "cat.sch.tbl",
-                {"steward_email": "alice'; DROP TABLE x;--"},
+                {"steward_email": bad_email},
             )
 
-    def test_steward_empty_string_is_allowed(self, databricks_env):
+    @pytest.mark.parametrize("empty_val", ["", "   "])
+    def test_steward_empty_string_is_allowed(self, databricks_env, empty_val):
         """Clearing the steward (empty string) bypasses the email check."""
         from src.sync.push import _push_to_databricks
-        _push_to_databricks("STEWARD", "cat.sch.tbl", {"steward_email": ""})
+        _push_to_databricks(
+            "STEWARD", "cat.sch.tbl",
+            {"steward_email": empty_val},
+        )
         sql, params = _push_cursor().execute.call_args.args
         assert "'steward' = %(steward)s" in sql
-        assert params["steward"] == ""
+        assert params["steward"] == empty_val.strip()
 
     def test_audit_inserts_into_catalog_audit_log(self, databricks_env):
         from src.sync.push import _push_to_databricks
@@ -189,27 +204,50 @@ class TestPushToDatabricks:
         assert any("Unknown sync_type" in rec.message for rec in caplog.records)
         _push_cursor().execute.assert_not_called()
 
-    def test_missing_credentials_raises(self, monkeypatch):
-        for var in ("DATABRICKS_HOST", "DATABRICKS_HTTP_PATH", "DATABRICKS_TOKEN"):
-            monkeypatch.delenv(var, raising=False)
+    @pytest.mark.parametrize("missing_var", [
+        "DATABRICKS_HOST",
+        "DATABRICKS_HTTP_PATH",
+        "DATABRICKS_TOKEN",
+    ])
+    def test_missing_credentials_raises(self, monkeypatch, missing_var):
+        # Set all credentials first
+        monkeypatch.setenv("DATABRICKS_HOST", "host.example.com")
+        monkeypatch.setenv("DATABRICKS_HTTP_PATH", "/sql/1.0/warehouses/abc")
+        monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-test-token")
+        # Then remove the specific one being tested
+        monkeypatch.delenv(missing_var, raising=False)
         from src.sync.push import _push_to_databricks
         with pytest.raises(RuntimeError, match="Databricks credentials"):
             _push_to_databricks("COLUMN_DEF", "a.b.c", {})
 
-    def test_column_def_rejects_backtick_in_column_name(self, databricks_env):
+    @pytest.mark.parametrize("bad_col", [
+        "col`; DROP",
+        "col name",
+        "col-name",
+        "col.name",
+        "c\u03b1fe",
+    ])
+    def test_column_def_rejects_unsafe_column_name(self, databricks_env, bad_col):
         """Identifier whitelist refuses anything not [A-Za-z0-9_]."""
         from src.sync.push import _push_to_databricks
         with pytest.raises(ValueError, match="unsafe identifier"):
             _push_to_databricks(
                 "COLUMN_DEF", "cat.sch.tbl",
-                {"column_name": "col`; DROP", "definition": "x"},
+                {"column_name": bad_col, "definition": "x"},
             )
 
-    def test_table_desc_rejects_dotted_table_part(self, databricks_env):
-        """A 4-part table_full_name (catalog.schema.tbl.extra) is refused."""
+    @pytest.mark.parametrize("bad_tbl, err_match", [
+        ("cat.sch.tbl.extra", "catalog.schema.table"),
+        ("cat.sch", "catalog.schema.table"),
+        ("single", "catalog.schema.table"),
+        ("", "catalog.schema.table"),
+        ("cat..tbl", "unsafe identifier"),
+    ])
+    def test_table_desc_rejects_invalid_table_part(self, databricks_env, bad_tbl, err_match):
+        """A 4-part table_full_name (catalog.schema.tbl.extra) or other invalid shapes are refused."""
         from src.sync.push import _push_to_databricks
-        with pytest.raises(ValueError, match="catalog.schema.table"):
-            _push_to_databricks("TABLE_DESC", "cat.sch.tbl.extra", {"definition": "x"})
+        with pytest.raises(ValueError, match=err_match):
+            _push_to_databricks("TABLE_DESC", bad_tbl, {"definition": "x"})
 
 # ── Queue processing coverage ──────────────────────────────────────────────────
 
