@@ -1,1 +1,7 @@
 ## 2024-05-24 - [Auth] Coverage Gap: Core authentication logic in `src.auth` (group resolution, catalog stats, sign-in rendering, OIDC callback edge cases) lacked unit tests. Learning: Mocking Streamlit's `st.session_state` in unit tests requires a custom dictionary subclass that implements `__getattr__`, `__setattr__`, and `__delattr__` to simulate its dual item/attribute access behavior. Assertion: Always use a custom `MockSessionState` class when testing Streamlit session state logic to prevent `AttributeError`s and accurately simulate framework behavior.
+## 2024-05-20 - [src/i18n.py] Coverage Gap: Exception handlers in _load_locales and t formatting
+Learning: File operations for loading locales and string formatting with kwargs can fail due to missing files or missing/wrong keys. Testing these exception handlers ensures the application falls back gracefully (e.g. to empty dicts or returning the unformatted key string) rather than crashing.
+Assertion: Mocked `open` to raise an Exception and tested formatting with missing kwargs to verify fallback behavior.
+## 2024-05-20 - [src/i18n.py] Coverage Gap: Edge cases in get_locale header parsing
+Learning: Parsing HTTP headers can be brittle. Ensuring coverage for malformed strings, varying casing, and whitespace is critical for robustness in locale detection.
+Assertion: Mocked `st.context.headers.get` to return various edge-case strings (e.g., uppercase, whitespace-padded) and verified the fallback logic.
