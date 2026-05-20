@@ -162,11 +162,24 @@ def render_pipelines_page():
     _any_active = False
     actor = st.session_state.get("user_email", "user")
 
+    active_runs = {pl["pipeline_id"]: get_active_run(pl["pipeline_id"]) for pl in pipelines}
+
+    # Pre-poll statuses concurrently for active runs
+    runs_to_poll = [(pl, active_runs[pl["pipeline_id"]]) for pl in pipelines if active_runs[pl["pipeline_id"]]]
+    polled_results = {}
+    if runs_to_poll:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            # list of results matches runs_to_poll
+            results = list(executor.map(lambda pair: poll_run_status(pair[0], pair[1]), runs_to_poll))
+            for (pl, _), res in zip(runs_to_poll, results):
+                polled_results[pl["pipeline_id"]] = res
+
     for pl in pipelines:
         pid    = pl["pipeline_id"]
         color  = _BACKEND_COLOR.get(pl["backend"], "var(--ink-40)")
         blabel = _BACKEND_LABEL.get(pl["backend"], pl["backend"])
-        run    = get_active_run(pid)
+        run    = active_runs[pid]
 
         with st.container():
             _pl_desc_html = (
@@ -187,7 +200,7 @@ def render_pipelines_page():
 
             if run:
                 _any_active = True
-                result = poll_run_status(pl, run)
+                result = polled_results[pid]
                 status   = result["status"]
                 progress = result["progress"] / 100.0
                 message  = result["message"]
