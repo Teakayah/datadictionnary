@@ -224,3 +224,50 @@ class TestDeleteCascade:
 
         assert defs.list_all() == []
         assert runs.get_active(pid) is None
+
+class TestDemoPipelineRunStorage:
+    def test_demo_pipeline_run(self):
+        import streamlit as st
+        st.session_state.clear()
+        from src.storage.pipeline_storage import DemoPipelineRunStorage
+        storage = DemoPipelineRunStorage()
+        storage.upsert("p1", "r1", "alice")
+        assert storage.get_active("p1")["backend_run_id"] == "r1"
+        storage.update_status("p1", "success")
+        assert storage.get_active("p1")["status"] == "success"
+        storage.clear("p1")
+        assert storage.get_active("p1") is None
+
+class TestDuckDBPipelineStorageExceptions:
+    def test_def_list_all_exception(self, monkeypatch):
+        def mock_get_db_connection():
+            raise Exception("DB error")
+        monkeypatch.setattr("src.storage.pipeline_storage.get_db_connection", mock_get_db_connection)
+        from src.storage.pipeline_storage import DuckDBPipelineDefStorage
+        assert DuckDBPipelineDefStorage().list_all() == []
+
+    def test_run_get_active_exception(self, monkeypatch):
+        def mock_get_db_connection():
+            raise Exception("DB error")
+        monkeypatch.setattr("src.storage.pipeline_storage.get_db_connection", mock_get_db_connection)
+        from src.storage.pipeline_storage import DuckDBPipelineRunStorage
+        assert DuckDBPipelineRunStorage().get_active("p1") is None
+
+class TestDemoPipelineDefStorage:
+    def test_demo_create(self):
+        import streamlit as st
+        st.session_state.clear()
+        from src.storage.pipeline_storage import DemoPipelineDefStorage
+        storage = DemoPipelineDefStorage()
+        storage.create(_make_pipeline())
+        assert len(storage.list_all()) == 1
+
+    def test_demo_delete(self):
+        import streamlit as st
+        st.session_state.clear()
+        from src.storage.pipeline_storage import DemoPipelineDefStorage
+        storage = DemoPipelineDefStorage()
+        p = _make_pipeline()
+        storage.create(p)
+        storage.delete(p["pipeline_id"])
+        assert len(storage.list_all()) == 0
