@@ -464,63 +464,21 @@ class TestPipelineDefAdminGuards:
         mock_def.assert_not_called()
         mock_run.assert_not_called()
 
-class TestGetSpToken2:
-    @patch("src.pipelines.PIPELINE_SP_TENANT_ID", "tenant")
-    @patch("src.pipelines.PIPELINE_SP_CLIENT_ID", "client")
-    @patch("src.pipelines.PIPELINE_SP_CLIENT_SECRET", "secret")
-    @patch("msal.ConfidentialClientApplication")
-    def test_get_sp_token_success(self, mock_msal):
-        from src.pipelines import _get_sp_token
+    def test_delete_pipeline_def_calls_storage(self, admin_caller_context):
+        from src.pipelines import delete_pipeline_def
+        with patch("src.pipelines.get_pipeline_def_storage") as mock_def, \
+             patch("src.pipelines.get_pipeline_run_storage") as mock_run:
 
-        mock_app = MagicMock()
-        mock_msal.return_value = mock_app
-        mock_app.acquire_token_for_client.return_value = {"access_token": "valid-token"}
+            mock_def_storage = MagicMock()
+            mock_def.return_value = mock_def_storage
 
-        token = _get_sp_token("https://myresource")
+            mock_run_storage = MagicMock()
+            mock_run.return_value = mock_run_storage
 
-        assert token == "valid-token"
-        mock_msal.assert_called_once_with(
-            "client",
-            authority="https://login.microsoftonline.com/tenant",
-            client_credential="secret"
-        )
-        mock_app.acquire_token_for_client.assert_called_once_with(scopes=["https://myresource/.default"])
+            delete_pipeline_def("target_pipeline_id")
 
-    @patch("src.pipelines.PIPELINE_SP_TENANT_ID", "tenant")
-    @patch("src.pipelines.PIPELINE_SP_CLIENT_ID", "client")
-    @patch("src.pipelines.PIPELINE_SP_CLIENT_SECRET", "secret")
-    @patch("msal.ConfidentialClientApplication")
-    def test_get_sp_token_success_with_trailing_slash(self, mock_msal):
-        from src.pipelines import _get_sp_token
-
-        mock_app = MagicMock()
-        mock_msal.return_value = mock_app
-        mock_app.acquire_token_for_client.return_value = {"access_token": "valid-token"}
-
-        token = _get_sp_token("https://myresource/")
-
-        assert token == "valid-token"
-        mock_app.acquire_token_for_client.assert_called_once_with(scopes=["https://myresource/.default"])
-
-    @patch("src.pipelines.PIPELINE_SP_TENANT_ID", "")
-    def test_get_sp_token_missing_config(self):
-        from src.pipelines import _get_sp_token
-        with pytest.raises(RuntimeError, match="Pipeline service principal credentials are not configured"):
-            _get_sp_token("res")
-
-    @patch("src.pipelines.PIPELINE_SP_TENANT_ID", "tenant")
-    @patch("src.pipelines.PIPELINE_SP_CLIENT_ID", "client")
-    @patch("src.pipelines.PIPELINE_SP_CLIENT_SECRET", "secret")
-    @patch("msal.ConfidentialClientApplication")
-    def test_get_sp_token_failure(self, mock_msal):
-        from src.pipelines import _get_sp_token
-
-        mock_app = MagicMock()
-        mock_msal.return_value = mock_app
-        mock_app.acquire_token_for_client.return_value = {"error": "invalid_client"}
-
-        with pytest.raises(RuntimeError, match="Failed to acquire pipeline SP token: invalid_client"):
-            _get_sp_token("res")
+        mock_def_storage.delete.assert_called_once_with("target_pipeline_id")
+        mock_run_storage.clear.assert_called_once_with("target_pipeline_id")
 
 
 class TestRunStatePersistence:
@@ -579,6 +537,21 @@ class TestPollRunStatusUnknownBackend:
         mock_update.assert_called_once_with("p1", "unknown")
         assert result["status"] == "unknown"
         assert result["progress"] == 0
+        assert result["is_terminal"] is False
+
+    @patch("src.pipelines._status_databricks", side_effect=Exception("API failure"))
+    @patch("src.pipelines._update_run")
+    def test_poll_run_status_exception_handling(self, mock_update, mock_status):
+        from src.pipelines import poll_run_status
+        pipeline = {"backend": "databricks", "pipeline_id": "p1"}
+        run = {"backend_run_id": "r1", "status": "running"}
+
+        result = poll_run_status(pipeline, run)
+
+        mock_update.assert_not_called()
+        assert result["status"] == "running"
+        assert result["progress"] == 0
+        assert "API failure" in result["message"]
         assert result["is_terminal"] is False
 
 
