@@ -437,6 +437,8 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             full_name, str(row["table_name"]), query_groups, run_query, max_depth=2,
         )
 
+        # ⚡ Bolt: No N+1 query exists here. The loop safely constructs a parameter dictionary
+        # for a single parameterized IN clause execution (preventing injection), it does not execute a query per group.
         rel_placeholders = ", ".join(f"%(group_{i})s" for i in range(len(query_groups))) if query_groups else "''"
         rel_params = {"catalog_name": row["catalog_name"], "schema_name": row["schema_name"], "full_name": full_name}
         for i, group in enumerate(query_groups):
