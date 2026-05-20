@@ -126,6 +126,13 @@ def run_query(query, params=None):
 
 
 @st.cache_data(ttl="1h", show_spinner=False)
+def get_authorized_table_names(groups):
+    """Retrieve a set of full names for tables the user is authorized to access."""
+    df = get_authorized_tables(groups)
+    return set(df["full_name"].tolist()) if df is not None and not df.empty else set()
+
+
+@st.cache_data(ttl="1h", show_spinner=False)
 def get_authorized_tables(groups):
     """Retrieve metadata for tables the user is authorized to access.
 
@@ -300,12 +307,7 @@ def search_all_metadata(query: str, groups: tuple):
 
     term_matches = []
     if _DEMO_GLOSSARY is not None and not _DEMO_GLOSSARY.empty and query:
-        _auth_df = get_authorized_tables(groups)
-        _allowed_fns = (
-            set(_auth_df["full_name"].tolist())
-            if _auth_df is not None and not _auth_df.empty
-            else set()
-        )
+        _allowed_fns = get_authorized_table_names(groups)
         query_lower = query.lower()
         mask = _DEMO_GLOSSARY["term"].str.lower().str.contains(
             query_lower, regex=False, na=False
