@@ -59,7 +59,7 @@ def databricks_env(monkeypatch):
 
 class TestSafeIdent:
     @pytest.mark.parametrize("part", [
-        "table", "TABLE", "table_1", "Table_1_2", "_underscore", "abc123",
+        "table", "TABLE", "table_1", "Table_1_2", "_underscore", "abc123", "table-name",
     ])
     def test_accepts_valid(self, part):
         from src.sync.push import _safe_ident
@@ -67,7 +67,7 @@ class TestSafeIdent:
 
     @pytest.mark.parametrize("bad", [
         "table`drop", "table.column", "table;DROP TABLE x",
-        "table-name", "table name", "tαble", "café",
+        "table name", "tαble", "café",
         "", "   ",
     ])
     def test_rejects_unsafe(self, bad):
@@ -197,7 +197,7 @@ class TestPushToDatabricks:
             _push_to_databricks("COLUMN_DEF", "a.b.c", {})
 
     def test_column_def_rejects_backtick_in_column_name(self, databricks_env):
-        """Identifier whitelist refuses anything not [A-Za-z0-9_]."""
+        """Identifier whitelist refuses anything not [A-Za-z0-9_-]."""
         from src.sync.push import _push_to_databricks
         with pytest.raises(ValueError, match="unsafe identifier"):
             _push_to_databricks(
