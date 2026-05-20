@@ -5,7 +5,7 @@ from __future__ import annotations
 import html as _html
 import logging
 import os
-import urllib.parse
+from urllib.parse import quote
 
 import pandas as _pd
 import streamlit as st
@@ -100,9 +100,9 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         _desc = _html.escape(str(_raw_desc) if isinstance(_raw_desc, str) else "")
 
         _host = _html.escape(os.getenv("DATABRICKS_HOST", "").strip())
-        _url_cat = urllib.parse.quote(str(row["catalog_name"]))
-        _url_sch = urllib.parse.quote(str(row["schema_name"]))
-        _url_tbl = urllib.parse.quote(str(row["table_name"]))
+        _url_cat = quote(str(row["catalog_name"]))
+        _url_sch = quote(str(row["schema_name"]))
+        _url_tbl = quote(str(row["table_name"]))
         _ext_text = _html.escape(str(t("table.open_in_databricks")))
         _ext_link = (
             f'<a href="https://{_host}/explore/data/{_url_cat}/{_url_sch}/{_url_tbl}" '
