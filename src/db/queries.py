@@ -2,10 +2,10 @@ from __future__ import annotations
 """DB connection router and base query executor.
 
 Provides the write-connection helper and a backend-agnostic run_query()
-that dispatches to DuckDB (if available) or Databricks.  Demo-mode
-interception (returning _DEMO_* fixtures) lives in app.py's wrapper so
-that this module stays importable without triggering a circular re-import
-of app.py.
+that dispatches to DuckDB (if available) or Databricks. Demo-mode
+interception (returning _DEMO_* fixtures) lives directly within the
+run_query() function to ensure this module handles the 3-tier routing
+architecture (Demo -> DuckDB -> Databricks) transparently for callers.
 """
 
 
