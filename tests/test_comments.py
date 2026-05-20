@@ -484,10 +484,8 @@ class TestCommentUI:
 
              mock_email.assert_called_once_with("parent@test.com", "Test User", "schema.table", "A reply", "steward@test.com")
              mock_audit.assert_called_once_with("comment_reply", "table", "schema.table", "", "A reply")
-import pytest
 from unittest.mock import patch, MagicMock
 from src.comments import _fetch_comment_author_email
-import pandas as pd
 
 class MockSessionState(dict):
     def __getattr__(self, item):

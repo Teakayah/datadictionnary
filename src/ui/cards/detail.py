@@ -21,7 +21,7 @@ import streamlit as st
 from src.audit import save_table_metadata
 from src.config import CATALOG_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
-from src.db.queries import get_authorized_tables, get_authorized_table_names, run_query
+from src.db.queries import get_authorized_table_names, run_query
 from src.i18n import t
 from src.ui.css import VIS_WIDE_CSS
 
