@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Optional
 """Internationalisation (i18n) for the Data Dictionary.
 
 Public API:
@@ -59,7 +58,7 @@ def t(key: str, **kwargs) -> str:
     _ensure_locale()
     lang = st.session_state.get("locale", "en")
 
-    def _lookup(d: dict, parts: list) -> "Optional[str]":
+    def _lookup(d: dict, parts: list) -> str | None:
         for p in parts:
             if not isinstance(d, dict):
                 return None
