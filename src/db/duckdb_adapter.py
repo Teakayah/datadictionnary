@@ -207,9 +207,11 @@ def _get_shared_duckdb_connection():
             # Use an in-memory connection as the primary
             con = duckdb.connect(":memory:")
             # Attach the main read-only cache
-            con.execute(f"ATTACH '{DUCKDB_PATH}' AS {CATALOG_CACHE} (READ_ONLY)")
+            safe_duckdb_path = DUCKDB_PATH.replace("'", "''")
+            con.execute(f"ATTACH '{safe_duckdb_path}' AS {CATALOG_CACHE} (READ_ONLY)")
             # Attach the persistent user data database
-            con.execute(f"ATTACH IF NOT EXISTS '{USER_DATA_PATH}' AS user_data")
+            safe_user_data_path = USER_DATA_PATH.replace("'", "''")
+            con.execute(f"ATTACH IF NOT EXISTS '{safe_user_data_path}' AS user_data")
 
             # Initialize user data tables with primary keys (if they don't exist)
             _initialize_schema(con)

@@ -35,15 +35,17 @@ class DaemonConn:
             )
         self._con = duckdb.connect(":memory:")
         if DUCKDB_PATH and Path(DUCKDB_PATH).exists():
+            safe_duckdb_path = DUCKDB_PATH.replace("'", "''")
             self._con.execute(
-                f"ATTACH '{DUCKDB_PATH}' AS {CATALOG_CACHE} (READ_ONLY)"
+                f"ATTACH '{safe_duckdb_path}' AS {CATALOG_CACHE} (READ_ONLY)"
             )
         else:
             log.info(
                 "Catalog file %s missing — daemon will run without DR resync from cache.",
                 DUCKDB_PATH,
             )
-        self._con.execute(f"ATTACH IF NOT EXISTS '{USER_DATA_PATH}' AS user_data")
+        safe_user_data_path = USER_DATA_PATH.replace("'", "''")
+        self._con.execute(f"ATTACH IF NOT EXISTS '{safe_user_data_path}' AS user_data")
         _initialize_schema(self._con)
 
     def cursor(self) -> _DuckDBCursor:
