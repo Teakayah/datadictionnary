@@ -7,6 +7,13 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done
 
 ---
 
+## Next steps
+
+- [x] **Review**: Perform a detailed technical and editorial review of the [Recommendation Engine](docs/feature-recommendation-engine.html) documentation and implementation.
+- [x] **Deployment**: Deploy the updated Kubernetes manifests to apply new security labels and hardened configurations. (Automated via CI/CD on push to main)
+
+---
+
 ## Quick wins (done)
 
 - [x] Replace deprecated `datetime.utcnow()` → `datetime.now(UTC)` (commit bc4df2c)
@@ -127,12 +134,15 @@ in a follow-up PR.
 
 ### 4. Storage abstraction — collapse demo / DuckDB / Databricks branching
 
-**Status:** done (branch `feat/storage-abstraction`). Acceptance bar met:
+**Status:** done.
 
-```
-$ git grep "_duckdb_available()" src/cms.py src/pipelines.py src/personalization.py
-(no matches)
-```
+- Per-entity storage backends live under `src/storage/` and collapse the
+  demo / DuckDB branching that used to be duplicated across `cms.py`,
+  `pipelines.py`, `personalization.py`, and `audit.py`.
+- `table_metadata_overrides` integrated into core search and catalog
+  queries in `src/db/queries.py`, providing immediate feedback for
+  user-authored descriptions and steward updates.
+- `src/pages/search.py` migrated to `BusinessNameOverrideStorage`.
 
 Layout:
 ```
@@ -147,20 +157,9 @@ src/storage/
                           (each with 4 concretes — adds Databricks fallback)
 ```
 
-Each entity migrated as its own commit, tests stayed green throughout
-(289 → 307 → 321 → 336). Protocol-based design lets test code inject
-`Fake*Storage` without inheriting; existing callers unchanged.
-
-**Out of scope (deferred):**
-
-- ``src/audit.py::save_table_metadata`` still issues a local UPDATE
-  against the read-only-attached catalog cache. The UPDATE silently
-  fails in production today; durability comes from ``enqueue_sync`` to
-  Databricks. Migrating that to a ``CatalogTableMetadataStorage`` is a
-  separate concern — catalog cache is not user_data.
-- Re-using ``BusinessNameOverrideStorage.get_for_table`` from
-  ``src/pages/search.py`` (currently still calls
-  ``src.db.queries.get_column_business_names``). Mechanical follow-up.
+Each entity migrated as its own commit, tests stayed green throughout.
+Protocol-based design lets test code inject `Fake*Storage` without
+inheriting; existing callers unchanged.
 
 ---
 

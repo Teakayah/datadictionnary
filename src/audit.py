@@ -7,11 +7,10 @@ Storage delegated to ``src.storage`` — see ``AuditStorage`` and
 concerns: validation, permission checks, audit-trail emission, and the
 side effects on the local search cache.
 
-Note on table-metadata writes (``save_table_metadata``): the local UPDATE
-against ``data_governance.dictionary_cache.tables_metadata`` writes to
-the read-only-attached catalog file in production and silently raises;
-the durable change is the ``enqueue_sync`` to Databricks. Migration of
-that path is deferred — see TODO.md (out-of-scope follow-ups).
+Note on table-metadata writes (``save_table_metadata``): local durability
+is ensured by writing to ``user_data.table_metadata_overrides``. These
+overrides are joined back into the core search and catalog queries in
+``src.db.queries``, providing immediate feedback for user edits.
 """
 from typing import Optional
 

@@ -152,6 +152,12 @@ def get_authorized_tables(groups):
     if groups:
         for i, group in enumerate(groups):
             params[f"group_{i}"] = group
+    _table_overrides_tbl = (
+        "user_data.table_metadata_overrides"
+        if _duckdb_available()
+        else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.table_metadata_overrides"
+    )
+
     sql_query = (
         """
         SELECT DISTINCT
@@ -159,7 +165,7 @@ def get_authorized_tables(groups):
             m.catalog_name,
             m.schema_name,
             m.table_name,
-            m.comment as table_description,
+            COALESCE(o.description, m.comment) as table_description,
             m.table_type,
             m.updated_at,
             COALESCE(dq.dq_score, '') AS dq_score,
@@ -167,11 +173,13 @@ def get_authorized_tables(groups):
         FROM {0}.{1}.tables_metadata m
         JOIN {0}.{1}.permissions_cache p
           ON m.full_name = p.table_full_name
+        LEFT JOIN {3} o
+          ON m.full_name = o.table_full_name
         LEFT JOIN {0}.{1}.data_quality_cache dq
           ON m.full_name = dq.table_full_name
         WHERE (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
     """
-    ).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders)  # nosec B608
+    ).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders, _table_overrides_tbl)  # nosec B608
     return run_query(sql_query, params)
 
 
@@ -252,42 +260,52 @@ def search_all_metadata(query: str, groups: tuple):
         else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
     )
 
+    _table_overrides_tbl = (
+        "user_data.table_metadata_overrides"
+        if _duckdb_available()
+        else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.table_metadata_overrides"
+    )
+
     sql_query = (
         """
         SELECT DISTINCT
             m.full_name, m.table_name AS name, 'Table' AS match_type,
-            m.comment AS description, m.catalog_name, m.schema_name, m.table_name,
-            m.comment AS table_description,
+            COALESCE(o.description, m.comment) AS description, 
+            m.catalog_name, m.schema_name, m.table_name,
+            COALESCE(o.description, m.comment) AS table_description,
             COALESCE(dq.dq_score, '') AS dq_score
         FROM {0}.{1}.tables_metadata m
         JOIN {0}.{1}.permissions_cache p ON m.full_name = p.table_full_name
+        LEFT JOIN {3} o ON m.full_name = o.table_full_name
         LEFT JOIN {0}.{1}.data_quality_cache dq ON m.full_name = dq.table_full_name
-        WHERE (m.table_name LIKE %(q)s OR m.comment LIKE %(q)s)
+        WHERE (m.table_name LIKE %(q)s OR m.comment LIKE %(q)s OR o.description LIKE %(q)s)
           AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
 
         UNION ALL
 
         SELECT DISTINCT
             c.table_full_name AS full_name,
-            COALESCE(o.business_name, c.column_name) AS name,
+            COALESCE(ob.business_name, c.column_name) AS name,
             'Column' AS match_type,
-            COALESCE(o.definition, c.comment) AS description,
-            t.catalog_name, t.schema_name, t.table_name, t.comment AS table_description,
+            COALESCE(ob.definition, c.comment) AS description,
+            t.catalog_name, t.schema_name, t.table_name, 
+            COALESCE(ot.description, t.comment) AS table_description,
             COALESCE(dq.dq_score, '') AS dq_score
         FROM {0}.{1}.columns_metadata c
         JOIN {0}.{1}.permissions_cache p ON c.table_full_name = p.table_full_name
         JOIN {0}.{1}.tables_metadata t ON c.table_full_name = t.full_name
+        LEFT JOIN {3} ot ON c.table_full_name = ot.table_full_name
         LEFT JOIN {0}.{1}.data_quality_cache dq ON c.table_full_name = dq.table_full_name
-        LEFT JOIN {3} o ON o.table_full_name = c.table_full_name AND o.column_name = c.column_name
+        LEFT JOIN {4} ob ON ob.table_full_name = c.table_full_name AND ob.column_name = c.column_name
         WHERE (
             c.column_name LIKE %(q)s OR c.comment LIKE %(q)s
-            OR o.business_name LIKE %(q)s OR o.definition LIKE %(q)s
+            OR ob.business_name LIKE %(q)s OR ob.definition LIKE %(q)s
           )
           AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
 
         LIMIT 50
     """
-    ).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders, _overrides_tbl)  # nosec B608
+    ).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders, _table_overrides_tbl, _overrides_tbl)  # nosec B608
 
     sql_results = run_query(sql_query, params)
 
