@@ -6,6 +6,9 @@ metadata:
   labels:
     app.kubernetes.io/name: data-dictionary
     app.kubernetes.io/component: app
+    app.kubernetes.io/version: ${IMAGE_TAG}
+    app.kubernetes.io/part-of: data-dictionary
+    app.kubernetes.io/managed-by: kubectl
   annotations:
     # Update this tag and roll the deployment when publishing a new image
     deployment.kubernetes.io/image: ghcr.io/org/data-dictionary:${IMAGE_TAG}
@@ -24,6 +27,9 @@ spec:
         app: dd-app
         app.kubernetes.io/name: data-dictionary
         app.kubernetes.io/component: app
+        app.kubernetes.io/version: ${IMAGE_TAG}
+        app.kubernetes.io/part-of: data-dictionary
+        app.kubernetes.io/managed-by: kubectl
     spec:
       automountServiceAccountToken: false
       securityContext:
