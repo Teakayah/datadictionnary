@@ -2,10 +2,7 @@ from __future__ import annotations
 """DB connection router and base query executor.
 
 Provides the write-connection helper and a backend-agnostic run_query()
-that dispatches to DuckDB (if available) or Databricks.  Demo-mode
-interception (returning _DEMO_* fixtures) lives in app.py's wrapper so
-that this module stays importable without triggering a circular re-import
-of app.py.
+that dispatches to demo-mode fixtures, DuckDB (if available), or Databricks.
 """
 
 
@@ -66,9 +63,8 @@ def _base_run_query(query: str, params=None) -> pd.DataFrame:
     """Execute a SQL read query against DuckDB (if available) or Databricks.
 
     This is the backend-only dispatcher — it has no demo-mode logic.
-    app.py wraps this with _DEMO_* fixture interception for demo mode.
-    ui/cards.py imports this directly for admin/health queries that guard
-    the demo branch themselves via is_demo_mode().
+    It is used by run_query() after demo-mode interception, and directly by
+    admin/health queries that guard the demo branch themselves.
     """
     if _duckdb_available():
         return _run_duckdb_query(query, params)
