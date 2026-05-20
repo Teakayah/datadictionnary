@@ -13,3 +13,6 @@
 **Learning:** To localize date formats effectively in this Streamlit app without an external i18n date library, the format string itself (e.g., "%b %d, %Y") can be stored inside the JSON localization dictionaries.
 **Action:** When formatting dates using Python's strftime, pass the localized format string directly into the datetime object's formatting method: `dt.strftime(t('namespace.date_format_key'))`.
 ## 2024-05-19 - [Extract st.success alerts] **Learning:** Streamlit status messages (like st.success, st.error) frequently contain hardcoded user-facing strings that need to be wrapped in the localization function t(). **Action:** Always ensure Streamlit status components use t() rather than hardcoded text.
+## 2026-05-16 - [Preserving JSON Encoding]
+**Learning:** When programmatically updating JSON locale files (e.g., `locale/en.json`, `locale/fr.json`) via Python scripts, using the default `json.dump` behavior will encode all non-ASCII characters into unicode escape sequences (e.g., `é` becomes `\u00e9`). This destroys the readability and maintainability of the translation files.
+**Action:** Always explicitly use `ensure_ascii=False` when calling `json.dump` to update translation files to preserve native UTF-8 characters.

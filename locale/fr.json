@@ -195,7 +195,8 @@
     "sync_failed": "Échoué : {count}",
     "sync_self_healing": "Auto-réparation (DR)",
     "sync_worker_heartbeat": "Heartbeat du worker",
-    "integrity_no_dq_failures": "Aucune défaillance critique de DQ détectée."
+    "integrity_no_dq_failures": "Aucune défaillance critique de DQ détectée.",
+    "integrity_dq_alerts_success": "Aucune défaillance DQ critique détectée."
   },
   "health": {
     "title": "§ Santé du catalogue",
