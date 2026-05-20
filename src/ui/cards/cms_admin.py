@@ -34,8 +34,8 @@ def _show_cms_create_dialog():
     )
     post_type = next(k for k, v in type_labels.items() if v == sel_type)
 
-    title = st.text_input(t("cms.post_title"), max_chars=120, key="cms_create_title")
-    body  = st.text_area(t("cms.post_body"),  max_chars=500, height=100, key="cms_create_body")
+    title = st.text_input(t("cms.post_title"), placeholder=t("cms.post_title_placeholder"), max_chars=120, key="cms_create_title")
+    body  = st.text_area(t("cms.post_body"), placeholder=t("cms.post_body_placeholder"), max_chars=500, height=100, key="cms_create_body")
 
     table_ref = None
     if post_type == "featured_table":
@@ -93,7 +93,13 @@ def _render_admin_cms_section():
 
     posts = get_all_posts()
     if not posts:
-        st.caption(t("cms.no_posts"))
+        st.markdown(
+            f'<div style="padding: 24px; text-align: center; background: var(--paper-deep); border: 1px dashed var(--ink-20); border-radius: 4px;">'
+            f'<div style="font-size: 24px; color: var(--ink-40); margin-bottom: 8px;">📣</div>'
+            f'<div style="font-family: var(--font-sans); font-size: 14px; color: var(--ink-60);">{t("cms.no_posts")}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
         return
 
     type_labels = {
