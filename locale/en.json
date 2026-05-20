@@ -196,7 +196,8 @@
     "sync_self_healing": "Self-Healing (DR)",
     "sync_worker_heartbeat": "Worker heartbeat",
     "integrity_no_dq_failures": "No critical DQ failures detected.",
-    "integrity_dq_alerts_success": "No critical DQ failures detected."
+    "integrity_dq_alerts_success": "No critical DQ failures detected.",
+    "date_format": "%b %d, %Y %H:%M UTC"
   },
   "health": {
     "title": "§ Catalog health",
