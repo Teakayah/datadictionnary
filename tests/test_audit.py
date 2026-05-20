@@ -4,6 +4,18 @@ from unittest.mock import patch, MagicMock
 from src.audit import save_table_metadata, _validate_business_name_inputs, save_business_name
 from src.config import MAX_BUSINESS_NAME_LEN, MAX_DEFINITION_LEN
 
+def test_save_table_metadata_db_write_error():
+    """Verify that if _get_write_connection raises an exception, the error propagates."""
+    with patch("src.audit.is_power_user", return_value=True), \
+         patch("src.audit._duckdb_available", return_value=True), \
+         patch("src.audit._get_write_connection") as mock_get_write, \
+         patch("src.audit.st"):
+
+        mock_get_write.side_effect = Exception("Mock DB Write Error")
+
+        with pytest.raises(Exception, match="Mock DB Write Error"):
+            save_table_metadata("catalog.schema.table", description="test")
+
 def test_save_table_metadata_duckdb_exception():
     """Verify that if DuckDB CHECKPOINT raises an Exception during metadata save, it is handled gracefully."""
     with patch("src.audit.is_power_user", return_value=True), \
