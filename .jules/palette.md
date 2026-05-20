@@ -1,3 +1,0 @@
-## 2023-11-20 - Adding Polish to Input and Empty States
-**Learning:** Raw empty states (using `st.caption` or `st.info` with just text) in a Streamlit interface can feel unfinished and make the UI look uninviting, especially for core interaction pages like Admin CMS and Pipelines.
-**Action:** When defining new sections that iterate over dynamic content, always ensure that the "empty list" state is styled cleanly—for example, using a dashed-border box with a center-aligned icon and gentle text contrast (`var(--ink-40)`/`var(--ink-60)`). Also, always utilize `placeholder` props for `st.text_input` and `st.text_area` as they significantly help ground user expectations on what values are valid before they start typing.
