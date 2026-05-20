@@ -77,9 +77,9 @@ def render_data_sample(table_full_name: str):
     try:
         # Validate Unity Catalog 3-level namespace format before interpolating.
         # Format expects: <catalog>.<schema>.<table>
-        # Each part must consist of 1 or more alphanumeric characters or underscores,
+        # Each part must consist of 1 or more alphanumeric characters, underscores, or hyphens,
         # and be separated by exactly one literal dot.
-        if not re.match(r"^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$", table_full_name):
+        if not re.match(r"^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$", table_full_name):
             st.error(t("common.error"))
             return
         if is_demo_mode():

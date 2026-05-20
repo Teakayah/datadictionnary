@@ -16,17 +16,17 @@ _SYNC_MAX_ATTEMPTS = 3
 # Mid-range batch size — daemon runs in its own process so there's no UI
 # latency budget to protect.
 _SYNC_BATCH_SIZE = 25
-# Unity Catalog identifier validator. UC permits only [A-Za-z0-9_], so anything
+# Unity Catalog identifier validator. UC permits only [A-Za-z0-9_-], so anything
 # outside this set in a column or table-name part is either a metadata bug or
 # an injection attempt — refuse rather than backtick-escape.
-_IDENT_RE = re.compile(r"^[A-Za-z0-9_]+$")
+_IDENT_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 # Lightweight email syntax check — used to block quote-escape bypass when
 # writing the steward tag value.
 _EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
 
 
 def _safe_ident(part: str) -> str:
-    """Return part wrapped in backticks, refusing anything not [A-Za-z0-9_]."""
+    """Return part wrapped in backticks, refusing anything not [A-Za-z0-9_-]."""
     if not part or not _IDENT_RE.match(part):
         raise ValueError(f"Refusing to interpolate unsafe identifier: {part!r}")
     return f"`{part}`"
