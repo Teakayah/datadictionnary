@@ -39,3 +39,8 @@
 **Cluster Quirk:** Workloads running with user or group IDs below 10,000 can conflict with host users.
 **Learning:** A userid and groupid above 10,000 is recommended to avoid conflicts with the host system.
 **Resilience:** Set `securityContext.runAsUser`, `securityContext.runAsGroup`, and `fsGroup` to a value > 10000 (e.g., `10001`).
+
+## 2026-05-20 - [Standardized Kubernetes Metadata Labels]
+**Cluster Quirk:** The Kubernetes manifests lacked comprehensive recommended labels (`app.kubernetes.io/version`, `app.kubernetes.io/part-of`, `app.kubernetes.io/managed-by`), which complicates observability and tooling integration.
+**Learning:** Adding `app.kubernetes.io/version: ${IMAGE_TAG}` causes `kube-score` to throw a `[CRITICAL] Label values -> Invalid label value` error because the literal string `${IMAGE_TAG}` violates Kubernetes label validation regex. However, this placeholder is required for the `envsubst` deployment step.
+**Resilience:** The Kube-score warning for `app.kubernetes.io/version: ${IMAGE_TAG}` must be ignored during static analysis to ensure the CI/CD pipeline can inject dynamic image tags without breaking declarative management. Added the missing labels to the Deployment, Deployment-sync-worker, and CronJob manifests.

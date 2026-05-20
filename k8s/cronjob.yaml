@@ -6,6 +6,9 @@ metadata:
   labels:
     app.kubernetes.io/name: data-dictionary
     app.kubernetes.io/component: sync-job
+    app.kubernetes.io/version: ${IMAGE_TAG}
+    app.kubernetes.io/part-of: data-dictionary
+    app.kubernetes.io/managed-by: kubectl
 spec:
   # Run every day at 03:00 UTC
   schedule: "0 3 * * *"
@@ -22,6 +25,9 @@ spec:
             app: dd-sync
             app.kubernetes.io/name: data-dictionary
             app.kubernetes.io/component: sync-job
+            app.kubernetes.io/version: ${IMAGE_TAG}
+            app.kubernetes.io/part-of: data-dictionary
+            app.kubernetes.io/managed-by: kubectl
         spec:
           automountServiceAccountToken: false
           restartPolicy: OnFailure
