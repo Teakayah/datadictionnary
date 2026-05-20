@@ -304,10 +304,6 @@ def check_auth(sync_prefs_callback: Optional[callable] = None):
                 st.error(t("auth.signin_failed_security"))
                 st.stop()
 
-            # Bust the groups cache for this user so a fresh sign-in always
-            # re-resolves group membership from the new ID token (or Graph,
-            # for overage users) — captures Entra group changes immediately
-            # rather than waiting up to 1h for the cache TTL.
             from src.auth_graph import clear_groups_cache  # noqa: PLC0415
             new_oid = claims.get("oid", "")
             if new_oid:
