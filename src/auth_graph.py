@@ -116,7 +116,7 @@ def _call_get_member_objects(access_token: str) -> list[str]:
     next_url = data.get("@odata.nextLink") or ""
 
     # Subsequent pages: GET against the URL Graph returned. Cap iterations
-    # so a buggy server can't loop us forever.
+    # to 50 pages to strictly bound pagination and prevent infinite loops.
     seen_urls = set()
     for _ in range(50):
         if not next_url:
