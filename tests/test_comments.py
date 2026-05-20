@@ -578,7 +578,41 @@ def test_build_comment_tree():
 
     assert tree[1]["comment_id"] == "5" # Orphan becomes root
 
-def test_get_table_comments_prod_found(monkeypatch):
+def test_get_table_comments_demo_found(monkeypatch):
+    from src.comments import get_table_comments
+    monkeypatch.setenv("DEMO_DATA", "true")
+    state = MockSessionState({
+        "demo_comments": {
+            "obj1": [
+                {"comment_id": "1", "parent_comment_id": None, "text": "Root"},
+                {"comment_id": "2", "parent_comment_id": "1", "text": "Reply 1"}
+            ]
+        }
+    })
+    with patch("src.comments.st.session_state", state):
+        res = get_table_comments("obj1")
+        assert len(res) == 1
+        assert res[0]["comment_id"] == "1"
+        assert len(res[0]["replies"]) == 1
+        assert res[0]["replies"][0]["comment_id"] == "2"
+
+
+def test_get_table_comments_demo_empty(monkeypatch):
+    from src.comments import get_table_comments
+    monkeypatch.setenv("DEMO_DATA", "true")
+    state = MockSessionState({
+        "demo_comments": {
+            "obj1": [
+                {"comment_id": "1", "parent_comment_id": None, "text": "Root"}
+            ]
+        }
+    })
+    with patch("src.comments.st.session_state", state):
+        res = get_table_comments("obj2")
+        assert len(res) == 0
+
+
+def test_get_table_comments_prod_found_duckdb(monkeypatch):
     from src.comments import get_table_comments
     monkeypatch.setenv("DEMO_DATA", "false")
     with patch("src.comments.get_db_connection") as mock_conn_func, \
@@ -595,6 +629,63 @@ def test_get_table_comments_prod_found(monkeypatch):
         res = get_table_comments("obj1")
         assert len(res) == 1
         assert res[0]["comment_id"] == "1"
+        args, kwargs = mock_cursor.execute.call_args
+        assert "user_data.comments" in args[0]
+
+
+def test_get_table_comments_prod_found_databricks(monkeypatch):
+    from src.comments import get_table_comments
+    from src.config import CATALOG_CACHE, SCHEMA_CACHE
+    monkeypatch.setenv("DEMO_DATA", "false")
+    with patch("src.comments.get_db_connection") as mock_conn_func, \
+         patch("src.comments._duckdb_available", return_value=False):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_conn_func.return_value = mock_conn
+
+        mock_cursor.fetchall_as_pandas.return_value = pd.DataFrame([
+            {"comment_id": "1", "parent_comment_id": None, "text": "Root"}
+        ])
+
+        res = get_table_comments("obj1")
+        assert len(res) == 1
+        assert res[0]["comment_id"] == "1"
+        args, kwargs = mock_cursor.execute.call_args
+        assert f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments" in args[0]
+
+
+def test_get_table_comments_prod_empty(monkeypatch):
+    from src.comments import get_table_comments
+    monkeypatch.setenv("DEMO_DATA", "false")
+    with patch("src.comments.get_db_connection") as mock_conn_func, \
+         patch("src.comments._duckdb_available", return_value=True):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_conn_func.return_value = mock_conn
+
+        mock_cursor.fetchall_as_pandas.return_value = pd.DataFrame()
+
+        res = get_table_comments("obj1")
+        assert res == []
+
+
+def test_get_table_comments_prod_none(monkeypatch):
+    from src.comments import get_table_comments
+    monkeypatch.setenv("DEMO_DATA", "false")
+    with patch("src.comments.get_db_connection") as mock_conn_func, \
+         patch("src.comments._duckdb_available", return_value=True):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_conn_func.return_value = mock_conn
+
+        mock_cursor.fetchall_as_pandas.return_value = None
+
+        res = get_table_comments("obj1")
+        assert res == []
+
 
 def test_get_table_comments_prod_error(monkeypatch, caplog):
     from src.comments import get_table_comments
