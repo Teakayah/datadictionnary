@@ -108,6 +108,16 @@ class TestRenderTableMetadataEditor:
         expected_error = en_locale["common"]["error_with_details"].replace("{error}", "DB Error")
         assert at.error[0].value == expected_error
 
+    @patch("src.ui.cards.detail.save_table_metadata")
+    def test_render_table_metadata_editor_cancel(self, mock_save):
+        at = AppTest.from_function(table_editor_app, args=("cat.sch.tbl", "old desc", "old@steward.com")).run()
+
+        at.button[1].click().run()
+
+        mock_save.assert_not_called()
+        assert not at.exception
+        assert not at.error
+
 
 class TestRenderDataSample:
     @patch("src.ui.cards.detail.get_authorized_table_names")
@@ -170,6 +180,23 @@ class TestRenderDataSample:
         # No, the regex and split are consistent. Let's just test that authorized but non-matching name fails validation.
         at = AppTest.from_function(data_sample_app, args=("not_three_parts",)).run()
         assert at.error[0].value == en_locale["common"]["error"]
+
+    @patch("src.ui.cards.detail.get_authorized_table_names")
+    @patch("src.ui.cards.detail.is_demo_mode")
+    @patch("src.ui.cards.detail._duckdb_available")
+    @patch("src.ui.cards.detail.run_query")
+    def test_render_data_sample_duckdb_query_invalid_len_parts(self, mock_run, mock_duckdb, mock_demo, mock_auth):
+        mock_auth.return_value = {"not_three_parts"}
+        mock_demo.return_value = False
+        mock_duckdb.return_value = True
+
+        with patch("src.ui.cards.detail.re.match") as mock_match:
+            mock_match.return_value = True
+            at = AppTest.from_function(data_sample_app, args=("not_three_parts",)).run()
+
+            assert len(at.info) > 0
+            assert at.info[0].value == en_locale["detail"]["preview_not_available"]
+            mock_run.assert_not_called()
 
     @patch("src.ui.cards.detail.get_authorized_table_names")
     @patch("src.ui.cards.detail.is_demo_mode")
