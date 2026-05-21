@@ -28,7 +28,6 @@ from src.demo.data import (
 
 from src.db.duckdb_adapter import _duckdb_available, _DuckDBConn, _run_duckdb_query
 from src.db.databricks_adapter import _run_databricks_query
-from src.semantic import semantic_search
 
 
 def _get_write_connection():
@@ -226,9 +225,10 @@ def search_all_metadata(query: str, groups: tuple):
     # 1. Keyword search (current implementation)
     keyword_results = _search_keywords(query, groups)
     
-    # 2. Semantic search (Phase 2 placeholder)
+    # 2. Semantic search (Phase 2 placeholder) — lazy import avoids circular dep
     semantic_fns = []
     try:
+        from src.semantic import semantic_search  # noqa: PLC0415
         semantic_fns = semantic_search(query)
     except Exception:
         pass
