@@ -8,6 +8,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <style>
+    .mermaid-wrap { background:var(--paper-deep); border:1px solid var(--ink-10); border-radius:2px; padding:24px; margin:20px 0; overflow-x:auto; }
+    .mermaid-wrap .mermaid { min-width:520px; }
+    .mermaid svg { max-width:100%; }
+  </style>
 </head>
 <body>
   
@@ -49,8 +54,6 @@
       <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
       <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
       <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
-      <li class="nav-item "><a href="feature-hybrid-search.html">Hybrid Semantic Search</a></li>
-      <li class="nav-item "><a href="feature-search-analytics.html">Search Analytics</a></li>
     </ul>
   </nav>
   <nav class="nav-section">
@@ -112,7 +115,23 @@ file). It runs in its own pod, separate from the Streamlit app.</p>
 </section>
 <section class="section" id="architecture-in-one-diagram">
 <h2>Architecture in one diagram</h2>
-<details class="ascii-container"><summary>View Diagram (Raw ASCII)</summary><pre>┌────────────────────┐            ┌────────────────────┐         ┌──────────────┐
+<div class="mermaid-wrap">
+  <div class="mermaid">
+graph LR
+    subgraph K8S["Kubernetes cluster"]
+        direction TB
+        APP["dd-app pods\n(HPA: 2–10)\nStreamlit UI + DuckDB attach"]
+        WORKER["dd-sync-worker\n(replicas: 1)\npython -m src.sync.daemon"]
+        PVC[("PVC dd-data\ndict.duckdb — catalog cache\ndict_user_data.duckdb — queue + overrides")]
+        APP -->|"enqueue writes\nto pending_sync"| PVC
+        WORKER <-->|"read queue / write heartbeat\n+ dr_resync_status"| PVC
+    end
+    WORKER -->|"push: ALTER TABLE\n/ INSERT / COMMENT"| DB[("Databricks\nSQL Warehouse\n/ Unity Catalog")]
+    WORKER -->|"DR resync:\npull late rows"| DB
+    PROBE["k8s liveness probe"] -->|"GET /healthz:8765"| WORKER
+  </div>
+</div>
+<details class="ascii-container"><summary>View raw ASCII diagram</summary><pre>┌────────────────────┐            ┌────────────────────┐         ┌──────────────┐
 │  dd-app pods       │            │  dd-sync-worker    │         │  Databricks  │
 │  (HPA: 2–10)       │            │  (replicas: 1)     │         │  SQL Wh / UC │
 │                    │  enqueue   │                    │  push   │              │
@@ -246,23 +265,13 @@ otherwise healthy — pending_sync drain still happens on every cycle.</p>
 <h3>Pending queue grows unbounded</h3>
 <p>Indicates one of:</p>
 <ol class="steps">
-  <li>Databricks creds are wrong or expired → all pushes fail, attempts</li>
-</ol>   counter increments. After <code>_SYNC_MAX_ATTEMPTS</code> (3) rows go to
-   <code>'failed'</code> and stop retrying.
-<ol class="steps">
+  <li>Databricks creds are wrong or expired → all pushes fail, attempts counter increments. After <code>_SYNC_MAX_ATTEMPTS</code> (3) rows go to <code>'failed'</code> and stop retrying.</li>
   <li>The daemon is crashing every cycle → check liveness probe events.</li>
-  <li>The schema in Databricks doesn't match what the push expects → look at</li>
-</ol>   <code>last_error</code> on a stuck row.
-<pre><code class="language-sql">SELECT sync_type, count(*), max(last_error)
-  FROM user_data.pending_sync
- WHERE status IN ('pending', 'failed')
- GROUP BY sync_type;</code></pre>
-<h3>Two writers contention (DuckDB OS lock)</h3>
-<p>Multiple processes write to <code>USER_DATA_PATH</code>: the sync worker and the
-Streamlit pods (which enqueue and write user overrides). DuckDB serialises
+  <li>The schema in Databricks doesn't match what the push expects → look at <code>last_error</code> on a stuck row. <pre><code class="language-sql">SELECT sync_type, count(*), max(last_error) FROM user_data.pending_sync WHERE status IN ('pending', 'failed') GROUP BY sync_type;</code></pre> <h3>Two writers contention (DuckDB OS lock)</h3> Multiple processes write to <code>USER_DATA_PATH</code>: the sync worker and the</li>
+</ol>Streamlit pods (which enqueue and write user overrides). DuckDB serialises
 them via an OS-level file lock. At low write volume (typical for this
 app) you'll never notice. If write contention shows up under load the
-fix is migrating <code>user_data</code> to PostgreSQL — tracked in TODO.md.</p>
+fix is migrating <code>user_data</code> to PostgreSQL — tracked in TODO.md.
 <hr>
 </section>
 <section class="section" id="related-runbooks-adrs">
@@ -280,5 +289,20 @@ fix is migrating <code>user_data</code> to PostgreSQL — tracked in TODO.md.</p
       </footer>
     </article>
   </main>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#F2EDE1', primaryTextColor: '#14110C', primaryBorderColor: '#C9C2B4',
+        lineColor: '#6B645A', secondaryColor: '#E3E9DE', tertiaryColor: '#DDE4EC',
+        background: '#FAF7F0', mainBkg: '#F2EDE1', nodeBorder: '#C9C2B4',
+        clusterBkg: '#FAF7F0', clusterBorder: '#C9C2B4', titleColor: '#14110C',
+        edgeLabelBackground: '#FAF7F0', fontFamily: 'Manrope, "Segoe UI", system-ui, sans-serif',
+        fontSize: '13px',
+      }
+    });
+  </script>
 </body>
 </html>

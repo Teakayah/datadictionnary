@@ -48,7 +48,7 @@ def test_setup_cache_tables(mock_get_sql_connection):
 
     setup_cache_tables()
 
-    assert mock_cursor.execute.call_count == 11
+    assert mock_cursor.execute.call_count == 12
 
     calls = mock_cursor.execute.call_args_list
     assert f"CREATE CATALOG IF NOT EXISTS {CATALOG_CACHE}" in calls[0][0][0]
@@ -192,11 +192,11 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
 
     # [0]  SELECT from permissions bulk fetch
     # [1]  SELECT from enrich_dq_from_monitoring (Lakehouse Monitoring)
-    # [2-7] 6 TRUNCATEs (tables, columns, permissions, lineage, object_tags, dq_cache)
-    # [8]  SELECT audit_log for DuckDB export
-    # [9]  SELECT from push_business_name_overrides (no overrides to push → returns empty)
+    # [2-8] 7 TRUNCATEs (tables, columns, permissions, lineage, object_tags, dq_cache, embedding_cache)
+    # [9]  SELECT audit_log for DuckDB export
+    # [10] SELECT from push_business_name_overrides (no overrides to push → returns empty)
     execute_calls = mock_cursor.execute.call_args_list
-    assert len(execute_calls) == 10
+    assert len(execute_calls) == 11
     assert "system.information_schema.table_privileges" in execute_calls[0][0][0]
     assert (
         f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata"
@@ -222,14 +222,15 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
         f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache"
         in execute_calls[7][0][0]
     )
-    assert "audit_log" in execute_calls[8][0][0]
-    assert "business_name_overrides" in execute_calls[9][0][0]
+    assert "audit_log" in execute_calls[9][0][0]
+    assert "business_name_overrides" in execute_calls[10][0][0]
 
-    # 5 executemany calls: tables, columns, permissions, data_quality, object_tags
-    # (object_tags has 1 data row from table tags; dq data comes from mock_table.properties)
+    # 6 executemany calls: tables, columns, permissions, object_tags, data_quality, embeddings
+    # (object_tags has 1 data row from table tags; dq data comes from mock_table.properties;
+    # embeddings come from MockEmbeddingEngine which always returns data)
     # lineage is empty because we mock the future result for it, so its executemany is skipped.
     executemany_calls = mock_cursor.executemany.call_args_list
-    assert len(executemany_calls) == 5
+    assert len(executemany_calls) == 6
     assert (
         f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp(), %(steward_email)s)"
         in executemany_calls[0][0][0]

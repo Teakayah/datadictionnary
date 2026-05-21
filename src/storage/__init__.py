@@ -20,6 +20,7 @@ Migration order (from TODO.md #4):
 
 
 from src.config import is_demo_mode
+from src.db.duckdb_adapter import _duckdb_available
 from src.storage.cms_storage import (  # noqa: F401
     CMSStorage,
     DemoCMSStorage,
@@ -148,6 +149,6 @@ def get_analytics_storage() -> AnalyticsStorage:
     from src.config import USER_DATA_PATH
 
     return (
-        DemoAnalyticsStorage() if _use_demo_backend()
+        DemoAnalyticsStorage() if _use_demo_backend() or not _duckdb_available()
         else DuckDBAnalyticsStorage(USER_DATA_PATH)
     )
