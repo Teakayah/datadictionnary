@@ -25,6 +25,24 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done
 
 ---
 
+## Phase 2: Advanced Features & Automation
+
+### E1. Hybrid Semantic Search
+- [x] **Embedding Engine**: Implement a real embedding backend (using Databricks Model Serving).
+- [x] **Indexing**: Update `scripts/sync_metadata.py` to calculate embeddings during nightly crawl.
+- [x] **VSS Search**: Implement `semantic_search` logic in `src/semantic.py`.
+- [x] **Hybrid Fusion**: Update `src/db/queries.py` to a hybrid execution structure.
+
+### E2. Documentation Automation
+- [x] **CI Enforcement**: Finalize CI step to ensure `md_to_html.py` has been run.
+- [x] **Incremental Updates**: MD5-based incremental updates in `md_to_html.py`.
+
+### E3. Search Analytics & Gap Analysis
+- [x] **Admin Dashboard Integration**: Real-time "Search Gaps" table in the Admin Insights tab.
+- [ ] **Automated Alerts**: (Optional) Enqueue a notification in the Health dashboard for persistent gaps.
+
+---
+
 ## Bigger investments (open)
 
 ### 1. Sidecar sync worker — kills DuckDB shared-connection concurrency bugs

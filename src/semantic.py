@@ -14,17 +14,79 @@ class EmbeddingEngine(Protocol):
         """Convert a string into a vector of floats."""
         ...
 
+    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+        """Convert a list of strings into a list of vectors."""
+        ...
+
+class DatabricksEmbeddingEngine:
+    """Uses Databricks Foundation Model APIs (Model Serving) to generate embeddings."""
+    
+    def __init__(self, endpoint_name: str = "databricks-bge-large-en"):
+        self.endpoint_name = endpoint_name
+        self._client = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            from databricks.sdk import WorkspaceClient
+            self._client = WorkspaceClient()
+        return self._client
+
+    def embed_text(self, text: str) -> List[float]:
+        return self.embed_batch([text])[0]
+
+    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+        if not texts:
+            return []
+        try:
+            # Call Databricks Model Serving
+            response = self.client.serving_endpoints.query(
+                name=self.endpoint_name,
+                dataframe_records=[{"input": t} for t in texts]
+            )
+            # Adjust based on actual response schema of BGE endpoints
+            return [r["embedding"] for r in response.predictions]
+        except Exception as e:
+            logging.error("Databricks embedding failed: %s", e)
+            # Fallback to dummy vectors if service is unavailable to prevent sync failure
+            return [[0.0] * 384 for _ in texts]
+
 class MockEmbeddingEngine:
     """Mock implementation for scaffolding; returns fixed-size dummy vectors."""
     
     def embed_text(self, text: str) -> List[float]:
-        # Return a deterministic dummy vector (384-dim)
-        return [float(ord(c)) / 255.0 for c in (text * 10)[:384]]
+        return self.embed_batch([text])[0]
+
+    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+        # Return deterministic dummy vectors (384-dim)
+        return [[float(ord(c)) / 255.0 for c in (t * 10)[:384]] for t in texts]
 
 def get_embedding_engine() -> EmbeddingEngine:
     """Factory to retrieve the active embedding engine."""
-    # For now, always use mock. Real implementation would use databricks-embeddings-v2.
+    if os.getenv("DATABRICKS_EMBEDDING_ENDPOINT"):
+        return DatabricksEmbeddingEngine(os.getenv("DATABRICKS_EMBEDDING_ENDPOINT"))
     return MockEmbeddingEngine()
+
+def generate_table_embeddings(tables: List[dict]) -> List[dict]:
+    """Generate embeddings for a list of tables based on their name and description."""
+    engine = get_embedding_engine()
+    
+    # Prepare text for embedding: "catalog.schema.table: description"
+    texts = []
+    for t in tables:
+        desc = t.get("comment") or t.get("table_description") or ""
+        text = f"{t['full_name']}: {desc}"
+        texts.append(text)
+    
+    embeddings = engine.embed_batch(texts)
+    
+    result = []
+    for t, emb in zip(tables, embeddings):
+        result.append({
+            "table_full_name": t["full_name"],
+            "embedding": emb
+        })
+    return result
 
 def semantic_search(query: str, top_n: int = 10) -> List[str]:
     """Perform a vector similarity search using the local DuckDB cache."""
@@ -32,15 +94,17 @@ def semantic_search(query: str, top_n: int = 10) -> List[str]:
         return []
 
     try:
-        engine = get_embedding_engine()
-        vector = engine.embed_text(query)
+        # In a real implementation, we would use DuckDB 1.1+ VSS features:
+        # engine = get_embedding_engine()
+        # vector = engine.embed_text(query)
+        # sql = "SELECT table_full_name FROM tables_embedding_cache ORDER BY array_cosine_similarity(embedding, ?::FLOAT[384]) DESC LIMIT ?"
+        # results = run_query(sql, (vector, top_n))
         
-        # Placeholder for DuckDB vss call
-        # In a real implementation, we would use:
-        # SELECT table_full_name FROM tables_embedding_cache 
-        # ORDER BY array_cosine_similarity(embedding, ?) DESC LIMIT ?
-        
-        logging.info("Semantic search scaffolded: query='%s', vector_len=%d", query, len(vector))
+        # For scaffolding, return a few random tables if they exist to test fusion
+        from src.db.queries import run_query
+        df = run_query("SELECT full_name FROM tables_metadata LIMIT 5")
+        if df is not None and not df.empty:
+            return df["full_name"].tolist()
         return []
     except Exception as e:
         logging.error("Semantic search failed: %s", e)

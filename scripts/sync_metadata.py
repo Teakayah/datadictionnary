@@ -1,4 +1,5 @@
 import os
+import sys
 import concurrent.futures
 from databricks.sdk import WorkspaceClient
 from databricks import sql
@@ -376,6 +377,18 @@ def sync():
     except Exception as e:
         print(f"  ⚠  DQ enrichment step failed: {e}")
 
+    # 2c. Generate semantic embeddings for search (Phase 2)
+    print("🧠 Generating semantic embeddings for search...")
+    embeddings_data = []
+    try:
+        # sys.path adjustment to allow importing from src
+        if os.path.dirname(__file__) not in sys.path:
+            sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+        from src.semantic import generate_table_embeddings
+        embeddings_data = generate_table_embeddings(tables_data)
+    except Exception as e:
+        print(f"  ⚠  Embedding generation failed: {e}")
+
     # 3. Load into Databricks SQL Warehouse
     print("📂 Loading data into SQL Warehouse...")
     with get_sql_connection() as conn:
@@ -386,6 +399,7 @@ def sync():
             cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache")
             cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags")
             cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache")
+            cursor.execute(f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_embedding_cache")
 
             if tables_data:
                 cursor.executemany(
@@ -417,6 +431,11 @@ def sync():
                     f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache VALUES (%(table_full_name)s, %(dq_score)s, %(last_run_status)s, %(freshness)s)",
                     data_quality_data
                 )
+            if embeddings_data:
+                cursor.executemany(
+                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_embedding_cache VALUES (%(table_full_name)s, %(embedding)s)",
+                    embeddings_data
+                )
 
     # Fetch audit_log for DuckDB export (rebuild from Databricks each sync)
     audit_log_data = []
@@ -432,7 +451,7 @@ def sync():
 
     print("✅ Sync completed successfully.")
     push_business_name_overrides()
-    write_duckdb(tables_data, columns_data, permissions_data, lineage_data, tags_data, data_quality_data, audit_log_data)
+    write_duckdb(tables_data, columns_data, permissions_data, lineage_data, tags_data, data_quality_data, audit_log_data, embeddings_data)
 
 
 def write_duckdb(
@@ -443,6 +462,7 @@ def write_duckdb(
     tags_data: list,
     data_quality_data: list = None,
     audit_log_data: list = None,
+    embeddings_data: list = None,
 ) -> None:
     """Export sync data to a local DuckDB file for fast local queries."""
     duckdb_path = os.getenv("DUCKDB_PATH", "")
@@ -477,6 +497,8 @@ def write_duckdb(
             ["object_type", "object_full_name", "tag_key", "tag_value"]),
         "data_quality_cache": pd.DataFrame(data_quality_data) if data_quality_data else _empty(
             ["table_full_name", "dq_score", "last_run_status", "freshness"]),
+        "tables_embedding_cache": pd.DataFrame(embeddings_data) if embeddings_data else _empty(
+            ["table_full_name", "embedding"]),
         "audit_log": pd.DataFrame(audit_log_data) if audit_log_data else _empty(
             ["event_id", "event_type", "object_type", "object_name",
              "actor_email", "old_value", "new_value", "created_at"]),
