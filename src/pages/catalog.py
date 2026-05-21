@@ -25,22 +25,30 @@ def render_catalog_browser(groups, get_authorized_tables_fn):
 
         catalogs = sorted(all_data['catalog_name'].unique().tolist())
 
+        # ⚡ Bolt: Replace inner groupby loop with pre-computed dictionary mapping to prevent O(N^2) performance bottleneck
+        _global_dq = {}
+        if "dq_score" in all_data.columns:
+            # Fix: Use composite key to prevent overriding tables with same name in different schemas
+            _global_dq = dict(zip(zip(all_data["catalog_name"], all_data["schema_name"], all_data["table_name"]), all_data["dq_score"]))
+
+        _grouped_tables = all_data.groupby(['catalog_name', 'schema_name'])['table_name'].unique().apply(list).to_dict()
+
         # Simple Tree Implementation using Streamlit expanders
         for cat in catalogs:
             with st.expander(f"📁 {cat}", expanded=False):
                 cat_data = all_data[all_data['catalog_name'] == cat]
-                # Group by schema_name to avoid O(N^2) dataframe filtering
-                for sch, sch_data in cat_data.groupby('schema_name'):
+                schemas = sorted(cat_data['schema_name'].unique().tolist())
+
+                for sch in schemas:
                     st.html(f'<div style="margin-left: 20px; font-weight: 500; color: var(--ink-60); margin-top: 10px; margin-bottom: 5px;">📂 {_html.escape(str(sch))}</div>')
-                    _dq_lookup = dict(zip(sch_data["table_name"], sch_data["dq_score"])) if "dq_score" in sch_data.columns else {}
-                    tables = sorted(sch_data['table_name'].unique().tolist())
+                    tables = sorted(_grouped_tables.get((cat, sch), []))
 
                     # Columns for tables to make it more compact
                     t_cols = st.columns(3)
                     for i, tbl in enumerate(tables):
                         with t_cols[i % 3]:
                             full_n = f"{cat}.{sch}.{tbl}"
-                            _grade, _gcls = _dq_grade(_dq_lookup.get(tbl, ""))
+                            _grade, _gcls = _dq_grade(_global_dq.get((cat, sch, tbl), ""))
                             # Show grade badge above the button via markdown, then the clickable button
                             st.html(
                                 f'<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">'
