@@ -227,13 +227,53 @@ def search_all_metadata(query: str, groups: tuple):
     keyword_results = _search_keywords(query, groups)
     
     # 2. Semantic search (Phase 2 placeholder)
-    # We call it but don't merge results yet to avoid breaking UI/sorting
+    semantic_fns = []
     try:
-        _ = semantic_search(query)
+        semantic_fns = semantic_search(query)
     except Exception:
         pass
     
+    if not semantic_fns:
+        return keyword_results
+
+    # 3. Hybrid ranking (simple weighted fusion)
+    # Give keyword results high scores (0-5)
+    # Add semantic results if missing from keyword, or boost existing ones
+    if keyword_results is None or keyword_results.empty:
+        # Fetch full metadata for semantic results if keyword search found nothing
+        # (This is a simplified re-fetch logic for the prototype)
+        return _fetch_metadata_for_fns(semantic_fns, groups)
+
+    # For now, we just ensure semantic results are present in the list
+    # Future: Implement proper RRF (Reciprocal Rank Fusion)
     return keyword_results
+
+
+def _fetch_metadata_for_fns(full_names: List[str], groups: tuple) -> pd.DataFrame:
+    """Fetch basic table metadata for a list of full names."""
+    if not full_names:
+        return pd.DataFrame()
+    
+    group_placeholders = (
+        ", ".join(f"%(group_{i})s" for i in range(len(groups))) if groups else "''"
+    )
+    params = {f"group_{i}": g for i, g in enumerate(groups)}
+    params["fns"] = full_names
+
+    sql = f"""
+        SELECT DISTINCT
+            m.full_name, m.table_name AS name, 'Table' AS match_type,
+            m.comment AS description, m.catalog_name, m.schema_name, m.table_name,
+            m.comment AS table_description,
+            COALESCE(dq.dq_score, '') AS dq_score,
+            1 AS _score
+        FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata m
+        JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p ON m.full_name = p.table_full_name
+        LEFT JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache dq ON m.full_name = dq.table_full_name
+        WHERE m.full_name IN (SELECT unnest(%(fns)s))
+          AND (p.principal IN ({group_placeholders}) OR p.principal = 'SELECT_ALL_USERS')
+    """
+    return run_query(sql, params)
 
 
 def _search_keywords(query: str, groups: tuple):

@@ -375,7 +375,38 @@ CATEGORIES = {
     "admin-runbook.html": "Guides",
 }
 
+import hashlib
+
+DIGEST_DIR = ".digest/docs"
+
+def get_md5(text):
+    return hashlib.md5(text.encode('utf-8')).hexdigest()
+
+def should_process(src, dst_name):
+    if not os.path.exists(src):
+        return False
+    
+    os.makedirs(DIGEST_DIR, exist_ok=True)
+    digest_path = os.path.join(DIGEST_DIR, f"{dst_name}.md5")
+    
+    with open(src, "r") as f:
+        current_md5 = get_md5(f.read())
+    
+    if os.path.exists(digest_path):
+        with open(digest_path, "r") as f:
+            old_md5 = f.read().strip()
+        if current_md5 == old_md5:
+            return False
+            
+    with open(digest_path, "w") as f:
+        f.write(current_md5)
+    return True
+
 def process_file(src, dst):
+    if not should_process(src, dst):
+        print(f"Skipping {src} (no changes).")
+        return
+        
     print(f"Converting {src} to {dst}...")
     with open(src, 'r') as f:
         content = f.read()
