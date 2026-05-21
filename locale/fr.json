@@ -101,7 +101,9 @@
     "expand_lineage": "Développer le graphe de lignage",
     "no_columns": "Aucune colonne enregistrée.",
     "no_grants": "Aucune autorisation enregistrée.",
-    "export_dictionary_help": "Télécharger le dictionnaire de schéma au format CSV"
+    "export_dictionary_help": "Télécharger le dictionnaire de schéma au format CSV",
+    "placeholder_desc": "Décrivez le contenu de la table, sa granularité et ses cas d'utilisation courants...",
+    "placeholder_steward": "ex. data.steward@example.com"
   },
   "comment": {
     "add_comment": "Ajouter un commentaire",

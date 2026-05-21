@@ -31,10 +31,13 @@ def render_table_metadata_editor(table_full_name: str, current_desc: str, curren
     """Editor for table-level metadata (description, steward)."""
     st.markdown(f"**{table_full_name}**")
 
-    new_desc = st.text_area(t("detail.table_description"), value=current_desc, height=150)
+    new_desc = st.text_area(
+        t("detail.table_description"), value=current_desc, height=150,
+        placeholder=t("detail.placeholder_desc"),
+    )
     new_stew = st.text_input(
         t("detail.steward_email"), value=current_steward,
-        placeholder="e.g. data.steward@example.com",
+        placeholder=t("detail.placeholder_steward"),
     )
 
     c1, c2 = st.columns([1, 1])
