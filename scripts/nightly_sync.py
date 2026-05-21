@@ -6,11 +6,11 @@ Reads pending column-definition sync jobs from user_data DuckDB and applies
 them to Databricks Unity Catalog via ALTER TABLE … ALTER COLUMN … COMMENT.
 
 Run once (CI / post-deploy flush):
-    python scripts/sync_worker.py
+    python scripts/nightly_sync.py
 
 Run as a long-lived daemon:
-    python scripts/sync_worker.py --daemon
-    python scripts/sync_worker.py --daemon --poll 30
+    python scripts/nightly_sync.py --daemon
+    python scripts/nightly_sync.py --daemon --poll 30
 """
 from __future__ import annotations
 
