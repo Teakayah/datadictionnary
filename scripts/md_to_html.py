@@ -14,6 +14,8 @@ MAPPING = {
     "docs/features/enhanced-lineage.md": "feature-enhanced-lineage.html",
     "docs/features/metadata-export.md": "feature-metadata-export.html",
     "docs/features/recommendation-engine.md": "feature-recommendation-engine.html",
+    "docs/features/hybrid-search.md": "feature-hybrid-search.html",
+    "docs/features/search-analytics.md": "feature-search-analytics.html",
     "docs/runbooks/sync-worker.md": "runbook-sync-worker.html",
     "docs/runbooks/secret-rotation.md": "runbook-secret-rotation.html",
     "docs/api/locale-keys.md": "reference-locale-keys.html",
@@ -65,6 +67,8 @@ SIDEBAR_HTML = """
       <li class="nav-item {active_feature_enhanced_lineage}"><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
       <li class="nav-item {active_feature_metadata_export}"><a href="feature-metadata-export.html">Metadata Export</a></li>
       <li class="nav-item {active_feature_recommendation_engine}"><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+      <li class="nav-item {active_feature_hybrid_search}"><a href="feature-hybrid-search.html">Hybrid Semantic Search</a></li>
+      <li class="nav-item {active_feature_search_analytics}"><a href="feature-search-analytics.html">Search Analytics</a></li>
     </ul>
   </nav>
   <nav class="nav-section">
@@ -110,6 +114,8 @@ def get_sidebar(current_filename):
         "feature-enhanced-lineage.html": "active_feature_enhanced_lineage",
         "feature-metadata-export.html": "active_feature_metadata_export",
         "feature-recommendation-engine.html": "active_feature_recommendation_engine",
+        "feature-hybrid-search.html": "active_feature_hybrid_search",
+        "feature-search-analytics.html": "active_feature_search_analytics",
         "architecture.html": "active_architecture",
         "dependencies.html": "active_dependencies",
         "adr-001-duckdb-local-cache.html": "active_adr_001",
@@ -359,6 +365,8 @@ CATEGORIES = {
     "feature-enhanced-lineage.html": "Features",
     "feature-metadata-export.html": "Features",
     "feature-recommendation-engine.html": "Features",
+    "feature-hybrid-search.html": "Features",
+    "feature-search-analytics.html": "Features",
     "runbook-sync-worker.html": "Operations",
     "runbook-secret-rotation.html": "Operations",
     "reference-locale-keys.html": "Reference",

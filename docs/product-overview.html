@@ -49,6 +49,8 @@
       <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
       <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
       <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+      <li class="nav-item "><a href="feature-hybrid-search.html">Hybrid Semantic Search</a></li>
+      <li class="nav-item "><a href="feature-search-analytics.html">Search Analytics</a></li>
     </ul>
   </nav>
   <nav class="nav-section">
@@ -108,9 +110,10 @@
   <li><a href="#9-key-architectural-decisions">Key architectural decisions</a></li>
   <li><a href="#10-non-functional-properties">Non-functional properties</a></li>
   <li><a href="#11-out-of-scope">Out of scope</a></li>
-  <li><a href="#12-success-metrics">Success metrics</a> <hr></li>
+  <li><a href="#12-success-metrics">Success metrics</a></li>
   </ol>
 </nav>
+<hr>
 </section>
 <section class="section" id="1-what-it-is">
 <h2>1. What it is</h2>
@@ -127,8 +130,16 @@
 <ul>
   <li>Repeated <code>#ask-data</code> Slack threads directed at data engineers</li>
   <li>Duplicated reports built from different, incompatible source tables</li>
-  <li>Shadow data dictionaries maintained in spreadsheets that drift from reality <h3>The goal</h3> A single, <strong>search-first, business-language</strong> view of the catalog that: <ol class="steps"> <li>Exposes only the data the user is <strong>already entitled to see</strong> (Entra ID groups + Unity Catalog grants) — no new permission model.</li> <li>Lets non-technical users discover, understand, and reference tables and columns without writing SQL or talking to data engineering.</li> <li>Lets data stewards keep business definitions current without raising a ticket against the data platform team. <hr></li></li>
-</ul></ol>
+  <li>Shadow data dictionaries maintained in spreadsheets that drift from reality</li>
+</ul>
+<h3>The goal</h3>
+<p>A single, <strong>search-first, business-language</strong> view of the catalog that:</p>
+<ol class="steps">
+  <li>Exposes only the data the user is <strong>already entitled to see</strong> (Entra ID groups + Unity Catalog grants) — no new permission model.</li>
+  <li>Lets non-technical users discover, understand, and reference tables and columns without writing SQL or talking to data engineering.</li>
+  <li>Lets data stewards keep business definitions current without raising a ticket against the data platform team.</li>
+</ol>
+<hr>
 </section>
 <section class="section" id="3-who-uses-it">
 <h2>3. Who uses it</h2>
@@ -155,8 +166,11 @@ Full-text search across catalogs, schemas, table names, column names, descriptio
   <li><strong>Recommended</strong> — tables ranked by recent edit and comment activity across the organisation, excluding tables the user has already viewed (surfaces genuinely new assets)</li>
   <li><strong>Notable</strong> — recently updated tables scoped to the user's primary group</li>
   <li><strong>My bookmarks</strong> — tables and columns the user has starred</li>
-  <li><strong>Recently viewed</strong> — chronological navigation history A CMS banner above the sub-tabs allows admins to publish pinned announcements, featured tables, and guides with configurable expiry (2 / 7 / 30 days or never). <h3>F2 — Permission-trimmed visibility</h3></li>
-</ul>Every result-returning SQL query <code>JOIN</code>s the permissions cache, so unauthorized rows are excluded <strong>inside the database engine</strong> before any data leaves the SQL layer. Users with more than 150 Entra group memberships (the "overage" case) are handled transparently via a Microsoft Graph API fallback — they see the same results as any other user, with no manual intervention required.</p>
+  <li><strong>Recently viewed</strong> — chronological navigation history</li>
+</ul>
+A CMS banner above the sub-tabs allows admins to publish pinned announcements, featured tables, and guides with configurable expiry (2 / 7 / 30 days or never).</p>
+<h3>F2 — Permission-trimmed visibility</h3>
+Every result-returning SQL query <code>JOIN</code>s the permissions cache, so unauthorized rows are excluded <strong>inside the database engine</strong> before any data leaves the SQL layer. Users with more than 150 Entra group memberships (the "overage" case) are handled transparently via a Microsoft Graph API fallback — they see the same results as any other user, with no manual intervention required.
 <p>The sentinel principal <code>SELECT_ALL_USERS</code> marks tables that are publicly accessible to all authenticated users.</p>
 <h3>F3 — Table detail view</h3>
 Per-table page showing:
@@ -169,25 +183,36 @@ Per-table page showing:
   <li><strong>Downstream impact summary</strong> — count of downstream assets in the blast radius, with a warning when certified or production tables are affected</li>
   <li>Data quality grade badge (A–F) when DQ data is available (sourced from Lakehouse Monitoring or Unity Catalog tags)</li>
   <li>Data sample — top 100 rows, shown only if the user has <code>SELECT</code> on the table</li>
-  <li>CSV export of the schema including business names and definitions <h3>F4 — Inline metadata editing with approval workflow</h3></li>
-</ul>Power users (members of <code>EDITOR_GROUPS</code>) can edit:
+  <li>CSV export of the schema including business names and definitions</li>
+</ul>
+<h3>F4 — Inline metadata editing with approval workflow</h3>
+Power users (members of <code>EDITOR_GROUPS</code>) can edit:
 <ul>
   <li>Table description and steward — written immediately to a local overrides table (<code>user_data.table_metadata_overrides</code>) and pushed to Unity Catalog by the sidecar</li>
-  <li>Column business name (max 255 chars) and definition (max 2000 chars) <strong>Approval workflow for column overrides:</strong> admins publish directly and changes sync to Databricks immediately. Non-admin power users create a <code>pending_approval</code> proposal that appears in the admin review queue. Admins approve or reject from the Admin dashboard; only approved changes are pushed to Unity Catalog. Every edit (and every approval / rejection) produces an audit-log entry with actor email, timestamp, and before/after values. Admins can globally disable editing (e.g., during a data migration) without redeploying. <h3>F5 — Comments</h3></li>
-</ul>Any authenticated user can leave a question or flag on any table or column (max 1000 chars), with one level of threaded replies. New comments trigger an email notification to the table steward when SMTP is configured; email failures do not block the comment from being saved.
+  <li>Column business name (max 255 chars) and definition (max 2000 chars)</li>
+</ul>
+<strong>Approval workflow for column overrides:</strong> admins publish directly and changes sync to Databricks immediately. Non-admin power users create a <code>pending_approval</code> proposal that appears in the admin review queue. Admins approve or reject from the Admin dashboard; only approved changes are pushed to Unity Catalog. Every edit (and every approval / rejection) produces an audit-log entry with actor email, timestamp, and before/after values.
+<p>Admins can globally disable editing (e.g., during a data migration) without redeploying.</p>
+<h3>F5 — Comments</h3>
+Any authenticated user can leave a question or flag on any table or column (max 1000 chars), with one level of threaded replies. New comments trigger an email notification to the table steward when SMTP is configured; email failures do not block the comment from being saved.
 <h3>F6 — Health dashboard</h3>
 Catalog-wide documentation coverage metrics:
 <ul>
   <li>Percentage of tables with a description</li>
   <li>Percentage of columns with a description</li>
   <li>Freshness grade per schema</li>
-  <li>"Priority actions" panel listing up to 5 undocumented tables, deep-linkable to their detail view <h3>F7 — Pipelines</h3></li>
-</ul>Members of <code>PIPELINE_GROUPS</code> (and admins) can trigger, monitor, and cancel named pipeline runs. Three backends are supported:
+  <li>"Priority actions" panel listing up to 5 undocumented tables, deep-linkable to their detail view</li>
+</ul>
+<h3>F7 — Pipelines</h3>
+Members of <code>PIPELINE_GROUPS</code> (and admins) can trigger, monitor, and cancel named pipeline runs. Three backends are supported:
 <ul>
   <li><strong>Databricks Jobs</strong> (Jobs API 2.1)</li>
   <li><strong>Azure Data Factory</strong> (management API 2018-06-01)</li>
-  <li><strong>Azure DevOps Pipelines</strong> (API 7.0) One active run is allowed per pipeline at a time. The status panel auto-polls every 3 seconds while a run is in flight, showing live progress percentage and lifecycle state. Start and stop actions show toast notifications; the Save and Send buttons use primary styling for visual prominence. <h3>F8 — Admin dashboard</h3></li>
-</ul>Admin-only panel (members of <code>ADMIN_GROUPS</code>) with two tabs:
+  <li><strong>Azure DevOps Pipelines</strong> (API 7.0)</li>
+</ul>
+One active run is allowed per pipeline at a time. The status panel auto-polls every 3 seconds while a run is in flight, showing live progress percentage and lifecycle state. Start and stop actions show toast notifications; the Save and Send buttons use primary styling for visual prominence.
+<h3>F8 — Admin dashboard</h3>
+Admin-only panel (members of <code>ADMIN_GROUPS</code>) with two tabs:
 <p><strong>Operations tab:</strong>
 <ul>
   <li>Catalog statistics</li>
@@ -198,11 +223,17 @@ Catalog-wide documentation coverage metrics:
   <li>CMS post CRUD (create / publish / delete announcements)</li>
   <li>Pipeline-definition CRUD (register / remove named pipelines)</li>
   <li>Global editing toggle</li>
-  <li>Group-permissions cache flush <strong>Quality Insights tab:</strong></li>
+  <li>Group-permissions cache flush</li>
+</ul>
+<strong>Quality Insights tab:</strong>
+<ul>
   <li>High-impact gaps — popular tables (by audit-log activity) that are missing a description or steward</li>
   <li>Stewardship gaps — full list of tables without an assigned steward</li>
-  <li>DQ alerts — tables with a failing data-quality check (sourced from <code>data_quality_cache</code>) All write functions re-check authorization at the function boundary — defense-in-depth beyond the UI gate. <h3>F9 — Internationalisation</h3></li>
-</ul>The UI is available in English and French. Locale is auto-detected from the <code>Accept-Language</code> header and can be toggled per session with the <code>EN / FR</code> control in the header. All UI strings are stored in <code>locale/en.json</code> and <code>locale/fr.json</code>; French falls back to English for any key not yet translated. The sign-in page is fully internationalised (11 locale keys covering stats, card copy, mock-auth prompts, and policy text).</p>
+  <li>DQ alerts — tables with a failing data-quality check (sourced from <code>data_quality_cache</code>)</li>
+</ul>
+All write functions re-check authorization at the function boundary — defense-in-depth beyond the UI gate.</p>
+<h3>F9 — Internationalisation</h3>
+The UI is available in English and French. Locale is auto-detected from the <code>Accept-Language</code> header and can be toggled per session with the <code>EN / FR</code> control in the header. All UI strings are stored in <code>locale/en.json</code> and <code>locale/fr.json</code>; French falls back to English for any key not yet translated. The sign-in page is fully internationalised (11 locale keys covering stats, card copy, mock-auth prompts, and policy text).
 <h3>F10 — Personalisation</h3>
 Per-user bookmarks (tables and columns) and recently viewed tables, persisted across sessions, keyed by Entra ID Object ID (<code>oid</code>). Preferences load at session start and write back immediately on user action.
 <p>The <strong>Recommended</strong> feed (Discovery tab) is derived from the audit log: tables with recent edit or comment activity are ranked by popularity, with tables the current user has already viewed removed from the list to encourage discovery of genuinely new assets.</p>
@@ -273,27 +304,38 @@ At startup the app:
   <li>Runs the MSAL OIDC redirect or the mock-auth path</li>
   <li>Resolves the user's Entra groups (inline claim or Graph fallback)</li>
   <li>Opens the DuckDB catalog cache and attaches the user-data file</li>
-  <li>Renders the tab-based navigation shell <strong>Component 3 — Sidecar sync worker (<code>python -m src.sync.daemon</code>)</strong> A standalone process (<code>dd-sync-worker</code>, <code>replicas: 1</code>, <code>strategy: Recreate</code>) that:</li>
-</ol>- Drains <code>user_data.pending_sync</code> — applies each queued metadata change to Unity Catalog (<code>ALTER TABLE … COMMENT</code>, audit-log <code>INSERT</code>, etc.)
+  <li>Renders the tab-based navigation shell</li>
+</ol>
+<strong>Component 3 — Sidecar sync worker (<code>python -m src.sync.daemon</code>)</strong>
+<p>A standalone process (<code>dd-sync-worker</code>, <code>replicas: 1</code>, <code>strategy: Recreate</code>) that:
 <ul>
+  <li>Drains <code>user_data.pending_sync</code> — applies each queued metadata change to Unity Catalog (<code>ALTER TABLE … COMMENT</code>, audit-log <code>INSERT</code>, etc.)</li>
   <li>Runs DR resync every 20 cycles — pulls late-arriving audit and comment rows from Databricks back into the local user_data file</li>
   <li>Recovers stale rows — rows stuck in <code>'syncing'</code> for more than 5 minutes flip back to <code>'pending'</code></li>
   <li>Exposes <code>/healthz</code> on port 8765 — returns 503 when the heartbeat is more than 60 seconds old; the Kubernetes liveness probe goes red automatically</li>
-  <li>Writes its heartbeat timestamp and DR resync status to <code>user_data.site_settings</code> so the admin sync panel can display them The sidecar replaces the previous in-process daemon thread, which corrupted the Streamlit-cached DuckDB connection and ran without a <code>ScriptRunContext</code>. <h3>Storage abstraction layer</h3> <code>src/storage/</code> collapses the demo / DuckDB branching that used to be duplicated across four modules into a single, consistent pattern. Each entity has:</li>
+  <li>Writes its heartbeat timestamp and DR resync status to <code>user_data.site_settings</code> so the admin sync panel can display them</li>
+</ul>
+The sidecar replaces the previous in-process daemon thread, which corrupted the Streamlit-cached DuckDB connection and ran without a <code>ScriptRunContext</code>.</p>
+<h3>Storage abstraction layer</h3>
+<p><code>src/storage/</code> collapses the demo / DuckDB branching that used to be duplicated across four modules into a single, consistent pattern. Each entity has:
+<ul>
   <li>A <code>Protocol</code> defining its read/write surface</li>
   <li>A <code>Demo*Storage</code> (session state — used in <code>DEMO_DATA=true</code> mode)</li>
   <li>A <code>DuckDB*Storage</code> (production)</li>
   <li>A <code>Fake*Storage</code> (in-memory — used only by unit tests)</li>
-  <li>A factory function in <code>src/storage/__init__.py</code> that picks the backend at call time. Entities covered: <code>CMSStorage</code>, <code>PipelineDefStorage</code>, <code>PipelineRunStorage</code>, <code>PreferenceStorage</code>, <code>SiteSettingStorage</code>, <code>AuditStorage</code>, <code>BusinessNameOverrideStorage</code>.</li>
+  <li>A factory function in <code>src/storage/__init__.py</code> that picks the backend at call time</li>
 </ul>
+Entities covered: <code>CMSStorage</code>, <code>PipelineDefStorage</code>, <code>PipelineRunStorage</code>, <code>PreferenceStorage</code>, <code>SiteSettingStorage</code>, <code>AuditStorage</code>, <code>BusinessNameOverrideStorage</code>.</p>
 <h3>Design system</h3>
-<p>All UI components follow the design system defined in <code>design_system/README.md</code>:</p>
-<ul class="prose-list">
+<p>All UI components follow the design system defined in <a href="README.html"><code>design_system/README.md</code></a>:
+<ul>
   <li><strong>Colors:</strong> warm paper (<code>#FAF7F0</code>), near-black ink (<code>#14110C</code>), one accent — oxidized red (<code>#B8362A</code>). No hard-coded hex values in code; only CSS variables.</li>
   <li><strong>Fonts:</strong> Fraunces (headlines), Manrope (body), JetBrains Mono (all Unity Catalog identifiers, counts, SQL).</li>
   <li><strong>Tone:</strong> sentence case throughout; <code>§</code> prefix on section headers; no emoji in the UI.</li>
-  <li><strong>CSS:</strong> injected via <code>st.markdown('&lt;style&gt;…&lt;/style&gt;')</code> at startup from <code>src/ui/css.py</code>. No inline styles. React JSX prototypes of every screen live in <code>design_system/ui_kits/app/</code> and serve as pixel-perfect design targets.</li>
+  <li><strong>CSS:</strong> injected via <code>st.markdown('<style>…</style>')</code> at startup from <code>src/ui/css.py</code>. No inline styles.</li>
 </ul>
+React JSX prototypes of every screen live in <code>design_system/ui_kits/app/</code> and serve as pixel-perfect design targets.</p>
+<hr>
 </section>
 <section class="section" id="6-security-model">
 <h2>6. Security model</h2>
@@ -327,8 +369,9 @@ Every write function raises <code>PermissionError</code> at the function boundar
   <li>User-supplied display values are HTML-escaped before rendering</li>
   <li>SMTP headers are sanitized to prevent header injection in comment notification emails</li>
   <li>Parameterized queries throughout; <code>_to_duckdb_sql()</code> preserves the parameterized pattern across both backends (no string concatenation)</li>
-  <li>Kubernetes <code>NetworkPolicy</code> restricts egress to HTTPS only and ingress to the ingress controller namespace <hr></li>
+  <li>Kubernetes <code>NetworkPolicy</code> restricts egress to HTTPS only and ingress to the ingress controller namespace</li>
 </ul>
+<hr>
 </section>
 <section class="section" id="7-when-things-run-operational-cadence">
 <h2>7. When things run — operational cadence</h2>
@@ -427,8 +470,9 @@ Every write function raises <code>PermissionError</code> at the function boundar
   <li>Data quality enforcement — the health dashboard surfaces metrics from other systems; it does not run checks itself.</li>
   <li>Real-time collaborative editing — no live cursors, no row-level locking.</li>
   <li>Mobile web layout — target is desktop / large tablet.</li>
-  <li>Multi-tenant deployment — one install per environment, one Entra tenant. <hr></li>
+  <li>Multi-tenant deployment — one install per environment, one Entra tenant.</li>
 </ul>
+<hr>
 </section>
 <section class="section" id="12-success-metrics">
 <h2>12. Success metrics</h2>

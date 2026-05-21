@@ -17,7 +17,7 @@ from src.db.queries import (
     get_authorized_tables, search_all_metadata,
     get_multi_hop_lineage, run_query, export_schema_to_csv,
 )
-from src.storage import get_business_name_override_storage
+from src.storage import get_business_name_override_storage, get_analytics_storage, SearchEvent
 from src.personalization import _pref_upsert, _pref_delete, is_power_user
 from src.auth import is_admin
 from src.comments import get_table_comments, save_comment
@@ -635,6 +635,18 @@ def render_search_page(query_groups: tuple) -> None:
     if search_query:
         try:
             results = search_all_metadata(search_query, query_groups)
+            
+            # Analytics: Track the search event
+            try:
+                res_count = len(results) if results is not None else 0
+                get_analytics_storage().track_search(SearchEvent(
+                    query=search_query,
+                    results_count=res_count,
+                    user_email=st.session_state.get("user_email", "unknown")
+                ))
+            except Exception as ae:
+                logging.warning("Failed to track search analytics: %s", ae)
+
             if results is not None and not results.empty:
                 _table_results = results[results["match_type"] == "Table"] if "match_type" in results.columns else results
                 _table_names   = _table_results["table_name"].tolist()

@@ -49,6 +49,8 @@
       <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
       <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
       <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+      <li class="nav-item "><a href="feature-hybrid-search.html">Hybrid Semantic Search</a></li>
+      <li class="nav-item "><a href="feature-search-analytics.html">Search Analytics</a></li>
     </ul>
   </nav>
   <nav class="nav-section">
@@ -101,25 +103,43 @@
   <li>Search (type a term, see a list of matching tables with descriptions)</li>
   <li>Table detail (click a result, see columns, grants, lineage, comments)</li>
   <li>Glossary browsing</li>
-  <li>Bookmarking and commenting (low-frequency writes) The team building the tool is small (two to three engineers) with strong Python skills and limited frontend experience. Time-to-first-demo was a key constraint: the tool needed to be usable by business stakeholders within two weeks of the decision to build it. <h3>Option A — FastAPI + React</h3> A REST or GraphQL API in FastAPI with a React (or Next.js) frontend. Advantages:</li>
+  <li>Bookmarking and commenting (low-frequency writes)</li>
+</ul>
+The team building the tool is small (two to three engineers) with strong Python skills and limited frontend experience. Time-to-first-demo was a key constraint: the tool needed to be usable by business stakeholders within two weeks of the decision to build it.
+<h3>Option A — FastAPI + React</h3>
+<p>A REST or GraphQL API in FastAPI with a React (or Next.js) frontend.</p>
+<p>Advantages:
+<ul>
   <li>Full control over the UI — any design system, any interaction pattern</li>
   <li>Standard HTTP semantics enable conventional load testing tools (k6, wrk, Gatling)</li>
-  <li>Stateless API is easy to scale horizontally Disadvantages:</li>
+  <li>Stateless API is easy to scale horizontally</li>
+</ul>
+Disadvantages:
+<ul>
   <li>Requires maintaining two codebases (Python API + JavaScript frontend)</li>
   <li>React component development, state management (Redux or Zustand), and build tooling add significant overhead for a two-person team</li>
   <li>Time-to-first-demo is weeks, not days</li>
   <li>API authentication (session tokens, CSRF, CORS) requires explicit implementation</li>
-  <li>CI must cover both Python and JavaScript test suites <h3>Option B — Streamlit</h3> A single Python file that defines both the UI and the business logic. Streamlit handles the WebSocket connection, session state, and server-side rendering. Advantages:</li>
+  <li>CI must cover both Python and JavaScript test suites</li>
+</ul>
+<h3>Option B — Streamlit</h3></p>
+<p>A single Python file that defines both the UI and the business logic. Streamlit handles the WebSocket connection, session state, and server-side rendering.</p>
+<p>Advantages:
+<ul>
   <li>Single Python codebase. The same team that writes the data pipeline writes the UI.</li>
   <li>Rapid iteration: adding a new tab or card is tens of lines of Python</li>
   <li>Built-in session state management removes the need for external state stores</li>
   <li>OIDC authentication is implemented once in Python; no separate frontend auth concern</li>
-  <li>Existing Streamlit <code>AppTest</code> framework enables pytest-based integration tests without a browser Disadvantages:</li>
+  <li>Existing Streamlit <code>AppTest</code> framework enables pytest-based integration tests without a browser</li>
+</ul>
+Disadvantages:
+<ul>
   <li>Interactive features (button clicks, widget state) are driven over a binary WebSocket protocol (protobuf). Conventional HTTP load testing tools cannot exercise real interactions — only the page-shell HTTP endpoint is testable with tools like Locust's HTTP user class.</li>
   <li>The workaround for load testing is to test the query layer directly (DuckDB reads) using a separate <code>DuckDBQueryUser</code> class in Locust. This reflects the actual performance-sensitive path: DuckDB search queries, not HTTP page delivery.</li>
   <li>Multi-page routing (Streamlit's file-based <code>pages/</code> directory) was not used because the app has a custom tab navigation model with permission-aware tab visibility. A single entry point (<code>app.py</code>) is simpler to reason about for this use case.</li>
-  <li><code>app.py</code> grows large without discipline. The refactoring roadmap (<a href="REFACTORING.html"><code>REFACTORING.md</code></a>) addresses this by extracting modules into <code>src/</code>. <hr></li>
+  <li><code>app.py</code> grows large without discipline. The refactoring roadmap (<a href="REFACTORING.html"><code>REFACTORING.md</code></a>) addresses this by extracting modules into <code>src/</code>.</li>
 </ul>
+<hr></p>
 </section>
 <section class="section" id="decision">
 <h2>Decision</h2>
@@ -134,7 +154,10 @@
 <ul>
   <li>Single Python codebase with pytest integration tests</li>
   <li>New screens can be added in hours, not days</li>
-  <li>OIDC auth, permission enforcement, and DuckDB queries are all in one language <strong>Negative:</strong></li>
+  <li>OIDC auth, permission enforcement, and DuckDB queries are all in one language</li>
+</ul>
+<strong>Negative:</strong>
+<ul>
   <li>Full end-to-end interaction testing requires Playwright or a similar browser automation tool; pytest AppTest covers rendering but not real click flows</li>
   <li>HTTP load testing (Locust <code>DictionaryHTTPUser</code>) tests only page delivery, not the actual app logic. The <code>DuckDBQueryUser</code> in <code>tests/load/locustfile.py</code> fills this gap by directly executing the search SQL that the app would run</li>
   <li>Streamlit's execution model (top-to-bottom re-run on every interaction) requires careful use of <code>st.cache_data</code> and <code>st.session_state</code> to avoid redundant database queries</li>

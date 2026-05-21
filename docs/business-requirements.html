@@ -49,6 +49,8 @@
       <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
       <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
       <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+      <li class="nav-item "><a href="feature-hybrid-search.html">Hybrid Semantic Search</a></li>
+      <li class="nav-item "><a href="feature-search-analytics.html">Search Analytics</a></li>
     </ul>
   </nav>
   <nav class="nav-section">
@@ -109,10 +111,16 @@ maintained in spreadsheets.</p>
 <p>We need a single, search-first, <strong>business-language</strong> view of the
 catalog that:</p>
 <ol class="steps">
-  <li>Exposes only the data the user is <strong>already entitled to see</strong> (Entra ID + Unity Catalog grants). No new permission model.</li>
-  <li>Lets non-technical users discover, understand, and reference tables and columns without writing SQL or talking to data engineering.</li>
-  <li>Lets data stewards keep business definitions current without raising a ticket against the data platform team. <hr></li>
-</ol>
+  <li>Exposes only the data the user is <strong>already entitled to see</strong></li>
+</ol>   (Entra ID + Unity Catalog grants). No new permission model.
+<ol class="steps">
+  <li>Lets non-technical users discover, understand, and reference</li>
+</ol>   tables and columns without writing SQL or talking to data
+   engineering.
+<ol class="steps">
+  <li>Lets data stewards keep business definitions current</li>
+</ol>   without raising a ticket against the data platform team.
+<hr>
 </section>
 <section class="section" id="personas">
 <h2>Personas</h2>
@@ -134,32 +142,112 @@ catalog that:</p>
 <h2>Functional requirements</h2>
 <h3>F1 — Search & discovery</h3>
 <ul>
-  <li><strong>F1.1</strong> Full-text search across catalogs, schemas, table names, column names, table descriptions, column descriptions, and business-glossary terms, returning ranked results in <500 ms p95 on the production dataset.</li>
-  <li><strong>F1.2</strong> Discovery tab with three sub-tabs: notable (recent updates scoped to the user's primary group), bookmarks, recents.</li>
-  <li><strong>F1.3</strong> CMS banner: admin-authored announcements / featured tables / guides that appear above the discovery sub-tabs and expire after a chosen window (2 days / 7 days / 30 days / never). <h3>F2 — Permission-trimmed visibility</h3></li>
-  <li><strong>F2.1</strong> A user must see only catalogs / schemas / tables their Entra ID groups are granted on (via Unity Catalog <code>GRANT</code> rows in <code>permissions_cache</code>).</li>
-  <li><strong>F2.2</strong> The sentinel principal <code>SELECT_ALL_USERS</code> marks publicly-accessible tables; these appear for every authenticated user.</li>
-  <li><strong>F2.3</strong> Permission filtering happens <strong>inside</strong> the SQL engine, not in Python. (Architectural — see ADR 002.)</li>
-  <li><strong>F2.4</strong> Group membership is taken from the ID token's <code>groups</code> claim. For users in 150+ groups (Entra overage), it's resolved via Microsoft Graph — see ADR 006. <h3>F3 — Table detail</h3></li>
-  <li><strong>F3.1</strong> Per-table view showing: catalog/schema/table identifier (monospace), description, steward, columns (name + type + comment + business name override + definition override), grants, lineage (multi-hop), data-quality grade if available, and bookmarked- column ★ toggle.</li>
-  <li><strong>F3.2</strong> Sample data preview (top 100 rows) for tables the user has SELECT on. Skipped silently otherwise.</li>
-  <li><strong>F3.3</strong> Schema export to CSV (filename <code>{catalog}_{schema}_{table}_schema.csv</code>) including business names + definitions when present. <h3>F4 — Inline editing</h3></li>
-  <li><strong>F4.1</strong> Power users (members of <code>EDITOR_GROUPS</code>) can edit: table description, table steward, column business name, column definition. Length caps: 255 chars for names, 2000 chars for definitions.</li>
-  <li><strong>F4.2</strong> Edits are written locally immediately and queued for push to Unity Catalog by the sidecar sync worker. The user must not have to wait for the Databricks round-trip.</li>
-  <li><strong>F4.3</strong> Every edit produces an audit-log entry attributable to the actor. The full log is visible to admins.</li>
-  <li><strong>F4.4</strong> Editing can be globally turned off by an admin (e.g. during a data migration or audit) without redeploying. <h3>F5 — Comments</h3></li>
-  <li><strong>F5.1</strong> Any authenticated user can leave a question / flag on a table or column (≤1000 chars). Replies are threaded one level deep.</li>
-  <li><strong>F5.2</strong> New comments and replies trigger an email notification (when SMTP is configured) to the table steward; failure to send must not block the comment from being saved. <h3>F6 — Health dashboard</h3></li>
-  <li><strong>F6.1</strong> Catalog-wide coverage metrics: % tables with description, % columns with description, freshness grade, and a per-schema breakdown.</li>
-  <li><strong>F6.2</strong> "Priority actions" panel listing up to 5 undocumented tables, deep-linkable to the detail view. <h3>F7 — Pipelines</h3></li>
-  <li><strong>F7.1</strong> Members of <code>PIPELINE_GROUPS</code> (and admins) can trigger, monitor, and cancel parameter-less runs of named pipelines. Three backends supported today: Databricks Jobs, Azure Data Factory, Azure DevOps Pipelines.</li>
-  <li><strong>F7.2</strong> One active run per pipeline at a time. Live progress while the run is in flight. <h3>F8 — Admin</h3></li>
-  <li><strong>F8.1</strong> Admin-only dashboard listing catalog stats, sync-queue status, audit log, comment log, CMS post CRUD, pipeline- definition CRUD, editing toggle, group-cache flush.</li>
-  <li><strong>F8.2</strong> Server-side authorisation re-check on every write (defence-in-depth alongside the UI gate). <h3>F9 — Internationalisation</h3></li>
-  <li><strong>F9.1</strong> UI in English and French. Auto-detect from <code>Accept-Language</code>; user can override via header toggle. Persists for the session. <h3>F10 — Personalisation</h3></li>
-  <li><strong>F10.1</strong> Per-user bookmarks (tables + columns) and recently viewed tables, persisted across sessions, keyed by Entra ID OID. <h3>F11 — Accessibility</h3></li>
-  <li><strong>F11.1</strong> WCAG 2.0 Level AA compliance on every public page, measured by axe-core. Documented exceptions (today: two known Streamlit-framework violations) are explicitly tracked. <hr></li>
-</ul>
+  <li><strong>F1.1</strong> Full-text search across catalogs, schemas, table names,</li>
+</ul>  column names, table descriptions, column descriptions, and
+  business-glossary terms, returning ranked results in <500 ms p95
+  on the production dataset.
+<ul>
+  <li><strong>F1.2</strong> Discovery tab with three sub-tabs: notable (recent updates</li>
+</ul>  scoped to the user's primary group), bookmarks, recents.
+<ul>
+  <li><strong>F1.3</strong> CMS banner: admin-authored announcements / featured tables</li>
+</ul>  / guides that appear above the discovery sub-tabs and expire
+  after a chosen window (2 days / 7 days / 30 days / never).
+<h3>F2 — Permission-trimmed visibility</h3>
+<ul>
+  <li><strong>F2.1</strong> A user must see only catalogs / schemas / tables their</li>
+</ul>  Entra ID groups are granted on (via Unity Catalog <code>GRANT</code> rows in
+  <code>permissions_cache</code>).
+<ul>
+  <li><strong>F2.2</strong> The sentinel principal <code>SELECT_ALL_USERS</code> marks</li>
+</ul>  publicly-accessible tables; these appear for every authenticated
+  user.
+<ul>
+  <li><strong>F2.3</strong> Permission filtering happens <strong>inside</strong> the SQL engine, not</li>
+</ul>  in Python. (Architectural — see ADR 002.)
+<ul>
+  <li><strong>F2.4</strong> Group membership is taken from the ID token's <code>groups</code></li>
+</ul>  claim. For users in 150+ groups (Entra overage), it's resolved
+  via Microsoft Graph — see ADR 006.
+<h3>F3 — Table detail</h3>
+<ul>
+  <li><strong>F3.1</strong> Per-table view showing: catalog/schema/table identifier</li>
+</ul>  (monospace), description, steward, columns (name + type + comment
+  + business name override + definition override), grants, lineage
+  (multi-hop), data-quality grade if available, and bookmarked-
+  column ★ toggle.
+<ul>
+  <li><strong>F3.2</strong> Sample data preview (top 100 rows) for tables the user</li>
+</ul>  has SELECT on. Skipped silently otherwise.
+<ul>
+  <li><strong>F3.3</strong> Schema export to CSV (filename</li>
+</ul>  <code>{catalog}_{schema}_{table}_schema.csv</code>) including business
+  names + definitions when present.
+<h3>F4 — Inline editing</h3>
+<ul>
+  <li><strong>F4.1</strong> Power users (members of <code>EDITOR_GROUPS</code>) can edit:</li>
+</ul>  table description, table steward, column business name, column
+  definition. Length caps: 255 chars for names, 2000 chars for
+  definitions.
+<ul>
+  <li><strong>F4.2</strong> Edits are written locally immediately and queued for</li>
+</ul>  push to Unity Catalog by the sidecar sync worker. The user must
+  not have to wait for the Databricks round-trip.
+<ul>
+  <li><strong>F4.3</strong> Every edit produces an audit-log entry attributable to</li>
+</ul>  the actor. The full log is visible to admins.
+<ul>
+  <li><strong>F4.4</strong> Editing can be globally turned off by an admin (e.g.</li>
+</ul>  during a data migration or audit) without redeploying.
+<h3>F5 — Comments</h3>
+<ul>
+  <li><strong>F5.1</strong> Any authenticated user can leave a question / flag on a</li>
+</ul>  table or column (≤1000 chars). Replies are threaded one level
+  deep.
+<ul>
+  <li><strong>F5.2</strong> New comments and replies trigger an email notification</li>
+</ul>  (when SMTP is configured) to the table steward; failure to
+  send must not block the comment from being saved.
+<h3>F6 — Health dashboard</h3>
+<ul>
+  <li><strong>F6.1</strong> Catalog-wide coverage metrics: % tables with</li>
+</ul>  description, % columns with description, freshness grade, and a
+  per-schema breakdown.
+<ul>
+  <li><strong>F6.2</strong> "Priority actions" panel listing up to 5 undocumented</li>
+</ul>  tables, deep-linkable to the detail view.
+<h3>F7 — Pipelines</h3>
+<ul>
+  <li><strong>F7.1</strong> Members of <code>PIPELINE_GROUPS</code> (and admins) can trigger,</li>
+</ul>  monitor, and cancel parameter-less runs of named pipelines. Three
+  backends supported today: Databricks Jobs, Azure Data Factory,
+  Azure DevOps Pipelines.
+<ul>
+  <li><strong>F7.2</strong> One active run per pipeline at a time. Live progress</li>
+</ul>  while the run is in flight.
+<h3>F8 — Admin</h3>
+<ul>
+  <li><strong>F8.1</strong> Admin-only dashboard listing catalog stats, sync-queue</li>
+</ul>  status, audit log, comment log, CMS post CRUD, pipeline-
+  definition CRUD, editing toggle, group-cache flush.
+<ul>
+  <li><strong>F8.2</strong> Server-side authorisation re-check on every write</li>
+</ul>  (defence-in-depth alongside the UI gate).
+<h3>F9 — Internationalisation</h3>
+<ul>
+  <li><strong>F9.1</strong> UI in English and French. Auto-detect from</li>
+</ul>  <code>Accept-Language</code>; user can override via header toggle. Persists
+  for the session.
+<h3>F10 — Personalisation</h3>
+<ul>
+  <li><strong>F10.1</strong> Per-user bookmarks (tables + columns) and recently</li>
+</ul>  viewed tables, persisted across sessions, keyed by Entra ID OID.
+<h3>F11 — Accessibility</h3>
+<ul>
+  <li><strong>F11.1</strong> WCAG 2.0 Level AA compliance on every public page,</li>
+</ul>  measured by axe-core. Documented exceptions (today: two known
+  Streamlit-framework violations) are explicitly tracked.
+<hr>
 </section>
 <section class="section" id="non-functional-requirements">
 <h2>Non-functional requirements</h2>
@@ -183,14 +271,29 @@ catalog that:</p>
 <section class="section" id="out-of-scope">
 <h2>Out of scope</h2>
 <ul>
-  <li>Catalog <strong>editing</strong> in Unity Catalog beyond the metadata fields listed in F4 (no DDL, no GRANT changes from this app).</li>
-  <li>Replacement for the data-engineering catalog UX. Engineers should continue to use Databricks for schema work, lineage debugging, cluster config, etc.</li>
-  <li>Self-service permission requests. The user sees what their groups allow; requests for more access happen in the existing IT-ticketing flow.</li>
-  <li>Free-form SQL execution. The "data preview" is a fixed top-100 read; arbitrary queries are not supported.</li>
-  <li>Data quality enforcement. The health dashboard surfaces metrics produced by other systems; it does not run quality checks itself.</li>
-  <li>Real-time collaboration on edits (no live cursors, no row-level locking).</li>
-  <li>Mobile web layout. Target is desktop / large tablet. <hr></li>
+  <li>Catalog <strong>editing</strong> in Unity Catalog beyond the metadata fields</li>
+</ul>  listed in F4 (no DDL, no GRANT changes from this app).
+<ul>
+  <li>Replacement for the data-engineering catalog UX. Engineers should</li>
+</ul>  continue to use Databricks for schema work, lineage debugging,
+  cluster config, etc.
+<ul>
+  <li>Self-service permission requests. The user sees what their groups</li>
+</ul>  allow; requests for more access happen in the existing IT-ticketing
+  flow.
+<ul>
+  <li>Free-form SQL execution. The "data preview" is a fixed top-100</li>
+</ul>  read; arbitrary queries are not supported.
+<ul>
+  <li>Data quality enforcement. The health dashboard surfaces metrics</li>
+</ul>  produced by other systems; it does not run quality checks itself.
+<ul>
+  <li>Real-time collaboration on edits (no live cursors, no row-level</li>
+</ul>  locking).
+<ul>
+  <li>Mobile web layout. Target is desktop / large tablet.</li>
 </ul>
+<hr>
 </section>
 <section class="section" id="success-metrics">
 <h2>Success metrics</h2>
@@ -211,21 +314,47 @@ catalog that:</p>
 <section class="section" id="constraints-assumptions">
 <h2>Constraints & assumptions</h2>
 <ul>
-  <li>Entra ID is the source of truth for identity. Users without an Entra account cannot use the app.</li>
-  <li>Unity Catalog grants are the source of truth for authorisation. This app reflects them; it does not amend them.</li>
-  <li>The DuckDB local-cache architecture (ADR 001) presumes the catalog fits comfortably on local disk. The 800-table reference dataset is well under 100 MB. Catalogs in the 100k+ table range would force a re-evaluation.</li>
-  <li>Sync to Databricks is best-effort with retries (3 attempts before parking a row as <code>failed</code>). A persistent Databricks outage means edits queue locally; users see them, but the upstream catalog is stale until the daemon recovers.</li>
-  <li>Single-tenant deployment per environment. Multi-tenant (one install serving multiple business units with isolated data) is not in scope. <hr></li>
-</ul>
+  <li>Entra ID is the source of truth for identity. Users without an</li>
+</ul>  Entra account cannot use the app.
+<ul>
+  <li>Unity Catalog grants are the source of truth for authorisation.</li>
+</ul>  This app reflects them; it does not amend them.
+<ul>
+  <li>The DuckDB local-cache architecture (ADR 001) presumes the</li>
+</ul>  catalog fits comfortably on local disk. The 800-table reference
+  dataset is well under 100 MB. Catalogs in the 100k+ table range
+  would force a re-evaluation.
+<ul>
+  <li>Sync to Databricks is best-effort with retries (3 attempts</li>
+</ul>  before parking a row as <code>failed</code>). A persistent Databricks
+  outage means edits queue locally; users see them, but the
+  upstream catalog is stale until the daemon recovers.
+<ul>
+  <li>Single-tenant deployment per environment. Multi-tenant (one</li>
+</ul>  install serving multiple business units with isolated data) is
+  not in scope.
+<hr>
 </section>
 <section class="section" id="compliance-posture">
 <h2>Compliance posture</h2>
 <ul>
-  <li><strong>Data minimisation</strong> — the app stores no PII it didn't already receive from Entra (name, email, OID) or Unity Catalog (steward email).</li>
-  <li><strong>Auditability</strong> — every metadata change carries actor email, timestamp, before/after values; the daemon mirrors the entry to the Databricks <code>audit_log</code> for tamper resistance and long-term retention.</li>
-  <li><strong>Least privilege</strong> — three layered group sets: <code>EDITOR_GROUPS</code>, <code>PIPELINE_GROUPS</code>, <code>ADMIN_GROUPS</code>. No demo bypass for admin.</li>
-  <li><strong>Network segmentation</strong> — the Streamlit pods and the sync-worker pod are restricted by NetworkPolicy to talking to the ingress controller, the SQL Warehouse, the Graph API, and the pipeline control planes. <hr></li>
-</ul>
+  <li><strong>Data minimisation</strong> — the app stores no PII it didn't already</li>
+</ul>  receive from Entra (name, email, OID) or Unity Catalog (steward
+  email).
+<ul>
+  <li><strong>Auditability</strong> — every metadata change carries actor email,</li>
+</ul>  timestamp, before/after values; the daemon mirrors the entry to
+  the Databricks <code>audit_log</code> for tamper resistance and long-term
+  retention.
+<ul>
+  <li><strong>Least privilege</strong> — three layered group sets: <code>EDITOR_GROUPS</code>,</li>
+</ul>  <code>PIPELINE_GROUPS</code>, <code>ADMIN_GROUPS</code>. No demo bypass for admin.
+<ul>
+  <li><strong>Network segmentation</strong> — the Streamlit pods and the sync-worker</li>
+</ul>  pod are restricted by NetworkPolicy to talking to the ingress
+  controller, the SQL Warehouse, the Graph API, and the pipeline
+  control planes.
+<hr>
 </section>
 <section class="section" id="change-log">
 <h2>Change log</h2>

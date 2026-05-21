@@ -129,6 +129,14 @@ def setup_cache_tables():
                 )
             """)
 
+            # Table for semantic search embeddings (Phase 2 Scaffolding)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_embedding_cache (
+                    table_full_name STRING,
+                    embedding       ARRAY<FLOAT>
+                )
+            """)
+
 def push_business_name_overrides():
     """Write column business name overrides back to Unity Catalog as column comments."""
     print("📝 Pushing business name overrides to Unity Catalog...")

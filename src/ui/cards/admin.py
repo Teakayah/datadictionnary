@@ -22,7 +22,6 @@ import html as _html
 import logging
 
 import pandas as pd
-import html as _html
 import streamlit as st
 
 from src.audit import approve_business_name, reject_business_name
@@ -30,7 +29,7 @@ from src.auth import is_admin
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import _get_write_connection, run_query
-from src.storage import get_business_name_override_storage
+from src.storage import get_business_name_override_storage, get_analytics_storage
 from src.i18n import t
 from src.personalization import is_editing_enabled, set_editing_enabled
 from src.ui.cards.cms_admin import _render_admin_cms_section
@@ -153,6 +152,14 @@ def get_sync_queue_stats() -> dict:
             return stats
     except Exception:
         return {"pending": 0, "processing": 0, "done": 0, "failed": 0}
+
+
+def get_search_analytics() -> pd.DataFrame:
+    """Return the last 50 zero-result searches."""
+    data = get_analytics_storage().get_zero_result_searches(50)
+    if not data:
+        return pd.DataFrame(columns=["query", "user_email", "timestamp"])
+    return pd.DataFrame(data)
 
 
 def get_high_impact_gaps() -> pd.DataFrame:
@@ -329,6 +336,35 @@ def _render_admin_integrity_report():
             st.dataframe(stew_gaps, use_container_width=True, hide_index=True)
         else:
             st.success(t("admin.integrity_all_stewards_assigned"))
+
+
+def _render_admin_search_analytics_section():
+    """Render the zero-results search analytics table."""
+    st.markdown(
+        f'<div class="dd-section-header" style="margin-top:32px;">'
+        f'<span class="dd-eyebrow">§ {t("admin.section_search_analytics")}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);'
+        f'line-height:1.5;margin:8px 0 12px;">{t("admin.search_analytics_subtitle")}</p>',
+        unsafe_allow_html=True,
+    )
+    df = get_search_analytics()
+    if df.empty:
+        st.info(t("admin.search_analytics_empty"))
+    else:
+        st.dataframe(
+            df,
+            column_config={
+                "query": t("admin.search_analytics_query"),
+                "user_email": t("admin.search_analytics_user"),
+                "timestamp": st.column_config.DatetimeColumn(t("admin.search_analytics_time")),
+            },
+            use_container_width=True,
+            hide_index=True,
+        )
 
 
 def _render_admin_sync_section():
@@ -570,6 +606,7 @@ def render_admin_page():
         with st.expander(t("help.admin_insights_expander")):
             st.markdown(t("help.admin_insights_content"))
         _render_admin_stats_section()
+        _render_admin_search_analytics_section()
         _render_admin_integrity_report()
 
     with tab_audit:
