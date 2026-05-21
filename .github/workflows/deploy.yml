@@ -54,6 +54,16 @@ jobs:
           ENABLE_MOCK_AUTH: "true"
           ENVIRONMENT: development
 
+      - name: Check documentation sync
+        run: |
+          python3 scripts/md_to_html.py
+          if [ -n "$(git status --porcelain docs/*.html)" ]; then
+            echo "Error: HTML documentation is out of sync with Markdown source."
+            echo "Please run 'python3 scripts/md_to_html.py' and commit the changes."
+            git diff docs/*.html
+            exit 1
+          fi
+
   # ─────────────────────────────────────────────────────────────────────────────
   # 2. BUILD — push to main only, after test passes
   # ─────────────────────────────────────────────────────────────────────────────

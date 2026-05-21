@@ -49,6 +49,8 @@
       <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
       <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
       <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+      <li class="nav-item "><a href="feature-hybrid-search.html">Hybrid Semantic Search</a></li>
+      <li class="nav-item "><a href="feature-search-analytics.html">Search Analytics</a></li>
     </ul>
   </nav>
   <nav class="nav-section">
@@ -114,9 +116,16 @@ its own copy of the same three-way switch:</p>
 entity (e.g. comments, glossary edits) would have meant writing it
 again. Two specific costs:</p>
 <ol class="steps">
-  <li><strong>Duplicated bug surface.</strong> Two of the four modules had subtly different exception-handling shapes; a fix to one didn't automatically reach the others.</li>
-  <li><strong>Tests were brittle.</strong> Most existing tests mocked <code>_duckdb_available</code> to <code>False</code> to force the demo path, which coupled tests to the runtime-routing implementation. Renaming or refactoring the routing function broke unrelated tests. A senior-developer audit (TODO #4) recommended a Protocol-based</li>
-</ol>storage abstraction with one factory per entity.
+  <li><strong>Duplicated bug surface.</strong> Two of the four modules had subtly</li>
+</ol>   different exception-handling shapes; a fix to one didn't
+   automatically reach the others.
+<ol class="steps">
+  <li><strong>Tests were brittle.</strong> Most existing tests mocked</li>
+</ol>   <code>_duckdb_available</code> to <code>False</code> to force the demo path, which coupled
+   tests to the runtime-routing implementation. Renaming or refactoring
+   the routing function broke unrelated tests.
+<p>A senior-developer audit (TODO #4) recommended a Protocol-based
+storage abstraction with one factory per entity.</p>
 <h3>Alternatives considered</h3>
 <p><strong>A single <code>Storage</code> god-class with everything on it.</strong>
 Tempting because there's only one factory call site. But it conflates
@@ -160,15 +169,32 @@ src/storage/
 <code></code>`</p>
 <h3>Conventions</h3>
 <ul>
-  <li><strong>Protocols are runtime-checkable</strong> so tests can do <code>isinstance(x, CMSStorage)</code> smoke tests for protocol coverage.</li>
-  <li><strong>Demo backends</strong> mirror the previous session-state behaviour literally (no behavioural change); <code>Site_Setting</code> and <code>Preference</code> demo backends are intentional no-ops to preserve pre-refactor behaviour where the in-process session cache was the only runtime-mutable knob without DuckDB.</li>
-  <li><strong>Fake backends</strong> are session-free in-memory dicts; they don't depend on Streamlit and are usable from any unit test via <code>mock.patch("src.<module>.get_<entity>_storage", return_value=fake)</code>.</li>
-  <li><strong>Factories are not cached.</strong> <code>is_demo_mode()</code> and <code>_duckdb_available()</code> re-evaluate per call so tests can flip env vars between calls and see consistent behaviour. Cost is microseconds.</li>
-  <li><strong>The wrapper module</strong> (<code>src/cms.py</code>, etc.) keeps its public API identical so callers don't change. New code can import the storage directly if it needs Protocol-typed access. <h3>Test pattern</h3> Before:</li>
-</ul><pre><code class="language-python">@patch("src.cms._duckdb_available", return_value=False)
+  <li><strong>Protocols are runtime-checkable</strong> so tests can do</li>
+</ul>  <code>isinstance(x, CMSStorage)</code> smoke tests for protocol coverage.
+<ul>
+  <li><strong>Demo backends</strong> mirror the previous session-state behaviour</li>
+</ul>  literally (no behavioural change); <code>Site_Setting</code> and <code>Preference</code>
+  demo backends are intentional no-ops to preserve pre-refactor
+  behaviour where the in-process session cache was the only
+  runtime-mutable knob without DuckDB.
+<ul>
+  <li><strong>Fake backends</strong> are session-free in-memory dicts; they don't</li>
+</ul>  depend on Streamlit and are usable from any unit test via
+  <code>mock.patch("src.<module>.get_<entity>_storage", return_value=fake)</code>.
+<ul>
+  <li><strong>Factories are not cached.</strong> <code>is_demo_mode()</code> and</li>
+</ul>  <code>_duckdb_available()</code> re-evaluate per call so tests can flip env vars
+  between calls and see consistent behaviour. Cost is microseconds.
+<ul>
+  <li><strong>The wrapper module</strong> (<code>src/cms.py</code>, etc.) keeps its public API</li>
+</ul>  identical so callers don't change. New code can import the storage
+  directly if it needs Protocol-typed access.
+<h3>Test pattern</h3>
+<p>Before:
+<pre><code class="language-python">@patch("src.cms._duckdb_available", return_value=False)
 def test_create_post(mock):
     create_post(...)
-    assert st.session_state["_demo_cms_posts"] == [...]</code></pre>
+    assert st.session_state["_demo_cms_posts"] == [...]</code></pre></p>
 <p>After:
 <pre><code class="language-python">def test_create_post():
     fake = FakeCMSStorage()
@@ -193,12 +219,33 @@ per write.</p>
 <h2>Consequences</h2>
 <p><strong>Positive:</strong></p>
 <ul>
-  <li>Adding a new entity is a recipe, not a question: 1. Define <code><Name>Storage(Protocol)</code>. 2. Implement <code>Demo<Name>Storage</code>, <code>DuckDB<Name>Storage</code>, <code>Fake<Name>Storage</code>. 3. Add a <code>get_<name>_storage()</code> factory. 4. Replace the wrapper module's body with one-liners.</li>
+  <li>Adding a new entity is a recipe, not a question:</li>
+</ul>  1. Define <code><Name>Storage(Protocol)</code>.
+  2. Implement <code>Demo<Name>Storage</code>, <code>DuckDB<Name>Storage</code>,
+     <code>Fake<Name>Storage</code>.
+  3. Add a <code>get_<name>_storage()</code> factory.
+  4. Replace the wrapper module's body with one-liners.
+<ul>
   <li>13 duplicated branches collapsed to ~50 lines of routing logic.</li>
-  <li>Tests inject <code>Fake*Storage</code> rather than mocking <code>_duckdb_available</code>, which decoupled them from the runtime-routing implementation. <strong>Negative:</strong> - One more module to read for a contributor doing their first entity-level change. Mitigated by the regularity — once you've read one storage module, you've read them all.</li>
-  <li>Protocol-based typing has weaker IDE support than ABC inheritance in some editors. Hasn't been a problem in practice. <strong>Out of scope:</strong> - A <code>CommentStorage</code> for <code>src/comments.py</code>. The pattern is the same; migration is mechanical. Deferred to a future ticket if the entity grows new fields.</li>
-  <li>Migrating <code>src/pages/search.py</code> from <code>src.db.queries.get_column_business_names</code> to <code>BusinessNameOverrideStorage.get_for_table</code>. Mechanical follow-up.</li>
-</ul>
+  <li>Tests inject <code>Fake*Storage</code> rather than mocking <code>_duckdb_available</code>,</li>
+</ul>  which decoupled them from the runtime-routing implementation.
+<p><strong>Negative:</strong></p>
+<ul>
+  <li>One more module to read for a contributor doing their first</li>
+</ul>  entity-level change. Mitigated by the regularity — once you've read
+  one storage module, you've read them all.
+<ul>
+  <li>Protocol-based typing has weaker IDE support than ABC inheritance in</li>
+</ul>  some editors. Hasn't been a problem in practice.
+<p><strong>Out of scope:</strong></p>
+<ul>
+  <li>A <code>CommentStorage</code> for <code>src/comments.py</code>. The pattern is the same;</li>
+</ul>  migration is mechanical. Deferred to a future ticket if the
+  entity grows new fields.
+<ul>
+  <li>Migrating <code>src/pages/search.py</code> from</li>
+</ul>  <code>src.db.queries.get_column_business_names</code> to
+  <code>BusinessNameOverrideStorage.get_for_table</code>. Mechanical follow-up.
 </section>
       <footer class="site-footer">
         <p>Data Dictionary · Documented by Data Engineering</p>

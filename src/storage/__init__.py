@@ -56,6 +56,13 @@ from src.storage.audit_storage import (  # noqa: F401
     FakeAuditStorage,
     FakeBusinessNameOverrideStorage,
 )
+from src.storage.analytics_storage import (  # noqa: F401
+    AnalyticsStorage,
+    DemoAnalyticsStorage,
+    DuckDBAnalyticsStorage,
+    FakeAnalyticsStorage,
+    SearchEvent,
+)
 
 
 def _use_demo_backend() -> bool:
@@ -133,4 +140,14 @@ def get_business_name_override_storage() -> BusinessNameOverrideStorage:
     return (
         DemoBusinessNameOverrideStorage() if _use_demo_backend()
         else DuckDBBusinessNameOverrideStorage()
+    )
+
+
+def get_analytics_storage() -> AnalyticsStorage:
+    """Pick an analytics backend based on runtime env."""
+    from src.config import USER_DATA_PATH
+
+    return (
+        DemoAnalyticsStorage() if _use_demo_backend()
+        else DuckDBAnalyticsStorage(USER_DATA_PATH)
     )

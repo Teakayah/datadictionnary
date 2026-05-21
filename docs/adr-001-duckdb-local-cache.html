@@ -49,6 +49,8 @@
       <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
       <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
       <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+      <li class="nav-item "><a href="feature-hybrid-search.html">Hybrid Semantic Search</a></li>
+      <li class="nav-item "><a href="feature-search-analytics.html">Search Analytics</a></li>
     </ul>
   </nav>
   <nav class="nav-section">
@@ -102,20 +104,32 @@
   <li>Full-text search across <code>tables_metadata</code> and <code>columns_metadata</code> with a <code>JOIN</code> to <code>permissions_cache</code> to enforce row-level security</li>
   <li>Point lookups by <code>full_name</code> for the table detail panel</li>
   <li>Aggregate queries for the health dashboard (count of documented tables, column coverage percentage)</li>
-  <li>Occasional <code>UNION</code> queries for related-table discovery The app is read-heavy. A single sync job is the only writer; the app never modifies catalog data (only the user data file). Concurrent read access from multiple Streamlit processes must work without coordination. <h3>Alternatives considered</h3> <strong>SQLite</strong></li>
+  <li>Occasional <code>UNION</code> queries for related-table discovery</li>
+</ul>
+The app is read-heavy. A single sync job is the only writer; the app never modifies catalog data (only the user data file). Concurrent read access from multiple Streamlit processes must work without coordination.
+<h3>Alternatives considered</h3>
+<p><strong>SQLite</strong>
+<ul>
   <li>Built into Python, no additional dependency</li>
   <li>Familiar to most contributors</li>
   <li>Analytical queries (aggregates, multi-table JOINs) are notably slower than columnar engines on this workload</li>
   <li>No native Parquet or CSV export</li>
-  <li>Not designed for analytical access patterns <strong>Redis</strong></li>
+  <li>Not designed for analytical access patterns</li>
+</ul>
+<strong>Redis</strong>
+<ul>
   <li>Excellent for key-value lookups (e.g. point lookups by <code>full_name</code>)</li>
   <li>Requires a running server, adding operational complexity for local development</li>
   <li>Does not support SQL JOINs natively — permission enforcement would have to move into Python, breaking the push-down security model</li>
-  <li>Overkill for an 800-table catalog; memory overhead is significant <strong>Polars in-memory</strong></li>
+  <li>Overkill for an 800-table catalog; memory overhead is significant</li>
+</ul>
+<strong>Polars in-memory</strong>
+<ul>
   <li>Very fast for analytical queries</li>
   <li>No persistence — data must be reloaded on every Streamlit session start (cold start penalty of several seconds for 800 tables)</li>
-  <li>No SQL interface — queries must be rewritten in the Polars expression API, diverging from the Databricks SQL strings already tested <hr></li>
+  <li>No SQL interface — queries must be rewritten in the Polars expression API, diverging from the Databricks SQL strings already tested</li>
 </ul>
+<hr></p>
 </section>
 <section class="section" id="decision">
 <h2>Decision</h2>
@@ -127,8 +141,9 @@
   <li>The same SQL strings used against the Databricks SQL Warehouse work against DuckDB after minor dialect translation (handled by <code>_to_duckdb_sql()</code>)</li>
   <li>The catalog file is a single <code>.duckdb</code> file that the sync job replaces atomically with <code>os.replace()</code>. Readers that have the old file open continue to see a consistent snapshot; new readers pick up the replacement on next open</li>
   <li>The user data file (<code>dict_user_data.duckdb</code>) is <code>ATTACH</code>ed at runtime, enabling cross-file JOINs without any server coordination</li>
-  <li>Local development requires no infrastructure: set <code>DUCKDB_PATH</code> and <code>DEMO_DATA=true</code>, run <code>streamlit run app.py</code> <hr></li>
+  <li>Local development requires no infrastructure: set <code>DUCKDB_PATH</code> and <code>DEMO_DATA=true</code>, run <code>streamlit run app.py</code></li>
 </ul>
+<hr>
 </section>
 <section class="section" id="consequences">
 <h2>Consequences</h2>
@@ -136,7 +151,10 @@
 <ul>
   <li>Sub-10 ms search queries in the read path, regardless of Databricks SQL Warehouse availability</li>
   <li>Zero infrastructure dependency for local development and CI</li>
-  <li>Single-file portability: the entire catalog snapshot can be copied, backed up, or inspected with any DuckDB client <strong>Negative:</strong></li>
+  <li>Single-file portability: the entire catalog snapshot can be copied, backed up, or inspected with any DuckDB client</li>
+</ul>
+<strong>Negative:</strong>
+<ul>
   <li>DuckDB enforces a single-writer constraint per file. The sync job holds an exclusive write lock while rebuilding the catalog file. During a sync (typically 30–90 seconds) the app falls back to the previous file via the atomic-replace mechanism. The transition window is safe but operators should be aware of it.</li>
   <li>The <code>_to_duckdb_sql()</code> dialect translator adds a small maintenance surface. New query patterns that use Databricks-specific functions must be added to the translator when DuckDB support is needed.</li>
   <li>DuckDB is not a networked database. Horizontal scaling (multiple app replicas) requires that all replicas share the same PVC mount point. This is the reason the PVC uses <code>ReadWriteMany</code> access mode. On clusters without a shared filesystem, this constraint must be addressed at the storage layer.</li>

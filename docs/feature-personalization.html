@@ -49,6 +49,8 @@
       <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
       <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
       <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+      <li class="nav-item "><a href="feature-hybrid-search.html">Hybrid Semantic Search</a></li>
+      <li class="nav-item "><a href="feature-search-analytics.html">Search Analytics</a></li>
     </ul>
   </nav>
   <nav class="nav-section">
@@ -95,10 +97,18 @@
 <section class="section" id="implementation-strategy">
 <h2>Implementation Strategy</h2>
 <ol class="steps">
-  <li><strong>Persistence (Local-First):</strong>  - Store user preferences (bookmarks and recent activity) in a local <strong>DuckDB</strong> database (<code>.user_prefs.db</code>) for immediate responsiveness. - Implement a sync process to periodically push these local updates back to the <code>user_preferences</code> table in Databricks SQL Warehouse.</li>
-  <li><strong>Discovery UI:</strong> - Transform the "Discovery" tab into a multi-tab view containing: - <strong>New & Notable:</strong> The existing feed of recently updated tables. - <strong>My Bookmarks:</strong> A personalized list of the user's favorited assets. - <strong>Recently Viewed:</strong> A chronological history of the user's navigation.</li>
-  <li><strong>Data Model:</strong>  - A <code>user_preferences</code> table mapping <code>user_oid</code> to <code>table_full_name</code>, <code>pref_type</code> ('bookmark' or 'recent'), and a <code>last_interacted</code> timestamp.</li>
-</ol>
+  <li><strong>Persistence (Local-First):</strong></li>
+</ol>   - Store user preferences (bookmarks and recent activity) in a local <strong>DuckDB</strong> database (<code>.user_prefs.db</code>) for immediate responsiveness.
+   - Implement a sync process to periodically push these local updates back to the <code>user_preferences</code> table in Databricks SQL Warehouse.
+<ol class="steps">
+  <li><strong>Discovery UI:</strong></li>
+</ol>   - Transform the "Discovery" tab into a multi-tab view containing:
+     - <strong>New & Notable:</strong> The existing feed of recently updated tables.
+     - <strong>My Bookmarks:</strong> A personalized list of the user's favorited assets.
+     - <strong>Recently Viewed:</strong> A chronological history of the user's navigation.
+<ol class="steps">
+  <li><strong>Data Model:</strong></li>
+</ol>   - A <code>user_preferences</code> table mapping <code>user_oid</code> to <code>table_full_name</code>, <code>pref_type</code> ('bookmark' or 'recent'), and a <code>last_interacted</code> timestamp.
 </section>
 <section class="section" id="initial-scaffolding">
 <h2>Initial Scaffolding</h2>

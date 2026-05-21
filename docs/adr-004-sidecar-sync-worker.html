@@ -49,6 +49,8 @@
       <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
       <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
       <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+      <li class="nav-item "><a href="feature-hybrid-search.html">Hybrid Semantic Search</a></li>
+      <li class="nav-item "><a href="feature-search-analytics.html">Search Analytics</a></li>
     </ul>
   </nav>
   <nav class="nav-section">
@@ -108,10 +110,31 @@ def _start_sync_worker_thread():
     return t</code></pre>
 <p>Three problems with this design surfaced in the May 2026 audit:</p>
 <ol class="steps">
-  <li><strong>Shared DuckDB connection.</strong> <code>_get_shared_duckdb_connection()</code> returns a single in-memory DuckDB connection cached via <code>@st.cache_resource</code>. The worker thread, every Streamlit script-runner thread, and the DR resync code all called <code>execute()</code> on it concurrently. DuckDB connections are not safe for concurrent execute calls — only writes were guarded by <code>_db_write_lock</code>; reads collided freely. Symptoms: intermittent <code>Connection was closed</code> errors and silently stale reads. 2. <strong>Streamlit cache from a non-Streamlit thread.</strong> The worker thread had no <code>ScriptRunContext</code>. Calling <code>@st.cache_resource</code>-decorated functions from a thread without a ScriptRunContext is undefined behaviour and varies between Streamlit minor versions. 3. <strong>Two <code>_LAST_UI_ACTIVITY</code> state objects.</strong> The same set of helpers (<code>_get_last_ui_activity</code>, <code>_mark_ui_activity</code>, <code>_get_dr_resync_status</code>) was duplicated in <code>src/sync/worker.py</code> and <code>src/ui/cards.py</code>, each with its own <code>_worker_state_lock</code>. <code>app.py</code> imported <code>_mark_ui_activity</code> from both modules; the second import won. Net effect: the UI ticked the cards.py copy, the worker read the worker.py copy, so the worker was effectively always in idle mode and used the high-throughput batch size unconditionally. Subtle but real. A fourth latent issue: <code>src/sync/push.py</code> referenced <code>last_attempt_at</code></li>
-</ol>in an UPDATE, but the column was never declared in
+  <li><strong>Shared DuckDB connection.</strong> <code>_get_shared_duckdb_connection()</code> returns</li>
+</ol>   a single in-memory DuckDB connection cached via <code>@st.cache_resource</code>.
+   The worker thread, every Streamlit script-runner thread, and the DR
+   resync code all called <code>execute()</code> on it concurrently. DuckDB
+   connections are not safe for concurrent execute calls — only writes
+   were guarded by <code>_db_write_lock</code>; reads collided freely. Symptoms:
+   intermittent <code>Connection was closed</code> errors and silently stale reads.
+<ol class="steps">
+  <li><strong>Streamlit cache from a non-Streamlit thread.</strong> The worker thread had</li>
+</ol>   no <code>ScriptRunContext</code>. Calling <code>@st.cache_resource</code>-decorated functions
+   from a thread without a ScriptRunContext is undefined behaviour and
+   varies between Streamlit minor versions.
+<ol class="steps">
+  <li><strong>Two <code>_LAST_UI_ACTIVITY</code> state objects.</strong> The same set of helpers</li>
+</ol>   (<code>_get_last_ui_activity</code>, <code>_mark_ui_activity</code>, <code>_get_dr_resync_status</code>)
+   was duplicated in <code>src/sync/worker.py</code> and <code>src/ui/cards.py</code>, each with
+   its own <code>_worker_state_lock</code>. <code>app.py</code> imported <code>_mark_ui_activity</code>
+   from both modules; the second import won. Net effect: the UI ticked
+   the cards.py copy, the worker read the worker.py copy, so the worker
+   was effectively always in idle mode and used the high-throughput
+   batch size unconditionally. Subtle but real.
+<p>A fourth latent issue: <code>src/sync/push.py</code> referenced <code>last_attempt_at</code>
+in an UPDATE, but the column was never declared in
 <code>_initialize_schema()</code>. Every optimistic update threw silently and the
-queue stalled.
+queue stalled.</p>
 <hr>
 </section>
 <section class="section" id="decision">
@@ -135,19 +158,36 @@ queue stalled.
 </table>
 <h3>Connection ownership</h3>
 <ul>
-  <li>Streamlit pods continue to use <code>_get_shared_duckdb_connection()</code> (Streamlit-cached, in-memory, ATTACHes the catalog file read-only and the user_data file read-write).</li>
-  <li>The daemon uses <code>src.sync.daemon_db.DaemonConn</code> — a process-local DuckDB connection with no Streamlit cache. Same shape as <code>_DuckDBConn</code> so <code>_process_sync_queue</code> and <code>run_dr_resync</code> accept either. <h3>IPC</h3> The <code>pending_sync</code> table is the queue — no Redis, no RabbitMQ, no message</li>
-</ul>broker. The DuckDB OS-level file lock serialises writes from the
+  <li>Streamlit pods continue to use <code>_get_shared_duckdb_connection()</code></li>
+</ul>  (Streamlit-cached, in-memory, ATTACHes the catalog file read-only and
+  the user_data file read-write).
+<ul>
+  <li>The daemon uses <code>src.sync.daemon_db.DaemonConn</code> — a process-local</li>
+</ul>  DuckDB connection with no Streamlit cache. Same shape as <code>_DuckDBConn</code>
+  so <code>_process_sync_queue</code> and <code>run_dr_resync</code> accept either.
+<h3>IPC</h3>
+<p>The <code>pending_sync</code> table is the queue — no Redis, no RabbitMQ, no message
+broker. The DuckDB OS-level file lock serialises writes from the
 Streamlit enqueue path and the daemon's drain updates. The daemon writes
 status keys (<code>worker_heartbeat</code>, <code>dr_resync_status</code>) into
 <code>user_data.site_settings</code>; the UI reads them via
-<code>src.sync.worker.read_dr_resync_status()</code>.
+<code>src.sync.worker.read_dr_resync_status()</code>.</p>
 <h3>Health and recovery</h3>
 <ul>
-  <li>HTTP <code>GET :8765/healthz</code> returns 200 if a heartbeat was written within <code>SYNC_HEALTHZ_TIMEOUT_S</code> (default 60s), else 503 — used by the k8s liveness probe.</li>
-  <li>Stale-row recovery at the top of every cycle: rows in <code>'syncing'</code> state with <code>last_attempt_at < now - SYNC_STALE_ROW_S</code> (default 300s) flip back to <code>'pending'</code>. A daemon crash mid-push therefore can't lock rows permanently.</li>
-  <li><code>SIGTERM</code> sets <code>_stop_event</code>; the current cycle finishes (max ~30s with <code>terminationGracePeriodSeconds: 60</code>) and the daemon exits cleanly. <h3>Deployment</h3> Singleton — <code>replicas: 1</code> with <code>strategy: Recreate</code>. Sharing <code>dd-data</code></li>
-</ul>PVC with <code>dd-app</code>. Runs the same image with <code>command:</code> overridden.
+  <li>HTTP <code>GET :8765/healthz</code> returns 200 if a heartbeat was written within</li>
+</ul>  <code>SYNC_HEALTHZ_TIMEOUT_S</code> (default 60s), else 503 — used by the k8s
+  liveness probe.
+<ul>
+  <li>Stale-row recovery at the top of every cycle: rows in <code>'syncing'</code></li>
+</ul>  state with <code>last_attempt_at < now - SYNC_STALE_ROW_S</code> (default 300s)
+  flip back to <code>'pending'</code>. A daemon crash mid-push therefore can't lock
+  rows permanently.
+<ul>
+  <li><code>SIGTERM</code> sets <code>_stop_event</code>; the current cycle finishes (max ~30s</li>
+</ul>  with <code>terminationGracePeriodSeconds: 60</code>) and the daemon exits cleanly.
+<h3>Deployment</h3>
+<p>Singleton — <code>replicas: 1</code> with <code>strategy: Recreate</code>. Sharing <code>dd-data</code>
+PVC with <code>dd-app</code>. Runs the same image with <code>command:</code> overridden.</p>
 <hr>
 </section>
 <section class="section" id="alternatives-considered">
@@ -155,38 +195,92 @@ status keys (<code>worker_heartbeat</code>, <code>dr_resync_status</code>) into
 <h3>Keep the in-process daemon</h3>
 <ul>
   <li>Cheapest in lines of code.</li>
-  <li>Fails the concurrency review: shared DuckDB connection across threads is undefined; Streamlit's threading guarantees don't extend to caches used from non-script-runner threads.</li>
-  <li>Hides the failure: most edits succeed, occasional ones throw silently, the queue accumulates, nobody notices until the queue table is large. <h3>Per-replica writer</h3> Run a sync thread inside each Streamlit replica. Each opens its own</li>
-</ul>DuckDB connection and competes for the OS lock.
+  <li>Fails the concurrency review: shared DuckDB connection across threads</li>
+</ul>  is undefined; Streamlit's threading guarantees don't extend to caches
+  used from non-script-runner threads.
+<ul>
+  <li>Hides the failure: most edits succeed, occasional ones throw silently,</li>
+</ul>  the queue accumulates, nobody notices until the queue table is
+  large.
+<h3>Per-replica writer</h3>
+<p>Run a sync thread inside each Streamlit replica. Each opens its own
+DuckDB connection and competes for the OS lock.</p>
 <ul>
   <li>Doesn't solve the Streamlit-context-from-thread problem.</li>
-  <li>N replicas all drain the same queue → race conditions on the <code>'pending' → 'syncing'</code> transition unless we add row-level claiming.</li>
+  <li>N replicas all drain the same queue → race conditions on the</li>
+</ul>  <code>'pending' → 'syncing'</code> transition unless we add row-level claiming.
+<ul>
   <li>Hard to reason about which replica is doing what.</li>
-  <li>No clear separation between "user-facing pod" and "background work". <h3>External queue (Redis Streams / RabbitMQ / Azure Service Bus)</h3> Replace <code>pending_sync</code> with a managed queue. - Best long-term option — provides at-least-once delivery, retry backoff, observability.</li>
-  <li>Operational overhead: another moving part to deploy, monitor, secure, rotate credentials for.</li>
+  <li>No clear separation between "user-facing pod" and "background work".</li>
+</ul>
+<h3>External queue (Redis Streams / RabbitMQ / Azure Service Bus)</h3>
+<p>Replace <code>pending_sync</code> with a managed queue.</p>
+<ul>
+  <li>Best long-term option — provides at-least-once delivery, retry</li>
+</ul>  backoff, observability.
+<ul>
+  <li>Operational overhead: another moving part to deploy, monitor, secure,</li>
+</ul>  rotate credentials for.
+<ul>
   <li>Out of proportion for current write volume (≤100 ops/min).</li>
   <li>Adds latency for the visible "edit applied" feedback loop in the UI.</li>
-  <li>Revisit if the team is already running Redis or Service Bus for other reasons. <h3>Cron-style one-shot pod</h3> Replace the long-lived daemon with a CronJob running</li>
-</ul><code>python -m src.sync.daemon --once</code> every minute.
+  <li>Revisit if the team is already running Redis or Service Bus for other</li>
+</ul>  reasons.
+<h3>Cron-style one-shot pod</h3>
+<p>Replace the long-lived daemon with a CronJob running
+<code>python -m src.sync.daemon --once</code> every minute.</p>
 <ul>
   <li>Simpler deployment shape.</li>
-  <li>Cold-start cost on every run (DuckDB connection setup, Databricks auth) — at 1 run/min, ≥30% of the cycle is overhead.</li>
-  <li>DR resync cadence becomes locked to the cron interval; the long-lived daemon can run DR resync on a different cadence (every Nth cycle).</li>
-  <li>Stale-row recovery is harder when each invocation is independent — who owns the lifecycle of a row stuck in <code>'syncing'</code>? The CronJob shape is reasonable for environments where running</li>
-</ul>long-lived pods is forbidden. We may add it as an alternate deployment
-mode if needed; for now the long-lived Deployment wins.
+  <li>Cold-start cost on every run (DuckDB connection setup, Databricks</li>
+</ul>  auth) — at 1 run/min, ≥30% of the cycle is overhead.
+<ul>
+  <li>DR resync cadence becomes locked to the cron interval; the long-lived</li>
+</ul>  daemon can run DR resync on a different cadence (every Nth cycle).
+<ul>
+  <li>Stale-row recovery is harder when each invocation is independent —</li>
+</ul>  who owns the lifecycle of a row stuck in <code>'syncing'</code>?
+<p>The CronJob shape is reasonable for environments where running
+long-lived pods is forbidden. We may add it as an alternate deployment
+mode if needed; for now the long-lived Deployment wins.</p>
 <hr>
 </section>
 <section class="section" id="consequences">
 <h2>Consequences</h2>
 <p><strong>Positive:</strong></p>
 <ul>
-  <li>DuckDB shared-connection concurrency bugs are gone — Streamlit and the daemon never touch the same Python connection object.</li>
-  <li>The daemon is now testable in isolation. <code>tests/test_sync_daemon.py</code> exercises the loop, stale-row recovery, healthz, and DR resync with a fake <code>_databricks_query</code>. Previously the loop was a <code>while True</code> inside a thread inside a <code>@st.cache_resource</code> — effectively impossible to unit-test.</li>
-  <li>One source of truth for sync status. The UI reads from <code>user_data.site_settings</code>; the daemon writes there. No more duplicated <code>_LAST_UI_ACTIVITY</code> state.</li>
-  <li>Streamlit pods become stateless w.r.t. background work. Restarting <code>dd-app</code> no longer restarts the sync worker; rolling out a new image doesn't restart drains in flight. <strong>Negative:</strong> - Two Deployments to operate instead of one. Documented in <a href="runbook-sync-worker.html"><code>docs/runbooks/sync-worker.md</code></a>.</li>
-  <li>DuckDB still has multiple writers (Streamlit pods + daemon). Today the OS file lock serialises them and write volume is low enough that it doesn't matter. If write contention surfaces under load, migrate <code>user_data</code> to PostgreSQL — tracked in TODO.md.</li>
-  <li>The UI no longer shows "Active vs Idle mode" because the daemon doesn't track UI activity any more. We replaced that panel with "Worker heartbeat" + "Self-Healing (DR)" — more accurate, less decorative. <strong>Out of scope:</strong> - Multi-writer support beyond DuckDB's lock-serialised default.</li>
+  <li>DuckDB shared-connection concurrency bugs are gone — Streamlit and</li>
+</ul>  the daemon never touch the same Python connection object.
+<ul>
+  <li>The daemon is now testable in isolation. <code>tests/test_sync_daemon.py</code></li>
+</ul>  exercises the loop, stale-row recovery, healthz, and DR resync with a
+  fake <code>_databricks_query</code>. Previously the loop was a <code>while True</code>
+  inside a thread inside a <code>@st.cache_resource</code> — effectively impossible
+  to unit-test.
+<ul>
+  <li>One source of truth for sync status. The UI reads from</li>
+</ul>  <code>user_data.site_settings</code>; the daemon writes there. No more
+  duplicated <code>_LAST_UI_ACTIVITY</code> state.
+<ul>
+  <li>Streamlit pods become stateless w.r.t. background work. Restarting</li>
+</ul>  <code>dd-app</code> no longer restarts the sync worker; rolling out a new image
+  doesn't restart drains in flight.
+<p><strong>Negative:</strong></p>
+<ul>
+  <li>Two Deployments to operate instead of one. Documented in</li>
+</ul>  <a href="runbook-sync-worker.html"><code>docs/runbooks/sync-worker.md</code></a>.
+<ul>
+  <li>DuckDB still has multiple writers (Streamlit pods + daemon). Today</li>
+</ul>  the OS file lock serialises them and write volume is low enough that
+  it doesn't matter. If write contention surfaces under load, migrate
+  <code>user_data</code> to PostgreSQL — tracked in TODO.md.
+<ul>
+  <li>The UI no longer shows "Active vs Idle mode" because the daemon</li>
+</ul>  doesn't track UI activity any more. We replaced that panel with
+  "Worker heartbeat" + "Self-Healing (DR)" — more accurate, less
+  decorative.
+<p><strong>Out of scope:</strong></p>
+<ul>
+  <li>Multi-writer support beyond DuckDB's lock-serialised default.</li>
   <li>Replacing <code>pending_sync</code> with a managed queue.</li>
   <li>Replacing the long-lived Deployment with a CronJob.</li>
 </ul>

@@ -8,22 +8,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <style>
-    /* Mermaid diagram container */
-    .mermaid-wrap {
-      background: var(--paper-deep);
-      border: 1px solid var(--ink-10);
-      border-radius: 2px;
-      padding: 24px;
-      margin: 20px 0;
-      overflow-x: auto;
-    }
-    .mermaid-wrap .mermaid { min-width: 520px; }
-    .mermaid svg { max-width: 100%; }
-  </style>
 </head>
 <body>
-
+  
 <aside class="sidebar">
   <div class="sidebar-header">
     <a href="product-overview.html" style="text-decoration:none; color:inherit;">
@@ -62,6 +49,8 @@
       <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
       <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
       <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+      <li class="nav-item "><a href="feature-hybrid-search.html">Hybrid Semantic Search</a></li>
+      <li class="nav-item "><a href="feature-search-analytics.html">Search Analytics</a></li>
     </ul>
   </nav>
   <nav class="nav-section">
@@ -100,315 +89,207 @@
       <section class="hero">
         <div class="eyebrow">Architecture</div>
         <h1>Architecture overview</h1>
-        <p class="lead">System design, component responsibilities, data flows, and key architectural decisions for the Business Data Dictionary.</p>
       </section>
-
-      <!-- ── System architecture ─────────────────────────────────── -->
-      <section class="section" id="system-architecture">
-        <h2>System architecture</h2>
-        <p>The solution has four layers: identity, compute/UI, local cache, and the Databricks Unity Catalog source of truth.</p>
-
-        <div class="workflow-diagram">
-          <div class="wf-step"><span class="wf-label">Entra ID</span><span class="wf-actor">Identity</span></div>
-          <div class="wf-arrow">→</div>
-          <div class="wf-step accent"><span class="wf-label">Streamlit App</span><span class="wf-actor">Compute/UI</span></div>
-          <div class="wf-arrow">→</div>
-          <div class="wf-step ok"><span class="wf-label">DuckDB Cache</span><span class="wf-actor">Local Store</span></div>
-          <div class="wf-arrow">↔</div>
-          <div class="wf-step"><span class="wf-label">Unity Catalog</span><span class="wf-actor">Source of Truth</span></div>
-        </div>
-
-        <div class="mermaid-wrap">
-          <div class="mermaid">
-graph TD
-    subgraph IDENTITY["Identity layer (Azure)"]
-        A["Business user"] -->|"OIDC login"| B["Microsoft Entra ID"]
-        B -->|"JWT + group claims"| C["Streamlit application"]
-        B -->|"Graph fallback for 150+ groups"| C
-    end
-    subgraph COMPUTE["Compute and UI layer"]
-        C -->|"Permission-filtered SQL"| D["DuckDB local cache"]
-        C -->|"Read-only fallback"| E["Databricks SQL Warehouse"]
-        C -->|"Enqueue writes"| K[("user_data.pending_sync")]
-    end
-    subgraph CACHE["Local cache layer"]
-        D -->|"Atomic file replace on sync"| F[("dict.duckdb — catalog, RO")]
-        G[("dict_user_data.duckdb — user data, RW")] -->|"ATTACHed at startup"| D
-        K --- G
-    end
-    subgraph WORKERS["Background workers"]
-        H["Nightly sync CronJob"] -->|"Writes catalog file"| F
-        I["Sidecar sync worker"] -->|"Drains pending_sync"| L
-        I -->|"DR resync — pull recent rows"| F
-    end
-    subgraph UC["Unity Catalog (source of truth)"]
-        H -->|"Crawl metadata and ACLs"| J["Catalogs / schemas / tables"]
-        L["ALTER TABLE / COMMENT / INSERT audit"] --> J
-    end
-          </div>
-        </div>
-
-        <details class="ascii-container">
-          <summary>View raw Mermaid source</summary>
+      <section class="section">
+<p>Business Data Dictionary for Databricks Unity Catalog. This document describes the system design, component responsibilities, data flows, and key architectural decisions.</p>
+<hr>
+</section>
+<section class="section" id="system-architecture">
+<h2>System architecture</h2>
+<p>The solution has four layers: identity, compute/UI, local cache, and the Databricks Unity Catalog source of truth.</p>
+<div class="workflow-diagram">
+  <div class="wf-step"><span class="wf-label">Entra ID</span><span class="wf-actor">Identity</span></div>
+  <div class="wf-arrow">→</div>
+  <div class="wf-step accent"><span class="wf-label">Streamlit App</span><span class="wf-actor">Compute/UI</span></div>
+  <div class="wf-arrow">→</div>
+  <div class="wf-step ok"><span class="wf-label">DuckDB Cache</span><span class="wf-actor">Local Store</span></div>
+  <div class="wf-arrow">↔</div>
+  <div class="wf-step"><span class="wf-label">Unity Catalog</span><span class="wf-actor">Source of Truth</span></div>
+</div>
+<details class="ascii-container">
+  <summary>View System Architecture (Raw Mermaid)</summary>
 <pre>graph TD
     subgraph "Identity layer (Azure)"
         A[Business user] -->|OIDC login| B[Microsoft Entra ID]
         B -->|JWT + group claims, with Graph fallback for overage| C[Streamlit application]
     end
-    subgraph "Compute and UI layer"
+<p>subgraph "Compute and UI layer"
         C -->|Permission-filtered SQL| D[DuckDB local cache]
         C -->|Read-only fallback| E[Databricks SQL Warehouse]
         C -->|Enqueue writes| K[(user_data.pending_sync)]
-    end
-    subgraph "Local cache layer"
+    end</p>
+<p>subgraph "Local cache layer"
         D -->|Atomic file replace on sync| F[(dict.duckdb — catalog file, RO ATTACH)]
         G[(dict_user_data.duckdb — user data file, RW)] -->|ATTACHed at startup| D
         K --- G
-    end
-    subgraph "Background workers"
+    end</p>
+<p>subgraph "Background workers"
         H[Nightly sync CronJob] -->|Writes catalog file| F
         I[Sidecar sync worker — python -m src.sync.daemon] -->|Drains pending_sync| L
         I -->|DR resync — pull recent rows| F
-    end
-    subgraph "Unity Catalog (source of truth)"
+    end</p>
+<p>subgraph "Unity Catalog (source of truth)"
         H -->|Crawl metadata and ACLs| J[Catalogs / schemas / tables]
         L[ALTER TABLE / COMMENT / SET TAGS / INSERT audit + comments] --> J
     end</pre>
-        </details>
-      </section>
-
-      <hr>
-
-      <!-- ── Core components ────────────────────────────────────── -->
-      <section class="section" id="core-components">
-        <h2>Core components</h2>
-
-        <h3>Identity and security layer</h3>
-        <p>Authentication uses the OAuth 2.0 / OpenID Connect flow against Microsoft Entra ID. The app extracts Security Group Object IDs from the <code>groups</code> claim in the ID token. No additional database lookup is needed to resolve group membership — the signed token is the proof. Comma-separated group env vars (<code>ADMIN_GROUPS</code>, <code>PIPELINE_GROUPS</code>, <code>EDITOR_GROUPS</code>) are parsed by <code>_parse_groups()</code>, an LRU-cached helper in <code>src/auth.py</code>, so the string splitting cost is paid once per unique env value rather than on every RBAC check.</p>
-        <p>In local development, setting <code>ENABLE_MOCK_AUTH=true</code> and <code>ENVIRONMENT=development</code> replaces the Entra ID redirect with department-specific mock login buttons (finance, research, hr, it).</p>
-
-        <h3>Metadata sync job</h3>
-        <p><code>scripts/sync_metadata.py</code> uses the <code>databricks-sdk</code> (<code>WorkspaceClient</code>) to crawl the Unity Catalog hierarchy: catalogs → schemas → tables → columns → grants → lineage edges. Output is written to:</p>
-        <ul class="prose-list">
-          <li>The Databricks <code>data_governance.dictionary_cache</code> schema (truncate-and-reload via SQL Warehouse)</li>
-          <li>A local DuckDB file at <code>DUCKDB_PATH</code> (atomic swap via <code>os.replace</code> so in-flight reads are never interrupted)</li>
-        </ul>
-        <p>A separate script, <code>scripts/nightly_sync.py</code>, is the entry point for the CronJob container. The in-app DR resync worker is a different, lighter process (see sidecar below).</p>
-
-        <h3>DuckDB local cache layer</h3>
-        <p>When <code>DUCKDB_PATH</code> is set, the app serves all read queries from a local DuckDB file instead of routing them across the network to the SQL Warehouse. This reduces median query latency from ~300 ms (network round-trip) to under 5 ms for typical search queries on the 800-table reference dataset. Two files are used:</p>
-        <table class="status-table">
-          <thead>
-            <tr><th>File</th><th>Owner</th><th>Contents</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>DUCKDB_PATH</code><br><small>(e.g. <code>dict.duckdb</code>)</small></td>
-              <td>Sync job</td>
-              <td><code>tables_metadata</code>, <code>columns_metadata</code>, <code>permissions_cache</code>, <code>lineage_cache</code>, <code>object_tags</code>, <code>audit_log</code> — rebuilt atomically on each sync</td>
-            </tr>
-            <tr>
-              <td><code>USER_DATA_PATH</code><br><small>(auto-derived as <code>dict_user_data.duckdb</code>)</small></td>
-              <td>App</td>
-              <td><code>user_data.comments</code>, <code>user_data.business_name_overrides</code>, <code>user_data.audit_log</code> — append-only, never touched by the sync job</td>
-            </tr>
-          </tbody>
-        </table>
-        <p>At startup the app opens the catalog file and <code>ATTACH</code>es the user data file as the <code>user_data</code> schema. This enables cross-file JOINs (e.g. joining <code>tables_metadata</code> with <code>user_data.business_name_overrides</code>). All writes are serialized through a singleton connection and a <code>threading.Lock</code>.</p>
-        <p>The <code>_to_duckdb_sql()</code> function translates Databricks SQL dialect to DuckDB SQL (parameter style <code>%(name)s</code> → <code>?</code>, function aliases, etc.) so the same query strings work against both backends.</p>
-
-        <h3>Sidecar sync worker</h3>
-        <p>A separate process (<code>python -m src.sync.daemon</code>, deployed as <code>dd-sync-worker</code> with <code>replicas: 1</code>) drains <code>user_data.pending_sync</code> to Databricks and runs DR resync (pulling late-arriving rows from Databricks back into the local user_data file). The Streamlit pods only ever enqueue; the daemon is the sole intentional Databricks writer. See <a href="adr-004-sidecar-sync-worker.html">ADR 004</a> and <a href="runbook-sync-worker.html">the sync worker runbook</a>.</p>
-
-        <div class="mermaid-wrap">
-          <div class="mermaid">
-flowchart TD
-    START([daemon start]) --> POLL
-    POLL["Poll pending_sync\nfor pending rows"] --> STALE
-    STALE["Flip 'syncing' rows stale\n> SYNC_STALE_ROW_S back to 'pending'"] --> CHECK
-    CHECK{Any pending\nrows?}
-    CHECK -->|yes| PUSH["Push row to Databricks\nALTER TABLE / INSERT / COMMENT"]
-    PUSH --> RESULT{Success?}
-    RESULT -->|ok| DONE["Mark 'done'\nincrement cycle counter"]
-    RESULT -->|error| RETRY{attempts\n&lt; 3?}
-    RETRY -->|yes| REQUEUE["Re-queue\nincrement attempt_count"]
-    RETRY -->|no| FAIL["Mark 'failed'"]
-    DONE --> CHECK
-    REQUEUE --> CHECK
-    FAIL --> CHECK
-    CHECK -->|none| DR{"Every\nSYNC_DR_EVERY_N\ncycles?"}
-    DR -->|yes| RESYNC["DR resync — pull\nlate rows from\nDatabricks → DuckDB"]
-    DR -->|no| HB
-    RESYNC --> HB["Write heartbeat\nto site_settings"]
-    HB --> SLEEP["Sleep\nactive: SYNC_POLL_ACTIVE_S\nidle: SYNC_POLL_IDLE_S"]
-    SLEEP --> POLL
-          </div>
-        </div>
-        <p>The previous in-process daemon thread (<code>_start_sync_worker_thread</code>) was removed — it shared a Streamlit-cached DuckDB connection with the UI, ran from a thread without a <code>ScriptRunContext</code>, and tracked UI activity in two diverging state objects. The sidecar resolves all three.</p>
-        <p>The daemon writes its status (heartbeat ISO timestamp, DR resync state) into <code>user_data.site_settings</code> so the admin sync panel can display it. An HTTP <code>/healthz</code> listener returns 503 when the heartbeat goes stale (&gt;60 s by default).</p>
-
-        <h3>Streamlit frontend</h3>
-        <p><code>app.py</code> is the Streamlit entry point. It implements six tabs (search, catalog, discovery, health, glossary, pipelines) and an admin panel, all within a single-page layout using custom tab-based navigation.</p>
-        <p>The design system CSS is injected via <code>st.markdown('&lt;style&gt;...&lt;/style&gt;')</code> at startup from <code>src/ui/css.py</code>. All Unity Catalog identifiers (<code>catalog.schema.table</code>) are rendered in <code>JetBrains Mono</code>. The only accent color is oxidized red <code>#B8362A</code> (CSS variable <code>--accent</code>).</p>
-      </section>
-
-      <hr>
-
-      <!-- ── Storage abstraction ─────────────────────────────────── -->
-      <section class="section" id="storage-abstraction">
-        <h2>Storage abstraction</h2>
-        <p>Per-entity storage backends live under <code>src/storage/</code> and collapse the demo / DuckDB branching that used to be duplicated across <code>cms.py</code>, <code>pipelines.py</code>, <code>personalization.py</code>, and <code>audit.py</code>.</p>
-        <table class="status-table">
-          <thead>
-            <tr><th>Entity</th><th>Module</th><th>Backends</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>CMS posts</td><td><code>src/storage/cms_storage.py</code></td><td>Demo (session), DuckDB, Fake</td></tr>
-            <tr><td>Pipeline definitions / runs</td><td><code>src/storage/pipeline_storage.py</code></td><td>Demo (session), DuckDB, Fake</td></tr>
-            <tr><td>User preferences / site settings</td><td><code>src/storage/preference_storage.py</code></td><td>Demo (no-op), DuckDB, Fake</td></tr>
-            <tr><td>Audit log / business name overrides</td><td><code>src/storage/audit_storage.py</code></td><td>Demo (session), DuckDB, Fake</td></tr>
-          </tbody>
-        </table>
-        <p>Each entity has a <code>Protocol</code> defining its read/write surface and a factory in <code>src/storage/__init__.py</code> that picks the backend at call time (<code>is_demo_mode()</code> → demo, else DuckDB — Databricks-direct writes were removed in TODO #7). The <code>Fake*Storage</code> variants are session-free in-memory implementations used by unit tests. See <a href="adr-005-storage-abstraction.html">ADR 005</a> for the design rationale.</p>
-      </section>
-
-      <hr>
-
-      <!-- ── Security model ─────────────────────────────────────── -->
-      <section class="section" id="security-model">
-        <h2>Security model</h2>
-
-        <h3>Push-down SQL authorization</h3>
-        <p>Permission enforcement happens inside the SQL engine, not in Python. Every user-facing query that returns tables JOINs <code>tables_metadata</code> with <code>permissions_cache WHERE principal IN ($user_groups)</code>. Rows for tables the user is not authorized to see are excluded before they reach the application layer.</p>
-        <p>The sentinel value <code>SELECT_ALL_USERS</code> in <code>permissions_cache.principal</code> marks publicly accessible tables. These rows appear in search results for all authenticated users regardless of group membership.</p>
-        <p>The <code>_to_duckdb_sql()</code> function ensures parameter substitution is correctly translated between backends. Named parameters in Databricks SQL (<code>%(name)s</code>) are converted to positional parameters (<code>?</code>) for DuckDB, preserving the parameterized-query pattern in both modes and avoiding SQL injection via concatenation.</p>
-
-        <h3>Feature-level access control</h3>
-        <ul class="prose-list">
-          <li><code>EDITOR_GROUPS</code>: comma-separated group IDs allowed to save business name overrides and table metadata edits.</li>
-          <li><code>ADMIN_GROUPS</code>: comma-separated group IDs allowed to access the admin dashboard and audit logs. There is no demo bypass for admin access.</li>
-          <li><code>PIPELINE_GROUPS</code>: comma-separated group IDs whose members can trigger and cancel pipeline runs.</li>
-        </ul>
-        <p>Every write function (<code>create_post</code>, <code>delete_post</code>, <code>trigger_pipeline</code>, <code>cancel_run</code>, <code>set_editing_enabled</code>, <code>save_business_name</code>, <code>save_table_metadata</code>) re-checks <code>is_admin()</code> / <code>is_pipeline_user()</code> at the function boundary and raises <code>PermissionError</code> on failure — defense-in-depth beyond the UI gate.</p>
-        <p>Both <code>dd-app</code> and <code>dd-sync-worker</code> pods run with <code>readOnlyRootFilesystem: true</code>. A <code>/tmp</code> <code>emptyDir</code> volume provides writable scratch space for Streamlit and DuckDB without relaxing the root constraint. User-supplied display names are HTML-escaped at point of use. SMTP headers are sanitized to prevent header injection in comment notification emails.</p>
-
-        <h3>Entra groups overage</h3>
-        <p>When an Entra user belongs to more than ~150 security groups the ID token omits the inline <code>groups</code> claim and adds <code>_claim_names.groups</code> pointing at Microsoft Graph. <code>src/auth_graph.py</code> detects this shape and calls <code>POST /v1.0/me/getMemberObjects {"securityEnabledOnly": true}</code> to fetch the transitive list, paginated and capped at 50 pages.</p>
-        <p>Results are kept in a process-level cache (per user OID, 1 h TTL, lock-protected) so they survive across browser tabs. Failure modes (Graph 4xx/5xx, network) return an empty list and log a warning — fail-closed. Admins can flush every cached entry from the admin page; sign-out also drops the user's entry so "sign out, sign back in" picks up new groups immediately. See <a href="adr-006-entra-groups-overage.html">ADR 006</a>.</p>
-      </section>
-
-      <hr>
-
-      <!-- ── Personalisation persistence ────────────────────────── -->
-      <section class="section" id="personalisation-persistence">
-        <h2>Personalisation persistence</h2>
-        <p>User personalisation data (bookmarks, recently viewed tables, column bookmarks) is stored in the user data DuckDB file (<code>USER_DATA_PATH</code>). This file is append-only from the app's perspective and is never modified by the sync job.</p>
-        <p>The user is identified by their Entra ID Object ID (<code>oid</code> claim), stored as <code>user_oid</code> on every preference row. Preferences are loaded into <code>st.session_state</code> at session start via <code>_sync_prefs_to_session()</code> and written back immediately on user action through <code>_pref_upsert()</code> / <code>_pref_delete()</code>.</p>
-      </section>
-
-      <hr>
-
-      <!-- ── i18n ─────────────────────────────────────────────── -->
-      <section class="section" id="internationalisation-i18n">
-        <h2>Internationalisation (i18n)</h2>
-        <p>The app supports English and French. Locale files live in <code>locale/</code>:</p>
-        <pre>locale/
+</details></p>
+<hr>
+</section>
+<section class="section" id="core-components">
+<h2>Core components</h2>
+<h3>Identity and security layer</h3>
+<p>Authentication uses the OAuth 2.0 / OpenID Connect flow against Microsoft Entra ID. The app extracts Security Group Object IDs from the <code>groups</code> claim in the ID token. No additional database lookup is needed to resolve group membership — the signed token is the proof. Comma-separated group env vars (<code>ADMIN_GROUPS</code>, <code>PIPELINE_GROUPS</code>, <code>EDITOR_GROUPS</code>) are parsed by <code>_parse_groups()</code>, an LRU-cached helper in <code>src/auth.py</code>, so the string splitting cost is paid once per unique env value rather than on every RBAC check.</p>
+<p>In local development, setting <code>ENABLE_MOCK_AUTH=true</code> and <code>ENVIRONMENT=development</code> replaces the Entra ID redirect with department-specific mock login buttons (finance, research, hr, it).</p>
+<h3>Metadata sync job</h3>
+<p><code>scripts/sync_metadata.py</code> uses the <code>databricks-sdk</code> (<code>WorkspaceClient</code>) to crawl the Unity Catalog hierarchy: catalogs → schemas → tables → columns → grants → lineage edges.</p>
+<p>Output is written to:</p>
+<ul>
+  <li>The Databricks <code>data_governance.dictionary_cache</code> schema (truncate-and-reload via SQL Warehouse)</li>
+  <li>A local DuckDB file at <code>DUCKDB_PATH</code> (atomic swap via <code>os.replace</code> so in-flight reads are never interrupted)</li>
+</ul>
+A separate script, <code>scripts/nightly_sync.py</code>, is the entry point for the CronJob container. The in-app DR resync worker is a different, lighter process (see below).
+<h3>DuckDB local cache layer</h3>
+<p>When <code>DUCKDB_PATH</code> is set, the app serves all read queries from a local DuckDB file instead of routing them across the network to the SQL Warehouse. This reduces median query latency from ~300 ms (network round-trip) to under 5 ms for typical search queries on the 800-table reference dataset.</p>
+<p>Two files are used:</p>
+<table class="status-table">
+<thead>
+<tr><th>File</th><th>Owner</th><th>Contents</th></tr>
+</thead>
+<tbody>
+<tr><td><code>DUCKDB_PATH</code> (e.g. <code>dict.duckdb</code>)</td><td>Sync job</td><td><code>tables_metadata</code>, <code>columns_metadata</code>, <code>permissions_cache</code>, <code>lineage_cache</code>, <code>object_tags</code>, <code>audit_log</code> — rebuilt atomically on each sync</td></tr>
+<tr><td><code>USER_DATA_PATH</code> (auto-derived as <code>dict_user_data.duckdb</code>)</td><td>App</td><td><code>user_data.comments</code>, <code>user_data.business_name_overrides</code>, <code>user_data.audit_log</code> — append-only, never touched by the sync job</td></tr>
+</tbody>
+</table>
+At startup the app opens the catalog file and <code>ATTACH</code>es the user data file as the <code>user_data</code> schema. This enables cross-file JOINs (e.g. joining <code>tables_metadata</code> with <code>user_data.business_name_overrides</code>). All writes are serialized through a singleton connection and a <code>threading.Lock</code>.
+<p>The <code>_to_duckdb_sql()</code> function translates Databricks SQL dialect to DuckDB SQL (parameter style <code>%s</code> → <code>?</code>, function aliases, etc.) so the same query strings work against both backends.</p>
+<h3>Sidecar sync worker</h3>
+<p>A separate process (<code>python -m src.sync.daemon</code>, deployed as <code>dd-sync-worker</code> with <code>replicas: 1</code>) drains <code>user_data.pending_sync</code> to Databricks and runs DR resync (pulling late-arriving rows from Databricks back into the local user_data file). The Streamlit pods only ever enqueue; the daemon is the sole intentional Databricks writer. See <a href="adr-004-sidecar-sync-worker.html"><code>docs/adr/004-sidecar-sync-worker.md</code></a> and <a href="runbook-sync-worker.html"><code>docs/runbooks/sync-worker.md</code></a>.</p>
+<p>The previous in-process daemon thread (<code>_start_sync_worker_thread</code>) was removed in TODO #1 — it shared a Streamlit-cached DuckDB connection with the UI, ran from a thread without a <code>ScriptRunContext</code>, and tracked UI activity in two diverging state objects. The sidecar resolves all three.</p>
+<p>The daemon writes its status (heartbeat ISO timestamp, DR resync state) into <code>user_data.site_settings</code> so the admin sync panel can display it; an HTTP <code>/healthz</code> listener returns 503 when the heartbeat goes stale (>60 s by default).</p>
+<h3>Streamlit frontend</h3>
+<p><code>app.py</code> is the Streamlit entry point. It implements five tabs (search, catalog, discovery, health, glossary) and an admin panel, all within a single-page layout using custom tab-based navigation.</p>
+<p>The design system CSS is injected via <code>st.markdown('<style>...</style>')</code> at startup. All Unity Catalog identifiers (<code>catalog.schema.table</code>) are rendered in <code>JetBrains Mono</code>. The only accent color is oxidized red <code>#B8362A</code> (CSS variable <code>--accent</code>).</p>
+<hr>
+</section>
+<section class="section" id="storage-abstraction">
+<h2>Storage abstraction</h2>
+<p>Per-entity storage backends live under <code>src/storage/</code> and collapse the
+demo / DuckDB branching that used to be duplicated across <code>cms.py</code>,
+<code>pipelines.py</code>, <code>personalization.py</code>, and <code>audit.py</code>.</p>
+<table class="status-table">
+<thead>
+<tr><th>Entity</th><th>Module</th><th>Backends</th></tr>
+</thead>
+<tbody>
+<tr><td>CMS posts</td><td><code>src/storage/cms_storage.py</code></td><td>Demo (session), DuckDB, Fake</td></tr>
+<tr><td>Pipeline definitions / runs</td><td><code>src/storage/pipeline_storage.py</code></td><td>Demo (session), DuckDB, Fake</td></tr>
+<tr><td>User preferences / site settings</td><td><code>src/storage/preference_storage.py</code></td><td>Demo (no-op), DuckDB, Fake</td></tr>
+<tr><td>Audit log / business name overrides</td><td><code>src/storage/audit_storage.py</code></td><td>Demo (session), DuckDB, Fake</td></tr>
+</tbody>
+</table>
+Each entity has a <code>Protocol</code> defining its read/write surface and a
+factory in <code>src/storage/__init__.py</code> that picks the backend at call time
+(<code>is_demo_mode()</code> → demo, else <code>_duckdb_available()</code> → DuckDB,
+otherwise raise — Databricks-direct writes were removed in TODO #7).
+The <code>Fake*Storage</code> variants are session-free in-memory implementations
+used by unit tests. See ADR 005 for the design rationale.
+<hr>
+</section>
+<section class="section" id="security-model">
+<h2>Security model</h2>
+<h3>Push-down SQL authorization</h3>
+<p>Permission enforcement happens inside the SQL engine, not in Python. Every user-facing query that returns tables JOINs <code>tables_metadata</code> with <code>permissions_cache WHERE principal IN ($user_groups)</code>. Rows for tables the user is not authorized to see are excluded before they reach the application layer.</p>
+<p>The sentinel value <code>SELECT_ALL_USERS</code> in <code>permissions_cache.principal</code> marks publicly accessible tables. These rows appear in search results for all authenticated users regardless of group membership.</p>
+<p>The <code>_to_duckdb_sql()</code> function ensures parameter substitution is correctly translated between backends. Named parameters in Databricks SQL (<code>%(name)s</code>) are converted to positional parameters (<code>?</code>) for DuckDB, preserving the parameterized-query pattern in both modes and avoiding SQL injection via concatenation.</p>
+<h3>Feature-level access control</h3>
+<ul>
+  <li><code>EDITOR_GROUPS</code>: comma-separated group IDs allowed to save business name overrides and comments.</li>
+  <li><code>ADMIN_GROUPS</code>: comma-separated group IDs allowed to access the admin dashboard and audit logs. There is no demo bypass for admin access.</li>
+  <li><code>PIPELINE_GROUPS</code>: comma-separated group IDs whose members can trigger / cancel pipeline runs.</li>
+</ul>
+Every write function (<code>create_post</code>, <code>delete_post</code>, <code>create_pipeline_def</code>, <code>delete_pipeline_def</code>, <code>trigger_pipeline</code>, <code>cancel_run</code>, <code>set_editing_enabled</code>, <code>save_business_name</code>, <code>save_table_metadata</code>) re-checks <code>is_admin()</code> / <code>is_pipeline_user()</code> at the function boundary and raises <code>PermissionError</code> on failure — defense-in-depth for the cases where the UI gate isn't the only line. Tests assert the rejection path leaves storage untouched.
+<p>Immutable runtime filesystem: both <code>dd-app</code> and <code>dd-sync-worker</code> pods run with <code>readOnlyRootFilesystem: true</code>. A <code>/tmp</code> <code>emptyDir</code> volume is mounted to allow Streamlit and DuckDB to write ephemeral state without relaxing the root constraint.</p>
+<p>User-supplied display names are HTML-escaped at point of use before rendering. SMTP headers are sanitized to prevent header injection in comment notification emails.</p>
+<h3>Entra groups overage</h3>
+<p>When an Entra user belongs to more than ~150 security groups the ID token omits the inline <code>groups</code> claim and adds <code>_claim_names.groups</code> pointing at Microsoft Graph. <code>src/auth_graph.py</code> detects this shape and calls <code>POST /v1.0/me/getMemberObjects {"securityEnabledOnly": true}</code> to fetch the transitive list, paginated and capped at 50 pages. Results are kept in a process-level cache (per user OID, 1 h TTL, lock-protected) so they survive across browser tabs.</p>
+<p>Failure modes (Graph 4xx/5xx, network) return an empty list and log a warning — fail-closed. Admins can flush every cached entry from the admin page (<code>§ Group permissions cache → Flush groups cache</code>) when granting a user a new group; sign-out also drops the user's entry so "sign out, sign back in" picks up new groups immediately.</p>
+<hr>
+</section>
+<section class="section" id="personalisation-persistence">
+<h2>Personalisation persistence</h2>
+<p>User personalisation data (bookmarks, recently viewed tables, column bookmarks) is stored in a separate DuckDB file (<code>USER_DATA_PATH</code>). This file is append-only from the app's perspective and is never modified by the sync job.</p>
+<p>The user is identified by their Entra ID Object ID (<code>oid</code> claim), stored as <code>user_oid</code> on every preference row. Preferences are loaded into <code>st.session_state</code> at session start via <code>_sync_prefs_to_session()</code> and written back immediately on user action through <code>_pref_upsert()</code> / <code>_pref_delete()</code>.</p>
+<hr>
+</section>
+<section class="section" id="internationalisation-i18n">
+<h2>Internationalisation (i18n)</h2>
+<p>The app supports English and French. Locale files live in <code>locale/</code>:</p>
+<p><code></code>`
+locale/
   en.json    English strings (default)
-  fr.json    French strings</pre>
-        <p>The active locale is stored in <code>st.session_state.locale</code> and defaults to <code>"en"</code>. Users toggle it with the <code>EN / FR</code> control in the header.</p>
-        <p>All user-visible strings are retrieved through the <code>t(key)</code> function:</p>
-        <pre><code class="language-python"># Dot-separated key addressing nested JSON structure
-label = t("search.placeholder")            # "Search tables or columns..."
+  fr.json    French strings
+<code></code>`</p>
+<p>The active locale is stored in <code>st.session_state.locale</code> and defaults to <code>"en"</code>. Users toggle it with the <code>EN / FR</code> control in the header.</p>
+<p>All user-visible strings are retrieved through the <code>t(key)</code> function:</p>
+<pre><code class="language-python"># Dot-separated key addressing nested JSON structure
+label = t("search.placeholder")           # "Search tables or columns..."
 msg   = t("search.results_count", count=n) # "{count} results" → "42 results"</code></pre>
-        <p><code>t()</code> looks up the key in the active locale dict, falls back to English if the key is missing in the French file, and performs <code>str.format_map()</code> substitution for <code>{placeholder}</code> tokens. See <a href="reference-locale-keys.html">locale key reference</a> for the full EN/FR table.</p>
-      </section>
-
-      <hr>
-
-      <!-- ── Glossary and business semantics ──────────────────── -->
-      <section class="section" id="glossary-and-business-semantics">
-        <h2>Glossary and business semantics</h2>
-        <p>The business glossary is generated dynamically from Unity Catalog metadata properties:</p>
-        <table class="status-table">
-          <thead>
-            <tr><th>Glossary field</th><th>Unity Catalog source</th><th>Cache table</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>Term name</td><td>Table or column name</td><td><code>tables_metadata</code></td></tr>
-            <tr><td>Definition</td><td>Primary <code>COMMENT</code></td><td><code>tables_metadata</code></td></tr>
-            <tr><td>Calculation</td><td>Tag with key <code>calculation</code></td><td><code>object_tags</code></td></tr>
-            <tr><td>Domain</td><td>Schema tag with key <code>domain</code></td><td><code>object_tags</code></td></tr>
-            <tr><td>Steward</td><td>Table tag with key <code>steward</code></td><td><code>object_tags</code></td></tr>
-            <tr><td>Linked tables</td><td>Table lineage edges (multi-hop via <code>WITH RECURSIVE</code> CTE)</td><td><code>lineage_cache</code></td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <hr>
-
-      <!-- ── Cache tables reference ─────────────────────────────── -->
-      <section class="section" id="cache-tables-reference">
-        <h2>Cache tables reference</h2>
-        <p>All tables live in <code>data_governance.dictionary_cache</code> on Databricks and in the root schema of the DuckDB file. <code>setup_cache_tables()</code> in <code>scripts/sync_metadata.py</code> creates all tables with <code>IF NOT EXISTS</code> — safe to run repeatedly.</p>
-        <table class="status-table">
-          <thead>
-            <tr><th>Table</th><th>Grain</th><th>Key columns</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>tables_metadata</code></td><td>One row per table</td><td><code>full_name</code>, <code>description</code>, <code>table_type</code></td></tr>
-            <tr><td><code>columns_metadata</code></td><td>One row per column</td><td><code>full_name</code>, <code>column_name</code>, <code>data_type</code>, <code>description</code></td></tr>
-            <tr><td><code>permissions_cache</code></td><td>One row per (table, principal, privilege)</td><td><code>full_name</code>, <code>principal</code>, <code>privilege</code></td></tr>
-            <tr><td><code>lineage_cache</code></td><td>One row per lineage edge</td><td><code>source_table</code>, <code>target_table</code>, <code>hop</code></td></tr>
-            <tr><td><code>object_tags</code></td><td>One row per (object, tag key)</td><td><code>full_name</code>, <code>tag_key</code>, <code>tag_value</code></td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <hr>
-
-      <!-- ── Deployment topology ────────────────────────────────── -->
-      <section class="section" id="deployment-topology">
-        <h2>Deployment topology</h2>
-        <p>In Kubernetes the solution runs as:</p>
-        <ul class="prose-list">
-          <li>A <code>Deployment</code> (<code>dd-app</code>) for the Streamlit UI, scaled by HPA (<code>k8s/hpa.yaml</code>). Probes target <code>/_stcore/health</code> on port 8501. A <code>PodDisruptionBudget</code> keeps <code>minAvailable: 1</code> during node drains. Runs with <code>readOnlyRootFilesystem: true</code>; a <code>/tmp</code> emptyDir provides writable scratch space.</li>
-          <li>A <code>Deployment</code> (<code>dd-sync-worker</code>) for the sidecar drain process, <code>replicas: 1</code> with <code>strategy: Recreate</code> (single writer, no overlap). Liveness/readiness target <code>/healthz</code> on port 8765.</li>
-          <li>A <code>CronJob</code> (<code>dd-sync</code>) that runs <code>scripts/sync_metadata.py</code> nightly at 03:00 UTC (catalog rebuild — separate from the in-cluster daemon).</li>
-          <li>A <code>PersistentVolumeClaim</code> (<code>dd-data</code>) mounted at <code>/data</code> in all three — <code>dd-app</code>, <code>dd-sync-worker</code>, and the CronJob share the DuckDB cache files.</li>
-          <li>A <code>NetworkPolicy</code> restricting ingress to the ingress controller namespace and egress to HTTPS only. See <a href="admin-runbook.html">Admin Runbook</a>, <a href="runbook-sync-worker.html">sync worker runbook</a>, and <a href="runbook-secret-rotation.html">secret rotation runbook</a>.</li>
-        </ul>
-      </section>
-
+<p><code>t()</code> looks up the key in the active locale dict, falls back to English if the key is missing in the French file, and performs <code>str.format_map()</code> substitution for <code>{placeholder}</code> tokens. See <a href="reference-locale-keys.html"><code>docs/api/locale-keys.md</code></a> for the full key reference with EN and FR values side by side.</p>
+<hr>
+</section>
+<section class="section" id="glossary-and-business-semantics">
+<h2>Glossary and business semantics</h2>
+<p>The business glossary is generated dynamically from Unity Catalog metadata properties:</p>
+<table class="status-table">
+<thead>
+<tr><th>Glossary field</th><th>Unity Catalog source</th><th>Cache table</th></tr>
+</thead>
+<tbody>
+<tr><td>Term name</td><td>Table or column name</td><td><code>tables_metadata</code></td></tr>
+<tr><td>Definition</td><td>Primary <code>COMMENT</code></td><td><code>tables_metadata</code></td></tr>
+<tr><td>Calculation</td><td>Tag with key <code>calculation</code></td><td><code>object_tags</code></td></tr>
+<tr><td>Domain</td><td>Schema tag with key <code>domain</code></td><td><code>object_tags</code></td></tr>
+<tr><td>Steward</td><td>Table tag with key <code>steward</code></td><td><code>object_tags</code></td></tr>
+<tr><td>Linked tables</td><td>Table lineage edges (multi-hop via <code>WITH RECURSIVE</code> CTE)</td><td><code>lineage_cache</code></td></tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section class="section" id="cache-tables-reference">
+<h2>Cache tables reference</h2>
+<p>All tables live in <code>data_governance.dictionary_cache</code> on Databricks and in the root schema of the DuckDB file.</p>
+<table class="status-table">
+<thead>
+<tr><th>Table</th><th>Grain</th><th>Key columns</th></tr>
+</thead>
+<tbody>
+<tr><td><code>tables_metadata</code></td><td>One row per table</td><td><code>full_name</code>, <code>description</code>, <code>table_type</code></td></tr>
+<tr><td><code>columns_metadata</code></td><td>One row per column</td><td><code>full_name</code>, <code>column_name</code>, <code>data_type</code>, <code>description</code></td></tr>
+<tr><td><code>permissions_cache</code></td><td>One row per (table, principal, privilege)</td><td><code>full_name</code>, <code>principal</code>, <code>privilege</code></td></tr>
+<tr><td><code>lineage_cache</code></td><td>One row per lineage edge</td><td><code>source_table</code>, <code>target_table</code>, <code>hop</code></td></tr>
+<tr><td><code>object_tags</code></td><td>One row per (object, tag key)</td><td><code>full_name</code>, <code>tag_key</code>, <code>tag_value</code></td></tr>
+</tbody>
+</table>
+<code>setup_cache_tables()</code> in <code>scripts/sync_metadata.py</code> creates all tables with <code>IF NOT EXISTS</code>. It is safe to run repeatedly and is called at the start of every sync.
+<hr>
+</section>
+<section class="section" id="deployment-topology">
+<h2>Deployment topology</h2>
+<p>In Kubernetes the solution runs as:</p>
+<ul>
+  <li>A <code>Deployment</code> (<code>dd-app</code>) for the Streamlit UI, scaled by HPA (replicas managed by <code>k8s/hpa.yaml</code>). Probes target <code>/_stcore/health</code> on port 8501. A <code>PodDisruptionBudget</code> keeps <code>minAvailable: 1</code> during node drains. Runs with <code>readOnlyRootFilesystem: true</code>; a <code>/tmp</code> emptyDir provides writable scratch space for Streamlit temp files.</li>
+  <li>A <code>Deployment</code> (<code>dd-sync-worker</code>) for the sidecar drain process, <code>replicas: 1</code> with <code>strategy: Recreate</code> (single writer, no overlap). Liveness/readiness target <code>/healthz</code> on port 8765. Also runs with <code>readOnlyRootFilesystem: true</code> and <code>/tmp</code> emptyDir.</li>
+  <li>A <code>CronJob</code> (<code>dd-sync</code>) that runs <code>scripts/sync_metadata.py</code> nightly at 03:00 UTC (catalog rebuild — separate from the in-cluster daemon).</li>
+  <li>A <code>PersistentVolumeClaim</code> (<code>dd-data</code>) mounted at <code>/data</code> in <code>dd-app</code>, <code>dd-sync-worker</code>, and the CronJob — all three share the DuckDB cache files.</li>
+  <li>A <code>NetworkPolicy</code> restricting ingress to the ingress controller namespace and egress to HTTPS only.</li>
+</ul>
+See <a href="DEPLOYMENT.html"><code>DEPLOYMENT.md</code></a> for the full operations runbook, <a href="runbook-sync-worker.html"><code>docs/runbooks/sync-worker.md</code></a> for the daemon's operational behaviour, and <a href="runbook-secret-rotation.html"><code>docs/runbooks/secret-rotation.md</code></a> for credential rotation procedures.
+</section>
       <footer class="site-footer">
         <p>Data Dictionary · Documented by Data Engineering</p>
         <p>Internal Use Only</p>
       </footer>
     </article>
   </main>
-
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-  <script>
-    mermaid.initialize({
-      startOnLoad: true,
-      theme: 'base',
-      themeVariables: {
-        primaryColor: '#F2EDE1',
-        primaryTextColor: '#14110C',
-        primaryBorderColor: '#C9C2B4',
-        lineColor: '#6B645A',
-        secondaryColor: '#E3E9DE',
-        tertiaryColor: '#DDE4EC',
-        background: '#FAF7F0',
-        mainBkg: '#F2EDE1',
-        nodeBorder: '#C9C2B4',
-        clusterBkg: '#FAF7F0',
-        clusterBorder: '#C9C2B4',
-        titleColor: '#14110C',
-        edgeLabelBackground: '#FAF7F0',
-        fontFamily: 'Manrope, "Segoe UI", system-ui, sans-serif',
-        fontSize: '13px',
-      }
-    });
-  </script>
 </body>
 </html>
