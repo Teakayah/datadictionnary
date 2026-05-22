@@ -1,9 +1,7 @@
 import json
-import logging
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pandas as pd
-import pytest
 from streamlit.testing.v1 import AppTest
 
 # Get translated strings for exact assertions based on the locale source of truth

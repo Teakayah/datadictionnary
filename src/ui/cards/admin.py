@@ -328,7 +328,7 @@ def _render_admin_integrity_report():
         else:
             st.success(t("admin.integrity_no_dq_failures"))
 
-    st.markdown(f"<div style='margin-top:24px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='margin-top:24px'></div>", unsafe_allow_html=True)
     with st.expander(t("admin.integrity_stewardship_title")):
         st.caption(t("admin.integrity_stewardship_subtitle"))
         stew_gaps = get_stewardship_gaps()
