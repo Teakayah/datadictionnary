@@ -107,16 +107,9 @@ def render_data_sample(table_full_name: str):
                 return
         else:
             # Fallback for Databricks SQL where table_full_name is in format cat.sch.tbl
-            _parts = table_full_name.split(".")
-            if len(_parts) == 3:
-                _cat, _sch, _tbl = _parts
-                _cat_escaped = '"' + _cat.replace('"', '""') + '"'
-                _sch_escaped = '"' + _sch.replace('"', '""') + '"'
-                _tbl_escaped = '"' + _tbl.replace('"', '""') + '"'
-                query = f"SELECT * FROM {_cat_escaped}.{_sch_escaped}.{_tbl_escaped} LIMIT 100"  # nosec B608
-            else:
-                # Should not reach here due to regex validation, but fallback just in case
-                query = f"SELECT * FROM {table_full_name} LIMIT 100"  # nosec B608
+            _safe_parts = ['"' + p.replace('"', '""') + '"' for p in table_full_name.split(".")]
+            _safe_table_name = ".".join(_safe_parts)
+            query = f"SELECT * FROM {_safe_table_name} LIMIT 100"  # nosec B608
             df = run_query(query)
         if df is not None and not df.empty:
             st.dataframe(df, use_container_width=True, height=2000)
