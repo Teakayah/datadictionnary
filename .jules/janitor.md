@@ -1,0 +1,3 @@
+## 2025-02-28 - [Cleanup] Unused redefined class in test_pipelines.py
+**Learning:** Found a redefinition of the `TestGetPipelines` class in `tests/test_pipelines.py` which duplicated the class name and shadowed the earlier definition without providing additional context or distinct tests logic for different groups. Redefining a test class name can lead to test suppression, as the second definition completely overrides the first definition from the testing framework's perspective. The existing F811 `TestGetPipelines` redefined error provides a clear indication to rename or merge classes.
+**Action:** Always rename test classes to be unique if they test different aspects of the same functionality (e.g. `TestGetPipelinesWithStorage`) instead of duplicating names.
