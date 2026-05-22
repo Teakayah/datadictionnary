@@ -13,6 +13,7 @@ module is rendering only.
 
 
 import html as _html
+import logging
 
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
@@ -249,7 +250,9 @@ def render_pipelines_page():
                             cancel_run(pl, run)
                             st.toast(t("pipelines.stopped"))
                         except Exception as _e:
-                            st.error(f"{t('pipelines.stop_error')}: {_e}")
+                            logging.error("Pipeline action failed: %s", _e, exc_info=True)
+                            # Security: do not expose internal error details to UI
+                            st.error(t("pipelines.stop_error"))
                         st.rerun()
 
             else:
@@ -263,7 +266,9 @@ def render_pipelines_page():
                         st.toast(t("pipelines.started"))
                         st.rerun()
                     except Exception as _e:
-                        st.error(f"{t('pipelines.start_error')}: {_e}")
+                        logging.error("Pipeline action failed: %s", _e, exc_info=True)
+                        # Security: do not expose internal error details to UI
+                        st.error(t("pipelines.start_error"))
 
             st.markdown("<div style='margin-bottom:16px'></div>", unsafe_allow_html=True)
 
