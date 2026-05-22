@@ -7,10 +7,23 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done
 
 ---
 
-## Next steps
+## Next steps (open)
 
+- [ ] **Docs bundle rebuild**: `docs/data-dictionary-docs.html` (SPA bundle) and `docs/data-dictionary-docs.pdf` are stale — two new pages (`feature-hybrid-search.html`, `feature-search-analytics.html`) were added by the Phase 2 scaffold commit but not included. Re-run `scripts/build_docs_bundle.py` (or the inline Python in the session history) and regenerate the PDF via Playwright.
+- [ ] **Semantic search — production hardening**: The Phase 2 scaffold implemented `MockEmbeddingEngine` (dummy 384-dim vectors). Before enabling in production: wire `DATABRICKS_EMBEDDING_ENDPOINT`, validate DuckDB `vss` extension against pinned version, add `ENABLE_SEMANTIC_SEARCH` env gate so existing keyword path is unchanged when off, and confirm p95 search latency stays under 200 ms at load.
+- [ ] **Search analytics alerts**: Enqueue a Health-dashboard notification for zero-result queries that persist for > 7 days (E3 optional, see Phase 2 section).
 - [x] **Review**: Perform a detailed technical and editorial review of the [Recommendation Engine](docs/feature-recommendation-engine.html) documentation and implementation.
 - [x] **Deployment**: Deploy the updated Kubernetes manifests to apply new security labels and hardened configurations. (Automated via CI/CD on push to main)
+
+---
+
+## Recent fixes (2026-05-20)
+
+- [x] **Circular import** (`src/db/queries.py` ↔ `src/semantic.py`): Phase 2 scaffold added a module-level `from src.semantic import semantic_search` in `queries.py` while `semantic.py` already imported `run_query` from `queries.py`. Broke import collection for 10 test files. Fixed by making the import lazy (inside `search_all_metadata`).
+- [x] **Analytics storage crash on admin page**: `get_analytics_storage()` was missing the `_duckdb_available()` guard present on all other storage factories — called `DuckDBAnalyticsStorage` with an empty `USER_DATA_PATH` in test/demo environments. Fixed by adding `or not _duckdb_available()` to the factory condition.
+- [x] **Test count drift** (`test_sync_metadata`): Phase 2 added `tables_embedding_cache` (1 new TRUNCATE, 1 new `executemany` from `MockEmbeddingEngine`). Updated execute count 10→11, executemany count 5→6, setup_cache_tables DDL count 11→12.
+- [x] **Mermaid diagrams overwritten**: The Phase 2 scaffold commit (`67ee293`) overwrote `docs/architecture.html` and `docs/runbook-sync-worker.html`, stripping the rendered system-architecture, daemon-cycle flowchart, and pod-topology diagrams. Restored from commit `afd0f5a`.
+- [x] **Discovery tab locale reset**: Switching EN↔FR was silently resetting the active Discovery sub-tab to "New & Notable" because `discovery_active_tab` stored a translated label string that no longer matched after locale change. Fixed by remapping via the locale-independent `_disc_tab_idx` index.
 
 ---
 

@@ -1,3 +1,3 @@
-## 2024-05-21 - [Outdated Script References]
-**Learning:** File renames often leave behind stale references in module docstrings, leading to developer confusion.
-**Action:** Always verify and update internal documentation and docstrings when renaming scripts.
+## 2024-05-24 - [DuckDB Parameterization Insight]
+**Learning:** DuckDB requires explicit array operators (`= ANY(...)`) instead of standard `IN (...)` parameter unrolling when passing lists/tuples from Python. This conversion is handled automatically by `_to_duckdb_sql`.
+**Action:** Expanded the docstring for `_to_duckdb_sql` to provide clearer context on why this specific regex transformation exists.
