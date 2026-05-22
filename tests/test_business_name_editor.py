@@ -641,6 +641,13 @@ class TestBusinessNameEditorDB:
                 "edited_at": "2026-04-24 10:00:00"
             }
         }
+        mock_store.return_value.get_columns.return_value = pd.DataFrame(
+            {
+                "column_name": [COLUMN_NAME],
+                "data_type": ["STRING"],
+                "comment": [""],
+            }
+        )
 
         audit_overrides = pd.DataFrame(
             {

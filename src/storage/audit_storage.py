@@ -105,6 +105,7 @@ class BusinessNameOverrideStorage(Protocol):
     def list_pending(self) -> list: ...
     def approve(self, table_full_name: str, column_name: str) -> None: ...
     def reject(self, table_full_name: str, column_name: str) -> None: ...
+    def get_columns(self, table_full_name: str) -> pd.DataFrame: ...
 
 
 class DemoBusinessNameOverrideStorage:
@@ -112,6 +113,17 @@ class DemoBusinessNameOverrideStorage:
 
     _KEY = "demo_business_names"
     _PENDING_KEY = "demo_business_names_pending"
+
+    def get_columns(self, table_full_name: str) -> pd.DataFrame:
+        from src.config import CATALOG_CACHE, SCHEMA_CACHE
+        from src.db.queries import run_query
+
+        cols_query = (
+            "SELECT column_name, data_type, comment "
+            "FROM {0}.{1}.columns_metadata "
+            "WHERE table_full_name = %(table_full_name)s ORDER BY column_name"
+        ).format(CATALOG_CACHE, SCHEMA_CACHE)
+        return run_query(cols_query, {"table_full_name": table_full_name})
 
     def get_for_table(self, table_full_name: str) -> dict:
         return {
@@ -166,6 +178,17 @@ class DemoBusinessNameOverrideStorage:
 
 
 class DuckDBBusinessNameOverrideStorage:
+    def get_columns(self, table_full_name: str) -> pd.DataFrame:
+        from src.config import CATALOG_CACHE, SCHEMA_CACHE
+        from src.db.queries import run_query
+
+        cols_query = (
+            "SELECT column_name, data_type, comment "
+            "FROM {0}.{1}.columns_metadata "
+            "WHERE table_full_name = %(table_full_name)s ORDER BY column_name"
+        ).format(CATALOG_CACHE, SCHEMA_CACHE)
+        return run_query(cols_query, {"table_full_name": table_full_name})
+
     def get_for_table(self, table_full_name: str) -> dict:
         try:
             conn = get_db_connection()
@@ -267,6 +290,9 @@ class FakeBusinessNameOverrideStorage:
         # ⚡ Bolt: Store pending items in a flat dictionary for O(1) list_pending lookups
         # {(table_full_name, column_name): pending_dict}
         self.pending_data: dict[tuple[str, str], dict] = {}
+
+    def get_columns(self, table_full_name: str) -> pd.DataFrame:
+        return pd.DataFrame(columns=["column_name", "data_type", "comment"])
 
     def get_for_table(self, table_full_name: str) -> dict:
         return {
