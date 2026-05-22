@@ -116,7 +116,7 @@ class FakeSiteSettingStorage:
 
 class TestEditingEnabled:
     def test_is_editing_enabled_cached(self):
-        st.session_state.clear()
+        st.session_state.pop("_editing_enabled_cache", None)
         st.session_state["_editing_enabled_cache"] = False
         fake = FakeSiteSettingStorage()
         fake.set("editing_enabled", "1", "admin")
@@ -125,7 +125,7 @@ class TestEditingEnabled:
             assert is_editing_enabled() is False
 
     def test_is_editing_enabled_not_cached_db_1(self):
-        st.session_state.clear()
+        st.session_state.pop("_editing_enabled_cache", None)
         fake = FakeSiteSettingStorage()
         fake.set("editing_enabled", "1", "admin")
         with patch("src.personalization.get_site_setting_storage", return_value=fake):
@@ -133,7 +133,7 @@ class TestEditingEnabled:
             assert st.session_state["_editing_enabled_cache"] is True
 
     def test_is_editing_enabled_not_cached_db_0(self):
-        st.session_state.clear()
+        st.session_state.pop("_editing_enabled_cache", None)
         fake = FakeSiteSettingStorage()
         fake.set("editing_enabled", "0", "admin")
         with patch("src.personalization.get_site_setting_storage", return_value=fake):
@@ -141,11 +141,19 @@ class TestEditingEnabled:
             assert st.session_state["_editing_enabled_cache"] is False
 
     def test_is_editing_enabled_not_cached_db_none(self):
-        st.session_state.clear()
+        st.session_state.pop("_editing_enabled_cache", None)
         fake = FakeSiteSettingStorage()
         with patch("src.personalization.get_site_setting_storage", return_value=fake):
             assert is_editing_enabled() is True
             assert st.session_state["_editing_enabled_cache"] is True
+
+    def test_is_editing_enabled_not_cached_db_invalid(self):
+        st.session_state.pop("_editing_enabled_cache", None)
+        fake = FakeSiteSettingStorage()
+        fake.set("editing_enabled", "invalid", "admin")
+        with patch("src.personalization.get_site_setting_storage", return_value=fake):
+            assert is_editing_enabled() is False
+            assert st.session_state["_editing_enabled_cache"] is False
 
 import pytest
 
