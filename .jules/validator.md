@@ -22,3 +22,8 @@ Assertion: Added test_get_locale_explicit_supplementary to explicitly test fallb
 Coverage Gap: The existing tests verify `set_locale` logic directly but don't explicitly test the overwriting of an existing locale setting.
 Learning: Modifying state variables requires explicit verification of initial state vs the updated state.
 Assertion: Added test verifying `set_locale("fr")` overrides `{"locale": "en"}` correctly in `st.session_state`.
+
+## 2024-05-24 - Cover get_table_comments Error Paths
+Coverage Gap: Missing tests for get_table_comments error handling.
+Learning: Need to ensure database and cursor errors are properly caught and logged.
+Assertion: Added tests for get_db_connection and fetchall_as_pandas exceptions.

@@ -811,3 +811,31 @@ def test_send_comment_email_no_smtp(monkeypatch, caplog):
     monkeypatch.delenv("SMTP_HOST", raising=False)
     send_comment_email("to@test.com", "Author", "Object", "Text")
     assert "Comment saved but email not sent: SMTP_HOST or steward_email not configured" in caplog.text
+
+def test_get_table_comments_prod_error_connection(monkeypatch, caplog):
+    from src.comments import get_table_comments
+    from unittest.mock import patch
+    monkeypatch.setenv("DEMO_DATA", "false")
+    with patch("src.comments.get_db_connection") as mock_conn_func:
+        mock_conn_func.side_effect = Exception("DB connection failed")
+
+        res = get_table_comments("obj1")
+        assert res == []
+        assert "Could not fetch comments for obj1: DB connection failed" in caplog.text
+
+def test_get_table_comments_prod_error_fetchall(monkeypatch, caplog):
+    from src.comments import get_table_comments
+    from unittest.mock import patch, MagicMock
+    monkeypatch.setenv("DEMO_DATA", "false")
+    with patch("src.comments.get_db_connection") as mock_conn_func, \
+         patch("src.comments._duckdb_available", return_value=True):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_conn_func.return_value = mock_conn
+
+        mock_cursor.fetchall_as_pandas.side_effect = Exception("DB fetch failed")
+
+        res = get_table_comments("obj1")
+        assert res == []
+        assert "Could not fetch comments for obj1: DB fetch failed" in caplog.text
