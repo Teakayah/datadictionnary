@@ -104,7 +104,8 @@
     "export_dictionary_help": "Download schema dictionary as CSV",
     "placeholder_desc": "Describe the table's contents, grain, and common use cases...",
     "placeholder_steward": "e.g. data.steward@example.com",
-    "table_desc_placeholder": "Describe the table's purpose, contents, and any important caveats..."
+    "table_desc_placeholder": "Describe the table's purpose, contents, and any important caveats...",
+    "steward_email_placeholder": "e.g. data.steward@example.com"
   },
   "comment": {
     "add_comment": "Add a comment",
@@ -322,7 +323,8 @@
     "date_range": "{start} → expires {end}",
     "author_date": "{author} · {date}",
     "post_title_placeholder": "e.g. New Dataset Available",
-    "post_body_placeholder": "Write your announcement here..."
+    "post_body_placeholder": "Write your announcement here...",
+    "post_table_ref_placeholder": "catalog.schema.table_name"
   },
   "footer": {
     "built_with": "Data Dictionary · v0.1.0 · synced nightly from Unity Catalog"
