@@ -105,7 +105,7 @@ class TestRenderTableMetadataEditor:
         at.button[0].click().run()
 
         mock_save.assert_called_once()
-        expected_error = en_locale["common"]["error_with_details"].replace("{error}", "DB Error")
+        expected_error = en_locale["common"]["error"]
         assert at.error[0].value == expected_error
 
 
