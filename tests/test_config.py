@@ -26,3 +26,11 @@ def test_is_demo_mode_unset(monkeypatch):
     """Test that is_demo_mode defaults to False when DEMO_DATA is unset."""
     monkeypatch.delenv("DEMO_DATA", raising=False)
     assert is_demo_mode() is False
+
+
+def test_is_demo_mode_mixed_case(monkeypatch):
+    """Test that is_demo_mode correctly parses mixed case environment variables."""
+    monkeypatch.setenv("DEMO_DATA", "tRuE")
+    assert is_demo_mode() is True
+    monkeypatch.setenv("DEMO_DATA", "FaLsE")
+    assert is_demo_mode() is False
