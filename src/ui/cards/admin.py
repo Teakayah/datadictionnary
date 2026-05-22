@@ -557,7 +557,9 @@ def _render_pending_reviews_section():
                     st.toast(t("admin.reviews_approved_toast", col=col))
                     st.rerun()
                 except Exception as exc:
-                    st.error(str(exc))
+                    logging.error("Failed to approve: %s", exc, exc_info=True)
+                    # Security: do not expose internal error details to UI
+                    st.error(t("common.error"))
         with _c_reject:
             if st.button(
                 t("admin.reviews_reject"),
@@ -570,7 +572,9 @@ def _render_pending_reviews_section():
                     st.toast(t("admin.reviews_rejected_toast", col=col))
                     st.rerun()
                 except Exception as exc:
-                    st.error(str(exc))
+                    logging.error("Failed to reject: %s", exc, exc_info=True)
+                    # Security: do not expose internal error details to UI
+                    st.error(t("common.error"))
 
 
 def render_admin_page():

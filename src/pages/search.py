@@ -292,7 +292,8 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                                 st.error(str(exc))
                             except Exception as exc:
                                 logging.error("Save failed for %s.%s: %s", full_name, _cname, exc, exc_info=True)
-                                st.error(t("common.error_with_details", error=str(exc)))
+                                # Security: do not expose internal error details to UI
+                                st.error(t("common.error"))
                     with _cc:
                         if st.button(t("editor.cancel"), key=f"col_biz_cancel_{_edit_key}", use_container_width=True):
                             st.session_state.pop("dd_col_edit_mode", None)

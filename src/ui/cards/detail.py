@@ -50,7 +50,9 @@ def render_table_metadata_editor(table_full_name: str, current_desc: str, curren
                     st.toast(t("common.saved"))
                     st.rerun()
                 except Exception as e:
-                    st.error(t("common.error_with_details", error=str(e)))
+                    logging.error("Save failed for %s: %s", table_full_name, e, exc_info=True)
+                    # Security: do not expose internal error details to UI
+                    st.error(t("common.error"))
     with c2:
         if st.button(t("common.cancel"), use_container_width=True):
             st.rerun()
