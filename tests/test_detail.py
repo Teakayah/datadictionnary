@@ -207,7 +207,7 @@ class TestRenderDataSample:
 
         at = AppTest.from_function(data_sample_app, args=("cat.sch.tbl",)).run()
 
-        mock_run.assert_called_once_with("SELECT * FROM cat.sch.tbl LIMIT 100")
+        mock_run.assert_called_once_with('SELECT * FROM "cat"."sch"."tbl" LIMIT 100')
         assert len(at.dataframe) == 1
 
     @patch("src.ui.cards.detail.get_authorized_table_names")
