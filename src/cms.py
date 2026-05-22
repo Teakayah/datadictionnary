@@ -20,8 +20,6 @@ from datetime import datetime, timedelta, timezone; UTC = timezone.utc
 from src.auth import is_admin
 from src.storage import get_cms_storage
 
-POST_TYPES = ("announcement", "featured_table", "guide")
-
 _EXPIRY_DAYS: dict[str, Optional[int]] = {
     "2 days":  2,
     "7 days":  7,
