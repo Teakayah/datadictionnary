@@ -380,8 +380,9 @@ def _render_recommended_tab(groups, get_authorized_tables_fn, pref_delete_fn=Non
             st.info(t("personalization.recommended_empty"))
             return
         rec_df = all_tables[all_tables["full_name"].isin(recommended_fns)].copy()
-        rec_df["_order"] = rec_df["full_name"].map({fn: i for i, fn in enumerate(recommended_fns)})
-        rec_df = rec_df.sort_values("_order").drop(columns=["_order"])
+        # ⚡ Bolt: Replace .map() ordering with pd.Categorical for faster sorting and to avoid creating/dropping temp columns
+        rec_df["full_name"] = pd.Categorical(rec_df["full_name"], categories=recommended_fns, ordered=True)
+        rec_df = rec_df.sort_values("full_name")
         for row in rec_df.itertuples(index=False):
             _render_table_card(row, "rec", pref_delete_fn, pref_upsert_fn)
     except Exception as e:
@@ -402,10 +403,9 @@ def _render_recent_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, pr
         try:
             all_tables = get_authorized_tables_fn(groups)
             rv_df = all_tables[all_tables["full_name"].isin(recent_views)].copy()
-            rv_df["_order"] = rv_df["full_name"].map(
-                {fn: i for i, fn in enumerate(recent_views)}
-            )
-            rv_df = rv_df.sort_values("_order").drop(columns=["_order"])
+            # ⚡ Bolt: Replace .map() ordering with pd.Categorical for faster sorting and to avoid creating/dropping temp columns
+            rv_df["full_name"] = pd.Categorical(rv_df["full_name"], categories=recent_views, ordered=True)
+            rv_df = rv_df.sort_values("full_name")
             if rv_df.empty:
                 st.info(t("personalization.no_recent"))
             else:
