@@ -249,7 +249,7 @@ def render_pipelines_page():
                             cancel_run(pl, run)
                             st.toast(t("pipelines.stopped"))
                         except Exception as _e:
-                            st.error(f"{t('pipelines.stop_error')}: {_e}")
+                            st.error(t("pipelines.stop_error", error=str(_e)))
                         st.rerun()
 
             else:
@@ -263,7 +263,7 @@ def render_pipelines_page():
                         st.toast(t("pipelines.started"))
                         st.rerun()
                     except Exception as _e:
-                        st.error(f"{t('pipelines.start_error')}: {_e}")
+                        st.error(t("pipelines.start_error", error=str(_e)))
 
             st.markdown("<div style='margin-bottom:16px'></div>", unsafe_allow_html=True)
 
