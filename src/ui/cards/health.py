@@ -42,6 +42,9 @@ def _get_table_health_stats(groups: tuple) -> pd.DataFrame:
     group_ph = ", ".join(f"%(g_{i})s" for i in range(len(groups))) if groups else "''"
     params = {f"g_{i}": g for i, g in enumerate(groups)}
 
+    # ⚡ Bolt: No redundant caching opportunity exists here. The project enforces SQL push-down
+    # for all metrics and permission checks (ADR 002) to maintain scalability and row-level access control.
+    # We must not refactor database-level filtering or aggregations into Python/Pandas memory space.
     query = f"""
         SELECT 
             m.schema_name,
