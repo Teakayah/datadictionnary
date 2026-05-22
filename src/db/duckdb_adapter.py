@@ -210,11 +210,12 @@ def _get_shared_duckdb_connection():
             # Sanitize paths to prevent SQL injection when using f-strings for ATTACH
             safe_duckdb_path = DUCKDB_PATH.replace("'", "''") if DUCKDB_PATH else ""
             safe_user_data_path = USER_DATA_PATH.replace("'", "''") if USER_DATA_PATH else ""
+            safe_catalog_cache = CATALOG_CACHE.replace('"', '""')
 
             # Attach the main read-only cache
-            con.execute(f"ATTACH '{safe_duckdb_path}' AS {CATALOG_CACHE} (READ_ONLY)")
+            con.execute(f'ATTACH \'{safe_duckdb_path}\' AS "{safe_catalog_cache}" (READ_ONLY)')  # nosec B608
             # Attach the persistent user data database
-            con.execute(f"ATTACH IF NOT EXISTS '{safe_user_data_path}' AS user_data")
+            con.execute(f'ATTACH IF NOT EXISTS \'{safe_user_data_path}\' AS "user_data"')  # nosec B608
 
             # Initialize user data tables with primary keys (if they don't exist)
             _initialize_schema(con)
