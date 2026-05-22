@@ -291,9 +291,9 @@ class TestResolveUserGroups:
         assert result == []
         mocked.assert_not_called()
 
-    def test_pagination_caps_at_50_pages(self, caplog):
+    def test_pagination_caps_at_100_pages(self, caplog):
         from src.auth_graph import fetch_member_groups
-        with caplog.at_level(logging.WARNING, logger="src.auth_graph"):
+        with caplog.at_level(logging.ERROR, logger="src.auth_graph"):
             with patch("src.auth_graph.requests") as r:
                 r.post.return_value = _resp(200, {
                     "value": ["g1"],
@@ -313,11 +313,11 @@ class TestResolveUserGroups:
 
                 result = fetch_member_groups("tok", "user-oid-loop")
 
-        # 1 from post + 50 from get loops = 51 total items
-        assert len(result) == 51
+        # 1 from post + 100 from get loops = 101 total items
+        assert len(result) == 101
         assert r.post.call_count == 1
-        assert r.get.call_count == 50
-        assert any("pagination exceeded 50 pages" in rec.message for rec in caplog.records)
+        assert r.get.call_count == 100
+        assert any("returned >100 pages" in rec.message for rec in caplog.records)
 
     def test_pagination_breaks_on_duplicate_url(self, caplog):
         from src.auth_graph import fetch_member_groups

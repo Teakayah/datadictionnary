@@ -116,11 +116,17 @@ def _call_get_member_objects(access_token: str) -> list[str]:
     next_url = data.get("@odata.nextLink") or ""
 
     # Subsequent pages: GET against the URL Graph returned. Cap iterations
-    # to 50 pages to strictly bound pagination and prevent infinite loops.
+    # to strictly bound pagination and prevent infinite loops.
     seen_urls = set()
-    for _ in range(50):
-        if not next_url:
+    page_count = 0
+
+    while next_url and next_url != "None":
+        page_count += 1
+        # so a buggy server can't loop us forever
+        if page_count > 100:
+            log.error("Graph groups API returned >100 pages, truncating.")
             break
+
         if next_url in seen_urls:
             log.warning("Buggy server returned duplicate @odata.nextLink — breaking loop.")
             break
@@ -130,8 +136,6 @@ def _call_get_member_objects(access_token: str) -> list[str]:
         data = resp.json()
         out.extend(data.get("value", []))
         next_url = data.get("@odata.nextLink") or ""
-    else:
-        log.warning("getMemberObjects pagination exceeded 50 pages — truncating.")
 
     return out
 
