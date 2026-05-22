@@ -75,6 +75,17 @@ class TestGetActivePosts:
             posts = get_active_posts()
         assert posts == []
 
+    def test_get_active_posts_delegates_to_storage(self):
+        """get_active_posts explicitly delegates to storage.list_active()."""
+        from unittest.mock import MagicMock
+        mock_storage = MagicMock()
+        mock_storage.list_active.return_value = [{"post_id": "test"}]
+        with patch("src.cms.get_cms_storage", return_value=mock_storage):
+            from src.cms import get_active_posts
+            posts = get_active_posts()
+        assert posts == [{"post_id": "test"}]
+        mock_storage.list_active.assert_called_once()
+
     def test_filters_expired_posts(self):
         """get_active_posts excludes posts whose expires_at is in the past."""
         now = datetime.now(UTC)
