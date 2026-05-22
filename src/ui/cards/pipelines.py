@@ -70,13 +70,13 @@ def _show_pipeline_create_dialog():
     if backend == "databricks":
         db_job_id = st.text_input(t("pipelines.field_job_id"), placeholder="1234", key="pl_db_job")
     elif backend == "adf":
-        adf_sub  = st.text_input(t("pipelines.field_adf_sub"),  key="pl_adf_sub")
-        adf_rg   = st.text_input(t("pipelines.field_adf_rg"),   key="pl_adf_rg")
-        adf_fact = st.text_input(t("pipelines.field_adf_fact"), key="pl_adf_fact")
-        adf_pipe = st.text_input(t("pipelines.field_adf_pipe"), key="pl_adf_pipe")
+        adf_sub  = st.text_input(t("pipelines.field_adf_sub"),  placeholder=t("pipelines.field_adf_sub_placeholder"), key="pl_adf_sub")
+        adf_rg   = st.text_input(t("pipelines.field_adf_rg"),   placeholder=t("pipelines.field_adf_rg_placeholder"), key="pl_adf_rg")
+        adf_fact = st.text_input(t("pipelines.field_adf_fact"), placeholder=t("pipelines.field_adf_fact_placeholder"), key="pl_adf_fact")
+        adf_pipe = st.text_input(t("pipelines.field_adf_pipe"), placeholder=t("pipelines.field_adf_pipe_placeholder"), key="pl_adf_pipe")
     elif backend == "ado":
-        ado_org  = st.text_input(t("pipelines.field_ado_org"),  key="pl_ado_org")
-        ado_proj = st.text_input(t("pipelines.field_ado_proj"), key="pl_ado_proj")
+        ado_org  = st.text_input(t("pipelines.field_ado_org"),  placeholder=t("pipelines.field_ado_org_placeholder"), key="pl_ado_org")
+        ado_proj = st.text_input(t("pipelines.field_ado_proj"), placeholder=t("pipelines.field_ado_proj_placeholder"), key="pl_ado_proj")
         ado_pid  = st.text_input(t("pipelines.field_ado_pid"),  placeholder="42", key="pl_ado_pid")
 
     _s, _c = st.columns(2)

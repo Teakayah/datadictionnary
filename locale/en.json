@@ -101,7 +101,8 @@
     "expand_lineage": "Expand lineage graph",
     "no_columns": "No columns recorded.",
     "no_grants": "No grants recorded.",
-    "export_dictionary_help": "Download schema dictionary as CSV"
+    "export_dictionary_help": "Download schema dictionary as CSV",
+    "table_desc_placeholder": "Describe the table's purpose, contents, and any important caveats..."
   },
   "comment": {
     "add_comment": "Add a comment",
@@ -288,7 +289,13 @@
     "date_format": "%b %d %H:%M UTC",
     "started_by": "started by {user} · {date}",
     "field_title_placeholder": "e.g. Nightly Data Sync",
-    "field_desc_placeholder": "Describe what this pipeline does..."
+    "field_desc_placeholder": "Describe what this pipeline does...",
+    "field_adf_sub_placeholder": "e.g. 12345678-1234-1234-1234-1234567890ab",
+    "field_adf_rg_placeholder": "e.g. my-resource-group",
+    "field_adf_fact_placeholder": "e.g. my-data-factory",
+    "field_adf_pipe_placeholder": "e.g. MyPipeline",
+    "field_ado_org_placeholder": "e.g. my-organization",
+    "field_ado_proj_placeholder": "e.g. my-project"
   },
   "cms": {
     "section_title": "Content management",
