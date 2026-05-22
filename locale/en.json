@@ -101,7 +101,9 @@
     "expand_lineage": "Expand lineage graph",
     "no_columns": "No columns recorded.",
     "no_grants": "No grants recorded.",
-    "export_dictionary_help": "Download schema dictionary as CSV"
+    "export_dictionary_help": "Download schema dictionary as CSV",
+    "placeholder_desc": "Describe the table's contents, grain, and common use cases...",
+    "placeholder_steward": "e.g. data.steward@example.com"
   },
   "comment": {
     "add_comment": "Add a comment",
