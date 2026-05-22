@@ -34,7 +34,7 @@ def render_table_metadata_editor(table_full_name: str, current_desc: str, curren
     new_desc = st.text_area(t("detail.table_description"), value=current_desc, height=150)
     new_stew = st.text_input(
         t("detail.steward_email"), value=current_steward,
-        placeholder="e.g. data.steward@example.com",
+        placeholder=t("detail.steward_email_placeholder"),
     )
 
     c1, c2 = st.columns([1, 1])

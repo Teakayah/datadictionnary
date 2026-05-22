@@ -101,7 +101,8 @@
     "expand_lineage": "Expand lineage graph",
     "no_columns": "No columns recorded.",
     "no_grants": "No grants recorded.",
-    "export_dictionary_help": "Download schema dictionary as CSV"
+    "export_dictionary_help": "Download schema dictionary as CSV",
+    "steward_email_placeholder": "e.g. data.steward@example.com"
   },
   "comment": {
     "add_comment": "Add a comment",
@@ -313,7 +314,8 @@
     "date_range": "{start} → expires {end}",
     "author_date": "{author} · {date}",
     "post_title_placeholder": "e.g. New Dataset Available",
-    "post_body_placeholder": "Write your announcement here..."
+    "post_body_placeholder": "Write your announcement here...",
+    "post_table_ref_placeholder": "catalog.schema.table_name"
   },
   "footer": {
     "built_with": "Data Dictionary · v0.1.0 · synced nightly from Unity Catalog"

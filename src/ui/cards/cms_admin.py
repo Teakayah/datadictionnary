@@ -41,7 +41,7 @@ def _show_cms_create_dialog():
     if post_type == "featured_table":
         table_ref = st.text_input(
             t("cms.post_table_ref"),
-            placeholder="catalog.schema.table_name",
+            placeholder=t("cms.post_table_ref_placeholder"),
             key="cms_create_tableref",
         )
 
