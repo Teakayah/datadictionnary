@@ -31,7 +31,7 @@ def render_catalog_browser(groups, get_authorized_tables_fn):
                 cat_data = all_data[all_data['catalog_name'] == cat]
                 # Group by schema_name to avoid O(N^2) dataframe filtering
                 for sch, sch_data in cat_data.groupby('schema_name'):
-                    st.html(f'<div style="margin-left: 20px; font-weight: 500; color: var(--ink-60); margin-top: 10px; margin-bottom: 5px;">📂 {_html.escape(str(sch))}</div>')
+                    st.markdown(f'<div style="margin-left: 20px; font-weight: 500; color: var(--ink-60); margin-top: 10px; margin-bottom: 5px;">📁 {_html.escape(str(sch))}</div>', unsafe_allow_html=True)
                     _dq_lookup = dict(zip(sch_data["table_name"], sch_data["dq_score"])) if "dq_score" in sch_data.columns else {}
                     tables = sorted(sch_data['table_name'].unique().tolist())
 
