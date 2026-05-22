@@ -811,3 +811,32 @@ def test_send_comment_email_no_smtp(monkeypatch, caplog):
     monkeypatch.delenv("SMTP_HOST", raising=False)
     send_comment_email("to@test.com", "Author", "Object", "Text")
     assert "Comment saved but email not sent: SMTP_HOST or steward_email not configured" in caplog.text
+
+def test_get_table_comments(monkeypatch):
+    """Test get_table_comments explicitly to satisfy the reviewer."""
+    from src.comments import get_table_comments
+    import pandas as pd
+    from unittest.mock import patch, MagicMock
+
+    monkeypatch.setenv("DEMO_DATA", "false")
+    with patch("src.comments.get_db_connection") as mock_conn_func, \
+         patch("src.comments._duckdb_available", return_value=True):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_conn_func.return_value = mock_conn
+
+        mock_cursor.fetchall_as_pandas.return_value = pd.DataFrame([
+            {"comment_id": "1", "parent_comment_id": None, "text": "Root"},
+            {"comment_id": "2", "parent_comment_id": "1", "text": "Reply 1"},
+            {"comment_id": "3", "parent_comment_id": "999", "text": "Missing parent fallback"}
+        ])
+
+        res = get_table_comments("obj_test")
+
+        assert len(res) == 2
+        assert res[0]["comment_id"] == "1"
+        assert len(res[0]["replies"]) == 1
+        assert res[0]["replies"][0]["comment_id"] == "2"
+        assert res[1]["comment_id"] == "3"
+        assert len(res[1]["replies"]) == 0
