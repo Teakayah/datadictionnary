@@ -1,4 +1,3 @@
-from __future__ import annotations
 """DuckDB local-cache adapter.
 
 When DUCKDB_PATH points to an existing file (written by the sync job), all
@@ -7,6 +6,7 @@ The adapter translates the existing %(name)s pyformat SQL into DuckDB's
 $name named-parameter style so no query code needs to change.
 """
 
+from __future__ import annotations
 
 import os
 import re
@@ -27,11 +27,16 @@ def _duckdb_available() -> bool:
 
 
 def _to_duckdb_sql(sql: str, params: dict) -> tuple:
-    """Convert %(name)s pyformat SQL + dict params to DuckDB $name style.
+    """Convert pyformat SQL (%(name)s) and parameter dictionary to DuckDB named parameters ($name).
 
-    Special case: ``IN %(name)s`` where the value is a list/tuple is rewritten
-    to ``= ANY($name)`` so the DuckDB array-contains operator is used.
-    Returns (converted_sql, converted_params_dict).
+    DuckDB does not natively unroll Python lists passed to an `IN` clause parameter marker
+    (unlike some other DB-APIs). This function intercepts list/tuple parameters targeting an
+    `IN %(name)s` clause and rewrites the SQL to use DuckDB's native `= ANY($name)` array
+    operator instead, ensuring cross-driver compatibility.
+
+    @param sql - The SQL query string using pyformat placeholders.
+    @param params - A dictionary of parameters to interpolate.
+    @returns A tuple containing the converted SQL string and the converted parameters dictionary.
     """
     if not params:
         return sql, {}
@@ -203,13 +208,16 @@ def _get_shared_duckdb_connection():
 
     with _db_write_lock:
         import duckdb
+
         try:
             # Use an in-memory connection as the primary
             con = duckdb.connect(":memory:")
 
             # Sanitize paths to prevent SQL injection when using f-strings for ATTACH
             safe_duckdb_path = DUCKDB_PATH.replace("'", "''") if DUCKDB_PATH else ""
-            safe_user_data_path = USER_DATA_PATH.replace("'", "''") if USER_DATA_PATH else ""
+            safe_user_data_path = (
+                USER_DATA_PATH.replace("'", "''") if USER_DATA_PATH else ""
+            )
 
             # Attach the main read-only cache
             con.execute(f"ATTACH '{safe_duckdb_path}' AS {CATALOG_CACHE} (READ_ONLY)")
@@ -223,7 +231,6 @@ def _get_shared_duckdb_connection():
         except Exception as e:
             logging.error("Failed to initialize shared DuckDB connection: %s", e)
             return None
-
 
 
 class _DuckDBCursor:
