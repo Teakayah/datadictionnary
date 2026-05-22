@@ -174,13 +174,9 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             _pref_upsert(full_name, "recent")
 
         # Columns section — route through storage abstraction (fix split-brain)
-        col_overrides = get_business_name_override_storage().get_for_table(full_name)
-        cols_query = (
-            "SELECT column_name, data_type, comment "
-            "FROM {0}.{1}.columns_metadata "
-            "WHERE table_full_name = %(table_full_name)s ORDER BY column_name"
-        ).format(CATALOG_CACHE, SCHEMA_CACHE)
-        cols = run_query(cols_query, {"table_full_name": full_name})
+        override_storage = get_business_name_override_storage()
+        col_overrides = override_storage.get_for_table(full_name)
+        cols = override_storage.get_columns(full_name)
         n_cols = len(cols) if cols is not None and not cols.empty else 0
 
         _c_preview, _c_export = st.columns(2, gap="small")
