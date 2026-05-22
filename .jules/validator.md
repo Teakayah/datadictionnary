@@ -7,3 +7,8 @@ Assertion: Always use `AppTest` to test `st.dialog` rather than manual patching,
 **Coverage Gap:** The table detail components (`render_table_metadata_editor` and `render_data_sample`) in `src/ui/cards/detail.py` were missing test coverage for their cancel button interaction and the fallback path for invalid namespaces under DuckDB execution.
 **Learning:** Testing secondary modal actions like cancel requires explicitly simulating index-based button clicks in `AppTest` (e.g. `at.button[1]`). The data sample method also contained an unreachable fallback branch because the preceding regex validation strictly ensured valid name formatting. Mocking the regex result allowed verifying the fallback branch behavior.
 **Assertion:** Use index-based widget lookup to assert on secondary buttons when not explicitly labeled with unique keys, and apply targeted mocking to `re.match` to test defensive fallbacks hidden behind early validation.
+
+## 2024-05-22 - Cover fetch_member_groups exception path
+Coverage Gap: Missing test for generic Exception handling in fetch_member_groups.
+Learning: Need to ensure error paths fail closed explicitly.
+Assertion: Test confirms fetch_member_groups returns an empty list and logs a warning on exception.
