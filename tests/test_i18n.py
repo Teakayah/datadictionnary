@@ -72,6 +72,13 @@ def test_set_locale():
         set_locale("fr")
         assert mock_st.session_state["locale"] == "fr"
 
+def test_set_locale_overwrite():
+    from src.i18n import set_locale
+    with patch("src.i18n.st") as mock_st:
+        mock_st.session_state = {"locale": "en"}
+        set_locale("fr")
+        assert mock_st.session_state["locale"] == "fr"
+
 def test_set_locale_explicit_coverage():
     """Explicitly test set_locale to fulfill testing requirement."""
     from src.i18n import set_locale
