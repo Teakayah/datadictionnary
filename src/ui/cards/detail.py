@@ -94,18 +94,17 @@ def render_data_sample(table_full_name: str):
         elif _duckdb_available():
             _parts = table_full_name.split(".")
             if len(_parts) == 3:
-                _cat, _sch, _tbl = _parts
-                _safe_sch = _sch.replace('"', '""')
-                _safe_tbl = _tbl.replace('"', '""')
-                _sample_query = f'SELECT * FROM {CATALOG_CACHE}."{_safe_sch}"."{_safe_tbl}" LIMIT 100'  # nosec B608
+                _, _sch, _tbl = _parts
+                _sch_esc = '"' + _sch.replace('"', '""') + '"'
+                _tbl_esc = '"' + _tbl.replace('"', '""') + '"'
+                _sample_query = f"SELECT * FROM {CATALOG_CACHE}.{_sch_esc}.{_tbl_esc} LIMIT 100"  # nosec B608
                 df = run_query(_sample_query)
             else:
                 st.info(t("detail.preview_not_available"))
                 return
         else:
-            _safe_parts = [p.replace('"', '""') for p in table_full_name.split(".")]
-            _safe_table = '"' + '"."'.join(_safe_parts) + '"'
-            query = f"SELECT * FROM {_safe_table} LIMIT 100"  # nosec B608
+            _escaped_name = ".".join('"' + p.replace('"', '""') + '"' for p in table_full_name.split("."))
+            query = f"SELECT * FROM {_escaped_name} LIMIT 100"  # nosec B608
             df = run_query(query)
         if df is not None and not df.empty:
             st.dataframe(df, use_container_width=True, height=2000)
