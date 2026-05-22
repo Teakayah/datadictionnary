@@ -58,7 +58,11 @@ class MockEmbeddingEngine:
 
     def embed_batch(self, texts: List[str]) -> List[List[float]]:
         # Return deterministic dummy vectors (384-dim)
-        return [[float(ord(c)) / 255.0 for c in (t * 10)[:384]] for t in texts]
+        res = []
+        for t in texts:
+            base = (t * (384 // len(t) + 1))[:384] if t else " " * 384
+            res.append([float(ord(c)) / 255.0 for c in base])
+        return res
 
 def get_embedding_engine() -> EmbeddingEngine:
     """Factory to retrieve the active embedding engine."""
