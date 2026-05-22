@@ -480,6 +480,30 @@ class TestPipelineDefAdminGuards:
         mock_def_storage.delete.assert_called_once_with("target_pipeline_id")
         mock_run_storage.clear.assert_called_once_with("target_pipeline_id")
 
+    def test_delete_pipeline_def_cascades(self, admin_caller_context):
+        from src.pipelines import delete_pipeline_def
+        from unittest.mock import call
+        with patch("src.pipelines.get_pipeline_def_storage") as mock_def, \
+             patch("src.pipelines.get_pipeline_run_storage") as mock_run:
+
+            mock_manager = MagicMock()
+            mock_def_storage = MagicMock()
+            mock_run_storage = MagicMock()
+            mock_def.return_value = mock_def_storage
+            mock_run.return_value = mock_run_storage
+
+            mock_manager.attach_mock(mock_def_storage.delete, 'delete')
+            mock_manager.attach_mock(mock_run_storage.clear, 'clear')
+
+            delete_pipeline_def("p_cascade")
+
+            expected_calls = [
+                call.delete("p_cascade"),
+                call.clear("p_cascade")
+            ]
+            assert mock_manager.mock_calls == expected_calls
+
+
     def test_delete_pipeline_def_storage_error(self, admin_caller_context):
         from src.pipelines import delete_pipeline_def
         with patch("src.pipelines.get_pipeline_def_storage") as mock_def, \
