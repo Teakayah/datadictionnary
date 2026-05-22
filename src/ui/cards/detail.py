@@ -39,7 +39,7 @@ def render_table_metadata_editor(table_full_name: str, current_desc: str, curren
     )
     new_stew = st.text_input(
         t("detail.steward_email"), value=current_steward,
-        placeholder=t("detail.placeholder_steward"),
+        placeholder=t("detail.steward_email_placeholder"),
     )
 
     c1, c2 = st.columns([1, 1])
