@@ -8,7 +8,6 @@ application's global header and footer.
 Public API:
     LOGO_MARK_SVG  — inline SVG for the logo mark
     MS_LOGO_SVG    — inline SVG for the Microsoft sign-in button
-    SEARCH_ICON_SVG — inline SVG for the search bar icon
     render_header() — full navigation header with lang toggle
     render_footer() — standard application footer
 """
@@ -38,10 +37,6 @@ MS_LOGO_SVG = """<svg width="16" height="16" viewBox="0 0 23 23" fill="none">
   <rect x="12" y="1" width="10" height="10" fill="#7FBA00"/>
   <rect x="1" y="12" width="10" height="10" fill="#00A4EF"/>
   <rect x="12" y="12" width="10" height="10" fill="#FFB900"/>
-</svg>"""
-
-SEARCH_ICON_SVG = """<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B645A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-  <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
 </svg>"""
 
 

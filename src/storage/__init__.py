@@ -61,7 +61,6 @@ from src.storage.analytics_storage import (  # noqa: F401
     AnalyticsStorage,
     DemoAnalyticsStorage,
     DuckDBAnalyticsStorage,
-    FakeAnalyticsStorage,
     SearchEvent,
 )
 
