@@ -5,6 +5,7 @@ import os
 
 from src.config import is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
+from src.db.queries import run_query
 
 class EmbeddingEngine(Protocol):
     """Protocol for generating semantic embeddings from text."""
@@ -104,7 +105,6 @@ def semantic_search(query: str, top_n: int = 10) -> List[str]:
         # results = run_query(sql, (vector, top_n))
         
         # For scaffolding, return a few random tables if they exist to test fusion
-        from src.db.queries import run_query
         df = run_query("SELECT full_name FROM tables_metadata LIMIT 5")
         if df is not None and not df.empty:
             return df["full_name"].tolist()

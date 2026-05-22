@@ -3,22 +3,36 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
+import streamlit as st
 
 
 def test_get_table_comments_demo_mode(monkeypatch):
     from src.comments import get_table_comments
     monkeypatch.setenv("DEMO_DATA", "true")
-    # This should return from src.demo.data._DEMO_COMMENTS
+    # Manually populate demo_comments since it's not pre-populated in the session state
+    st.session_state["demo_comments"] = {
+        "main.analytics.customers": [
+            {
+                "comment_id": "1",
+                "author_name": "Test",
+                "author_email": "test@test.com",
+                "comment_text": "Hello",
+                "created_at": "now",
+                "parent_comment_id": None
+            }
+        ]
+    }
     res = get_table_comments("main.analytics.customers")
     assert isinstance(res, list)
     assert len(res) > 0
-    assert "comment_id" in res[0]
+    assert res[0]["comment_id"] == "1"
     assert "replies" in res[0]
 
 
 def test_get_table_comments_empty_demo(monkeypatch):
     from src.comments import get_table_comments
     monkeypatch.setenv("DEMO_DATA", "true")
+    st.session_state["demo_comments"] = {}
     # For an unknown table in demo mode, should return []
     res = get_table_comments("unknown.table")
     assert res == []
