@@ -103,7 +103,8 @@
     "no_grants": "Aucune autorisation enregistrée.",
     "export_dictionary_help": "Télécharger le dictionnaire de schéma au format CSV",
     "placeholder_desc": "Décrivez le contenu de la table, sa granularité et ses cas d'utilisation courants...",
-    "placeholder_steward": "ex. data.steward@example.com"
+    "placeholder_steward": "ex. data.steward@example.com",
+    "table_desc_placeholder": "Décrivez l'objectif de la table, son contenu et les mises en garde importantes..."
   },
   "comment": {
     "add_comment": "Ajouter un commentaire",
@@ -290,7 +291,13 @@
     "date_format": "%d %b %H:%M UTC",
     "started_by": "lancé par {user} · {date}",
     "field_title_placeholder": "ex. Synchronisation nocturne",
-    "field_desc_placeholder": "Décrivez ce que fait ce pipeline..."
+    "field_desc_placeholder": "Décrivez ce que fait ce pipeline...",
+    "field_adf_sub_placeholder": "ex. 12345678-1234-1234-1234-1234567890ab",
+    "field_adf_rg_placeholder": "ex. mon-groupe-de-ressources",
+    "field_adf_fact_placeholder": "ex. mon-data-factory",
+    "field_adf_pipe_placeholder": "ex. MonPipeline",
+    "field_ado_org_placeholder": "ex. mon-organisation",
+    "field_ado_proj_placeholder": "ex. mon-projet"
   },
   "cms": {
     "section_title": "Gestion de contenu",
