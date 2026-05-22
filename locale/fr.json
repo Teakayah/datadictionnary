@@ -101,7 +101,8 @@
     "expand_lineage": "Développer le graphe de lignage",
     "no_columns": "Aucune colonne enregistrée.",
     "no_grants": "Aucune autorisation enregistrée.",
-    "export_dictionary_help": "Télécharger le dictionnaire de schéma au format CSV"
+    "export_dictionary_help": "Télécharger le dictionnaire de schéma au format CSV",
+    "steward_email_placeholder": "ex. data.steward@example.com"
   },
   "comment": {
     "add_comment": "Ajouter un commentaire",
@@ -313,7 +314,8 @@
     "date_range": "{start} → expire {end}",
     "author_date": "{author} · {date}",
     "post_title_placeholder": "ex. Nouveau jeu de données",
-    "post_body_placeholder": "Rédigez votre annonce ici..."
+    "post_body_placeholder": "Rédigez votre annonce ici...",
+    "post_table_ref_placeholder": "catalogue.schema.nom_table"
   },
   "footer": {
     "built_with": "Data Dictionary · v0.1.0 · synchronisé chaque nuit depuis Unity Catalog"
