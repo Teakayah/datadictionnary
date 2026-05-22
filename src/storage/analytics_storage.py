@@ -80,13 +80,3 @@ class DemoAnalyticsStorage:
         zeros = [d for d in data if d["results_count"] == 0]
         return sorted(zeros, key=lambda x: x["timestamp"], reverse=True)[:limit]
 
-class FakeAnalyticsStorage:
-    def __init__(self):
-        self.events = []
-    
-    def track_search(self, event: SearchEvent) -> None:
-        self.events.append(event)
-
-    def get_zero_result_searches(self, limit: int = 50) -> List[dict]:
-        zeros = [vars(e) for e in self.events if e.results_count == 0]
-        return sorted(zeros, key=lambda x: x["timestamp"], reverse=True)[:limit]
