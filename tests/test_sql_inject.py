@@ -1,7 +1,6 @@
 import os
 import duckdb
 from unittest.mock import patch
-import pytest
 
 def test_sql_inject(tmp_path):
     # Test path with single quotes

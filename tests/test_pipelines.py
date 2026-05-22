@@ -481,7 +481,7 @@ class TestPipelineDefAdminGuards:
         mock_run_storage.clear.assert_called_once_with("target_pipeline_id")
 
 
-class TestGetPipelines:
+class TestGetPipelinesFromStorageMock:
     @patch("src.pipelines.get_pipeline_def_storage")
     def test_get_pipelines(self, mock_get_storage):
         from src.pipelines import get_pipelines
