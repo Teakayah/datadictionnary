@@ -61,7 +61,8 @@ def render_glossary(query_groups) -> None:
             <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:32px; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.linked_tables")}</div>
             ''', unsafe_allow_html=True)
 
-            _authorized_fns = get_authorized_table_names(query_groups)
+            # ⚡ Bolt: Cast list to tuple to ensure optimal Streamlit caching performance and avoid hashing overhead/misses
+            _authorized_fns = get_authorized_table_names(tuple(query_groups) if query_groups else ())
             for table_fn in term_row["related_tables"]:
                 if table_fn not in _authorized_fns:
                     continue  # hide tables the current user cannot access
