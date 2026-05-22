@@ -80,8 +80,7 @@ spec:
               mountPath: /tmp
 
           livenessProbe:
-            httpGet:
-              path: /_stcore/health
+            tcpSocket:
               port: 8501
             initialDelaySeconds: 15
             periodSeconds: 10
