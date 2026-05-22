@@ -15,7 +15,15 @@ from src.personalization import _pref_upsert, _pref_delete
 
 
 
+@st.cache_data(ttl="1h", show_spinner=False)
+def _cached_get_authorized_table_names(groups: tuple) -> set:
+    """Local cache wrapper for authorized tables to ensure it only evaluates once per rendering."""
+    return get_authorized_table_names(groups)
+
 def render_glossary(query_groups) -> None:
+    # ⚡ Bolt: Cache authorized table metadata locally and ensure it executes exactly once before the rendering loop
+    _authorized_fns = _cached_get_authorized_table_names(tuple(query_groups or []))
+
     st.markdown(f'''
     <div class="dd-search-hero">
       <div class="dd-eyebrow">{t("glossary.title")}</div>
@@ -61,8 +69,6 @@ def render_glossary(query_groups) -> None:
             <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:32px; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.linked_tables")}</div>
             ''', unsafe_allow_html=True)
 
-            # ⚡ Bolt: Cast list to tuple to ensure optimal Streamlit caching performance and avoid hashing overhead/misses
-            _authorized_fns = get_authorized_table_names(tuple(query_groups) if query_groups else ())
             for table_fn in term_row["related_tables"]:
                 if table_fn not in _authorized_fns:
                     continue  # hide tables the current user cannot access
