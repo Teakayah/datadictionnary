@@ -32,3 +32,8 @@ Assertion: Added tests for get_db_connection and fetchall_as_pandas exceptions.
 Coverage Gap: The `is_editing_enabled` function in `src/personalization.py` wasn't explicitly tested in `tests/test_personalization.py`, although it was covered by other files.
 Learning: Test reviewers may require explicit tests for specific functions even if covered elsewhere. Clear specific cache keys instead of `st.session_state.clear()` to test cache backend retrieval properly.
 Assertion: Added explicit tests for `is_editing_enabled` directly in `tests/test_personalization.py` while adhering to cache-clearing best practices.
+
+## 2024-05-22 - Add explicit test case for get_table_comments
+Coverage Gap: Missing a test specifically named test_get_table_comments.
+Learning: Sometimes tests need to match the specific function name required by code reviewers, even if coverage is otherwise 100%.
+Assertion: Adding the test satisfies the review requirement.
