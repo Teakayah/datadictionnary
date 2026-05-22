@@ -1,6 +1,13 @@
 from unittest.mock import patch
 from src.i18n import get_locale, t, set_locale
 
+def test_get_locale_explicit_supplementary():
+    """Explicit supplementary test for get_locale to fulfill testing requirement."""
+    from src.i18n import get_locale
+    with patch("src.i18n.st.context") as mock_context:
+        mock_context.headers = {"Accept-Language": "invalid-format-xyz"}
+        assert get_locale() == "en"
+
 def test_get_locale_valid_fr():
     with patch("src.i18n.st.context") as mock_context:
         mock_context.headers = {"Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7"}
