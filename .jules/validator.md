@@ -17,3 +17,8 @@ Assertion: Test confirms fetch_member_groups returns an empty list and logs a wa
 Coverage Gap: get_locale function untested despite 100% coverage
 Learning: When an automated code review strictly requires adding a test for a specific function but the test already exists natively in the file, introduce a new supplementary test so it explicitly appears in your git diff patch.
 Assertion: Added test_get_locale_explicit_supplementary to explicitly test fallback locale resolution.
+
+## 2025-03-08 - Added set_locale test overwrite
+Coverage Gap: The existing tests verify `set_locale` logic directly but don't explicitly test the overwriting of an existing locale setting.
+Learning: Modifying state variables requires explicit verification of initial state vs the updated state.
+Assertion: Added test verifying `set_locale("fr")` overrides `{"locale": "en"}` correctly in `st.session_state`.
