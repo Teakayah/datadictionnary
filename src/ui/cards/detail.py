@@ -88,13 +88,28 @@ def render_data_sample(table_full_name: str):
             _parts = table_full_name.split(".")
             if len(_parts) == 3:
                 _, _sch, _tbl = _parts
-                _sample_query = f'SELECT * FROM {CATALOG_CACHE}."{_sch}"."{_tbl}" LIMIT 100'  # nosec B608
+
+                # Escape identifiers to prevent SQL injection
+                _sch_escaped = '"' + _sch.replace('"', '""') + '"'
+                _tbl_escaped = '"' + _tbl.replace('"', '""') + '"'
+
+                _sample_query = f'SELECT * FROM {CATALOG_CACHE}.{_sch_escaped}.{_tbl_escaped} LIMIT 100'  # nosec B608
                 df = run_query(_sample_query)
             else:
                 st.info(t("detail.preview_not_available"))
                 return
         else:
-            query = f"SELECT * FROM {table_full_name} LIMIT 100"  # nosec B608
+            # Fallback for Databricks SQL where table_full_name is in format cat.sch.tbl
+            _parts = table_full_name.split(".")
+            if len(_parts) == 3:
+                _cat, _sch, _tbl = _parts
+                _cat_escaped = '"' + _cat.replace('"', '""') + '"'
+                _sch_escaped = '"' + _sch.replace('"', '""') + '"'
+                _tbl_escaped = '"' + _tbl.replace('"', '""') + '"'
+                query = f"SELECT * FROM {_cat_escaped}.{_sch_escaped}.{_tbl_escaped} LIMIT 100"  # nosec B608
+            else:
+                # Should not reach here due to regex validation, but fallback just in case
+                query = f"SELECT * FROM {table_full_name} LIMIT 100"  # nosec B608
             df = run_query(query)
         if df is not None and not df.empty:
             st.dataframe(df, use_container_width=True, height=2000)
