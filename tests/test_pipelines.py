@@ -90,6 +90,20 @@ class TestGetPipelines:
         assert len(result) == 1
         assert result[0]["title"] == "My Job"
 
+    def test_get_pipelines_with_mock(self):
+        """get_pipelines explicitly tested with mocked data."""
+        with patch("src.pipelines.get_pipeline_def_storage") as mock_get_storage:
+            from src.pipelines import get_pipelines
+            mock_storage = MagicMock()
+            mock_storage.list_all.return_value = [{"id": "pipe1"}, {"id": "pipe2"}]
+            mock_get_storage.return_value = mock_storage
+
+            result = get_pipelines()
+
+            mock_get_storage.assert_called_once()
+            mock_storage.list_all.assert_called_once()
+            assert result == [{"id": "pipe1"}, {"id": "pipe2"}]
+
 
 # ── AppTest: pipelines page rendering ─────────────────────────────────────────
 
@@ -479,22 +493,6 @@ class TestPipelineDefAdminGuards:
 
         mock_def_storage.delete.assert_called_once_with("target_pipeline_id")
         mock_run_storage.clear.assert_called_once_with("target_pipeline_id")
-
-
-class TestGetPipelines:
-    @patch("src.pipelines.get_pipeline_def_storage")
-    def test_get_pipelines(self, mock_get_storage):
-        from src.pipelines import get_pipelines
-
-        mock_storage = MagicMock()
-        mock_storage.list_all.return_value = [{"id": "pipe1"}, {"id": "pipe2"}]
-        mock_get_storage.return_value = mock_storage
-
-        result = get_pipelines()
-
-        mock_get_storage.assert_called_once()
-        mock_storage.list_all.assert_called_once()
-        assert result == [{"id": "pipe1"}, {"id": "pipe2"}]
 
 
 class TestRunStatePersistence:
