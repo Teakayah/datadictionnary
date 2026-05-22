@@ -147,6 +147,15 @@ class TestFetchMemberGroups:
         assert result == []
         assert any("dns" in rec.message for rec in caplog.records)
 
+    def test_generic_exception_returns_empty_and_logs_warning(self, caplog):
+        from src.auth_graph import fetch_member_groups
+        with caplog.at_level(logging.WARNING, logger="src.auth_graph"):
+            with patch("src.auth_graph._call_get_member_objects") as m:
+                m.side_effect = Exception("generic error")
+                result = fetch_member_groups("tok", "user-oid-6")
+        assert result == []
+        assert any("generic error" in rec.message for rec in caplog.records)
+
     def test_cache_hit_within_ttl(self):
         from src.auth_graph import fetch_member_groups
         with patch("src.auth_graph.requests") as r:
