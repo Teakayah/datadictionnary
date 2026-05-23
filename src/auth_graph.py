@@ -13,7 +13,7 @@ security-group memberships using the access token MSAL already produced.
 
 Used from src.auth.check_auth after token acquisition.
 
-Required scope: ``GroupMember.Read.All`` — already in src.config.SCOPE.
+Required scope: ``User.Read`` — already in src.config.SCOPE.
 
 Caching: per-user-OID, process-level, 1h TTL. Streamlit's @cache_data is
 session-scoped (per-tab) which would defeat the cache; a process-level
@@ -64,7 +64,7 @@ def fetch_member_groups(access_token: str, user_oid: str) -> list[str]:
     Caches per OID for ``GROUPS_TTL_S``. On any error returns ``[]`` and
     logs a warning — never silently grants access.
 
-    @param access_token: bearer token with GroupMember.Read.All scope
+    @param access_token: bearer token with User.Read scope
     @param user_oid:    Entra ID user OID, used as the cache key
     """
     if not user_oid:
