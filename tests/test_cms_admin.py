@@ -1,8 +1,7 @@
 import json
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-import pytest
 from streamlit.testing.v1 import AppTest
 
 UTC = timezone.utc
