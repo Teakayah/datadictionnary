@@ -8,11 +8,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <style>
-    .mermaid-wrap { background:var(--paper-deep); border:1px solid var(--ink-10); border-radius:2px; padding:24px; margin:20px 0; overflow-x:auto; }
-    .mermaid-wrap .mermaid { min-width:520px; }
-    .mermaid svg { max-width:100%; }
-  </style>
 </head>
 <body>
   
@@ -54,6 +49,8 @@
       <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
       <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
       <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+      <li class="nav-item "><a href="feature-hybrid-search.html">Hybrid Semantic Search</a></li>
+      <li class="nav-item "><a href="feature-search-analytics.html">Search Analytics</a></li>
     </ul>
   </nav>
   <nav class="nav-section">
@@ -289,20 +286,5 @@ fix is migrating <code>user_data</code> to PostgreSQL — tracked in TODO.md.
       </footer>
     </article>
   </main>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-  <script>
-    mermaid.initialize({
-      startOnLoad: true,
-      theme: 'base',
-      themeVariables: {
-        primaryColor: '#F2EDE1', primaryTextColor: '#14110C', primaryBorderColor: '#C9C2B4',
-        lineColor: '#6B645A', secondaryColor: '#E3E9DE', tertiaryColor: '#DDE4EC',
-        background: '#FAF7F0', mainBkg: '#F2EDE1', nodeBorder: '#C9C2B4',
-        clusterBkg: '#FAF7F0', clusterBorder: '#C9C2B4', titleColor: '#14110C',
-        edgeLabelBackground: '#FAF7F0', fontFamily: 'Manrope, "Segoe UI", system-ui, sans-serif',
-        fontSize: '13px',
-      }
-    });
-  </script>
 </body>
 </html>

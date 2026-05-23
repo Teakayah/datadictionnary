@@ -94,20 +94,37 @@ def generate_table_embeddings(tables: List[dict]) -> List[dict]:
 
 def semantic_search(query: str, top_n: int = 10) -> List[str]:
     """Perform a vector similarity search using the local DuckDB cache."""
+    # 1. Environment variable gate
+    if os.getenv("ENABLE_SEMANTIC_SEARCH") != "true":
+        return []
+
     if is_demo_mode() or not _duckdb_available():
         return []
 
     try:
-        # In a real implementation, we would use DuckDB 1.1+ VSS features:
-        # engine = get_embedding_engine()
-        # vector = engine.embed_text(query)
-        # sql = "SELECT table_full_name FROM tables_embedding_cache ORDER BY array_cosine_similarity(embedding, ?::FLOAT[384]) DESC LIMIT ?"
-        # results = run_query(sql, (vector, top_n))
+        # 2. Try to load VSS extension
+        try:
+            run_query("LOAD vss")
+        except Exception:
+            try:
+                run_query("INSTALL vss")
+                run_query("LOAD vss")
+            except Exception as ex:
+                logging.warning("Could not load vss extension: %s", ex)
+                # We can still proceed, some DuckDB versions/setups might have cosine similarity built-in
+
+        # 3. Retrieve embedding using get_embedding_engine()
+        engine = get_embedding_engine()
+        vector = engine.embed_text(query)
+        if not vector:
+            return []
+
+        # 4. Perform vector similarity search using dynamic type-casting for the vector length!
+        sql = f"SELECT table_full_name FROM tables_embedding_cache ORDER BY array_cosine_similarity(embedding, ?::FLOAT[{len(vector)}]) DESC LIMIT ?"
+        df = run_query(sql, (vector, top_n))
         
-        # For scaffolding, return a few random tables if they exist to test fusion
-        df = run_query("SELECT full_name FROM tables_metadata LIMIT 5")
         if df is not None and not df.empty:
-            return df["full_name"].tolist()
+            return df["table_full_name"].tolist()
         return []
     except Exception as e:
         logging.error("Semantic search failed: %s", e)

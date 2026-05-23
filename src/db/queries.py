@@ -227,11 +227,12 @@ def search_all_metadata(query: str, groups: tuple):
     
     # 2. Semantic search (Phase 2 placeholder) — lazy import avoids circular dep
     semantic_fns = []
-    try:
-        from src.semantic import semantic_search  # noqa: PLC0415
-        semantic_fns = semantic_search(query)
-    except Exception:
-        pass
+    if os.getenv("ENABLE_SEMANTIC_SEARCH") == "true":
+        try:
+            from src.semantic import semantic_search  # noqa: PLC0415
+            semantic_fns = semantic_search(query)
+        except Exception:
+            pass
     
     if not semantic_fns:
         return keyword_results
