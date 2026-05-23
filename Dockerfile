@@ -46,6 +46,9 @@ COPY --chown=appuser:appuser design_system/ ./design_system/
 
 USER appuser
 
+# Pre-cache the DuckDB vss extension for offline usage in production environments
+RUN python -c "import duckdb; con = duckdb.connect(':memory:'); con.execute('INSTALL vss;')"
+
 # The same image is used for two workloads:
 #   - dd-app          (default CMD)              — Streamlit UI on 8501
 #   - dd-sync-worker  (CMD overridden by k8s)    — `python -m src.sync.daemon` on 8765

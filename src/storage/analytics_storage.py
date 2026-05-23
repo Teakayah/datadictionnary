@@ -26,6 +26,10 @@ class AnalyticsStorage(Protocol):
         """Retrieve most recent searches that returned no results."""
         ...
 
+    def get_zero_result_alerts(self, days: int = 7) -> List[dict]:
+        """Retrieve search terms returning zero results for more than N days."""
+        ...
+
 class DuckDBAnalyticsStorage:
     def __init__(self, db_path: str):
         self.db_path = db_path
@@ -62,6 +66,26 @@ class DuckDBAnalyticsStorage:
             )
             return df.to_dict('records') if df is not None else []
 
+    def get_zero_result_alerts(self, days: int = 7) -> List[dict]:
+        from src.db.duckdb_adapter import _DuckDBConn
+        with _DuckDBConn(self.db_path) as conn:
+            # DuckDB-specific query: groups zero-result searches by query,
+            # calculates frequency, and flags terms where first search is > N days ago.
+            query = """
+                SELECT 
+                    query, 
+                    COUNT(*) as search_count, 
+                    MIN(timestamp) as first_seen, 
+                    MAX(timestamp) as last_seen 
+                FROM user_data.search_analytics 
+                WHERE results_count = 0 
+                GROUP BY query 
+                HAVING MIN(timestamp) < CAST(current_timestamp - INTERVAL '1' DAY * ? AS TIMESTAMP)
+                ORDER BY last_seen DESC
+            """
+            df = conn.fetchall_as_pandas(query, (days,))
+            return df.to_dict('records') if df is not None else []
+
 class DemoAnalyticsStorage:
     def track_search(self, event: SearchEvent) -> None:
         import streamlit as st
@@ -79,4 +103,42 @@ class DemoAnalyticsStorage:
         data = st.session_state.get("demo_analytics", [])
         zeros = [d for d in data if d["results_count"] == 0]
         return sorted(zeros, key=lambda x: x["timestamp"], reverse=True)[:limit]
+
+    def get_zero_result_alerts(self, days: int = 7) -> List[dict]:
+        import streamlit as st
+        from datetime import datetime, timezone, timedelta
+        data = st.session_state.get("demo_analytics", [])
+        zeros = [d for d in data if d["results_count"] == 0]
+        
+        # Group by query
+        groups = {}
+        for z in zeros:
+            q = z["query"]
+            ts = z["timestamp"]
+            # Ensure ts is a datetime object
+            if isinstance(ts, str):
+                ts = datetime.fromisoformat(ts)
+            if isinstance(ts, datetime) and ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            
+            if q not in groups:
+                groups[q] = []
+            groups[q].append(ts)
+        
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(days=days)
+        
+        alerts = []
+        for q, times in groups.items():
+            first_seen = min(times)
+            last_seen = max(times)
+            if first_seen < cutoff:
+                alerts.append({
+                    "query": q,
+                    "search_count": len(times),
+                    "first_seen": first_seen,
+                    "last_seen": last_seen
+                })
+        
+        return sorted(alerts, key=lambda x: x["last_seen"], reverse=True)
 

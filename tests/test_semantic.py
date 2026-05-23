@@ -74,17 +74,24 @@ def test_generate_table_embeddings():
         expected_texts = ["cat.schema.t1: test table", "cat.schema.t2: another test"]
         mock_engine.embed_batch.assert_called_once_with(expected_texts)
 
-def test_semantic_search_demo_mode():
-    with patch("src.semantic.is_demo_mode", return_value=True):
+def test_semantic_search_disabled():
+    with patch.dict(os.environ, {"ENABLE_SEMANTIC_SEARCH": "false"}):
         assert semantic_search("query") == []
 
-def test_semantic_search_duckdb_unavailable():
-    with patch("src.semantic.is_demo_mode", return_value=False):
-        with patch("src.semantic._duckdb_available", return_value=False):
+def test_semantic_search_demo_mode():
+    with patch.dict(os.environ, {"ENABLE_SEMANTIC_SEARCH": "true"}):
+        with patch("src.semantic.is_demo_mode", return_value=True):
             assert semantic_search("query") == []
 
-def test_semantic_search_exception():
-    with patch("src.semantic.is_demo_mode", return_value=False):
-        with patch("src.semantic._duckdb_available", return_value=True):
-            with patch("src.semantic.run_query", side_effect=Exception("DB Error")):
+def test_semantic_search_duckdb_unavailable():
+    with patch.dict(os.environ, {"ENABLE_SEMANTIC_SEARCH": "true"}):
+        with patch("src.semantic.is_demo_mode", return_value=False):
+            with patch("src.semantic._duckdb_available", return_value=False):
                 assert semantic_search("query") == []
+
+def test_semantic_search_exception():
+    with patch.dict(os.environ, {"ENABLE_SEMANTIC_SEARCH": "true"}):
+        with patch("src.semantic.is_demo_mode", return_value=False):
+            with patch("src.semantic._duckdb_available", return_value=True):
+                with patch("src.semantic.run_query", side_effect=Exception("DB Error")):
+                    assert semantic_search("query") == []

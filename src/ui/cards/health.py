@@ -187,6 +187,53 @@ def _render_priority_actions(undocumented: pd.DataFrame):
         st.success(t("health.all_documented"))
 
 
+def _render_zero_result_alerts():
+    """Render steward warnings for search terms returning zero results for >7 days."""
+    from src.storage import get_analytics_storage
+    
+    try:
+        alerts = get_analytics_storage().get_zero_result_alerts(7)
+        if not alerts:
+            return
+            
+        st.markdown(f'''
+        <div style="background:rgba(184, 54, 42, 0.08); border-left:4px solid var(--accent); padding:20px 24px; border-radius:2px; margin: 24px 0 24px 0; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+            <div style="font-family:var(--font-sans); font-size:11px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px;">⚠️ Steward Alert: Catalog Gaps Detected</div>
+            <div style="font-family:var(--font-sans); font-size:14px; font-weight:500; color:var(--ink); margin-bottom:8px;">Search terms returning zero results for more than 7 days have been identified. Consider adding these terms to the Business Glossary or importing missing tables to address catalog gaps:</div>
+        </div>
+        ''', unsafe_allow_html=True)
+        
+        # Display the alert terms inside a clean, interactive dataframe table
+        alert_df = pd.DataFrame(alerts)
+        
+        # Format timestamps for display
+        def format_ts(val):
+            if isinstance(val, str):
+                return val[:16].replace("T", " ")
+            try:
+                return val.strftime("%Y-%m-%d %H:%M")
+            except Exception:
+                return str(val)
+                
+        alert_df['first_seen'] = alert_df['first_seen'].apply(format_ts)
+        alert_df['last_seen'] = alert_df['last_seen'].apply(format_ts)
+        
+        st.dataframe(
+            alert_df,
+            column_config={
+                "query": "Search Term",
+                "search_count": "Search Count",
+                "first_seen": "First Unresolved Search",
+                "last_seen": "Most Recent Attempt",
+            },
+            use_container_width=True,
+            hide_index=True,
+        )
+        st.markdown('<div style="margin-top:24px;"></div>', unsafe_allow_html=True)
+    except Exception as e:
+        logging.error("Failed to render zero result alerts: %s", e)
+
+
 def render_health(groups: tuple, _unused_fn=None):
     st.markdown(f'''
     <div class="dd-search-hero">
@@ -226,6 +273,9 @@ def render_health(groups: tuple, _unused_fn=None):
         )
 
         _render_health_hero_metrics(metrics)
+
+        # 3. Render automated steward alerts for zero-result searches
+        _render_zero_result_alerts()
 
         st.markdown('<div style="margin-top:48px;"></div>', unsafe_allow_html=True)
 
