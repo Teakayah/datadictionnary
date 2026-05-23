@@ -11,6 +11,7 @@ architecture (Demo -> DuckDB -> Databricks) transparently for callers.
 
 import csv
 import io
+import os
 import pandas as pd
 import numpy as np
 import streamlit as st

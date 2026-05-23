@@ -95,3 +95,69 @@ def test_semantic_search_exception():
             with patch("src.semantic._duckdb_available", return_value=True):
                 with patch("src.semantic.run_query", side_effect=Exception("DB Error")):
                     assert semantic_search("query") == []
+
+
+def test_search_all_metadata_with_semantic_search():
+    from src.db.queries import search_all_metadata
+    import pandas as pd
+    
+    # Clear Streamlit cache to ensure our patches are active
+    search_all_metadata.clear()
+
+    # 1. Test when ENABLE_SEMANTIC_SEARCH is false/disabled
+    with patch.dict(os.environ, {"ENABLE_SEMANTIC_SEARCH": "false"}):
+        with patch("src.db.queries._search_keywords") as mock_keywords:
+            with patch("src.semantic.semantic_search") as mock_semantic:
+                dummy_df = pd.DataFrame({"full_name": ["cat.sch.tab1"], "table_description": ["desc"]})
+                mock_keywords.return_value = dummy_df
+                
+                res = search_all_metadata("some-query", ("group1",))
+                
+                assert isinstance(res, pd.DataFrame)
+                assert res.iloc[0]["full_name"] == "cat.sch.tab1"
+                mock_keywords.assert_called_once_with("some-query", ("group1",))
+                mock_semantic.assert_not_called()
+
+    # Clear Streamlit cache again
+    search_all_metadata.clear()
+
+    # 2. Test when ENABLE_SEMANTIC_SEARCH is true/enabled
+    with patch.dict(os.environ, {"ENABLE_SEMANTIC_SEARCH": "true"}):
+        with patch("src.db.queries._search_keywords") as mock_keywords:
+            with patch("src.semantic.semantic_search") as mock_semantic:
+                with patch("src.db.queries._fetch_metadata_for_fns") as mock_fetch:
+                    dummy_keyword_df = pd.DataFrame({"full_name": ["cat.sch.tab1"], "table_description": ["desc"]})
+                    mock_keywords.return_value = dummy_keyword_df
+                    mock_semantic.return_value = ["cat.sch.tab1"]
+                    
+                    res = search_all_metadata("some-query", ("group1",))
+                    
+                    # RRF or fallback behavior: when keyword search returns a non-empty df,
+                    # search_all_metadata currently returns keyword results (simple weighted fusion placeholder)
+                    assert isinstance(res, pd.DataFrame)
+                    assert res.iloc[0]["full_name"] == "cat.sch.tab1"
+                    mock_keywords.assert_called_once_with("some-query", ("group1",))
+                    mock_semantic.assert_called_once_with("some-query")
+                    mock_fetch.assert_not_called()
+
+    # Clear Streamlit cache again
+    search_all_metadata.clear()
+
+    # 3. Test when ENABLE_SEMANTIC_SEARCH is true/enabled and keyword search returns nothing
+    with patch.dict(os.environ, {"ENABLE_SEMANTIC_SEARCH": "true"}):
+        with patch("src.db.queries._search_keywords") as mock_keywords:
+            with patch("src.semantic.semantic_search") as mock_semantic:
+                with patch("src.db.queries._fetch_metadata_for_fns") as mock_fetch:
+                    mock_keywords.return_value = pd.DataFrame()
+                    mock_semantic.return_value = ["cat.sch.tab1"]
+                    dummy_fetch_df = pd.DataFrame({"full_name": ["cat.sch.tab1"], "table_description": ["desc"]})
+                    mock_fetch.return_value = dummy_fetch_df
+                    
+                    res = search_all_metadata("some-query", ("group1",))
+                    
+                    assert isinstance(res, pd.DataFrame)
+                    assert res.iloc[0]["full_name"] == "cat.sch.tab1"
+                    mock_keywords.assert_called_once_with("some-query", ("group1",))
+                    mock_semantic.assert_called_once_with("some-query")
+                    mock_fetch.assert_called_once_with(["cat.sch.tab1"], ("group1",))
+

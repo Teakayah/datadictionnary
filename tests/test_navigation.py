@@ -471,6 +471,35 @@ class TestHealthDashboard:
 
         assert any("Could not load health metrics." in msg.value for msg in at.error)
 
+    def test_health_renders_zero_result_alerts(self, monkeypatch):
+        """Health dashboard must show zero-result alerts if they exist."""
+        monkeypatch.setenv("DEMO_DATA", "false")
+        
+        # Mock database statistics
+        sql_returns(make_health_schema_stats(), make_health_col_stats(), make_health_undocumented_df())
+        
+        # Mock search analytics alerts
+        mock_alerts = [
+            {
+                "query": "missing_data_query",
+                "search_count": 3,
+                "first_seen": "2026-05-22 10:00",
+                "last_seen": "2026-05-22 12:00"
+            }
+        ]
+        
+        from unittest.mock import MagicMock, patch
+        mock_storage = MagicMock()
+        mock_storage.get_zero_result_alerts.return_value = mock_alerts
+        
+        with patch("src.storage.get_analytics_storage", return_value=mock_storage):
+            at = authenticated_app(tab="health")
+            at.run()
+            
+            html = _html(*at.markdown)
+            assert "Steward Alert: Catalog Gaps Detected" in html
+
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 4. Backend Sync — object_tags
