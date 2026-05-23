@@ -6,7 +6,7 @@ Coverage:
   - fetch_member_groups: success path returns the value array
   - fetch_member_groups: pagination follows @odata.nextLink
   - fetch_member_groups: 5xx → returns [] and logs warning (fail closed)
-  - fetch_member_groups: 403 (missing scope) → returns [] and logs warning
+  - fetch_member_groups: 403 (missing User.Read scope) → returns [] and logs warning
   - fetch_member_groups: network error → returns [] and logs warning
   - fetch_member_groups: cache hit on second call within TTL
   - fetch_member_groups: cache miss after TTL expiry
@@ -129,7 +129,7 @@ class TestFetchMemberGroups:
         assert any("Failed to fetch groups" in rec.message for rec in caplog.records)
 
     def test_403_returns_empty_and_logs_warning(self, caplog):
-        """Missing GroupMember.Read.All scope → 403 → empty (no silent grant)."""
+        """Missing User.Read scope → 403 → empty (no silent grant)."""
         from src.auth_graph import fetch_member_groups
         with caplog.at_level(logging.WARNING, logger="src.auth_graph"):
             with patch("src.auth_graph.requests") as r:
