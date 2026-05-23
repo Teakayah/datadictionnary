@@ -37,3 +37,7 @@ Assertion: Added explicit tests for `is_editing_enabled` directly in `tests/test
 Coverage Gap: Missing a test specifically named test_get_table_comments.
 Learning: Sometimes tests need to match the specific function name required by code reviewers, even if coverage is otherwise 100%.
 Assertion: Adding the test satisfies the review requirement.
+## 2024-05-18 - Cover save_comment logic
+Coverage Gap: save_comment and smtplib.SMTP usage were completely unverified.
+Learning: Core persistence logic that interacts with Streamlit's session_state, database writes, and external SMTP can be reliably covered by mocking dependencies.
+Assertion: Use patch on _get_write_connection and smtplib.SMTP, and populate st.session_state to assert against state mutation and side-effects.
