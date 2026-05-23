@@ -15,10 +15,10 @@ CLIENT_ID     = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 AUTHORITY     = f"https://login.microsoftonline.com/{TENANT_ID}"
 REDIRECT_URI  = os.getenv("REDIRECT_URI")
-# GroupMember.Read.All is required by src.auth_graph.fetch_member_groups,
+# User.Read is required by src.auth_graph.fetch_member_groups,
 # which is called when the ID token has a groups overage (>~150 groups).
 # Without this scope, users in many groups would see zero tables.
-SCOPE         = ["User.Read", "GroupMember.Read.All", "email"]
+SCOPE         = ["User.Read", "email"]
 
 # ── Unity Catalog cache location ─────────────────────────────────────────────
 CATALOG_CACHE = "data_governance"
