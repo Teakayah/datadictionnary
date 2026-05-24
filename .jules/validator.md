@@ -41,3 +41,8 @@ Assertion: Adding the test satisfies the review requirement.
 Coverage Gap: save_comment and smtplib.SMTP usage were completely unverified.
 Learning: Core persistence logic that interacts with Streamlit's session_state, database writes, and external SMTP can be reliably covered by mocking dependencies.
 Assertion: Use patch on _get_write_connection and smtplib.SMTP, and populate st.session_state to assert against state mutation and side-effects.
+
+## 2024-05-27 - Cover create_post exception handling
+Coverage Gap: `src/cms.py` missing test coverage for exception handling in `create_post` when `get_cms_storage().create` fails.
+Learning: Need to ensure error paths from storage operations are properly logged via `logging.error` and exceptions are re-raised for caller handling.
+Assertion: Added test explicitly using `patch.object` on a fake storage instance with `side_effect=Exception` and utilizing `caplog` to assert on error logs and exception propagation.
