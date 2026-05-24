@@ -16,12 +16,17 @@ _SYNC_MAX_ATTEMPTS = 3
 # Mid-range batch size — daemon runs in its own process so there's no UI
 # latency budget to protect.
 _SYNC_BATCH_SIZE = 25
-# Unity Catalog identifier validator. UC permits only [A-Za-z0-9_-], so anything
-# outside this set in a column or table-name part is either a metadata bug or
-# an injection attempt — refuse rather than backtick-escape.
+# Unity Catalog identifier validator. Matches exactly one or more alphanumeric
+# characters, underscores, or hyphens (^[A-Za-z0-9_-]+$).
+# UC permits only these characters, so anything outside this set in a column
+# or table-name part is either a metadata bug or a SQL injection attempt. We
+# refuse these outright rather than attempting to backtick-escape them.
 _IDENT_RE = re.compile(r"^[A-Za-z0-9_-]+$")
-# Lightweight email syntax check — used to block quote-escape bypass when
-# writing the steward tag value.
+
+# Lightweight email syntax check matching standard local-part@domain format.
+# This explicitly enforces the expected structure and blocks malicious quote-escape
+# payloads (e.g., "a'@example.com") from breaking out of the f-string when
+# writing the steward tag value in Databricks.
 _EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
 
 
@@ -33,7 +38,11 @@ def _safe_ident(part: str) -> str:
 
 
 def _split_full_name(table_full_name: str) -> list[str]:
-    """Validate and split catalog.schema.table into safely-quoted parts."""
+    """Validate and split catalog.schema.table into safely-quoted parts.
+
+    The `table_full_name` strictly corresponds to the Databricks Unity Catalog
+    3-level namespace structure. It must contain exactly three parts separated by dots.
+    """
     parts = (table_full_name or "").split(".")
     if len(parts) != 3:
         raise ValueError(f"Expected catalog.schema.table, got {table_full_name!r}")
