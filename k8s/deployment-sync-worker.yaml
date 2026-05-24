@@ -83,6 +83,8 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: tmp
+              mountPath: /tmp
 
           # Liveness: the daemon writes a heartbeat each loop and /healthz
           # returns 503 if the heartbeat is older than 60s.
@@ -104,3 +106,5 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: dd-data
+        - name: tmp
+          emptyDir: {}

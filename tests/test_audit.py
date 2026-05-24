@@ -293,9 +293,9 @@ def test_approve_business_name_exception():
          patch("src.audit.get_business_name_override_storage") as mock_get_storage, \
          patch("src.audit.st") as mock_st, \
          patch("src.audit._duckdb_available", return_value=True), \
-         patch("src.audit.enqueue_column_sync") as mock_enqueue, \
+         patch("src.audit.enqueue_column_sync"), \
          patch("src.audit._get_shared_duckdb_connection") as mock_get_shared, \
-         patch("src.audit.search_all_metadata") as mock_search_clear:
+         patch("src.audit.search_all_metadata"):
 
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
