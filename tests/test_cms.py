@@ -65,6 +65,22 @@ class TestCreatePost:
         # Storage was not touched.
         assert fake.posts == []
 
+    def test_create_post_storage_error_is_logged_and_propagated(self, admin_context, caplog):
+        """create_post catches storage exceptions, logs them, and re-raises."""
+        import logging
+        from unittest.mock import patch
+        import pytest
+        fake = FakeCMSStorage()
+        with patch("src.cms.get_cms_storage", return_value=fake):
+            with patch.object(fake, "create", side_effect=Exception("Storage offline")):
+                from src.cms import PostParams, create_post
+                with caplog.at_level(logging.ERROR):
+                    with pytest.raises(Exception, match="Storage offline") as exc_info:
+                        create_post(PostParams("guide", "Guide", "", None, "admin@test.com", None))
+                    assert str(exc_info.value) == "Storage offline"
+
+        assert "Could not create CMS post: Storage offline" in caplog.text
+
 
 class TestGetActivePosts:
     def test_empty_storage_returns_empty_list(self):
