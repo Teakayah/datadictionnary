@@ -27,6 +27,7 @@ def test_get_table_comments_demo_mode(monkeypatch):
     assert len(res) > 0
     assert res[0]["comment_id"] == "1"
     assert "replies" in res[0]
+    st.session_state.clear()
 
 
 def test_get_table_comments_empty_demo(monkeypatch):
@@ -36,6 +37,7 @@ def test_get_table_comments_empty_demo(monkeypatch):
     # For an unknown table in demo mode, should return []
     res = get_table_comments("unknown.table")
     assert res == []
+    st.session_state.clear()
 
 
 def test_send_reply_email_demo(monkeypatch, capfd):
@@ -118,68 +120,157 @@ def test_get_table_comments(monkeypatch):
         assert res[1]["comment_id"] == "3"
         assert len(res[1]["replies"]) == 0
 
+def test_fetch_comment_author_email_demo(monkeypatch):
+    from src.comments import _fetch_comment_author_email
+    monkeypatch.setenv("DEMO_DATA", "true")
+    st.session_state["demo_comments"] = {
+        "obj1": [
+            {"comment_id": "123", "author_email": "test@demo.com"}
+        ]
+    }
+    assert _fetch_comment_author_email("123") == "test@demo.com"
+    assert _fetch_comment_author_email("999") == ""
+    st.session_state.clear()
+
+def test_fetch_comment_author_email_prod(monkeypatch):
+    from src.comments import _fetch_comment_author_email
+    monkeypatch.setenv("DEMO_DATA", "false")
+    from unittest.mock import patch, MagicMock
+    import pandas as pd
+
+    with patch("src.comments.get_db_connection") as mock_conn_func, \
+         patch("src.comments._duckdb_available", return_value=True):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_conn_func.return_value = mock_conn
+
+        mock_cursor.fetchall_as_pandas.return_value = pd.DataFrame([
+            {"author_email": "real@prod.com"}
+        ])
+
+        assert _fetch_comment_author_email("123") == "real@prod.com"
+
+        mock_cursor.fetchall_as_pandas.side_effect = Exception("DB fetch error")
+        assert _fetch_comment_author_email("123") == ""
 
 def test_save_comment_demo_mode(monkeypatch):
     from src.comments import save_comment
-    import streamlit as st
     monkeypatch.setenv("DEMO_DATA", "true")
     st.session_state["demo_comments"] = {}
+    st.session_state["user_name"] = "Alice"
+    st.session_state["user_email"] = "alice@test.com"
 
-    save_comment("table", "main.default.tbl", "Great table", "steward@test.com")
+    save_comment("table", "my.table", "Hello world", "steward@test.com")
+    assert "my.table" in st.session_state["demo_comments"]
+    assert len(st.session_state["demo_comments"]["my.table"]) == 1
+    assert st.session_state["demo_comments"]["my.table"][0]["comment_text"] == "Hello world"
 
-    assert "main.default.tbl" in st.session_state["demo_comments"]
-    comments = st.session_state["demo_comments"]["main.default.tbl"]
-    assert len(comments) == 1
-    assert comments[0]["comment_text"] == "Great table"
+    parent_id = st.session_state["demo_comments"]["my.table"][0]["comment_id"]
+    save_comment("table", "my.table", "Reply text", "steward@test.com", parent_comment_id=parent_id)
+    assert len(st.session_state["demo_comments"]["my.table"]) == 2
+    assert st.session_state["demo_comments"]["my.table"][1]["parent_comment_id"] == parent_id
+    assert st.session_state["demo_comments"]["my.table"][1]["comment_text"] == "Reply text"
+    st.session_state.clear()
 
 def test_save_comment_prod_mode(monkeypatch):
     from src.comments import save_comment
-    from unittest.mock import patch, MagicMock
-    import streamlit as st
     monkeypatch.setenv("DEMO_DATA", "false")
-    st.session_state["user_name"] = "Test User"
-    st.session_state["user_email"] = "test@test.com"
+    st.session_state["user_name"] = "Bob"
+    st.session_state["user_email"] = "bob@test.com"
+    from unittest.mock import patch, MagicMock
 
     with patch("src.comments._get_write_connection") as mock_conn_func, \
          patch("src.comments._duckdb_available", return_value=True), \
-         patch("src.comments.enqueue_sync") as mock_sync, \
-         patch("src.audit.log_audit_event") as mock_audit:
+         patch("src.comments.enqueue_sync") as mock_enqueue, \
+         patch("src.audit.log_audit_event") as mock_audit, \
+         patch("src.comments.send_comment_email") as mock_send_email:
 
-         mock_conn = MagicMock()
-         mock_cursor = MagicMock()
-         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
-         mock_conn_func.return_value = mock_conn
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_conn_func.return_value = mock_conn
 
-         save_comment("table", "main.default.tbl", "DB comment", "steward@test.com")
+        save_comment("table", "my.table", "Prod text", "steward@test.com")
 
-         mock_cursor.execute_write.assert_called_once()
-         mock_sync.assert_called_once()
-         mock_audit.assert_called_once()
+        mock_cursor.execute_write.assert_called_once()
+        mock_enqueue.assert_called_once()
+        mock_audit.assert_called_once()
+        mock_send_email.assert_called_once()
+    st.session_state.clear()
 
-def test_send_comment_email_success(monkeypatch):
-    from src.comments import send_comment_email
+def test_save_comment_prod_mode_not_duckdb(monkeypatch):
+    from src.comments import save_comment
+    monkeypatch.setenv("DEMO_DATA", "false")
+    st.session_state["user_name"] = "Bob"
+    st.session_state["user_email"] = "bob@test.com"
     from unittest.mock import patch, MagicMock
+
+    with patch("src.comments._get_write_connection") as mock_conn_func, \
+         patch("src.comments._duckdb_available", return_value=False), \
+         patch("src.comments.enqueue_sync") as mock_enqueue, \
+         patch("src.audit.log_audit_event") as mock_audit, \
+         patch("src.comments._fetch_comment_author_email", return_value="parent@prod.com"), \
+         patch("src.comments.send_reply_email") as mock_send_email:
+
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_conn_func.return_value = mock_conn
+
+        save_comment("table", "my.table", "Prod reply text", "steward@test.com", parent_comment_id="999")
+
+        mock_cursor.execute.assert_called_once()
+        mock_enqueue.assert_called_once()
+        mock_audit.assert_called_once()
+        mock_send_email.assert_called_once()
+    st.session_state.clear()
+
+def test_send_comment_email_smtp(monkeypatch, caplog):
+    from src.comments import send_comment_email
     monkeypatch.setenv("DEMO_DATA", "false")
     monkeypatch.setenv("SMTP_HOST", "smtp.test.com")
+    from unittest.mock import patch, MagicMock
 
     with patch("smtplib.SMTP") as mock_smtp:
-        mock_instance = MagicMock()
-        mock_smtp.return_value.__enter__.return_value = mock_instance
+        mock_server = MagicMock()
+        mock_smtp.return_value.__enter__.return_value = mock_server
 
         send_comment_email("to@test.com", "Author", "Object", "Text")
 
-        mock_instance.sendmail.assert_called_once()
+        mock_server.sendmail.assert_called_once()
 
-def test_send_reply_email_success(monkeypatch):
+        mock_server.sendmail.side_effect = Exception("SMTP error")
+        send_comment_email("to@test.com", "Author", "Object", "Text")
+        assert "Failed to send comment email" in caplog.text
+
+def test_send_reply_email_smtp(monkeypatch, caplog):
     from src.comments import send_reply_email
-    from unittest.mock import patch, MagicMock
     monkeypatch.setenv("DEMO_DATA", "false")
     monkeypatch.setenv("SMTP_HOST", "smtp.test.com")
+    from unittest.mock import patch, MagicMock
 
     with patch("smtplib.SMTP") as mock_smtp:
-        mock_instance = MagicMock()
-        mock_smtp.return_value.__enter__.return_value = mock_instance
+        mock_server = MagicMock()
+        mock_smtp.return_value.__enter__.return_value = mock_server
 
         send_reply_email("parent@test.com", "Replier", "Object", "Reply Text", "steward@test.com")
 
-        mock_instance.sendmail.assert_called_once()
+        mock_server.sendmail.assert_called_once()
+
+        mock_server.sendmail.side_effect = Exception("SMTP error")
+        send_reply_email("parent@test.com", "Replier", "Object", "Reply Text", "steward@test.com")
+        assert "Failed to send reply email" in caplog.text
+
+def test_send_reply_email_no_recipients(monkeypatch, caplog):
+    from src.comments import send_reply_email
+    monkeypatch.setenv("DEMO_DATA", "false")
+    monkeypatch.setenv("SMTP_HOST", "smtp.test.com")
+    from unittest.mock import patch, MagicMock
+
+    with patch("smtplib.SMTP") as mock_smtp:
+        mock_server = MagicMock()
+        mock_smtp.return_value.__enter__.return_value = mock_server
+
+        send_reply_email("", "Replier", "Object", "Reply Text", "")
+        mock_server.sendmail.assert_not_called()
