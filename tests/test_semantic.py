@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import MagicMock, patch
 from src.semantic import DatabricksEmbeddingEngine, MockEmbeddingEngine, get_embedding_engine, generate_table_embeddings, semantic_search
 import os

@@ -2,7 +2,6 @@ from __future__ import annotations
 """Tests for comment and reply functionality (fetching, saving, email notification)."""
 
 import pandas as pd
-import pytest
 import streamlit as st
 
 
@@ -94,7 +93,6 @@ def test_get_table_comments_prod_error_fetchall(monkeypatch, caplog):
 def test_get_table_comments(monkeypatch):
     """Test get_table_comments explicitly to satisfy the reviewer."""
     from src.comments import get_table_comments
-    import pandas as pd
     from unittest.mock import patch, MagicMock
 
     monkeypatch.setenv("DEMO_DATA", "false")
