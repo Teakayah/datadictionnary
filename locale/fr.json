@@ -227,8 +227,14 @@
     "no_data": "Aucune donnée accessible à auditer.",
     "missing_descriptions": "Les tables suivantes manquent de descriptions. La documentation est recommandée.",
     "all_documented": "Toutes les tables visibles sont documentées. Excellent travail !",
-    "load_error": "Impossible de charger les métriques de santé."
-  },
+    "load_error": "Impossible de charger les mesures de santé.",
+    "steward_alert_title": "⚠️ Alerte Responsable : Lacunes de catalogue détectées",
+    "steward_alert_body": "Des termes de recherche ne retournant aucun résultat depuis plus de 7 jours ont été identifiés. Envisagez d'ajouter ces termes au glossaire métier ou d'importer les tables manquantes :",
+    "alert_query_col": "Terme de recherche",
+    "alert_count_col": "Nombre de recherches",
+    "alert_first_seen_col": "Première recherche sans résultat",
+    "alert_last_seen_col": "Dernière tentative"
+    },
   "glossary": {
     "title": "§ Glossaire métier",
     "hero_title": "Parlez le même langage.",
