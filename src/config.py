@@ -50,6 +50,10 @@ DATABRICKS_HOST_URL       = os.getenv("DATABRICKS_HOST", "")
 # can temporarily override them per-test without hitting the module-level cache.
 MOCK_DEPT = os.getenv("MOCK_DEPT", "Finance")
 
+# ── Semantic Search ──────────────────────────────────────────────────────────
+ENABLE_SEMANTIC_SEARCH = os.getenv("ENABLE_SEMANTIC_SEARCH", "false").lower() == "true"
+DATABRICKS_EMBEDDING_ENDPOINT = os.getenv("DATABRICKS_EMBEDDING_ENDPOINT", "")
+
 def is_demo_mode() -> bool:
     """Return True if demo mode is enabled via environment variable."""
     return os.getenv("DEMO_DATA", "false").lower() == "true"
