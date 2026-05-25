@@ -198,8 +198,8 @@ def _render_zero_result_alerts():
             
         st.markdown(f'''
         <div style="background:rgba(184, 54, 42, 0.08); border-left:4px solid var(--accent); padding:20px 24px; border-radius:2px; margin: 24px 0 24px 0; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
-            <div style="font-family:var(--font-sans); font-size:11px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px;">⚠️ Steward Alert: Catalog Gaps Detected</div>
-            <div style="font-family:var(--font-sans); font-size:14px; font-weight:500; color:var(--ink); margin-bottom:8px;">Search terms returning zero results for more than 7 days have been identified. Consider adding these terms to the Business Glossary or importing missing tables to address catalog gaps:</div>
+            <div style="font-family:var(--font-sans); font-size:11px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px;">{t("health.steward_alert_title")}</div>
+            <div style="font-family:var(--font-sans); font-size:14px; font-weight:500; color:var(--ink); margin-bottom:8px;">{t("health.steward_alert_body")}</div>
         </div>
         ''', unsafe_allow_html=True)
         
@@ -221,10 +221,10 @@ def _render_zero_result_alerts():
         st.dataframe(
             alert_df,
             column_config={
-                "query": "Search Term",
-                "search_count": "Search Count",
-                "first_seen": "First Unresolved Search",
-                "last_seen": "Most Recent Attempt",
+                "query": t("health.alert_query_col"),
+                "search_count": t("health.alert_count_col"),
+                "first_seen": t("health.alert_first_seen_col"),
+                "last_seen": t("health.alert_last_seen_col"),
             },
             use_container_width=True,
             hide_index=True,
