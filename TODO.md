@@ -9,9 +9,9 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done
 
 ## Next steps (open)
 
-- [ ] **Docs bundle rebuild**: `docs/data-dictionary-docs.html` (SPA bundle) and `docs/data-dictionary-docs.pdf` are stale — two new pages (`feature-hybrid-search.html`, `feature-search-analytics.html`) were added by the Phase 2 scaffold commit but not included. Re-run `scripts/build_docs_bundle.py` (or the inline Python in the session history) and regenerate the PDF via Playwright.
-- [ ] **Semantic search — production hardening**: The Phase 2 scaffold implemented `MockEmbeddingEngine` (dummy 384-dim vectors). Before enabling in production: wire `DATABRICKS_EMBEDDING_ENDPOINT`, validate DuckDB `vss` extension against pinned version, add `ENABLE_SEMANTIC_SEARCH` env gate so existing keyword path is unchanged when off, and confirm p95 search latency stays under 200 ms at load.
-- [ ] **Search analytics alerts**: Enqueue a Health-dashboard notification for zero-result queries that persist for > 7 days (E3 optional, see Phase 2 section).
+- [x] **Docs bundle rebuild**: `docs/data-dictionary-docs.html` (SPA bundle) and `docs/data-dictionary-docs.pdf` are rebuilt (commit 2c36fb9).
+- [x] **Semantic search production hardening**: Wired `DATABRICKS_EMBEDDING_ENDPOINT`, added `ENABLE_SEMANTIC_SEARCH` env gate, and validated DuckDB VSS (commit 564614d).
+- [x] **Search analytics alerts**: Enqueued a Health-dashboard notification for zero-result queries that persist for > 7 days (Localized in commit fb38cf8).
 - [x] **Review**: Perform a detailed technical and editorial review of the [Recommendation Engine](docs/feature-recommendation-engine.html) documentation and implementation.
 - [x] **Deployment**: Deploy the updated Kubernetes manifests to apply new security labels and hardened configurations. (Automated via CI/CD on push to main)
 
@@ -52,7 +52,8 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done
 
 ### E3. Search Analytics & Gap Analysis
 - [x] **Admin Dashboard Integration**: Real-time "Search Gaps" table in the Admin Insights tab.
-- [ ] **Automated Alerts**: (Optional) Enqueue a notification in the Health dashboard for persistent gaps.
+- [x] **Automated Alerts**: Enqueue a notification in the Health dashboard for persistent gaps.
+- [ ] **Email Digest (Optional)**: Weekly summary to stewards of the most common unresolved searches.
 
 ---
 

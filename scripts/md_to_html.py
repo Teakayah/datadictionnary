@@ -462,6 +462,7 @@ if __name__ == "__main__":
             process_file(src, dst)
     
     # Update all existing HTML files in docs root to ensure sidebar consistency
+    # Skip managed bundle files
     for f in os.listdir("docs"):
-        if f.endswith(".html"):
+        if f.endswith(".html") and f not in ["_print.html", "data-dictionary-docs.html"]:
             update_existing_html(f)

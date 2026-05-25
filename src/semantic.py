@@ -3,7 +3,7 @@ from typing import Protocol, List
 import logging
 import os
 
-from src.config import is_demo_mode
+from src.config import DATABRICKS_EMBEDDING_ENDPOINT, ENABLE_SEMANTIC_SEARCH, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import run_query
 
@@ -67,8 +67,8 @@ class MockEmbeddingEngine:
 
 def get_embedding_engine() -> EmbeddingEngine:
     """Factory to retrieve the active embedding engine."""
-    if os.getenv("DATABRICKS_EMBEDDING_ENDPOINT"):
-        return DatabricksEmbeddingEngine(os.getenv("DATABRICKS_EMBEDDING_ENDPOINT"))
+    if DATABRICKS_EMBEDDING_ENDPOINT:
+        return DatabricksEmbeddingEngine(DATABRICKS_EMBEDDING_ENDPOINT)
     return MockEmbeddingEngine()
 
 def generate_table_embeddings(tables: List[dict]) -> List[dict]:
@@ -95,7 +95,7 @@ def generate_table_embeddings(tables: List[dict]) -> List[dict]:
 def semantic_search(query: str, top_n: int = 10) -> List[str]:
     """Perform a vector similarity search using the local DuckDB cache."""
     # 1. Environment variable gate
-    if os.getenv("ENABLE_SEMANTIC_SEARCH") != "true":
+    if not ENABLE_SEMANTIC_SEARCH:
         return []
 
     if is_demo_mode() or not _duckdb_available():
