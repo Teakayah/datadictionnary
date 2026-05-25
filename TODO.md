@@ -136,33 +136,9 @@ membership change.~~ Done — see follow-up below.
 
 **Status:** done (branch `feat/cards-split`).
 
-Final layout, all files <400 lines:
+Final layout, all files <400 lines. New code should import from the specific submodule (e.g. `from src.ui.cards.discovery import render_discovery`).
 
-```
-src/ui/cards/
-  __init__.py    45  pure re-export shim for backwards compat
-  _shared.py     70  _dq_grade, _compute_live_completeness, _POST_COLOR
-  detail.py     110  render_table_metadata_editor, render_data_sample
-                     (consumed by src/pages/search.py)
-  cms_admin.py  148  _render_admin_cms_section + create dialog
-                     (peeled out so admin.py stays under 400)
-  health.py     155  render_health + private helpers
-  pipelines.py  245  render_pipelines_page + admin pipeline section
-  admin.py      311  render_admin_page + audit/sync/editing sections
-  discovery.py  317  render_discovery + CMS banner + table card
-```
-
-Each move is its own commit; tests stay green at 267 throughout.
-``cards/__init__.py`` is a re-export shim — historic callers
-(`from src.ui.cards import render_health`) keep working unchanged. New
-code should import from the specific submodule
-(`from src.ui.cards.discovery import render_discovery`).
-
-**Out of scope (deferred):** migrate the four remaining callers
-(``app.py``, ``src/pages/catalog.py``, ``src/pages/search.py``,
-``tests/test_admin.py``) off the shim and delete
-``src/ui/cards/__init__.py``'s re-exports. ~5 minutes of mechanical work
-in a follow-up PR.
+**Out of scope (deferred):** DONE. All callers (``app.py``, ``src/pages/catalog.py``, ``src/pages/search.py``, ``tests/test_admin.py``) migrated to direct submodule imports and the compatibility shim was removed (commit 6565a44).
 
 ### 4. Storage abstraction — collapse demo / DuckDB / Databricks branching
 
