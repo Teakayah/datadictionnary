@@ -139,11 +139,7 @@ Two triggers:
 
 ### Required scope
 
-`SCOPE` in `src/config.py` includes `GroupMember.Read.All`. This was
-already in the scope list before this ADR but was load-bearing only
-once we added the Graph call. Removing it would break overage users —
-documented inline in `src/config.py` so future readers don't think
-it's safe to drop.
+Initially, `SCOPE` in `src/config.py` included `GroupMember.Read.All`. However, an audit (TODO #8) confirmed that `User.Read` is sufficient for the `/me/getMemberObjects` endpoint used here. To enforce the principle of least privilege, `GroupMember.Read.All` has been removed from `src/config.py`. Only `User.Read` and `email` are now requested.
 
 ---
 

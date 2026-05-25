@@ -112,7 +112,7 @@ separate ticket if write contention shows up.
 - Failure mode: any error (5xx, 403, network) returns `[]` and logs a
   WARNING. Fail-closed — never silently grants wider access.
 - `src/config.py::SCOPE` documented inline so future readers know
-  `GroupMember.Read.All` is load-bearing.
+  `User.Read` is load-bearing.
 - `tests/test_auth_graph.py` — 19 tests covering overage detection,
   pagination, 5xx / 403 / network errors, cache hit/miss, empty-OID path,
   and the three branches of `_resolve_user_groups`.
@@ -249,13 +249,7 @@ its MERGE INTO syntax.
 If daemon-side per-cycle reconnection becomes a hotspot, pool there.
 That's a separate, smaller change.
 
-### 8. Drop `GroupMember.Read.All` scope if not used after Investment #2
-
-**Why:** if Investment #2 is rejected, the scope (`src/config.py:17`) is
-unused and broader than needed.
-
-**Target:** remove `"GroupMember.Read.All"` from `SCOPE` and update
-`docs/adr/` / `.env.example` if applicable.
+- [x] **Drop `GroupMember.Read.All` scope**: Audit confirmed `User.Read` is sufficient for the overage path. Scope removed from `src/config.py` and documented in ADR 006 (commit cb4873e).
 
 ---
 
