@@ -5,3 +5,7 @@
 ## 2024-05-22 - Missing Text Placeholders (Technical Fields)
 **Learning:** Text inputs and areas for technical data (like Azure sub IDs, pipeline names, table descriptions) often leave users guessing the expected format.
 **Action:** Always provide placeholder examples for technical string inputs to improve UX and reduce formatting errors.
+
+## 2024-05-25 - Missing Text Placeholders (Pipeline Fields)
+**Learning:** Text inputs for technical data (like Databricks job IDs, ADO pipeline IDs) often leave users guessing the expected format.
+**Action:** Always provide placeholder examples for technical string inputs to improve UX and reduce formatting errors.

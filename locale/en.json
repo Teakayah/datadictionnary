@@ -298,7 +298,9 @@
     "field_adf_fact_placeholder": "e.g. my-data-factory",
     "field_adf_pipe_placeholder": "e.g. MyPipeline",
     "field_ado_org_placeholder": "e.g. my-organization",
-    "field_ado_proj_placeholder": "e.g. my-project"
+    "field_ado_proj_placeholder": "e.g. my-project",
+    "field_job_id_placeholder": "e.g. 1234",
+    "field_ado_pid_placeholder": "e.g. 42"
   },
   "cms": {
     "section_title": "Content management",
