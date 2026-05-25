@@ -227,7 +227,13 @@
     "no_data": "No data accessible to audit.",
     "missing_descriptions": "The following tables are missing descriptions. Documentation is recommended.",
     "all_documented": "All visible tables are documented. Great work!",
-    "load_error": "Could not load health metrics."
+    "load_error": "Could not load health metrics.",
+    "steward_alert_title": "⚠️ Steward Alert: Catalog Gaps Detected",
+    "steward_alert_body": "Search terms returning zero results for more than 7 days have been identified. Consider adding these terms to the Business Glossary or importing missing tables to address catalog gaps:",
+    "alert_query_col": "Search Term",
+    "alert_count_col": "Search Count",
+    "alert_first_seen_col": "First Unresolved Search",
+    "alert_last_seen_col": "Most Recent Attempt"
   },
   "glossary": {
     "title": "§ Business glossary",
