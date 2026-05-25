@@ -419,3 +419,134 @@ class TestWorkerShim:
         c.close()
 
         assert read_dr_resync_status() == "Up-to-date"
+
+    def test_returns_404_when_path_is_not_healthz(self):
+        from src.sync import daemon
+        from io import BytesIO
+
+        class _FakeServer:
+            server_address = ("127.0.0.1", 0)
+
+        out = BytesIO()
+        with patch("http.server.BaseHTTPRequestHandler.setup", lambda self: None), \
+             patch("http.server.BaseHTTPRequestHandler.finish", lambda self: None):
+            handler = daemon._HealthzHandler.__new__(daemon._HealthzHandler)
+            handler.rfile = BytesIO(b"GET /unknown HTTP/1.0\r\n\r\n")
+            handler.wfile = out
+            handler.client_address = ("127.0.0.1", 0)
+            handler.server = _FakeServer()
+            handler.request_version = "HTTP/1.0"
+            handler.command = "GET"
+            handler.path = "/unknown"
+            handler.headers = {}
+            handler.requestline = "GET /unknown HTTP/1.0"
+            handler.do_GET()
+        body = out.getvalue().decode()
+        assert "404" in body.split("\r\n")[0]
+
+
+class TestDaemonMain:
+    def test_main(self):
+        from src.sync.daemon import main
+        with patch("src.sync.daemon.run", return_value=0) as mock_run:
+            assert main(["--once", "--healthz-port", "8765"]) == 0
+            mock_run.assert_called_once_with(once=True, healthz_port=8765)
+
+    def test_handle_signal(self):
+        from src.sync.daemon import _handle_signal, _stop_event
+        _stop_event.clear()
+        _handle_signal(15, None)
+        assert _stop_event.is_set()
+
+class TestStartHealthz:
+    def test_start_healthz(self):
+        from src.sync.daemon import _start_healthz
+        from unittest.mock import patch, MagicMock
+        with patch("src.sync.daemon.ThreadingHTTPServer") as mock_server, \
+             patch("src.sync.daemon.threading.Thread.start") as mock_start:
+            mock_server.return_value.serve_forever = MagicMock()
+            srv = _start_healthz(1234)
+            assert srv is mock_server.return_value
+            mock_start.assert_called_once()
+
+class TestDaemonRunExceptions:
+    def test_run_exceptions(self, tmp_user_data, monkeypatch):
+        # We want to test the `except Exception as exc:` block in `run`
+        from src.sync.daemon import run, _stop_event, _set_status
+        from src.sync.daemon_db import DaemonConn
+        from unittest.mock import patch, MagicMock
+
+        # We'll use a mocked DaemonConn
+        mock_conn = MagicMock()
+
+        # Make `_recover_stale_rows` raise an exception so it hits the except block
+        def boom(*args, **kwargs):
+            raise Exception("Test Exception")
+
+        # We need to run `run` but stop after one cycle to avoid infinite loop.
+        # However, `run(once=True)` breaks out at the end of the loop anyway.
+
+        with patch("src.sync.daemon_db.DaemonConn", return_value=mock_conn), \
+             patch("src.sync.daemon._recover_stale_rows", side_effect=boom), \
+             patch("src.sync.daemon._set_status") as mock_set_status:
+
+            run(once=True)
+
+            # The code calls log.error, then try: _set_status(conn, "dr_resync_status", f"Error: ...")
+            # We expect _set_status to be called with the error
+            mock_set_status.assert_called_with(mock_conn, "dr_resync_status", "Error: Test Exception")
+
+    def test_run_exceptions_set_status_fails(self, tmp_user_data, monkeypatch):
+        # Test the nested try-except block inside the except block
+        from src.sync.daemon import run
+        from unittest.mock import patch, MagicMock
+
+        mock_conn = MagicMock()
+
+        def boom(*args, **kwargs):
+            raise Exception("Test Exception")
+
+        def boom_set_status(*args, **kwargs):
+            raise Exception("Failed to set status")
+
+        with patch("src.sync.daemon_db.DaemonConn", return_value=mock_conn), \
+             patch("src.sync.daemon._recover_stale_rows", side_effect=boom), \
+             patch("src.sync.daemon._set_status", side_effect=boom_set_status):
+
+            # This should catch the exception silently and not crash
+            assert run(once=True) == 0
+
+    def test_run_with_healthz_port(self, monkeypatch):
+        from src.sync.daemon import run
+        from unittest.mock import patch, MagicMock
+
+        # Avoid endless loop and hitting duckdb
+        with patch("src.sync.daemon_db.DaemonConn", return_value=MagicMock()), \
+             patch("src.sync.daemon._start_healthz") as mock_start_healthz, \
+             patch("src.sync.daemon._stop_event.is_set", return_value=True):
+
+            run(once=True, healthz_port=1234)
+            mock_start_healthz.assert_called_once_with(1234)
+
+    def test_run_drained(self, tmp_user_data, monkeypatch):
+        from src.sync.daemon import run
+        from unittest.mock import patch, MagicMock
+        with patch("src.sync.daemon_db.DaemonConn", return_value=MagicMock()), \
+             patch("src.sync.push._process_sync_queue", return_value=5):
+            # This should hit the 'if drained:' logic
+            run(once=True)
+
+    def test_run_idle_sleep(self, tmp_user_data, monkeypatch):
+        from src.sync.daemon import run, _stop_event
+        from unittest.mock import patch, MagicMock
+
+        _stop_event.clear()
+
+        # Mock event wait to break out of loop instead of actually waiting
+        def fake_wait(sleep_s):
+            _stop_event.set()
+
+        with patch("src.sync.daemon_db.DaemonConn", return_value=MagicMock()), \
+             patch("src.sync.daemon._stop_event.wait", side_effect=fake_wait):
+
+            run(once=False)
