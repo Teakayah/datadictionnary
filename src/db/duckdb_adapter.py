@@ -67,10 +67,8 @@ def _to_duckdb_sql(sql: str, params: dict) -> tuple:
     result = result.replace("current_timestamp()", "current_localtimestamp()")
     return result, converted
 
-
-def _initialize_schema(con):
-    """Initialize user data tables with primary keys (if they don't exist)."""
-    con.execute("""
+_SCHEMA_STATEMENTS = (
+    """
         CREATE TABLE IF NOT EXISTS user_data.comments (
             comment_id        VARCHAR PRIMARY KEY,
             object_type       VARCHAR,
@@ -82,8 +80,8 @@ def _initialize_schema(con):
             steward_email     VARCHAR,
             parent_comment_id VARCHAR
         )
-    """)
-    con.execute("""
+    """,
+    """
         CREATE TABLE IF NOT EXISTS user_data.business_name_overrides (
             table_full_name VARCHAR,
             column_name     VARCHAR,
@@ -94,12 +92,12 @@ def _initialize_schema(con):
             status          VARCHAR DEFAULT 'published',
             PRIMARY KEY (table_full_name, column_name)
         )
-    """)
-    con.execute("""
+    """,
+    """
         ALTER TABLE user_data.business_name_overrides
         ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'published'
-    """)
-    con.execute("""
+    """,
+    """
         CREATE TABLE IF NOT EXISTS user_data.table_metadata_overrides (
             table_full_name VARCHAR PRIMARY KEY,
             description     VARCHAR,
@@ -107,8 +105,8 @@ def _initialize_schema(con):
             updated_by      VARCHAR,
             updated_at      TIMESTAMP
         )
-    """)
-    con.execute("""
+    """,
+    """
         CREATE TABLE IF NOT EXISTS user_data.audit_log (
             event_id        VARCHAR PRIMARY KEY,
             event_type      VARCHAR,
@@ -119,8 +117,8 @@ def _initialize_schema(con):
             new_value       VARCHAR,
             created_at      TIMESTAMP
         )
-    """)
-    con.execute("""
+    """,
+    """
         CREATE TABLE IF NOT EXISTS user_data.user_preferences (
             user_oid        VARCHAR NOT NULL,
             table_full_name VARCHAR NOT NULL,
@@ -128,8 +126,8 @@ def _initialize_schema(con):
             last_interacted TIMESTAMP NOT NULL,
             PRIMARY KEY (user_oid, table_full_name, pref_type)
         )
-    """)
-    con.execute("""
+    """,
+    """
         CREATE TABLE IF NOT EXISTS user_data.pipeline_definitions (
             pipeline_id         VARCHAR PRIMARY KEY,
             title               VARCHAR NOT NULL,
@@ -146,8 +144,8 @@ def _initialize_schema(con):
             created_by          VARCHAR,
             created_at          TIMESTAMP NOT NULL
         )
-    """)
-    con.execute("""
+    """,
+    """
         CREATE TABLE IF NOT EXISTS user_data.pipeline_runs (
             pipeline_id    VARCHAR PRIMARY KEY,
             backend_run_id VARCHAR NOT NULL,
@@ -156,8 +154,8 @@ def _initialize_schema(con):
             status         VARCHAR,
             last_checked   TIMESTAMP
         )
-    """)
-    con.execute("""
+    """,
+    """
         CREATE TABLE IF NOT EXISTS user_data.cms_posts (
             post_id      VARCHAR PRIMARY KEY,
             post_type    VARCHAR NOT NULL,
@@ -168,16 +166,16 @@ def _initialize_schema(con):
             created_at   TIMESTAMP NOT NULL,
             expires_at   TIMESTAMP
         )
-    """)
-    con.execute("""
+    """,
+    """
         CREATE TABLE IF NOT EXISTS user_data.site_settings (
             key        VARCHAR PRIMARY KEY,
             value      VARCHAR NOT NULL,
             updated_at TIMESTAMP,
             updated_by VARCHAR
         )
-    """)
-    con.execute("""
+    """,
+    """
         CREATE TABLE IF NOT EXISTS user_data.pending_sync (
             sync_id         VARCHAR PRIMARY KEY,
             sync_type       VARCHAR NOT NULL, -- COLUMN_DEF, TABLE_DESC, AUDIT, COMMENT, TAG, STEWARD
@@ -191,13 +189,19 @@ def _initialize_schema(con):
             last_attempt_at TIMESTAMP,
             completed_at    TIMESTAMP
         )
-    """)
+    """,
     # Migration for pre-existing user_data files that pre-date last_attempt_at.
     # DuckDB's ALTER TABLE ADD COLUMN IF NOT EXISTS is supported >=0.10.
-    con.execute("""
+    """
         ALTER TABLE user_data.pending_sync
         ADD COLUMN IF NOT EXISTS last_attempt_at TIMESTAMP
-    """)
+    """
+)
+
+def _initialize_schema(con):
+    """Initialize user data tables with primary keys (if they don't exist)."""
+    for statement in _SCHEMA_STATEMENTS:
+        con.execute(statement)
 
 
 @st.cache_resource(show_spinner=False, validate=lambda c: c is not None)
