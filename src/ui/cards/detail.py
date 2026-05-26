@@ -92,15 +92,11 @@ def render_data_sample(table_full_name: str):
         if is_demo_mode():
             df = pd.DataFrame({"id": [1, 2, 3], "status": ["NEW", "SHIPPED", "CLOSED"]})
         elif _duckdb_available():
-            _parts = table_full_name.split(".")
-            if len(_parts) == 3:
-                _, _sch, _tbl = _parts
-
-                # Escape identifiers to prevent SQL injection
-                _sch_escaped = '"' + _sch.replace('"', '""') + '"'
-                _tbl_escaped = '"' + _tbl.replace('"', '""') + '"'
-
-                _sample_query = f"SELECT * FROM {CATALOG_CACHE}.{_sch_escaped}.{_tbl_escaped} LIMIT 100"  # nosec B608
+            _safe_parts = ['"' + p.replace('"', '""') + '"' for p in table_full_name.split(".")]
+            if len(_safe_parts) == 3:
+                _cat_escaped = '"' + CATALOG_CACHE.replace('"', '""') + '"'
+                _safe_table_name = f"{_cat_escaped}.{_safe_parts[1]}.{_safe_parts[2]}"
+                _sample_query = f"SELECT * FROM {_safe_table_name} LIMIT 100"  # nosec B608
                 df = run_query(_sample_query)
             else:
                 st.info(t("detail.preview_not_available"))

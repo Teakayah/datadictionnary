@@ -161,7 +161,7 @@ class TestRenderDataSample:
         mock_run.assert_called_once()
         sql = mock_run.call_args[0][0]
         from src.config import CATALOG_CACHE
-        assert f'SELECT * FROM {CATALOG_CACHE}."sch"."tbl" LIMIT 100' in sql
+        assert f'SELECT * FROM "{CATALOG_CACHE}"."sch"."tbl" LIMIT 100' in sql
         assert len(at.dataframe) == 1
 
     @patch("src.ui.cards.detail.get_authorized_table_names")
