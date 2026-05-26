@@ -13,7 +13,6 @@ them from ``src.ui.cards``.
 
 
 import logging
-import re
 
 import pandas as pd
 import streamlit as st
@@ -82,29 +81,14 @@ def render_data_sample(table_full_name: str):
         return
 
     try:
-        # Validate Unity Catalog 3-level namespace format before interpolating.
-        # Format expects: <catalog>.<schema>.<table>
-        # Each part must consist of 1 or more alphanumeric characters, underscores, or hyphens,
-        # and be separated by exactly one literal dot.
-        if not re.match(r"^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$", table_full_name):
-            st.error(t("common.error"))
-            return
         if is_demo_mode():
             df = pd.DataFrame({"id": [1, 2, 3], "status": ["NEW", "SHIPPED", "CLOSED"]})
         elif _duckdb_available():
-            _parts = table_full_name.split(".")
-            if len(_parts) == 3:
-                _, _sch, _tbl = _parts
-
-                # Escape identifiers to prevent SQL injection
-                _sch_escaped = '"' + _sch.replace('"', '""') + '"'
-                _tbl_escaped = '"' + _tbl.replace('"', '""') + '"'
-
-                _sample_query = f"SELECT * FROM {CATALOG_CACHE}.{_sch_escaped}.{_tbl_escaped} LIMIT 100"  # nosec B608
-                df = run_query(_sample_query)
-            else:
-                st.info(t("detail.preview_not_available"))
-                return
+            _safe_parts = ['"' + p.replace('"', '""') + '"' for p in table_full_name.split(".")]
+            _duckdb_parts = _safe_parts[1:] if len(_safe_parts) == 3 else _safe_parts
+            _safe_table_name = ".".join(_duckdb_parts)
+            _sample_query = f"SELECT * FROM {CATALOG_CACHE}.{_safe_table_name} LIMIT 100"  # nosec B608
+            df = run_query(_sample_query)
         else:
             # Fallback for Databricks SQL where table_full_name is in format cat.sch.tbl
             _safe_parts = ['"' + p.replace('"', '""') + '"' for p in table_full_name.split(".")]
