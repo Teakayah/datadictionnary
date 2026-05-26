@@ -1,0 +1,341 @@
+import json
+import pandas as pd
+from unittest.mock import patch, MagicMock
+from streamlit.testing.v1 import AppTest
+import pytest
+
+with open("locale/en.json", "r") as f:
+    en_locale = json.load(f)
+
+def render_discovery_page_app():
+    import pandas as pd
+    from src.ui.cards.discovery import render_discovery
+
+    # Mock groups and authorized tables for the app run
+    def mock_get_auth_tables(groups):
+        return pd.DataFrame({
+            "full_name": ["main.sales.orders", "main.finance.ledger", "main.marketing.leads"],
+            "table_name": ["orders", "ledger", "leads"],
+            "catalog_name": ["main", "main", "main"],
+            "schema_name": ["sales", "finance", "marketing"],
+            "table_description": ["Sales orders", "Finance ledger", "Marketing leads"],
+            "updated_at": [pd.Timestamp("2023-01-01"), pd.Timestamp("2023-01-02"), pd.Timestamp("2023-01-03")],
+            "dq_grade": ["A", "B", "C"],
+            "dq_score": [1.0, 0.8, 0.5],
+            "dq_status": ["pass", "pass", "fail"]
+        })
+
+    render_discovery(["finance", "sales"], mock_get_auth_tables)
+
+def render_discovery_page_app_empty():
+    import pandas as pd
+    from src.ui.cards.discovery import render_discovery
+
+    def mock_get_auth_tables(groups):
+        return pd.DataFrame()
+
+    render_discovery(["finance", "sales"], mock_get_auth_tables)
+
+class TestDiscoveryTabs:
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_tabs_render_notable(self, mock_get_posts):
+        mock_get_posts.return_value = []
+        at = AppTest.from_function(render_discovery_page_app).run()
+
+        # By default it's on the "Notable" tab
+        html = [m.value for m in at.markdown]
+        assert any(en_locale["personalization"]["tab_notable"] in val for val in html)
+
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_tabs_render_bookmarks(self, mock_get_posts):
+        mock_get_posts.return_value = []
+        at = AppTest.from_function(render_discovery_page_app).run()
+
+        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_bookmarks"]
+        at.session_state["bookmarks"] = {"main.sales.orders"}
+        at.run()
+        html = [m.value for m in at.markdown]
+        assert any(en_locale["personalization"]["tab_bookmarks"] in val for val in html)
+        assert any("orders" in val for val in html)
+
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_tabs_render_recent(self, mock_get_posts):
+        mock_get_posts.return_value = []
+        at = AppTest.from_function(render_discovery_page_app).run()
+
+        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_recent"]
+        at.session_state["recent_views"] = ["main.finance.ledger"]
+        at.run()
+        html = [m.value for m in at.markdown]
+        assert any(en_locale["personalization"]["tab_recent"] in val for val in html)
+        assert any("ledger" in val for val in html)
+
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_recommended_tab(self, mock_get_posts):
+        mock_get_posts.return_value = []
+        at = AppTest.from_function(render_discovery_page_app).run()
+
+        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_recommended"]
+
+        with patch("src.ui.cards.discovery._get_recommended_tables", return_value=["main.sales.orders"]):
+            at.run()
+
+            html = [m.value for m in at.markdown]
+            assert any(en_locale["personalization"]["recommended_title"] in val for val in html)
+            assert any("orders" in val for val in html)
+
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_table_click(self, mock_get_posts):
+        mock_get_posts.return_value = []
+        at = AppTest.from_function(render_discovery_page_app).run()
+
+        at.session_state["group_filter"] = "finance"
+        at.run()
+
+        # Click on a table card button
+        btn = None
+        for b in at.button:
+            if b.key and b.key.startswith("notable_open_main.sales.orders"):
+                btn = b
+                break
+
+        if btn:
+            btn.click().run()
+            assert at.query_params["tab"] == "search" or at.query_params["tab"] == ["search"]
+
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_toggle_bookmark(self, mock_get_posts):
+        mock_get_posts.return_value = []
+        at = AppTest.from_function(render_discovery_page_app).run()
+
+        at.session_state["group_filter"] = "finance"
+        at.session_state["bookmarks"] = set()
+        at.run()
+
+        # Add bookmark
+        btn = None
+        for b in at.button:
+            if b.key and b.key.startswith("notable_bk_main.sales.orders"):
+                btn = b
+                break
+
+        if btn:
+            btn.click().run()
+            assert "main.sales.orders" in at.session_state["bookmarks"]
+
+        # Remove bookmark
+        btn = None
+        for b in at.button:
+            if b.key and b.key.startswith("notable_bk_main.sales.orders"):
+                btn = b
+                break
+
+        if btn:
+            btn.click().run()
+            assert "main.sales.orders" not in at.session_state["bookmarks"]
+
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_tab_locale_remap(self, mock_get_posts):
+        mock_get_posts.return_value = []
+        at = AppTest.from_function(render_discovery_page_app).run()
+
+        # Test remap with stored invalid label (e.g. after language switch)
+        at.session_state["discovery_active_tab"] = "Non-existent label"
+        at.session_state["_disc_tab_idx"] = 1
+        at.run()
+
+        assert at.session_state["discovery_active_tab"] == en_locale["personalization"]["tab_bookmarks"]
+        html = [m.value for m in at.markdown]
+        assert any(en_locale["personalization"]["tab_bookmarks"] in val for val in html)
+
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_tabs_render_col_bookmarks(self, mock_get_posts):
+        mock_get_posts.return_value = []
+        at = AppTest.from_function(render_discovery_page_app).run()
+
+        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_bookmarks"]
+        at.session_state["bookmarks"] = set()
+        at.session_state["col_bookmarks"] = {"main.sales.orders::amount"}
+        at.run()
+
+        html = [m.value for m in at.markdown]
+        assert any("amount" in val for val in html)
+        assert any("main · sales · orders" in val for val in html)
+
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_col_bookmark_click(self, mock_get_posts):
+        mock_get_posts.return_value = []
+        at = AppTest.from_function(render_discovery_page_app).run()
+
+        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_bookmarks"]
+        at.session_state["bookmarks"] = set()
+        at.session_state["col_bookmarks"] = {"main.sales.orders::amount"}
+        at.run()
+
+        btn = None
+        for b in at.button:
+            if b.key == "colbk_open_main.sales.orders::amount":
+                btn = b
+                break
+
+        if btn:
+            btn.click().run()
+            assert at.query_params["tab"] == "search" or at.query_params["tab"] == ["search"]
+
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_col_bookmark_remove(self, mock_get_posts):
+        mock_get_posts.return_value = []
+        at = AppTest.from_function(render_discovery_page_app).run()
+
+        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_bookmarks"]
+        at.session_state["bookmarks"] = set()
+        at.session_state["col_bookmarks"] = {"main.sales.orders::amount"}
+        at.run()
+
+        btn = None
+        for b in at.button:
+            if b.key == "colbk_rm_main.sales.orders::amount":
+                btn = b
+                break
+
+        if btn:
+            btn.click().run()
+            assert "main.sales.orders::amount" not in at.session_state["col_bookmarks"]
+
+    @patch("src.ui.cards.discovery.get_active_posts")
+    @patch("src.ui.cards.discovery.is_admin", return_value=True)
+    @patch("src.ui.cards.discovery.delete_post")
+    def test_discovery_render_cms_banner(self, mock_delete, mock_is_admin, mock_get_posts):
+        mock_get_posts.return_value = [
+            {
+                "post_id": "1",
+                "post_type": "announcement",
+                "title": "Welcome",
+                "body": "Hello world",
+                "author_email": "admin@example.com",
+                "created_at": pd.Timestamp("2023-01-01")
+            },
+            {
+                "post_id": "2",
+                "post_type": "featured_table",
+                "title": "Important Data",
+                "body": "Check this",
+                "author_email": "admin@example.com",
+                "created_at": pd.Timestamp("2023-01-01"),
+                "table_ref": "main.sales.orders"
+            }
+        ]
+        at = AppTest.from_function(render_discovery_page_app).run()
+
+        html = [m.value for m in at.markdown]
+        assert any("Welcome" in val for val in html)
+        assert any("Hello world" in val for val in html)
+        assert any("Important Data" in val for val in html)
+
+        # Test navigate to featured table
+        btn = None
+        for b in at.button:
+            if b.key == "cms_nav_2":
+                btn = b
+                break
+
+        if btn:
+            btn.click().run()
+            assert at.query_params["tab"] == "search" or at.query_params["tab"] == ["search"]
+
+        # Test delete post (admin only)
+        at = AppTest.from_function(render_discovery_page_app).run()
+        btn = None
+        for b in at.button:
+            if b.key == "cms_del_1":
+                btn = b
+                break
+
+        if btn:
+            btn.click().run()
+            mock_delete.assert_called_once_with("1")
+
+    @patch("src.ui.cards.discovery._duckdb_available", return_value=True)
+    @patch("src.ui.cards.discovery.is_demo_mode", return_value=False)
+    @patch("src.ui.cards.discovery.run_query")
+    def test_get_recommended_tables(self, mock_query, mock_demo, mock_duckdb):
+        from src.ui.cards.discovery import _get_recommended_tables
+
+        # Test empty result
+        mock_query.return_value = pd.DataFrame()
+        assert _get_recommended_tables(["finance"], {"main.sales.orders"}) == []
+
+        # Test with data
+        mock_query.return_value = pd.DataFrame({
+            "object_name": ["main.sales.orders", "main.finance.ledger", "main.marketing.leads"],
+            "views": [10, 5, 2]
+        })
+
+        auth_tables = {"main.sales.orders", "main.finance.ledger"}
+        with patch("streamlit.session_state", {"recent_views": ["main.finance.ledger"]}):
+            # ledger should be excluded because it's recent
+            # leads should be excluded because it's not authorized
+            # only orders should be returned
+            res = _get_recommended_tables(["finance"], auth_tables)
+            assert res == ["main.sales.orders"]
+
+        # Test query failure
+        mock_query.side_effect = Exception("DB error")
+        assert _get_recommended_tables(["finance"], auth_tables) == []
+
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_recommended_tab_empty(self, mock_get_posts):
+        mock_get_posts.return_value = []
+        at = AppTest.from_function(render_discovery_page_app).run()
+
+        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_recommended"]
+
+        with patch("src.ui.cards.discovery._get_recommended_tables", return_value=[]):
+            at.run()
+
+            html = [m.value for m in at.markdown]
+            assert any(en_locale["personalization"]["recommended_title"] in val for val in html)
+            assert any(en_locale["personalization"]["recommended_empty"] in m.value for m in at.info)
+
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_recommended_tab_all_empty(self, mock_get_posts):
+        mock_get_posts.return_value = []
+        at = AppTest.from_function(render_discovery_page_app_empty).run()
+
+        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_recommended"]
+        at.run()
+
+        assert any(en_locale["personalization"]["recommended_empty"] in m.value for m in at.info)
+
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_recent_tab_empty_auth(self, mock_get_posts):
+        mock_get_posts.return_value = []
+        at = AppTest.from_function(render_discovery_page_app_empty).run()
+
+        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_recent"]
+        at.session_state["recent_views"] = ["main.finance.ledger"]
+        at.run()
+
+        assert any(en_locale["personalization"]["no_recent"] in m.value for m in at.info)
+
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_bookmarks_tab_empty_auth(self, mock_get_posts):
+        mock_get_posts.return_value = []
+        at = AppTest.from_function(render_discovery_page_app_empty).run()
+
+        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_bookmarks"]
+        at.session_state["bookmarks"] = {"main.finance.ledger"}
+        at.run()
+
+        assert any(en_locale["personalization"]["no_bookmarks"] in m.value for m in at.info)
+
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_notable_tab_empty_auth(self, mock_get_posts):
+        mock_get_posts.return_value = []
+        at = AppTest.from_function(render_discovery_page_app_empty).run()
+
+        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_notable"]
+        at.session_state["group_filter"] = "finance"
+        at.run()
+
+        assert any(en_locale["discovery"]["no_updates"] in m.value for m in at.info)

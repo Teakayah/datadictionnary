@@ -263,12 +263,15 @@ def _render_bookmarks_tab(groups, get_authorized_tables_fn, pref_delete_fn=None,
     else:
         try:
             all_tables = get_authorized_tables_fn(groups)
-            bk_df = all_tables[all_tables["full_name"].isin(bookmarks)]
-            if bk_df.empty:
+            if all_tables is None or all_tables.empty:
                 st.info(t("personalization.no_bookmarks"))
             else:
-                for row in bk_df.itertuples(index=False):
-                    _render_table_card(row, "bk", pref_delete_fn, pref_upsert_fn)
+                bk_df = all_tables[all_tables["full_name"].isin(bookmarks)]
+                if bk_df.empty:
+                    st.info(t("personalization.no_bookmarks"))
+                else:
+                    for row in bk_df.itertuples(index=False):
+                        _render_table_card(row, "bk", pref_delete_fn, pref_upsert_fn)
         except Exception as e:
             logging.error("Error loading bookmarks: %s", e)
             st.error(t("discovery.load_error"))
@@ -402,6 +405,9 @@ def _render_recent_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, pr
     else:
         try:
             all_tables = get_authorized_tables_fn(groups)
+            if all_tables is None or all_tables.empty:
+                st.info(t("personalization.no_recent"))
+                return
             rv_df = all_tables[all_tables["full_name"].isin(recent_views)].copy()
             # ⚡ Bolt: Replace .map() ordering with pd.Categorical for faster sorting and to avoid creating/dropping temp columns
             rv_df["full_name"] = pd.Categorical(rv_df["full_name"], categories=recent_views, ordered=True)
