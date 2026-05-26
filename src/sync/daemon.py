@@ -102,11 +102,11 @@ def _recover_stale_rows(conn, timeout_s: int = STALE_ROW_TIMEOUT_S) -> int:
         stale_ids = [r[0] for r in (cur.fetchall() or [])]
         if not stale_ids:
             return 0
-        for sid in stale_ids:
-            cur.execute_write(
-                "UPDATE user_data.pending_sync SET status='pending' WHERE sync_id=%(id)s",
-                {"id": sid},
-            )
+        # ⚡ Bolt: Use a single IN clause bulk update to prevent N+1 query overhead
+        cur.execute_write(
+            "UPDATE user_data.pending_sync SET status='pending' WHERE sync_id IN %(ids)s",
+            {"ids": tuple(stale_ids)},
+        )
     log.info("Recovered %d stale 'syncing' row(s).", len(stale_ids))
     return len(stale_ids)
 
