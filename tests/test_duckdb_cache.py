@@ -125,6 +125,24 @@ class TestToDuckdbSql:
         assert params["name"] == "foo"
         assert params["tags"] == ["x", "y"]
 
+    def test_current_timestamp_replacement(self):
+        sql, params = self._convert(
+            "SELECT current_timestamp() as ts WHERE id = %(id)s",
+            {"id": 1}
+        )
+        assert "current_localtimestamp()" in sql
+        assert "current_timestamp()" not in sql
+        assert params["id"] == 1
+
+    def test_list_parameter_without_in(self):
+        sql, params = self._convert(
+            "SELECT %(val)s",
+            {"val": [1, 2]}
+        )
+        assert "$val" in sql
+        assert "= ANY" not in sql
+        assert params["val"] == [1, 2]
+
     def test_empty_params_returns_original_sql(self):
         original = "SELECT 1"
         sql, params = self._convert(original, {})
