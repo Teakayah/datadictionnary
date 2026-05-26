@@ -425,7 +425,7 @@ class TestEnqueueSync:
         assert mock_cursor.execute_write.call_count == 2
         delete_call_args = mock_cursor.execute_write.call_args_list[0][0]
         assert "DELETE FROM user_data.pending_sync WHERE sync_type = %(st)s" in delete_call_args[0]
-        assert "json_extract_string(payload_json, '$.column_name') = %(col)s" in delete_call_args[0]
+        assert "payload_json->>'column_name' = %(col)s" in delete_call_args[0]
         assert delete_call_args[1] == {"st": "COLUMN_DEF", "fn": "cat.sch.tbl", "col": "col_a"}
 
 

@@ -85,7 +85,7 @@ def enqueue_sync(sync_type: str, table_full_name: Optional[str], payload: dict, 
 
             if _match_val:
                 # ⚡ Bolt: vectorized deletion using DuckDB JSON extension to fix N+1
-                _del_q += " AND json_extract_string(payload_json, '$.column_name') = %(col)s"
+                _del_q += " AND payload_json->>'column_name' = %(col)s"
                 _params["col"] = _match_val
             cursor.execute_write(_del_q, _params)
 
