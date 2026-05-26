@@ -34,6 +34,16 @@ def _load_locales() -> dict:
 LOCALES: dict = _load_locales()
 
 
+def _lookup(d: dict, parts: list) -> str | None:
+    if not parts or not isinstance(d, dict):
+        return None
+    for p in parts:
+        if not isinstance(d, dict):
+            return None
+        d = d.get(p)
+    return d if isinstance(d, str) else None
+
+
 def get_locale() -> str:
     """Detect preferred locale from the browser Accept-Language header."""
     try:
@@ -57,13 +67,6 @@ def t(key: str, **kwargs) -> str:
     """
     _ensure_locale()
     lang = st.session_state.get("locale", "en")
-
-    def _lookup(d: dict, parts: list) -> str | None:
-        for p in parts:
-            if not isinstance(d, dict):
-                return None
-            d = d.get(p)
-        return d if isinstance(d, str) else None
 
     parts = key.split(".")
     val = _lookup(LOCALES.get(lang, {}), parts) or _lookup(LOCALES.get("en", {}), parts) or key
