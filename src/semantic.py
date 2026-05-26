@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import Protocol, List
 import logging
-import os
 
 from src.config import DATABRICKS_EMBEDDING_ENDPOINT, ENABLE_SEMANTIC_SEARCH, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
