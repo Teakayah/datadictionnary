@@ -461,6 +461,12 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         n_related = len(related) if related is not None and not related.empty else 0
 
         if n_related > 0:
+            # ⚡ Bolt: Use set-based tracking for O(1) membership checks instead of O(N) any() over lists
+            existing_node_ids = {n["id"] for n in graph_nodes}
+            existing_links = {
+                (lnk["from"], lnk["to"]) if lnk["from"] < lnk["to"] else (lnk["to"], lnk["from"])
+                for lnk in graph_links
+            }
             for rel in related.itertuples(index=False):
                 _rel_full      = str(getattr(rel, "full_name", ""))
                 _rel_name      = _html.escape(str(getattr(rel, "table_name", "")))
@@ -470,9 +476,13 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                     else t("detail.shared_column") if _rel_raw_badge == "Shared column"
                     else _html.escape(_rel_raw_badge)
                 )
-                if not any(n["id"] == _rel_full for n in graph_nodes):
+                if _rel_full not in existing_node_ids:
+                    existing_node_ids.add(_rel_full)
                     graph_nodes.append({"id": _rel_full, "label": _rel_name, "current": False, "relationship": _rel_badge})
-                if not any((lnk["from"] == full_name and lnk["to"] == _rel_full) or (lnk["from"] == _rel_full and lnk["to"] == full_name) for lnk in graph_links):
+
+                link_pair = (full_name, _rel_full) if full_name < _rel_full else (_rel_full, full_name)
+                if link_pair not in existing_links:
+                    existing_links.add(link_pair)
                     graph_links.append({"from": full_name, "to": _rel_full})
 
         _lin_hdr_col, _lin_btn_col = st.columns([11, 1])
