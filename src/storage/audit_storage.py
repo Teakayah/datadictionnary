@@ -12,8 +12,8 @@ Two entities, one module — both write-heavy. Backends:
 * ``BusinessNameOverrideStorage`` reads + writes column overrides
   (business name + definition).
 
-The Databricks-direct ``Databricks*Storage`` variants were deleted in
-TODO #7 — Streamlit pods now only ever write locally to DuckDB; the
+The Databricks-direct ``Databricks*Storage`` variants were deleted —
+Streamlit pods now only ever write locally to DuckDB; the
 sidecar sync daemon (ADR 004) is the sole intentional Databricks
 writer, pushing audit events / column comments via
 ``enqueue_sync(...)``.
