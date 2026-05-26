@@ -335,3 +335,30 @@ def test_save_business_name_admin():
         save_business_name("catalog.schema.table", "col1", "New Name", "New Def")
 
         mock_enqueue.assert_called_once_with("catalog.schema.table", "col1", "New Def", "admin_user")
+
+def test__validate_business_name_inputs():
+    import pytest
+    from unittest.mock import patch
+    from src.audit import _validate_business_name_inputs
+    from src.config import MAX_BUSINESS_NAME_LEN, MAX_DEFINITION_LEN
+
+    # Test valid inputs (should not raise)
+    with patch("src.audit.is_power_user", return_value=True):
+        _validate_business_name_inputs("valid name", "valid desc")
+
+    # Test business name too long
+    with patch("src.audit.is_power_user", return_value=True):
+        long_name = "a" * (MAX_BUSINESS_NAME_LEN + 1)
+        with pytest.raises(ValueError, match=f"Business name must be {MAX_BUSINESS_NAME_LEN} characters or fewer"):
+            _validate_business_name_inputs(long_name, "valid desc")
+
+    # Test definition too long
+    with patch("src.audit.is_power_user", return_value=True):
+        long_def = "b" * (MAX_DEFINITION_LEN + 1)
+        with pytest.raises(ValueError, match=f"Definition must be {MAX_DEFINITION_LEN} characters or fewer"):
+            _validate_business_name_inputs("valid name", long_def)
+
+    # Test permission error (not power user)
+    with patch("src.audit.is_power_user", return_value=False):
+        with pytest.raises(PermissionError, match="Only power users can save business name overrides."):
+            _validate_business_name_inputs("valid name", "valid desc")
