@@ -131,6 +131,8 @@ def save_table_metadata(
 def _validate_business_name_inputs(business_name: str, definition: str) -> None:
     if not is_power_user():
         raise PermissionError("Only power users can save business name overrides.")
+    if business_name and "\n" in business_name:
+        raise ValueError("Business name cannot contain newlines.")
     if business_name and len(business_name) > MAX_BUSINESS_NAME_LEN:
         raise ValueError(
             f"Business name must be {MAX_BUSINESS_NAME_LEN} characters or fewer "

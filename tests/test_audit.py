@@ -33,6 +33,22 @@ def test_save_table_metadata_duckdb_exception():
 
         mock_shared_conn.execute.assert_called_once_with("CHECKPOINT user_data")
 
+def test_validate_business_name_inputs_success():
+    """Verify that valid inputs do not raise any exceptions."""
+    with patch("src.audit.is_power_user", return_value=True):
+        # Should not raise
+        _validate_business_name_inputs("Valid Name", "Valid Definition")
+
+def test_validate_business_name_inputs_empty():
+    with patch("src.audit.is_power_user", return_value=True):
+        # Should pass validation to allow clearing overrides
+        _validate_business_name_inputs("", "")
+
+def test_validate_business_name_inputs_invalid_chars():
+    with patch("src.audit.is_power_user", return_value=True):
+        with pytest.raises(ValueError, match="Business name cannot contain newlines."):
+            _validate_business_name_inputs("Invalid\nName", "")
+
 def test_validate_business_name_inputs_length():
     """Verify that business names and definitions exceeding length limits raise ValueError."""
     with patch("src.audit.is_power_user", return_value=True):
