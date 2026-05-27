@@ -388,16 +388,6 @@ def _read_locale_strings() -> list[str]:
     return _get_all_locale_strings(locale_data)
 
 
-def _read_locale_source() -> str:
-    locale_path = os.path.join(os.path.dirname(__file__), "..", "locale", "en.json")
-    with open(locale_path, encoding="utf-8") as f:
-        return f.read()
-
-
-def _read_locale_strings() -> str:
-    locale_path = os.path.join(os.path.dirname(__file__), "..", "locale", "en.json")
-    with open(locale_path, encoding="utf-8") as f:
-        return f.read()
 
 
 def _extract_design_css(src: str) -> str:
