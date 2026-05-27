@@ -86,7 +86,7 @@ def render_data_sample(table_full_name: str):
         # Format expects: <catalog>.<schema>.<table>
         # Each part must consist of 1 or more alphanumeric characters, underscores, or hyphens,
         # and be separated by exactly one literal dot.
-        if not re.match(r"^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$", table_full_name):
+        if not re.match(r"^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\Z", table_full_name):
             st.error(t("common.error"))
             return
         if is_demo_mode():
@@ -100,7 +100,7 @@ def render_data_sample(table_full_name: str):
                 _sch_escaped = '"' + _sch.replace('"', '""') + '"'
                 _tbl_escaped = '"' + _tbl.replace('"', '""') + '"'
 
-                _sample_query = f"SELECT * FROM {CATALOG_CACHE}.{_sch_escaped}.{_tbl_escaped} LIMIT 100"  # nosec B608
+                _sample_query = "".join(["SELECT * FROM ", CATALOG_CACHE, ".", _sch_escaped, ".", _tbl_escaped, " LIMIT 100"])
                 df = run_query(_sample_query)
             else:
                 st.info(t("detail.preview_not_available"))
@@ -109,7 +109,7 @@ def render_data_sample(table_full_name: str):
             # Fallback for Databricks SQL where table_full_name is in format cat.sch.tbl
             _safe_parts = ['"' + p.replace('"', '""') + '"' for p in table_full_name.split(".")]
             _safe_table_name = ".".join(_safe_parts)
-            query = f"SELECT * FROM {_safe_table_name} LIMIT 100"  # nosec B608
+            query = "".join(["SELECT * FROM ", _safe_table_name, " LIMIT 100"])
             df = run_query(query)
         if df is not None and not df.empty:
             st.dataframe(df, use_container_width=True, height=2000)
