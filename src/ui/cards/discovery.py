@@ -124,7 +124,7 @@ def render_cms_banner() -> None:
             f'<div style="border-left:3px solid {color};padding:12px 16px;'
             f'background:var(--paper-deep);border-radius:0 4px 4px 0;margin-bottom:4px;">'
             f'<span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;'
-            f'color:{color};letter-spacing:.08em;">{lbl}</span>'
+            f'color:{color};letter-spacing:.08em;">{_html.escape(lbl)}</span>'
             f'<div style="font-family:var(--font-display);font-size:18px;color:var(--ink);'
             f'margin-top:2px;">{title_safe}</div>'
             f'{body_html}'
