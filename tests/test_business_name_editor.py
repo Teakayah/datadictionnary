@@ -572,7 +572,7 @@ class TestBusinessNameEditorDB:
         return at
 
     # The previous MERGE-INTO assertions verified SQL syntax of the
-    # Databricks-direct write path, which was deleted in TODO #7. The DuckDB
+    # Databricks-direct write path, which was deleted. The DuckDB
     # ON CONFLICT path is exercised by tests/test_storage_audit.py
     # (TestDuckDBStorageRoundTrip::test_business_name_override_round_trip).
 
