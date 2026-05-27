@@ -2,6 +2,7 @@ from __future__ import annotations
 import streamlit as st
 import logging
 import html as _html
+import jinja2
 from src.i18n import t
 from src.ui.cards._shared import _dq_grade
 
@@ -40,13 +41,21 @@ def render_catalog_browser(groups, get_authorized_tables_fn):
                 _schemas_by_cat[c] = set()
             _schemas_by_cat[c].add(s)
 
+        schema_tmpl = jinja2.Template('<div style="margin-left: 20px; font-weight: 500; color: var(--ink-60); margin-top: 10px; margin-bottom: 5px;">📂 {{ sch }}</div>', autoescape=True)
+        table_tmpl = jinja2.Template(
+            '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">'
+            '<span class="dd-dq-badge {{ gcls }}" title="Completeness grade {{ grade }}">{{ grade }}</span>'
+            '<span style="font-family:var(--font-mono);font-size:12px;color:var(--ink-60);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ tbl }}</span>'
+            '</div>', autoescape=True
+        )
+
         # Simple Tree Implementation using Streamlit expanders
         for cat in catalogs:
             with st.expander(f"📁 {cat}", expanded=False):
                 schemas = sorted(list(_schemas_by_cat.get(cat, set())))
 
                 for sch in schemas:
-                    st.html(f'<div style="margin-left: 20px; font-weight: 500; color: var(--ink-60); margin-top: 10px; margin-bottom: 5px;">📂 {_html.escape(str(sch))}</div>')
+                    st.html(schema_tmpl.render(sch=str(sch)))
                     tables = sorted(_grouped_tables.get((cat, sch), []))
 
                     # Columns for tables to make it more compact
@@ -56,12 +65,8 @@ def render_catalog_browser(groups, get_authorized_tables_fn):
                             full_n = f"{cat}.{sch}.{tbl}"
                             _grade, _gcls = _dq_grade(_global_dq.get((cat, sch, tbl), ""))
                             # Show grade badge above the button via markdown, then the clickable button
-                            st.html(
-                                f'<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">'
-                                f'<span class="dd-dq-badge {_html.escape(_gcls)}" title="Completeness grade {_html.escape(_grade)}">{_html.escape(_grade)}</span>'
-                                f'<span style="font-family:var(--font-mono);font-size:12px;color:var(--ink-60);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_html.escape(tbl)}</span>'
-                                f'</div>'
-                            )
+                            st.html(table_tmpl.render(gcls=_gcls, grade=_grade, tbl=tbl))
+
                             if st.button(f"📄 {tbl}", key=f"tree_{full_n}", help=t("catalog.tree_help"), use_container_width=True):
                                 st.query_params["tab"] = "search"
                                 st.session_state["dd_search_override"] = tbl
