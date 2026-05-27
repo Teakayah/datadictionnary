@@ -609,9 +609,15 @@ def render_search_page(query_groups: tuple) -> None:
         if "description"  not in _gr.columns:
             _desc_col = next((c for c in ("table_description", "comment") if c in _gr.columns), None)
             _gr["description"] = _gr[_desc_col] if _desc_col else ""
+
+        # ⚡ Bolt: Apply pagination limit to prevent Streamlit rendering bottleneck with thousands of tables
+        _total_count = len(_gr)
+        _gr = _gr.head(50)
+
         st.markdown(
             f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);margin-bottom:12px">'
-            f'{t("search.results_count", count=len(_gr))}</p>',
+            f'{t("search.results_count", count=_total_count)}'
+            f'{" (Showing top 50)" if _total_count > 50 else ""}</p>',
             unsafe_allow_html=True,
         )
         for _i, _row in enumerate(_gr.itertuples(index=False)):

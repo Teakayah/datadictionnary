@@ -21,3 +21,7 @@
 ## 2026-05-23 - Optimize DataFrame slicing in nested Streamlit loops
 **Learning:** Performing pandas dataframe filtering (e.g., `df[df['col'] == val]`) inside a Streamlit render loop over large datasets causes a severe performance bottleneck.
 **Action:** Pre-compute necessary relationships (like grouping items into a dictionary mapping) before entering the render loop to allow O(1) retrieval.
+
+## 2026-05-26 - Prevent Streamlit Loop Rendering Bottleneck
+**Learning:** Rendering UI components (like `st.columns`) inside a loop over a large, unbounded DataFrame causes severe main-thread blocking and browser freezing in Streamlit applications.
+**Action:** Always apply pagination or a hard cap (`.head(50)`) before iterating over DataFrames to render repeating UI components.
