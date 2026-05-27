@@ -803,3 +803,218 @@ class TestCancellationFunctions:
 
         mock_cancel.assert_called_once_with(pipeline, "r1")
         mock_clear.assert_called_once_with("p1")
+from streamlit.testing.v1 import AppTest
+from unittest.mock import patch
+
+def _render_dialog():
+    from src.ui.cards.pipelines import _show_pipeline_create_dialog
+    _show_pipeline_create_dialog()
+
+def test_pipeline_create_dialog_save_success():
+    with patch("src.ui.cards.pipelines.create_pipeline_def") as mock_create:
+        at = AppTest.from_function(_render_dialog)
+        at.run()
+
+        at.text_input(key="pl_create_title").input("New Pipeline")
+        at.text_area(key="pl_create_desc").input("Pipeline description")
+        at.text_input(key="pl_db_job").input("1234")
+        at.button(key="pl_save").click().run()
+
+        mock_create.assert_called_once_with(
+            "New Pipeline", "Pipeline description", "databricks",
+            "1234", None, None, None, None, None, None, None, "admin"
+        )
+
+def _render_admin_section():
+    from src.ui.cards.pipelines import _render_admin_pipelines_section
+    _render_admin_pipelines_section()
+
+def test_render_admin_pipelines_section_empty():
+    with patch("src.ui.cards.pipelines.get_pipelines", return_value=[]):
+        at = AppTest.from_function(_render_admin_section)
+        at.run()
+        assert not at.exception
+        assert "No pipelines configured." in at.markdown[2].value
+
+def test_render_admin_pipelines_section_with_data():
+    mock_pipelines = [
+        {"pipeline_id": "p1", "title": "P1", "backend": "databricks", "description": "desc"}
+    ]
+    with patch("src.ui.cards.pipelines.get_pipelines", return_value=mock_pipelines), \
+         patch("src.ui.cards.pipelines.delete_pipeline_def") as mock_delete:
+        at = AppTest.from_function(_render_admin_section)
+        at.run()
+        assert not at.exception
+
+        # Test clicking delete button
+        at.button(key="pl_del_p1").click().run()
+        mock_delete.assert_called_once_with("p1")
+
+def test_pipeline_create_dialog_adf():
+    with patch("src.ui.cards.pipelines.create_pipeline_def") as mock_create:
+        at = AppTest.from_function(_render_dialog)
+        at.run()
+
+        at.radio(key="pl_create_backend").set_value("Azure Data Factory")
+        at.run()
+
+        at.text_input(key="pl_create_title").input("ADF Pipeline")
+        at.text_input(key="pl_adf_sub").input("sub1")
+        at.text_input(key="pl_adf_rg").input("rg1")
+        at.text_input(key="pl_adf_fact").input("fact1")
+        at.text_input(key="pl_adf_pipe").input("pipe1")
+        at.button(key="pl_save").click().run()
+
+        mock_create.assert_called_once_with(
+            "ADF Pipeline", "", "adf",
+            None, "sub1", "rg1", "fact1", "pipe1", None, None, None, "admin"
+        )
+
+def test_pipeline_create_dialog_ado():
+    with patch("src.ui.cards.pipelines.create_pipeline_def") as mock_create:
+        at = AppTest.from_function(_render_dialog)
+        at.run()
+
+        at.radio(key="pl_create_backend").set_value("Azure DevOps")
+        at.run()
+
+        at.text_input(key="pl_create_title").input("ADO Pipeline")
+        at.text_input(key="pl_ado_org").input("org1")
+        at.text_input(key="pl_ado_proj").input("proj1")
+        at.text_input(key="pl_ado_pid").input("pid1")
+        at.button(key="pl_save").click().run()
+
+        mock_create.assert_called_once_with(
+            "ADO Pipeline", "", "ado",
+            None, None, None, None, None, "org1", "proj1", "pid1", "admin"
+        )
+
+def _render_page():
+    from src.ui.cards.pipelines import render_pipelines_page
+    render_pipelines_page()
+
+def test_render_pipelines_page_access_denied():
+    with patch("src.ui.cards.pipelines.is_pipeline_user", return_value=False), \
+         patch("src.ui.cards.pipelines.is_admin", return_value=False):
+        at = AppTest.from_function(_render_page)
+        at.run()
+        assert not at.exception
+        assert at.error[0].value == "Pipeline access required."
+
+def test_render_pipelines_page_empty():
+    with patch("src.ui.cards.pipelines.is_pipeline_user", return_value=True), \
+         patch("src.ui.cards.pipelines.is_admin", return_value=False), \
+         patch("src.ui.cards.pipelines.get_pipelines", return_value=[]):
+        at = AppTest.from_function(_render_page)
+        at.run()
+        assert not at.exception
+        assert "No pipelines configured." in at.markdown[1].value
+
+def test_render_pipelines_page_with_data_and_run():
+    mock_pipelines = [
+        {"pipeline_id": "p1", "title": "P1", "backend": "databricks", "description": "desc"}
+    ]
+    mock_run = {
+        "backend_run_id": "r1", "status": "running", "triggered_at": "2024-01-01 12:00:00", "triggered_by": "admin"
+    }
+    with patch("src.ui.cards.pipelines.is_pipeline_user", return_value=True), \
+         patch("src.ui.cards.pipelines.is_admin", return_value=False), \
+         patch("src.ui.cards.pipelines.get_pipelines", return_value=mock_pipelines), \
+         patch("src.ui.cards.pipelines.get_active_run", return_value=mock_run), \
+         patch("src.ui.cards.pipelines.poll_run_status", return_value={"status": "running", "progress": 50, "message": "msg", "is_terminal": False}), \
+         patch("src.ui.cards.pipelines.cancel_run") as mock_cancel:
+        at = AppTest.from_function(_render_page)
+        at.run()
+        assert not at.exception
+
+        # Test clicking stop button
+        at.button(key="pl_stop_p1").click().run()
+        mock_cancel.assert_called_once_with(mock_pipelines[0], mock_run)
+
+def test_render_pipelines_page_with_data_no_run():
+    mock_pipelines = [
+        {"pipeline_id": "p1", "title": "P1", "backend": "databricks", "description": "desc"}
+    ]
+    with patch("src.ui.cards.pipelines.is_pipeline_user", return_value=True), \
+         patch("src.ui.cards.pipelines.is_admin", return_value=False), \
+         patch("src.ui.cards.pipelines.get_pipelines", return_value=mock_pipelines), \
+         patch("src.ui.cards.pipelines.get_active_run", return_value=None), \
+         patch("src.ui.cards.pipelines.trigger_pipeline") as mock_trigger:
+        at = AppTest.from_function(_render_page)
+        at.run()
+        assert not at.exception
+
+        # Test clicking start button
+        at.button(key="pl_start_p1").click().run()
+        mock_trigger.assert_called_once_with(mock_pipelines[0], "user")
+
+
+def test_pipeline_status_color():
+    from src.ui.cards.pipelines import _pipeline_status_color, _STATUS_SUCCESS, _STATUS_FAILED
+
+    assert _pipeline_status_color(next(iter(_STATUS_SUCCESS))) == "var(--forest)"
+    assert _pipeline_status_color(next(iter(_STATUS_FAILED))) == "var(--accent)"
+    assert _pipeline_status_color("unknown") == "var(--ochre)"
+
+def test_pipeline_create_dialog_missing_title():
+    with patch("src.ui.cards.pipelines.create_pipeline_def") as mock_create:
+        at = AppTest.from_function(_render_dialog)
+        at.run()
+
+        at.text_input(key="pl_create_title").input("  ")
+        at.button(key="pl_save").click().run()
+
+        assert "Title is required." in at.error[0].value
+        mock_create.assert_not_called()
+
+def test_pipeline_create_dialog_cancel():
+    at = AppTest.from_function(_render_dialog)
+    at.run()
+
+    # We click cancel, just assert it runs ok
+    at.button(key="pl_cancel").click().run()
+    assert not at.exception
+
+def test_pipeline_page_stop_error():
+    mock_pipelines = [
+        {"pipeline_id": "p1", "title": "P1", "backend": "databricks", "description": "desc"}
+    ]
+    mock_run = {
+        "backend_run_id": "r1", "status": "running", "triggered_at": "2024-01-01 12:00:00", "triggered_by": "admin"
+    }
+    with patch("src.ui.cards.pipelines.is_pipeline_user", return_value=True), \
+         patch("src.ui.cards.pipelines.is_admin", return_value=False), \
+         patch("src.ui.cards.pipelines.get_pipelines", return_value=mock_pipelines), \
+         patch("src.ui.cards.pipelines.get_active_run", return_value=mock_run), \
+         patch("src.ui.cards.pipelines.poll_run_status", return_value={"status": "running", "progress": 50, "message": "msg", "is_terminal": False}), \
+         patch("src.ui.cards.pipelines.cancel_run", side_effect=Exception("Failed")):
+        at = AppTest.from_function(_render_page)
+        at.run()
+
+        at.button(key="pl_stop_p1").click().run()
+        assert "Could not stop pipeline" in at.error[0].value
+
+def test_pipeline_page_start_error():
+    mock_pipelines = [
+        {"pipeline_id": "p1", "title": "P1", "backend": "databricks", "description": "desc"}
+    ]
+    with patch("src.ui.cards.pipelines.is_pipeline_user", return_value=True), \
+         patch("src.ui.cards.pipelines.is_admin", return_value=False), \
+         patch("src.ui.cards.pipelines.get_pipelines", return_value=mock_pipelines), \
+         patch("src.ui.cards.pipelines.get_active_run", return_value=None), \
+         patch("src.ui.cards.pipelines.trigger_pipeline", side_effect=Exception("Failed")):
+        at = AppTest.from_function(_render_page)
+        at.run()
+
+        at.button(key="pl_start_p1").click().run()
+        assert "Could not start pipeline" in at.error[0].value
+
+
+def test_render_admin_pipelines_section_new_button():
+    with patch("src.ui.cards.pipelines.get_pipelines", return_value=[]), \
+         patch("src.ui.cards.pipelines._show_pipeline_create_dialog") as mock_show:
+        at = AppTest.from_function(_render_admin_section)
+        at.run()
+
+        at.button(key="pl_admin_new").click().run()
+        mock_show.assert_called_once()
