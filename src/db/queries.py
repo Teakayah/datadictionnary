@@ -45,7 +45,7 @@ def _get_write_connection():
         raise RuntimeError(
             "DuckDB is unavailable — cannot accept writes. "
             "Set DUCKDB_PATH and ensure the catalog file exists. "
-            "Direct Databricks writes were removed in TODO #7; the "
+            "Direct Databricks writes were removed (see ADR 005); the "
             "sidecar sync daemon is the only intentional Databricks writer."
         )
     from src.config import DUCKDB_PATH

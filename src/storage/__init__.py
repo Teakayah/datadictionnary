@@ -129,7 +129,7 @@ def get_audit_storage() -> AuditStorage:
     """Pick an audit-log backend based on runtime env.
 
     Demo → session-state; otherwise DuckDB (``user_data.audit_log``).
-    Direct Databricks writes were removed in TODO #7 — the sidecar daemon
+    Direct Databricks writes were removed (see ADR 005) — the sidecar daemon
     pushes audit events via ``enqueue_sync`` instead.
     """
     return DemoAuditStorage() if _use_demo_backend() else DuckDBAuditStorage()
