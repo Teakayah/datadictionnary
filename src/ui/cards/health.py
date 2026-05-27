@@ -208,12 +208,12 @@ def _render_zero_result_alerts():
         
         # Format timestamps for display
         def format_ts(val):
-            if isinstance(val, str):
-                return val[:16].replace("T", " ")
             try:
-                return val.strftime("%Y-%m-%d %H:%M")
+                if isinstance(val, str):
+                    val = pd.to_datetime(val)
+                return val.strftime(t("health.alert_date_format"))
             except Exception:
-                return str(val)
+                return str(val)[:16].replace("T", " ")
                 
         alert_df['first_seen'] = alert_df['first_seen'].apply(format_ts)
         alert_df['last_seen'] = alert_df['last_seen'].apply(format_ts)
