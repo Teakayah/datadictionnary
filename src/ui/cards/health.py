@@ -207,8 +207,9 @@ def _render_zero_result_alerts():
         alert_df = pd.DataFrame(alerts)
         
         # ⚡ Bolt: Replace .apply() custom function formatting with vectorized pandas dt.strftime for better performance
-        alert_df['first_seen'] = pd.to_datetime(alert_df['first_seen'], errors='coerce').dt.strftime('%Y-%m-%d %H:%M').fillna(alert_df['first_seen'].astype(str))
-        alert_df['last_seen'] = pd.to_datetime(alert_df['last_seen'], errors='coerce').dt.strftime('%Y-%m-%d %H:%M').fillna(alert_df['last_seen'].astype(str))
+        # Locale-aware formatting: uses the alert_date_format from translation files
+        alert_df['first_seen'] = pd.to_datetime(alert_df['first_seen'], errors='coerce').dt.strftime(t("health.alert_date_format")).fillna(alert_df['first_seen'].astype(str))
+        alert_df['last_seen'] = pd.to_datetime(alert_df['last_seen'], errors='coerce').dt.strftime(t("health.alert_date_format")).fillna(alert_df['last_seen'].astype(str))
         
         st.dataframe(
             alert_df,
