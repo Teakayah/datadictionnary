@@ -16,8 +16,6 @@ get_sync_queue_stats) are kept here too because their only callers are
 the renderers below — moving them out would be premature.
 """
 
-from __future__ import annotations
-
 import html as _html
 import logging
 
