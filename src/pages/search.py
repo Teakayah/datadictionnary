@@ -461,6 +461,11 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         n_related = len(related) if related is not None and not related.empty else 0
 
         if n_related > 0:
+            existing_node_ids = {n["id"] for n in graph_nodes}
+            existing_links = {
+                (min(lnk["from"], lnk["to"]), max(lnk["from"], lnk["to"])) for lnk in graph_links
+            }
+
             for rel in related.itertuples(index=False):
                 _rel_full      = str(getattr(rel, "full_name", ""))
                 _rel_name      = _html.escape(str(getattr(rel, "table_name", "")))
@@ -470,10 +475,15 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                     else t("detail.shared_column") if _rel_raw_badge == "Shared column"
                     else _html.escape(_rel_raw_badge)
                 )
-                if not any(n["id"] == _rel_full for n in graph_nodes):
+
+                if _rel_full not in existing_node_ids:
                     graph_nodes.append({"id": _rel_full, "label": _rel_name, "current": False, "relationship": _rel_badge})
-                if not any((lnk["from"] == full_name and lnk["to"] == _rel_full) or (lnk["from"] == _rel_full and lnk["to"] == full_name) for lnk in graph_links):
+                    existing_node_ids.add(_rel_full)
+
+                link_pair = (min(full_name, _rel_full), max(full_name, _rel_full))
+                if link_pair not in existing_links:
                     graph_links.append({"from": full_name, "to": _rel_full})
+                    existing_links.add(link_pair)
 
         _lin_hdr_col, _lin_btn_col = st.columns([11, 1])
         with _lin_hdr_col:
