@@ -234,9 +234,12 @@ class TestSearch:
         if len(at.button) > 0 and any("View details" in b.label for b in at.button):
             next(b for b in at.button if "View details" in b.label).click().run()
         cursor = get_db_cursor()
-        first_call_params = cursor.execute.call_args_list[0][0][1]
         # SQL injection fix: groups are now bound as individual params (group_0, group_1, ...)
-        group_values = [v for k, v in first_call_params.items() if k.startswith("group_")]
+        all_params = [call[0][1] for call in cursor.execute.call_args_list if len(call[0]) > 1]
+        group_values = []
+        for params in all_params:
+            if isinstance(params, dict):
+                group_values.extend([v for k, v in params.items() if k.startswith("group_")])
         assert "finance_dept_id" in group_values, (
             "finance_dept_id not in group params — permission filter may be bypassable"
         )
