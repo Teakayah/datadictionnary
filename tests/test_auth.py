@@ -630,3 +630,34 @@ class TestCheckAuth:
             check_auth()
 
         mock_error.assert_called_once()
+
+class TestParseGroups:
+    def test_empty_string(self):
+        """_parse_groups returns empty frozenset for empty string."""
+        from src.auth import _parse_groups
+        assert _parse_groups("") == frozenset()
+
+    def test_none_value(self):
+        """_parse_groups returns empty frozenset for None."""
+        from src.auth import _parse_groups
+        assert _parse_groups(None) == frozenset()
+
+    def test_single_group(self):
+        """_parse_groups parses a single group correctly."""
+        from src.auth import _parse_groups
+        assert _parse_groups("admin_group") == frozenset({"admin_group"})
+
+    def test_multiple_groups(self):
+        """_parse_groups parses multiple comma-separated groups."""
+        from src.auth import _parse_groups
+        assert _parse_groups("admin,user,editor") == frozenset({"admin", "user", "editor"})
+
+    def test_whitespace_handling(self):
+        """_parse_groups strips leading and trailing whitespace."""
+        from src.auth import _parse_groups
+        assert _parse_groups(" admin , user  ,  editor ") == frozenset({"admin", "user", "editor"})
+
+    def test_empty_items(self):
+        """_parse_groups ignores empty items between commas."""
+        from src.auth import _parse_groups
+        assert _parse_groups("admin,,user, ,editor,") == frozenset({"admin", "user", "editor"})
