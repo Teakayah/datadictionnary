@@ -1,3 +1,0 @@
-## 2026-05-22 - Locale String Date Formats
-**Learning:** Python strftime `%b` month abbreviations rely on the system C locale, which does not respect JSON translation settings in a standard web server thread unless specific i18n libraries like Babel are used. Attempting to localize these by translating the string template in JSON causes bugs for non-English users.
-**Action:** Always prefer numeric date representations (like `%m/%d/%Y`) for Python `strftime` templates stored in translation JSON dictionaries unless a locale-aware library is used, or push the raw timestamp to the frontend to be formatted with `Intl.DateTimeFormat`.

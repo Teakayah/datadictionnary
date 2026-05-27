@@ -121,7 +121,7 @@
     "placeholder_new": "Posez une question ou signalez un problème concernant cette table.",
     "your_comment": "Votre commentaire",
     "your_reply": "Votre réponse",
-    "max_chars": "Maximum 1000 caractères.",
+    "max_chars": "Maximum 1000 characters.",
     "empty_error": "Le commentaire ne peut pas être vide.",
     "no_steward": "Aucun gestionnaire configuré — le commentaire sera enregistré mais pas envoyé par e-mail.",
     "date_format": "%d %b %Y %H:%M UTC"
@@ -307,7 +307,12 @@
     "field_ado_org_placeholder": "ex. mon-organisation",
     "field_ado_proj_placeholder": "ex. mon-projet",
     "field_job_id_placeholder": "ex. 1234",
-    "field_ado_pid_placeholder": "ex. 42"
+    "field_ado_pid_placeholder": "ex. 42",
+    "confirm_delete_title": "Confirmer la suppression",
+    "confirm_delete_prompt": "Voulez-vous vraiment supprimer ce pipeline ?",
+    "confirm_delete_button": "Supprimer le pipeline",
+    "starting": "Démarrage du pipeline...",
+    "stopping": "Arrêt du pipeline..."
   },
   "cms": {
     "section_title": "Gestion de contenu",
@@ -333,7 +338,10 @@
     "author_date": "{author} · {date}",
     "post_title_placeholder": "ex. Nouveau jeu de données",
     "post_body_placeholder": "Rédigez votre annonce ici...",
-    "post_table_ref_placeholder": "catalogue.schema.nom_table"
+    "post_table_ref_placeholder": "catalogue.schema.nom_table",
+    "confirm_delete_title": "Confirmer la suppression",
+    "confirm_delete_prompt": "Voulez-vous vraiment supprimer cette publication ?",
+    "confirm_delete_button": "Supprimer la publication"
   },
   "footer": {
     "built_with": "Data Dictionary · v0.1.0 · synchronisé chaque nuit depuis Unity Catalog"
@@ -360,7 +368,7 @@
     "switch_to_fr": "Passer en français"
   },
   "personalization": {
-    "tab_notable": "Nouveau & Notable",
+    "tab_notable": "New & Notable",
     "tab_bookmarks": "Mes favoris",
     "tab_recent": "Récemment consulté",
     "tab_recommended": "Recommandé",
@@ -378,7 +386,7 @@
     "search_expander": "Comment utiliser cette page",
     "search_content": "**Recherche** — saisissez un nom de table, de colonne ou un terme métier. Les résultats n'affichent que les tables auxquelles vous avez accès.\n\n**Voir les détails** — cliquez sur un résultat pour ouvrir la fiche complète : colonnes, droits, lignage, qualité et aperçu des données.\n\n**Favoris** — ajoutez une table à vos favoris depuis sa fiche pour la retrouver dans Découverte → Mes favoris.\n\n**Commentaires** — faites défiler jusqu'à la section Commentaires pour poser une question au responsable de la table.",
     "discovery_expander": "Comment utiliser cette page",
-    "discovery_content": "**Recommandé** — tables avec une activité récente dans vos groupes, hors tables déjà consultées.\n\n**Nouveau & Notable** — tables récemment mises à jour dans votre groupe principal.\n\n**Mes favoris** — tables et colonnes que vous avez enregistrées.\n\n**Récemment consulté** — les 50 dernières tables ouvertes, mises à jour automatiquement.",
+    "discovery_content": "**Recommandé** — tables with recent activity across your groups, excluding ones you have already viewed.\n\n**New & Notable** — tables recently updated in your primary group.\n\n**My Bookmarks** — tables and columns you have starred. Bookmark any table from its detail page.\n\n**Recently Viewed** — the last 50 tables you opened, updated automatically as you browse.",
     "health_expander": "Comment utiliser cette page",
     "health_content": "**Couverture tables** — pourcentage de tables accessibles ayant une description.\n\n**Couverture colonnes** — pourcentage de colonnes avec un nom métier ou une définition.\n\n**Par schéma** — comptages par schéma pour identifier les lacunes.\n\n**Actions prioritaires** — jusqu'à 5 tables très consultées sans description. Cliquez pour ouvrir la fiche et ajouter une description.",
     "glossary_expander": "Comment utiliser cette page",
