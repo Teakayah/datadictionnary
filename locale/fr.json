@@ -34,7 +34,6 @@
     "hero_title": "Rechercher dans le catalogue.",
     "hero_subtitle": "Trouvez des données dans toute l'organisation.",
     "placeholder": "Rechercher des tables ou des colonnes…",
-    "results_count": "{count} résultats",
     "no_results": "Aucun résultat pour « {query} »",
     "loading": "Recherche en cours…",
     "eyebrow": "§ Recherche au catalogue",
@@ -46,7 +45,10 @@
     "view_details_help": "Afficher les détails de cette table",
     "back_to_results_help": "Retour aux résultats de recherche",
     "start_typing": "Commencez à taper pour rechercher dans le catalogue.",
-    "no_access": "Vous n'avez accès à aucune table pour l'instant. Contactez votre administrateur pour demander l'accès."
+    "no_access": "Vous n'avez accès à aucune table pour l'instant. Contactez votre administrateur pour demander l'accès.",
+    "results_count_zero": "Aucun résultat",
+    "results_count_one": "1 résultat",
+    "results_count_other": "{count} résultats"
   },
   "catalog": {
     "eyebrow": "§ Navigateur de catalogue",
@@ -73,7 +75,6 @@
     "section_comments": "§ Commentaires",
     "section_related": "§ Tables liées",
     "section_downstream": "§ Impact aval",
-    "downstream_count": "{n} actif(s) en aval",
     "downstream_none": "Aucun actif aval connu.",
     "downstream_certified_warning": "Inclut des actifs certifiés ou en production — vérifiez attentivement avant de modifier.",
     "title": "§ Détails de la table",
@@ -105,7 +106,10 @@
     "placeholder_desc": "Décrivez le contenu de la table, sa granularité et ses cas d'utilisation courants...",
     "placeholder_steward": "ex. data.steward@example.com",
     "table_desc_placeholder": "Décrivez l'objectif de la table, son contenu et les mises en garde importantes...",
-    "steward_email_placeholder": "ex. data.steward@example.com"
+    "steward_email_placeholder": "ex. data.steward@example.com",
+    "downstream_count_zero": "Aucun actif en aval",
+    "downstream_count_one": "1 actif en aval",
+    "downstream_count_other": "{n} actifs en aval"
   },
   "comment": {
     "add_comment": "Ajouter un commentaire",
@@ -123,8 +127,7 @@
     "your_reply": "Votre réponse",
     "max_chars": "Maximum 1000 caractères.",
     "empty_error": "Le commentaire ne peut pas être vide.",
-    "no_steward": "Aucun gestionnaire configuré — le commentaire sera enregistré mais pas envoyé par e-mail.",
-    "date_format": "%d %b %Y %H:%M UTC"
+    "no_steward": "Aucun gestionnaire configuré — le commentaire sera enregistré mais pas envoyé par e-mail."
   },
   "editor": {
     "edit_business_name": "Modifier le nom métier",
@@ -137,8 +140,7 @@
     "placeholder_biz_def": "ex. Identifiant unique attribué à chaque client lors de son inscription.",
     "permission_error": "Vous n’avez pas la permission de modifier les noms métier.",
     "edit_mode_banner": "Mode d'édition — les modifications sont enregistrées immédiatement et visibles par tous les utilisateurs.",
-    "last_edited_by": "Dernière modification par {user} · {date}",
-    "date_format": "%d %b %Y %H:%M UTC"
+    "last_edited_by": "Dernière modification par {user} · {date}"
   },
   "admin": {
     "title": "§ Admin",
@@ -200,15 +202,22 @@
     "reviews_approved_toast": "Approuvé {col}",
     "reviews_rejected_toast": "Rejeté {col}",
     "sync_progress": "{pct}% synchronisé avec Databricks",
-    "sync_pending": "En attente : {count}",
-    "sync_processing": "En cours : {count}",
-    "sync_done": "Terminé : {count}",
-    "sync_failed": "Échoué : {count}",
     "sync_self_healing": "Auto-réparation (DR)",
     "sync_worker_heartbeat": "Heartbeat du worker",
     "integrity_no_dq_failures": "Aucune défaillance critique de DQ détectée.",
     "integrity_dq_alerts_success": "Aucune défaillance DQ critique détectée.",
-    "date_format": "%d %b %Y %H:%M UTC"
+    "sync_pending_zero": "En attente : 0",
+    "sync_pending_one": "En attente : 1",
+    "sync_pending_other": "En attente : {count}",
+    "sync_processing_zero": "En cours : 0",
+    "sync_processing_one": "En cours : 1",
+    "sync_processing_other": "En cours : {count}",
+    "sync_done_zero": "Terminé : 0",
+    "sync_done_one": "Terminé : 1",
+    "sync_done_other": "Terminé : {count}",
+    "sync_failed_zero": "Échoué : 0",
+    "sync_failed_one": "Échoué : 1",
+    "sync_failed_other": "Échoué : {count}"
   },
   "health": {
     "title": "§ Santé du catalogue",
@@ -255,7 +264,6 @@
     "no_updates": "Aucune mise à jour récente pour ce groupe.",
     "load_error": "Impossible de charger le flux de découverte.",
     "sign_in_prompt": "Connectez-vous ou sélectionnez un groupe pour voir les faits saillants.",
-    "date_format": "%d %b, %H:%M UTC",
     "explore_button": "Explorer {name} →",
     "updated": "Mis à jour",
     "no_groups": "Votre compte n'est associé à aucun groupe d'accès aux données. Contactez votre administrateur pour demander l'accès."
@@ -289,7 +297,6 @@
     "start_error": "Impossible de démarrer le pipeline : {error}",
     "stop_error": "Impossible d'arrêter le pipeline : {error}",
     "error_title": "Le titre est requis.",
-    "date_format": "%d %b %H:%M UTC",
     "started_by": "lancé par {user} · {date}",
     "field_title_placeholder": "ex. Synchronisation nocturne",
     "field_desc_placeholder": "Décrivez ce que fait ce pipeline...",
@@ -318,8 +325,6 @@
     "no_expiry": "jamais",
     "error_title_required": "Le titre est requis.",
     "error_table_ref_required": "La référence de table est requise pour une publication en vedette.",
-    "date_format_short": "%d %b",
-    "date_format_long": "%d %b %Y",
     "date_range": "{start} → expire {end}",
     "author_date": "{author} · {date}",
     "post_title_placeholder": "ex. Nouveau jeu de données",

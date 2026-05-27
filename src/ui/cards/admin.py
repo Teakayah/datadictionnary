@@ -256,17 +256,19 @@ def _show_comment_log_dialog():
     )
 
 
+from src.i18n import format_number
+
 def _render_admin_stats_section():
     stats = get_admin_stats()
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.metric(t("admin.stats_tables"), f"{stats.get('tables', 0):,}")
+        st.metric(t("admin.stats_tables"), format_number(stats.get('tables', 0)))
     with c2:
-        st.metric(t("admin.stats_columns"), f"{stats.get('columns', 0):,}")
+        st.metric(t("admin.stats_columns"), format_number(stats.get('columns', 0)))
     with c3:
-        st.metric(t("admin.stats_comments"), f"{stats.get('comments', 0):,}")
+        st.metric(t("admin.stats_comments"), format_number(stats.get('comments', 0)))
     with c4:
-        st.metric(t("admin.stats_overrides"), f"{stats.get('overrides', 0):,}")
+        st.metric(t("admin.stats_overrides"), format_number(stats.get('overrides', 0)))
 
 
 def _render_admin_integrity_report():
@@ -520,9 +522,10 @@ def _render_pending_reviews_section():
         col  = str(item.get("column_name", ""))
         biz  = str(item.get("business_name", "") or "")
         defn = str(item.get("definition", "") or "")
+        from src.i18n import format_date
         by   = str(item.get("edited_by", ""))
         _raw_at = item.get("edited_at")
-        at   = _raw_at.strftime(t("admin.date_format")) if hasattr(_raw_at, "strftime") else str(_raw_at or "")
+        at   = format_date(_raw_at) if hasattr(_raw_at, "strftime") else str(_raw_at or "")
         st.markdown(
             f'<div style="background:var(--paper);border:1px solid var(--ink-10);'
             f'border-radius:4px;padding:12px 16px;margin-bottom:8px;">'
