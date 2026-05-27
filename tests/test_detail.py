@@ -126,12 +126,20 @@ class TestRenderDataSample:
         assert at.error[0].value == en_locale["detail"]["unauthorized"]
 
     @patch("src.ui.cards.detail.get_authorized_table_names")
-    def test_render_data_sample_invalid_namespace(self, mock_auth):
+    @patch("src.ui.cards.detail.is_demo_mode")
+    @patch("src.ui.cards.detail._duckdb_available")
+    @patch("src.ui.cards.detail.run_query")
+    def test_render_data_sample_single_part_name(self, mock_run, mock_duckdb, mock_demo, mock_auth):
         mock_auth.return_value = {"invalid-name"}
+        mock_demo.return_value = False
+        mock_duckdb.return_value = False
+        mock_run.return_value = pd.DataFrame({"col": [1, 2]})
+
         at = AppTest.from_function(data_sample_app, args=("invalid-name",)).run()
 
-        # It should fail validation if authorized but not 3-parts
-        assert at.error[0].value == en_locale["common"]["error"]
+        # It should process correctly and escape the single part name
+        mock_run.assert_called_once_with('SELECT * FROM "invalid-name" LIMIT 100')
+        assert len(at.dataframe) == 1
 
     @patch("src.ui.cards.detail.get_authorized_table_names")
     @patch("src.ui.cards.detail.is_demo_mode")
@@ -168,32 +176,17 @@ class TestRenderDataSample:
     @patch("src.ui.cards.detail.is_demo_mode")
     @patch("src.ui.cards.detail._duckdb_available")
     @patch("src.ui.cards.detail.run_query")
-    @patch("src.ui.cards.detail.re.match")
-    def test_render_data_sample_duckdb_query_invalid_parts(self, mock_match, mock_run, mock_duckdb, mock_demo, mock_auth):
+    def test_render_data_sample_duckdb_query_invalid_parts(self, mock_run, mock_duckdb, mock_demo, mock_auth):
         mock_auth.return_value = {"not_three_parts"}
         mock_demo.return_value = False
         mock_duckdb.return_value = True
-        mock_match.return_value = True
+        mock_run.return_value = pd.DataFrame({"col": [1, 2]})
 
         at = AppTest.from_function(data_sample_app, args=("not_three_parts",)).run()
-        assert at.info[0].value == en_locale["detail"]["preview_not_available"]
 
-    @patch("src.ui.cards.detail.get_authorized_table_names")
-    @patch("src.ui.cards.detail.is_demo_mode")
-    @patch("src.ui.cards.detail._duckdb_available")
-    @patch("src.ui.cards.detail.run_query")
-    def test_render_data_sample_duckdb_query_invalid_len_parts(self, mock_run, mock_duckdb, mock_demo, mock_auth):
-        mock_auth.return_value = {"not_three_parts"}
-        mock_demo.return_value = False
-        mock_duckdb.return_value = True
-
-        with patch("src.ui.cards.detail.re.match") as mock_match:
-            mock_match.return_value = True
-            at = AppTest.from_function(data_sample_app, args=("not_three_parts",)).run()
-
-            assert len(at.info) > 0
-            assert at.info[0].value == en_locale["detail"]["preview_not_available"]
-            mock_run.assert_not_called()
+        from src.config import CATALOG_CACHE
+        mock_run.assert_called_once_with(f'SELECT * FROM {CATALOG_CACHE}."not_three_parts" LIMIT 100')
+        assert len(at.dataframe) == 1
 
     @patch("src.ui.cards.detail.get_authorized_table_names")
     @patch("src.ui.cards.detail.is_demo_mode")
