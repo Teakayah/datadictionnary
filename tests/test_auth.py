@@ -18,6 +18,32 @@ def mock_session_state(monkeypatch):
     monkeypatch.setattr("src.auth.st.session_state", {})
     monkeypatch.setattr("src.personalization.st.session_state", {})
 
+class TestParseGroups:
+    def test_empty_string(self):
+        from src.auth import _parse_groups
+        assert _parse_groups("") == frozenset()
+
+    def test_none_value(self):
+        from src.auth import _parse_groups
+        assert _parse_groups(None) == frozenset()
+
+    def test_single_group(self):
+        from src.auth import _parse_groups
+        assert _parse_groups("admin") == frozenset({"admin"})
+
+    def test_multiple_groups(self):
+        from src.auth import _parse_groups
+        assert _parse_groups("admin,editor") == frozenset({"admin", "editor"})
+
+    def test_whitespace_trimming(self):
+        from src.auth import _parse_groups
+        assert _parse_groups(" admin , editor ") == frozenset({"admin", "editor"})
+
+    def test_extra_commas(self):
+        from src.auth import _parse_groups
+        assert _parse_groups("admin,,editor,") == frozenset({"admin", "editor"})
+
+
 class TestIsPipelineUser:
     def test_false_when_env_unset(self, monkeypatch):
         """is_pipeline_user returns False when PIPELINE_GROUPS is not set."""
