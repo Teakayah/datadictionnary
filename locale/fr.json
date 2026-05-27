@@ -298,7 +298,12 @@
     "field_adf_fact_placeholder": "ex. mon-data-factory",
     "field_adf_pipe_placeholder": "ex. MonPipeline",
     "field_ado_org_placeholder": "ex. mon-organisation",
-    "field_ado_proj_placeholder": "ex. mon-projet"
+    "field_ado_proj_placeholder": "ex. mon-projet",
+    "confirm_delete_title": "Confirmer la suppression",
+    "confirm_delete_prompt": "Voulez-vous vraiment supprimer ce pipeline ?",
+    "confirm_delete_button": "Supprimer le pipeline",
+    "starting": "Démarrage du pipeline...",
+    "stopping": "Arrêt du pipeline..."
   },
   "cms": {
     "section_title": "Gestion de contenu",
@@ -324,7 +329,10 @@
     "author_date": "{author} · {date}",
     "post_title_placeholder": "ex. Nouveau jeu de données",
     "post_body_placeholder": "Rédigez votre annonce ici...",
-    "post_table_ref_placeholder": "catalogue.schema.nom_table"
+    "post_table_ref_placeholder": "catalogue.schema.nom_table",
+    "confirm_delete_title": "Confirmer la suppression",
+    "confirm_delete_prompt": "Voulez-vous vraiment supprimer cette publication ?",
+    "confirm_delete_button": "Supprimer la publication"
   },
   "footer": {
     "built_with": "Data Dictionary · v0.1.0 · synchronisé chaque nuit depuis Unity Catalog"

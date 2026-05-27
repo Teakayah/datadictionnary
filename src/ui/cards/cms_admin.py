@@ -19,6 +19,19 @@ from src.i18n import t
 from src.ui.cards._shared import _POST_COLOR
 
 
+@st.dialog(t("cms.confirm_delete_title"))
+def _show_delete_cms_dialog(post_id: str):
+    st.write(t("cms.confirm_delete_prompt"))
+    _s, _c = st.columns(2)
+    with _s:
+        if st.button(t("cms.confirm_delete_button"), type="primary", use_container_width=True):
+            delete_post(post_id)
+            st.rerun()
+    with _c:
+        if st.button(t("common.cancel"), use_container_width=True):
+            st.rerun()
+
+
 @st.dialog(t("cms.create_title"), width="large")
 def _show_cms_create_dialog():
     type_labels = {
@@ -153,7 +166,6 @@ def _render_admin_cms_section():
                 "✕", key=f"cms_admin_del_{post['post_id']}",
                 help=t("cms.delete_post"), use_container_width=True,
             ):
-                delete_post(post["post_id"])
-                st.rerun()
+                _show_delete_cms_dialog(post["post_id"])
 
     st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)
