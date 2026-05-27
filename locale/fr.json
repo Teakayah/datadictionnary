@@ -233,8 +233,9 @@
     "alert_query_col": "Terme de recherche",
     "alert_count_col": "Nombre de recherches",
     "alert_first_seen_col": "Première recherche sans résultat",
-    "alert_last_seen_col": "Dernière tentative"
-    },
+    "alert_last_seen_col": "Dernière tentative",
+    "alert_date_format": "%d/%m/%Y %H:%M"
+  },
   "glossary": {
     "title": "§ Glossaire métier",
     "hero_title": "Parlez le même langage.",

@@ -233,7 +233,8 @@
     "alert_query_col": "Search Term",
     "alert_count_col": "Search Count",
     "alert_first_seen_col": "First Unresolved Search",
-    "alert_last_seen_col": "Most Recent Attempt"
+    "alert_last_seen_col": "Most Recent Attempt",
+    "alert_date_format": "%Y-%m-%d %H:%M"
   },
   "glossary": {
     "title": "§ Business glossary",
