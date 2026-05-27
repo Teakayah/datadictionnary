@@ -48,9 +48,10 @@ def test_get_embedding_engine_mock():
 
 @patch("src.semantic.DATABRICKS_EMBEDDING_ENDPOINT", "my-endpoint")
 def test_get_embedding_engine_databricks():
-    engine = get_embedding_engine()
-    assert isinstance(engine, DatabricksEmbeddingEngine)
-    assert engine.endpoint_name == "my-endpoint"
+    with patch("src.semantic.DATABRICKS_EMBEDDING_ENDPOINT", "my-endpoint"):
+        engine = get_embedding_engine()
+        assert isinstance(engine, DatabricksEmbeddingEngine)
+        assert engine.endpoint_name == "my-endpoint"
 
 def test_generate_table_embeddings():
     tables = [

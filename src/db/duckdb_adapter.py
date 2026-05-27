@@ -239,7 +239,11 @@ def _get_shared_duckdb_connection():
 
 
 class _DuckDBCursor:
-    """Cursor-like wrapper around a shared DuckDB connection."""
+    """Cursor-like wrapper around a shared DuckDB connection.
+
+    Allows concurrent reads via standard execution, while utilizing a global
+    lock for write operations to ensure thread safety across Streamlit sessions.
+    """
 
     def __init__(self, con):
         self._con = con
@@ -278,7 +282,12 @@ class _DuckDBCursor:
 
 
 class _DuckDBConn:
-    """Connection-like wrapper that uses the shared singleton connection."""
+    """Connection-like wrapper that uses the shared singleton connection.
+
+    This wrapper shares a single underlying DuckDB connection across all
+    Streamlit sessions. The __exit__ method deliberately skips closing the
+    connection so it remains available for subsequent queries.
+    """
 
     def __init__(self, path: str):
         self._con = _get_shared_duckdb_connection()
