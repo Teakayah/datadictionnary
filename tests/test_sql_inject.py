@@ -22,7 +22,8 @@ def test_sql_inject(tmp_path):
         importlib.reload(adapter)
 
         con = adapter._get_shared_duckdb_connection()
-        assert con is not None
+        # Should now be None due to ValueError caught and logged in duckdb_adapter
+        assert con is None
 
         # Test daemon_db (with a separate mock so we don't conflict the user_data detachment)
     with patch.dict(os.environ, {"DUCKDB_PATH": str(tmp_path / "evil'path2.duckdb")}):
@@ -34,5 +35,6 @@ def test_sql_inject(tmp_path):
         # create the file
         duckdb.connect(str(tmp_path / "evil'path2.duckdb")).close()
 
-        con2 = daemon_db.DaemonConn()
-        assert con2 is not None
+        import pytest
+        with pytest.raises(ValueError, match="DUCKDB_PATH contains invalid characters for SQL ATTACH"):
+            con2 = daemon_db.DaemonConn()

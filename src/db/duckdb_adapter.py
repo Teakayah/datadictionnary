@@ -217,8 +217,12 @@ def _get_shared_duckdb_connection():
                 return '"' + val.replace('"', '""') + '"'
 
             # Sanitize paths to prevent SQL injection when using f-strings for ATTACH
-            safe_duckdb_path = DUCKDB_PATH.replace("'", "''") if DUCKDB_PATH else ""
-            safe_user_data_path = USER_DATA_PATH.replace("'", "''") if USER_DATA_PATH else ""
+            if DUCKDB_PATH and ("'" in DUCKDB_PATH or ";" in DUCKDB_PATH):
+                raise ValueError("DUCKDB_PATH contains invalid characters for SQL ATTACH")
+            if USER_DATA_PATH and ("'" in USER_DATA_PATH or ";" in USER_DATA_PATH):
+                raise ValueError("USER_DATA_PATH contains invalid characters for SQL ATTACH")
+            safe_duckdb_path = DUCKDB_PATH if DUCKDB_PATH else ""
+            safe_user_data_path = USER_DATA_PATH if USER_DATA_PATH else ""
 
             # Attach the main read-only cache
             con.execute(f"ATTACH '{safe_duckdb_path}' AS {_escape_id(CATALOG_CACHE)} (READ_ONLY)")
