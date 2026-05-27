@@ -90,7 +90,7 @@ spec:
 
           readinessProbe:
             httpGet:
-              path: /_stcore/health
+              path: /
               port: 8501
             initialDelaySeconds: 10
             periodSeconds: 5
