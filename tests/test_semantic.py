@@ -46,7 +46,7 @@ def test_get_embedding_engine_mock():
     engine = get_embedding_engine()
     assert isinstance(engine, MockEmbeddingEngine)
 
-@patch.dict(os.environ, {"DATABRICKS_EMBEDDING_ENDPOINT": "my-endpoint"}, clear=True)
+@patch("src.semantic.DATABRICKS_EMBEDDING_ENDPOINT", "my-endpoint")
 def test_get_embedding_engine_databricks():
     engine = get_embedding_engine()
     assert isinstance(engine, DatabricksEmbeddingEngine)

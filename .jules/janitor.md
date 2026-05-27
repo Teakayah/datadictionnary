@@ -1,3 +1,7 @@
 ## 2025-02-28 - [Cleanup] Unused redefined class in test_pipelines.py
 **Learning:** Found a redefinition of the `TestGetPipelines` class in `tests/test_pipelines.py` which duplicated the class name and shadowed the earlier definition without providing additional context or distinct tests logic for different groups. Redefining a test class name can lead to test suppression, as the second definition completely overrides the first definition from the testing framework's perspective. The existing F811 `TestGetPipelines` redefined error provides a clear indication to rename or merge classes.
 **Action:** Always rename test classes to be unique if they test different aspects of the same functionality (e.g. `TestGetPipelinesWithStorage`) instead of duplicating names.
+
+## 2025-05-27 - Ruff Unused Imports Cleanup
+**Learning:** Found several unused imports in the codebase such as `os`, `pytest`, `MagicMock`, and unused functions in test scripts. Utilizing Ruff `F401,F841,F811` and letting it fix unsafe fixes can identify and resolve these cleanly, but tests may fail if the module directly patches `os.environ` to update constants like `DATABRICKS_EMBEDDING_ENDPOINT` imported directly from `config.py`. They must patch the module-level attribute.
+**Action:** Always check the memory regarding how to properly patch module-level constants imported from config, and always run full `pytest` after running Ruff fixes.

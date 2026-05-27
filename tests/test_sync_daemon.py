@@ -472,8 +472,7 @@ class TestStartHealthz:
 class TestDaemonRunExceptions:
     def test_run_exceptions(self, tmp_user_data, monkeypatch):
         # We want to test the `except Exception as exc:` block in `run`
-        from src.sync.daemon import run, _stop_event, _set_status
-        from src.sync.daemon_db import DaemonConn
+        from src.sync.daemon import run
         from unittest.mock import patch, MagicMock
 
         # We'll use a mocked DaemonConn
