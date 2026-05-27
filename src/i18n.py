@@ -49,6 +49,16 @@ def _ensure_locale() -> None:
         st.session_state["locale"] = get_locale()
 
 
+def _lookup(d: dict, parts: list) -> str | None:
+    if not parts or not isinstance(d, dict):
+        return None
+    for p in parts:
+        if not isinstance(d, dict):
+            return None
+        d = d.get(p)
+    return d if isinstance(d, str) else None
+
+
 def t(key: str, **kwargs) -> str:
     """Look up a dotted key (e.g. 'nav.search') in the active locale.
 
@@ -57,13 +67,6 @@ def t(key: str, **kwargs) -> str:
     """
     _ensure_locale()
     lang = st.session_state.get("locale", "en")
-
-    def _lookup(d: dict, parts: list) -> str | None:
-        for p in parts:
-            if not isinstance(d, dict):
-                return None
-            d = d.get(p)
-        return d if isinstance(d, str) else None
 
     parts = key.split(".")
     val = _lookup(LOCALES.get(lang, {}), parts) or _lookup(LOCALES.get("en", {}), parts) or key

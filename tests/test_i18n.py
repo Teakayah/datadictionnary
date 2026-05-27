@@ -115,3 +115,33 @@ def test_t_handles_index_error_in_format_with_kwargs():
     with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"hello": "Hello {0}"}}):
         mock_st.session_state = {"locale": "en"}
         assert t("hello", wrong_key="World") == "Hello {0}"
+
+
+def test_lookup_happy_path():
+    from src.i18n import _lookup
+    d = {"a": {"b": {"c": "value"}}}
+    assert _lookup(d, ["a", "b", "c"]) == "value"
+
+def test_lookup_missing_key():
+    from src.i18n import _lookup
+    d = {"a": {"b": "value"}}
+    assert _lookup(d, ["a", "c"]) is None
+
+def test_lookup_non_dict_midway():
+    from src.i18n import _lookup
+    d = {"a": "not_a_dict"}
+    assert _lookup(d, ["a", "b"]) is None
+
+def test_lookup_empty_parts():
+    from src.i18n import _lookup
+    d = {"a": "value"}
+    assert _lookup(d, []) is None
+
+def test_lookup_non_dict_input():
+    from src.i18n import _lookup
+    assert _lookup("not_a_dict", ["a"]) is None
+
+def test_lookup_returns_non_string():
+    from src.i18n import _lookup
+    d = {"a": {"b": 123}}
+    assert _lookup(d, ["a", "b"]) is None
