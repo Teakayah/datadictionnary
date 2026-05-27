@@ -21,6 +21,10 @@ from src.ui.cards._shared import _POST_COLOR
 
 @st.dialog(t("cms.create_title"), width="large")
 def _show_cms_create_dialog():
+    """Render a Streamlit dialog for creating new CMS posts.
+
+    Handles form inputs (type, title, body, links) and triggers the save action.
+    """
     type_labels = {
         "announcement":  t("cms.type_announcement"),
         "featured_table": t("cms.type_featured"),
