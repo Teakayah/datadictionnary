@@ -136,6 +136,32 @@ class TestToDuckdbSql:
         assert sql == "SELECT 1"
         assert params == {}
 
+    def test_current_timestamp(self):
+        sql, params = self._convert("SELECT current_timestamp()", {"x": 1})
+        assert sql == "SELECT current_localtimestamp()"
+
+    def test_multiple_occurrences(self):
+        sql, params = self._convert("SELECT %(x)s, %(x)s", {"x": 1})
+        assert sql == "SELECT $x, $x"
+
+    def test_underscore_number_params(self):
+        sql, params = self._convert("SELECT %(user_1_id)s", {"user_1_id": 1})
+        assert sql == "SELECT $user_1_id"
+
+    def test_in_boundary(self):
+        sql, params = self._convert("JOIN %(in_param)s", {"in_param": [1, 2]})
+        assert "= ANY" not in sql
+        assert "$in_param" in sql
+
+    def test_in_whitespace(self):
+        sql, params = self._convert("WHERE x IN \n\t %(groups)s", {"groups": [1]})
+        assert "= ANY($groups)" in sql
+
+    def test_multiple_in_clauses(self):
+        sql, params = self._convert("WHERE a IN %(a)s AND b IN %(b)s", {"a": [1], "b": [2]})
+        assert "= ANY($a)" in sql
+        assert "= ANY($b)" in sql
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # _DuckDBCursor / _DuckDBConn adapter
