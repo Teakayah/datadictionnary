@@ -10,12 +10,6 @@ so tests can flip the env between calls without surprising behaviour.
 
 Test-only helpers (``FakeCMSStorage``) ship in the storage module too so
 downstream consumers don't need to redefine in-memory fakes.
-
-Migration order (from TODO.md #4):
-  1. CMS                  — done in commit feat/storage-cms
-  2. Pipelines            — open
-  3. Preferences + site_settings — open
-  4. Audit + business name overrides — open
 """
 
 
