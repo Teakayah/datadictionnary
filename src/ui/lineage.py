@@ -28,8 +28,13 @@ def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, ru
     for i, g in enumerate(query_groups):
         params[f"lin_g_{i}"] = g
 
+    # The query uses a recursive CTE to traverse up to max_depth hops.
+    # CRITICAL: The JOIN on permissions_cache occurs in BOTH the base case and the recursive step.
+    # This enforces push-down RBAC at every hop, ensuring that unauthorized tables are never traversed
+    # or revealed to the user, preventing indirect discovery.
     q = f"""
         WITH RECURSIVE lineage_tree AS (
+            -- Base case: Immediate upstream/downstream neighbors of the target table.
             SELECT DISTINCT l.table_full_name, l.direction, l.entity_full_name, l.entity_type, 1 AS depth
             FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache l
             JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p ON l.entity_full_name = p.table_full_name
@@ -38,6 +43,7 @@ def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, ru
 
             UNION ALL
 
+            -- Recursive step: Neighbors of the tables found in the previous iteration.
             SELECT DISTINCT l.table_full_name, l.direction, l.entity_full_name, l.entity_type, t.depth + 1
             FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache l
             JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p ON l.entity_full_name = p.table_full_name
