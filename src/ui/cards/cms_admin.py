@@ -111,14 +111,15 @@ def _render_admin_cms_section():
     for post in posts:
         color    = _POST_COLOR.get(post["post_type"], "var(--ink-40)")
         lbl      = type_labels.get(post["post_type"], post["post_type"])
+        from src.i18n import format_date
         created  = post["created_at"]
         expires  = post["expires_at"]
         date_str = (
-            created.strftime(t("cms.date_format_long")) if hasattr(created, "strftime")
+            format_date(created) if hasattr(created, "strftime")
             else str(created)[:10]
         )
         exp_str  = (
-            expires.strftime(t("cms.date_format_long")) if hasattr(expires, "strftime")
+            format_date(expires) if hasattr(expires, "strftime")
             else str(expires)[:10] if expires else t("cms.no_expiry")
         )
         from datetime import datetime, timezone; UTC = timezone.utc

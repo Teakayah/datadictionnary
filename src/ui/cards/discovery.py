@@ -28,9 +28,10 @@ from src.ui.cards._shared import _POST_COLOR, _dq_grade
 
 def _render_table_card(row, key_prefix: str, _pref_delete_fn=None, _pref_upsert_fn=None) -> None:
     """Discovery card: table name is clickable, star toggles bookmark."""
+    from src.i18n import format_date
     _ts = getattr(row, "updated_at", None)
     _time_str = (
-        _ts.strftime(t("discovery.date_format"))
+        format_date(_ts)
         if isinstance(_ts, pd.Timestamp)
         else (str(_ts) if _ts else "")
     )
@@ -106,10 +107,11 @@ def render_cms_banner() -> None:
     for post in posts:
         color      = _POST_COLOR.get(post["post_type"], "var(--ink-40)")
         type_key   = f"cms.type_{post['post_type']}"
+        from src.i18n import format_date
         lbl        = t(type_key)
         created    = post["created_at"]
         date_str   = (
-            created.strftime(t("cms.date_format_short")) if hasattr(created, "strftime")
+            format_date(created, format_type="short") if hasattr(created, "strftime")
             else str(created)[:10]
         )
         body_safe  = _html.escape(post["body"] or "")
