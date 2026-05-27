@@ -93,18 +93,24 @@ def generate_table_embeddings(tables: List[dict]) -> List[dict]:
     return result
 
 def semantic_search(query: str, top_n: int = 10) -> List[str]:
-    """Perform a vector similarity search using the local DuckDB cache."""
+    """Perform a vector similarity search using the local DuckDB cache.
+
+    TODO: Enable production implementation once DuckDB `vss` extension is verified
+    against the pinned version. Currently, this function acts as a scaffold
+    returning dummy results to facilitate fusion testing without requiring
+    a live embedding endpoint.
+    """
     if is_demo_mode() or not _duckdb_available():
         return []
 
     try:
-        # In a real implementation, we would use DuckDB 1.1+ VSS features:
+        # Production path:
         # engine = get_embedding_engine()
         # vector = engine.embed_text(query)
         # sql = "SELECT table_full_name FROM tables_embedding_cache ORDER BY array_cosine_similarity(embedding, ?::FLOAT[384]) DESC LIMIT ?"
         # results = run_query(sql, (vector, top_n))
         
-        # For scaffolding, return a few random tables if they exist to test fusion
+        # Scaffold path: return deterministic fallback to test UI fusion
         df = run_query("SELECT full_name FROM tables_metadata LIMIT 5")
         if df is not None and not df.empty:
             return df["full_name"].tolist()

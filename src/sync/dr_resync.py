@@ -67,10 +67,15 @@ def _get_all_local_max_ts(local_conn) -> dict[str, Optional[str]]:
 
 
 def _merge_into_local(local_conn, table: str, df: pd.DataFrame) -> None:
-    """Insert (or replace) DataFrame rows into user_data.<table>."""
+    """Insert (or replace) DataFrame rows into user_data.<table>.
+
+    Append-only tables (like comments and audit logs) use INSERT OR IGNORE
+    because their IDs are immutable, preventing accidental overwrites.
+    Override tables (like business names) use INSERT OR REPLACE to ensure
+    local edits reflect the latest remote state.
+    """
     if df is None or df.empty:
         return
-    # Append-only tables (immutable IDs) → IGNORE; override tables → REPLACE.
     verb = "INSERT OR IGNORE" if table in ("comments", "audit_log") else "INSERT OR REPLACE"
 
     with local_conn.cursor() as cur:

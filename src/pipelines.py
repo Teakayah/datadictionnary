@@ -47,7 +47,9 @@ _RESOURCE_AZURE_MGMT = "https://management.azure.com/"
 # _RESOURCE_ADO: The well-known, static 1st-party enterprise application ID for Azure DevOps.
 _RESOURCE_ADO        = "499b84ac-1321-427f-aa17-267ca6975798"
 
-# Map backend lifecycle states → progress %
+# Map backend lifecycle states → synthetic progress percentages.
+# These values drive the progress bar in the UI when precise task
+# completions are not available, providing a smoother user experience.
 _DATABRICKS_PROGRESS = {
     "QUEUED": 5, "PENDING": 10, "RUNNING": 55,
     "TERMINATING": 90, "TERMINATED": 100,
