@@ -285,7 +285,8 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                             except PermissionError:
                                 st.error(t("editor.permission_error"))
                             except ValueError as exc:
-                                st.error(str(exc))
+                                logging.error("Save failed for %s.%s: %s", full_name, _cname, exc, exc_info=True)
+                                st.error(t("common.error"))
                             except Exception as exc:
                                 logging.error("Save failed for %s.%s: %s", full_name, _cname, exc, exc_info=True)
                                 # Security: do not expose internal error details to UI
