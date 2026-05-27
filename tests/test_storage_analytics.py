@@ -1,8 +1,7 @@
-import pytest
 import os
 import tempfile
 from datetime import datetime, timezone, timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import streamlit as st
 import duckdb
 
