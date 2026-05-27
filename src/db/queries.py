@@ -468,6 +468,10 @@ def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
     """Export table column metadata to a CSV string.
 
     Includes business name and definition overrides if present.
+
+    @param cols: A DataFrame containing the columns_metadata.
+    @param col_overrides: A dictionary mapping column names to override dictionaries.
+    @returns: A CSV-formatted string of the table metadata.
     """
     output = io.StringIO()
     writer = csv.writer(output)
