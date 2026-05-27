@@ -59,6 +59,45 @@ def _ensure_locale() -> None:
         st.session_state["locale"] = get_locale()
 
 
+def format_number(val: int | float) -> str:
+    """Format a number according to the active locale."""
+    _ensure_locale()
+    lang = st.session_state.get("locale", "en")
+
+    # Very basic locale-aware formatting using standard python string formatting
+    if lang == "fr":
+        # French uses space as thousand separator and comma as decimal
+        if isinstance(val, int):
+            return f"{val:,}".replace(",", " ")
+        else:
+            return f"{val:,.2f}".replace(",", " ").replace(".", ",")
+    else:
+        # Default/English uses comma as thousand separator and dot as decimal
+        if isinstance(val, int):
+            return f"{val:,}"
+        else:
+            return f"{val:,.2f}"
+
+def format_date(dt, format_type="long") -> str:
+    """Format a datetime object according to the active locale."""
+    if not dt or not hasattr(dt, "strftime"):
+        return str(dt or "")
+
+    _ensure_locale()
+    lang = st.session_state.get("locale", "en")
+
+    if lang == "fr":
+        if format_type == "short":
+            return dt.strftime("%d %b")
+        else:
+            return dt.strftime("%d %b %Y %H:%M UTC")
+    else:
+        if format_type == "short":
+            return dt.strftime("%b %d")
+        else:
+            return dt.strftime("%b %d, %Y %H:%M UTC")
+
+
 def t(key: str, **kwargs) -> str:
     """Look up a dotted key (e.g. 'nav.search') in the active locale.
 
@@ -67,6 +106,25 @@ def t(key: str, **kwargs) -> str:
     """
     _ensure_locale()
     lang = st.session_state.get("locale", "en")
+
+    # Pluralization support
+    count_vars = ["count", "n"]
+    count_val = None
+    for cv in count_vars:
+        if cv in kwargs and isinstance(kwargs[cv], (int, float)):
+            count_val = kwargs[cv]
+            break
+
+    if count_val is not None:
+        suffix = "zero" if count_val == 0 else "one" if count_val == 1 else "other"
+        plural_key = f"{key}_{suffix}"
+        parts = plural_key.split(".")
+        val = _lookup(LOCALES.get(lang, {}), parts) or _lookup(LOCALES.get("en", {}), parts)
+        if val is not None:
+            try:
+                return val.format(**kwargs)
+            except (KeyError, IndexError):
+                pass
 
     parts = key.split(".")
     val = _lookup(LOCALES.get(lang, {}), parts) or _lookup(LOCALES.get("en", {}), parts) or key

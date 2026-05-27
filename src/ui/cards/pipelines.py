@@ -235,8 +235,9 @@ def render_pipelines_page():
                 st.progress(progress, text="")
                 _stat_col, _stop_col = st.columns([8, 2], gap="small")
                 with _stat_col:
+                    from src.i18n import format_date
                     triggered_str = (
-                        run["triggered_at"].strftime(t("pipelines.date_format"))
+                        format_date(run["triggered_at"])
                         if hasattr(run.get("triggered_at"), "strftime")
                         else str(run.get("triggered_at", ""))[:16]
                     )

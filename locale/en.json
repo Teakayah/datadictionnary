@@ -34,7 +34,6 @@
     "hero_title": "Search the catalog.",
     "hero_subtitle": "Find data assets across the organization.",
     "placeholder": "Search tables or columns...",
-    "results_count": "{count} results",
     "no_results": "No results found for ‘{query}’",
     "loading": "Searching...",
     "eyebrow": "§ Catalog search",
@@ -46,7 +45,10 @@
     "view_details_help": "View details for this table",
     "back_to_results_help": "Back to search results",
     "start_typing": "Start typing to search the catalog.",
-    "no_access": "You don't have access to any tables yet. Contact your administrator to request access."
+    "no_access": "You don't have access to any tables yet. Contact your administrator to request access.",
+    "results_count_zero": "No results",
+    "results_count_one": "1 result",
+    "results_count_other": "{count} results"
   },
   "catalog": {
     "eyebrow": "§ Catalog browser",
@@ -73,7 +75,6 @@
     "section_comments": "§ Comments",
     "section_related": "§ Related tables",
     "section_downstream": "§ Downstream impact",
-    "downstream_count": "{n} downstream asset(s)",
     "downstream_none": "No known downstream assets.",
     "downstream_certified_warning": "Includes certified or production assets — review carefully before changing.",
     "title": "§ Table detail",
@@ -105,7 +106,10 @@
     "placeholder_desc": "Describe the table's contents, grain, and common use cases...",
     "placeholder_steward": "e.g. data.steward@example.com",
     "table_desc_placeholder": "Describe the table's purpose, contents, and any important caveats...",
-    "steward_email_placeholder": "e.g. data.steward@example.com"
+    "steward_email_placeholder": "e.g. data.steward@example.com",
+    "downstream_count_zero": "No downstream assets",
+    "downstream_count_one": "1 downstream asset",
+    "downstream_count_other": "{n} downstream assets"
   },
   "comment": {
     "add_comment": "Add a comment",
@@ -123,8 +127,7 @@
     "your_reply": "Your reply",
     "max_chars": "Maximum 1000 characters.",
     "empty_error": "Comment cannot be empty.",
-    "no_steward": "No steward configured — comment will be saved but not emailed.",
-    "date_format": "%b %d, %Y %H:%M UTC"
+    "no_steward": "No steward configured — comment will be saved but not emailed."
   },
   "editor": {
     "edit_business_name": "Edit business name",
@@ -137,8 +140,7 @@
     "placeholder_biz_def": "e.g. Unique identifier assigned to each customer at registration.",
     "permission_error": "You do not have permission to edit business names.",
     "edit_mode_banner": "Edit mode — changes are saved immediately and visible to all users.",
-    "last_edited_by": "Last edited by {user} · {date}",
-    "date_format": "%b %d, %Y %H:%M UTC"
+    "last_edited_by": "Last edited by {user} · {date}"
   },
   "admin": {
     "title": "§ Admin",
@@ -200,15 +202,22 @@
     "reviews_approved_toast": "Approved {col}",
     "reviews_rejected_toast": "Rejected {col}",
     "sync_progress": "{pct}% synced with Databricks",
-    "sync_pending": "Pending: {count}",
-    "sync_processing": "Processing: {count}",
-    "sync_done": "Done: {count}",
-    "sync_failed": "Failed: {count}",
     "sync_self_healing": "Self-Healing (DR)",
     "sync_worker_heartbeat": "Worker heartbeat",
     "integrity_no_dq_failures": "No critical DQ failures detected.",
     "integrity_dq_alerts_success": "No critical DQ failures detected.",
-    "date_format": "%b %d, %Y %H:%M UTC"
+    "sync_pending_zero": "Pending: 0",
+    "sync_pending_one": "Pending: 1",
+    "sync_pending_other": "Pending: {count}",
+    "sync_processing_zero": "Processing: 0",
+    "sync_processing_one": "Processing: 1",
+    "sync_processing_other": "Processing: {count}",
+    "sync_done_zero": "Done: 0",
+    "sync_done_one": "Done: 1",
+    "sync_done_other": "Done: {count}",
+    "sync_failed_zero": "Failed: 0",
+    "sync_failed_one": "Failed: 1",
+    "sync_failed_other": "Failed: {count}"
   },
   "health": {
     "title": "§ Catalog health",
@@ -262,7 +271,6 @@
     "no_updates": "No recent updates found for this group.",
     "load_error": "Could not load discovery feed.",
     "sign_in_prompt": "Please sign in or select a group to view discovery highlights.",
-    "date_format": "%b %d, %H:%M UTC",
     "explore_button": "Explore {name} →",
     "updated": "Updated",
     "no_groups": "Your account is not assigned to any data-access groups. Contact your administrator to request access."
@@ -296,7 +304,6 @@
     "start_error": "Could not start pipeline: {error}",
     "stop_error": "Could not stop pipeline: {error}",
     "error_title": "Title is required.",
-    "date_format": "%b %d %H:%M UTC",
     "started_by": "started by {user} · {date}",
     "field_title_placeholder": "e.g. Nightly Data Sync",
     "field_desc_placeholder": "Describe what this pipeline does...",
@@ -332,8 +339,6 @@
     "no_expiry": "never",
     "error_title_required": "Title is required.",
     "error_table_ref_required": "Table reference is required for featured dataset posts.",
-    "date_format_short": "%b %d",
-    "date_format_long": "%b %d, %Y",
     "date_range": "{start} → expires {end}",
     "author_date": "{author} · {date}",
     "post_title_placeholder": "e.g. New Dataset Available",
