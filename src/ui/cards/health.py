@@ -206,17 +206,9 @@ def _render_zero_result_alerts():
         # Display the alert terms inside a clean, interactive dataframe table
         alert_df = pd.DataFrame(alerts)
         
-        # Format timestamps for display
-        def format_ts(val):
-            if isinstance(val, str):
-                return val[:16].replace("T", " ")
-            try:
-                return val.strftime("%Y-%m-%d %H:%M")
-            except Exception:
-                return str(val)
-                
-        alert_df['first_seen'] = alert_df['first_seen'].apply(format_ts)
-        alert_df['last_seen'] = alert_df['last_seen'].apply(format_ts)
+        # ⚡ Bolt: Replace .apply() custom function formatting with vectorized pandas dt.strftime for better performance
+        alert_df['first_seen'] = pd.to_datetime(alert_df['first_seen'], errors='coerce').dt.strftime('%Y-%m-%d %H:%M').fillna(alert_df['first_seen'].astype(str))
+        alert_df['last_seen'] = pd.to_datetime(alert_df['last_seen'], errors='coerce').dt.strftime('%Y-%m-%d %H:%M').fillna(alert_df['last_seen'].astype(str))
         
         st.dataframe(
             alert_df,
