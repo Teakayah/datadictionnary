@@ -35,21 +35,24 @@ class DaemonConn:
             )
         self._con = duckdb.connect(":memory:")
 
-        # Sanitize paths to prevent SQL injection when using f-strings for ATTACH
-        safe_duckdb_path = DUCKDB_PATH.replace("'", "''") if DUCKDB_PATH else ""
-        safe_user_data_path = USER_DATA_PATH.replace("'", "''") if USER_DATA_PATH else ""
+        import uuid
+
+        # Securely quote paths using random dollar-quotes, stripping null-bytes that truncate parsing
+        q_token = f"q_{uuid.uuid4().hex}"
+        safe_duckdb_path = DUCKDB_PATH.replace('\x00', '') if DUCKDB_PATH else ""
+        safe_user_data_path = USER_DATA_PATH.replace('\x00', '') if USER_DATA_PATH else ""
         safe_catalog_cache = CATALOG_CACHE.replace('"', '""')
 
         if DUCKDB_PATH and Path(DUCKDB_PATH).exists():
             self._con.execute(
-                f'ATTACH \'{safe_duckdb_path}\' AS "{safe_catalog_cache}" (READ_ONLY)'  # nosec B608
+                f'ATTACH ${q_token}${safe_duckdb_path}${q_token}$ AS "{safe_catalog_cache}" (READ_ONLY)'  # nosec B608
             )
         else:
             log.info(
                 "Catalog file %s missing — daemon will run without DR resync from cache.",
                 DUCKDB_PATH,
             )
-        self._con.execute(f'ATTACH IF NOT EXISTS \'{safe_user_data_path}\' AS "user_data"')  # nosec B608
+        self._con.execute(f'ATTACH IF NOT EXISTS ${q_token}${safe_user_data_path}${q_token}$ AS "user_data"')  # nosec B608
         _initialize_schema(self._con)
 
     def cursor(self) -> _DuckDBCursor:
