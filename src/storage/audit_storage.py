@@ -13,7 +13,7 @@ Two entities, one module — both write-heavy. Backends:
   (business name + definition).
 
 The Databricks-direct ``Databricks*Storage`` variants were deleted in
-TODO #7 — Streamlit pods now only ever write locally to DuckDB; the
+PR #7 — Streamlit pods now only ever write locally to DuckDB; the
 sidecar sync daemon (ADR 004) is the sole intentional Databricks
 writer, pushing audit events / column comments via
 ``enqueue_sync(...)``.
