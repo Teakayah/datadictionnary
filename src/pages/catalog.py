@@ -46,7 +46,7 @@ def render_catalog_browser(groups, get_authorized_tables_fn):
                 schemas = sorted(list(_schemas_by_cat.get(cat, set())))
 
                 for sch in schemas:
-                    st.html(f'<div style="margin-left: 20px; font-weight: 500; color: var(--ink-60); margin-top: 10px; margin-bottom: 5px;">📂 {_html.escape(str(sch))}</div>')
+                    st.markdown(f"&emsp; :gray[**📂 {sch}**]")
                     tables = sorted(_grouped_tables.get((cat, sch), []))
 
                     # Columns for tables to make it more compact
