@@ -136,11 +136,11 @@ def _render_admin_cms_section():
             f'background:var(--paper-deep);border-radius:0 4px 4px 0;'
             f'opacity:{"0.5" if is_expired else "1"};">'
             f'<span style="font-family:var(--font-mono);font-size:10px;'
-            f'text-transform:uppercase;color:{color};letter-spacing:.08em;">{lbl}</span>'
+            f'text-transform:uppercase;color:{color};letter-spacing:.08em;">{_html.escape(lbl)}</span>'
             f'<span style="font-family:var(--font-sans);font-size:14px;color:var(--ink);'
             f'margin-left:10px;">{_html.escape(post["title"])}</span>'
             f'<span style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);'
-            f'margin-left:10px;">{date_range}</span>'
+            f'margin-left:10px;">{_html.escape(date_range)}</span>'
             f'</div>'
         )
 
