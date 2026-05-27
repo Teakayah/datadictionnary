@@ -48,6 +48,19 @@ _STATUS_FAILED  = frozenset({"FAILED", "Failed", "failed",
                              "CANCELED", "Cancelled", "canceled"})
 
 
+@st.dialog(t("pipelines.confirm_delete_title"))
+def _show_delete_pipeline_dialog(pipeline_id: str):
+    st.write(t("pipelines.confirm_delete_prompt"))
+    _s, _c = st.columns(2)
+    with _s:
+        if st.button(t("pipelines.confirm_delete_button"), type="primary", use_container_width=True):
+            delete_pipeline_def(pipeline_id)
+            st.rerun()
+    with _c:
+        if st.button(t("common.cancel"), use_container_width=True):
+            st.rerun()
+
+
 def _pipeline_status_color(status: str) -> str:
     if status in _STATUS_SUCCESS:
         return "var(--forest)"
@@ -144,8 +157,7 @@ def _render_admin_pipelines_section():
                 "✕", key=f"pl_del_{pl['pipeline_id']}",
                 help=t("pipelines.delete"), use_container_width=True,
             ):
-                delete_pipeline_def(pl["pipeline_id"])
-                st.rerun()
+                _show_delete_pipeline_dialog(pl["pipeline_id"])
 
 
 def render_pipelines_page():
@@ -246,13 +258,14 @@ def render_pipelines_page():
                         help=t("pipelines.stop_help"),
                         type="primary", use_container_width=True,
                     ):
-                        try:
-                            cancel_run(pl, run)
-                            st.toast(t("pipelines.stopped"))
-                        except Exception as _e:
-                            logging.error("Pipeline action failed: %s", _e, exc_info=True)
-                            # Security: do not expose internal error details to UI
-                            st.error(t("pipelines.stop_error"))
+                        with st.spinner(t("pipelines.stopping")):
+                            try:
+                                cancel_run(pl, run)
+                                st.toast(t("pipelines.stopped"))
+                            except Exception as _e:
+                                logging.error("Pipeline action failed: %s", _e, exc_info=True)
+                                # Security: do not expose internal error details to UI
+                                st.error(t("pipelines.stop_error"))
                         st.rerun()
 
             else:
@@ -261,14 +274,15 @@ def render_pipelines_page():
                     help=t("pipelines.start_help"),
                     type="primary", use_container_width=False,
                 ):
-                    try:
-                        trigger_pipeline(pl, actor)
-                        st.toast(t("pipelines.started"))
-                        st.rerun()
-                    except Exception as _e:
-                        logging.error("Pipeline action failed: %s", _e, exc_info=True)
-                        # Security: do not expose internal error details to UI
-                        st.error(t("pipelines.start_error"))
+                    with st.spinner(t("pipelines.starting")):
+                        try:
+                            trigger_pipeline(pl, actor)
+                            st.toast(t("pipelines.started"))
+                            st.rerun()
+                        except Exception as _e:
+                            logging.error("Pipeline action failed: %s", _e, exc_info=True)
+                            # Security: do not expose internal error details to UI
+                            st.error(t("pipelines.start_error"))
 
             st.markdown("<div style='margin-bottom:16px'></div>", unsafe_allow_html=True)
 
