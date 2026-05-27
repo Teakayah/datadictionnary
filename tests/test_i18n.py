@@ -115,3 +115,14 @@ def test_t_handles_index_error_in_format_with_kwargs():
     with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"hello": "Hello {0}"}}):
         mock_st.session_state = {"locale": "en"}
         assert t("hello", wrong_key="World") == "Hello {0}"
+
+def test_lookup():
+    from src.i18n import _lookup
+    d = {"a": {"b": "c"}}
+    assert _lookup(d, ["a", "b"]) == "c"
+    assert _lookup(d, ["a", "x"]) is None
+    assert _lookup(d, ["x", "y"]) is None
+    assert _lookup("not_a_dict", ["a"]) is None
+    assert _lookup(d, []) is None
+    assert _lookup(None, ["a"]) is None
+    assert _lookup(d, ["a"]) is None
