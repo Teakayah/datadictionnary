@@ -296,8 +296,9 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                             st.session_state.pop("dd_col_edit_mode", None)
                             st.rerun()
                     if _override.get("edited_by"):
+                        from src.i18n import format_date
                         st.markdown(
-                            f'<div class="dd-biz-audit">{t("editor.last_edited_by", user=_html.escape(_override["edited_by"]), date=_html.escape(_override.get("edited_at").strftime(t("editor.date_format")) if hasattr(_override.get("edited_at"), "strftime") else str(_override.get("edited_at", ""))))}</div>',
+                            f'<div class="dd-biz-audit">{t("editor.last_edited_by", user=_html.escape(_override["edited_by"]), date=_html.escape(format_date(_override.get("edited_at"))))}</div>',
                             unsafe_allow_html=True,
                         )
         else:
@@ -310,21 +311,23 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         _steward_email = get_table_steward(full_name)
         _comments      = get_table_comments(full_name)
         _n_comments    = sum(1 + len(_c.get("replies", [])) for _c in _comments)
+        from src.i18n import format_number
         st.markdown(
             f'<div class="dd-section-header">'
             f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_comments")}</span>'
-            f'<span class="dd-section-count">{_n_comments}</span>'
+            f'<span class="dd-section-count">{format_number(_n_comments)}</span>'
             f'</div>',
             unsafe_allow_html=True,
         )
 
+        from src.i18n import format_date
         for _c in _comments:
             _cid    = str(_c.get("comment_id", ""))
             _cemail = str(_c.get("author_email", ""))
             st.markdown(
                 f'<div class="dd-comment-row">'
                 f'<span class="dd-comment-author">{_html.escape(str(_c.get("author_name", "")))}</span>'
-                f'<span class="dd-comment-date"> · {_html.escape(_c.get("created_at").strftime(t("comment.date_format")) if hasattr(_c.get("created_at"), "strftime") else str(_c.get("created_at", "")))}</span>'
+                f'<span class="dd-comment-date"> · {_html.escape(format_date(_c.get("created_at")))}</span>'
                 f'<div class="dd-comment-text">{_html.escape(str(_c.get("comment_text", "")))}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
@@ -335,7 +338,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                     st.markdown(
                         f'<div class="dd-comment-row dd-comment-reply">'
                         f'<span class="dd-comment-author">{_html.escape(str(_r.get("author_name", "")))}</span>'
-                        f'<span class="dd-comment-date"> · {_html.escape(_r.get("created_at").strftime(t("comment.date_format")) if hasattr(_r.get("created_at"), "strftime") else str(_r.get("created_at", "")))}</span>'
+                        f'<span class="dd-comment-date"> · {_html.escape(format_date(_r.get("created_at")))}</span>'
                         f'<div class="dd-comment-text">{_html.escape(str(_r.get("comment_text", "")))}</div>'
                         f'</div>',
                         unsafe_allow_html=True,
@@ -408,7 +411,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         st.markdown(
             f'<div class="dd-section-header">'
             f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_downstream")}</span>'
-            f'<span class="dd-section-count">{_n_downstream}</span>'
+            f'<span class="dd-section-count">{format_number(_n_downstream)}</span>'
             f'</div>',
             unsafe_allow_html=True,
         )
@@ -490,7 +493,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             st.markdown(
                 f'<div class="dd-section-header">'
                 f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_lineage")} & {t("detail.section_related")}</span>'
-                f'<span class="dd-section-count">{n_related} {t("detail.related_count")}</span>'
+                f'<span class="dd-section-count">{format_number(n_related)} {t("detail.related_count")}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
