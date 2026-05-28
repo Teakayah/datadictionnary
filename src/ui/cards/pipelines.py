@@ -53,11 +53,11 @@ def _show_delete_pipeline_dialog(pipeline_id: str):
     st.write(t("pipelines.confirm_delete_prompt"))
     _s, _c = st.columns(2)
     with _s:
-        if st.button(t("pipelines.confirm_delete_button"), type="primary", use_container_width=True):
+        if st.button(t("pipelines.confirm_delete_button"), type="primary", use_container_width=True, key=f"pl_confirm_del_{pipeline_id}"):
             delete_pipeline_def(pipeline_id)
             st.rerun()
     with _c:
-        if st.button(t("common.cancel"), use_container_width=True):
+        if st.button(t("common.cancel"), use_container_width=True, key=f"pl_cancel_del_{pipeline_id}"):
             st.rerun()
 
 
