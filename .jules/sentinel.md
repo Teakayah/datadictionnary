@@ -22,3 +22,8 @@
 **Vulnerability:** Leaking exception details to UI via `st.error(str(exc))`
 **Learning:** Returning `str(exc)` in `st.error()` can expose sensitive internal data or traceback context to end users.
 **Prevention:** Always log exceptions internally using `logging.error(..., exc_info=True)` and return generic, safe error messages to the UI.
+
+## 2026-05-28 - Fix Regex Newline Bypass Vulnerability
+**Vulnerability:** Regex patterns anchoring with `$` instead of `\Z` in `src/sync/push.py` allow newline injection.
+**Learning:** In Python's `re` module, `$` allows a trailing newline to bypass validation, leading to potential SQL injection or logic evasion.
+**Prevention:** Always use `\Z` to strictly anchor to the absolute end of a string.
