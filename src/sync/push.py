@@ -106,9 +106,10 @@ def _push_to_databricks(sync_type: str, table_full_name: Optional[str], payload:
     based on the sync_type. Supports updating column definitions, table descriptions,
     steward tags, and inserting audit logs or comments.
 
-    @param sync_type: The type of metadata change to push (e.g., 'COLUMN_DEF', 'TABLE_DESC', 'STEWARD', 'AUDIT', 'COMMENT').
-    @param table_full_name: The Unity Catalog full name of the table (catalog.schema.table), or None if not applicable.
-    @param payload: A dictionary containing the data to push, matching the sync_type requirements.
+    Args:
+        sync_type: The type of metadata change to push (e.g., 'COLUMN_DEF', 'TABLE_DESC', 'STEWARD', 'AUDIT', 'COMMENT').
+        table_full_name: The Unity Catalog full name of the table (catalog.schema.table), or None if not applicable.
+        payload: A dictionary containing the data to push, matching the sync_type requirements.
     """
     host = os.getenv("DATABRICKS_HOST", "").strip()
     http_path = os.getenv("DATABRICKS_HTTP_PATH", "").strip()

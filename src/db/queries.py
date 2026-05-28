@@ -299,9 +299,12 @@ def _search_keywords(query: str, groups: tuple):
       - Substring match → 3 (Tables) / 0 (Columns)
       - Glossary match  → 1
 
-    @param query:  user-entered search string, matched via SQL ``LIKE '%q%'``.
-    @param groups: tuple of Entra ID group Object IDs the user belongs to.
-    @returns:      pandas DataFrame of combined results, sorted by score desc.
+    Args:
+        query:  user-entered search string, matched via SQL ``LIKE '%q%'``.
+        groups: tuple of Entra ID group Object IDs the user belongs to.
+
+    Returns:
+        pandas DataFrame of combined results, sorted by score desc.
     """
 
     logging.info("GLOBAL SEARCH query=%s groups=%s", query, groups)
@@ -469,9 +472,12 @@ def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
 
     Includes business name and definition overrides if present.
 
-    @param cols: A DataFrame containing the columns_metadata.
-    @param col_overrides: A dictionary mapping column names to override dictionaries.
-    @returns: A CSV-formatted string of the table metadata.
+    Args:
+        cols: A DataFrame containing the columns_metadata.
+        col_overrides: A dictionary mapping column names to override dictionaries.
+
+    Returns:
+        A CSV-formatted string of the table metadata.
     """
     output = io.StringIO()
     writer = csv.writer(output)
