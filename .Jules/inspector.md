@@ -1,0 +1,3 @@
+## 2026-05-28 - Testing @st.dialog
+**Learning:** Testing @st.dialog Streamlit functions requires clicking the dialog trigger button and then mocking/asserting the internal dialog component, or directly mocking the dialog rendering function (`_show_delete_pipeline_dialog`) when verifying its triggering, because Streamlit AppTest doesn't natively expose nested dialog state transparently without proper mocked interactions.
+**Action:** Mock the dialog function itself (`@patch("..._show_delete_pipeline_dialog")`) to verify it's called rather than trying to assert inner logic of the dialog from the parent component test.
