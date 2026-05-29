@@ -22,12 +22,21 @@ import logging
 import pandas as pd
 import streamlit as st
 
-from src.audit import approve_business_name, reject_business_name
+from src.audit import (
+    approve_business_name,
+    approve_table_business_name,
+    reject_business_name,
+    reject_table_business_name,
+)
 from src.auth import is_admin
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import _get_write_connection, run_query
-from src.storage import get_business_name_override_storage, get_analytics_storage
+from src.storage import (
+    get_analytics_storage,
+    get_business_name_override_storage,
+    get_table_business_name_override_storage,
+)
 from src.i18n import t
 from src.personalization import is_editing_enabled, set_editing_enabled
 from src.ui.cards.cms_admin import _render_admin_cms_section
@@ -578,6 +587,100 @@ def _render_pending_reviews_section():
                     st.error(t("common.error"))
 
 
+def _render_pending_table_friendly_names_section():
+    """Admin section: approve/reject pending table-level friendly-name proposals.
+
+    Approval here is what enqueues the sidecar write-back to the configured UC
+    business-names table; rejection drops the proposal without touching UC.
+    """
+    import html as _html
+    st.markdown(
+        f'<div class="dd-section-header" style="margin-top:32px;">'
+        f'<span class="dd-eyebrow">§ {t("admin.table_friendly_reviews_title")}</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);'
+        f'line-height:1.5;margin:8px 0 12px;">{t("admin.table_friendly_reviews_subtitle")}</p>',
+        unsafe_allow_html=True,
+    )
+    try:
+        pending = get_table_business_name_override_storage().list_pending()
+    except Exception as exc:
+        logging.warning("Could not load pending table friendly names: %s", exc)
+        pending = []
+
+    if not pending:
+        st.markdown(
+            f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-40);">'
+            f'{t("admin.reviews_empty")}</p>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    from src.i18n import format_date
+    for item in pending:
+        tbl     = str(item.get("table_full_name", ""))
+        name_en = str(item.get("business_name_en", "") or "")
+        name_fr = str(item.get("business_name_fr", "") or "")
+        def_en  = str(item.get("business_definition_en", "") or "")
+        def_fr  = str(item.get("business_definition_fr", "") or "")
+        by      = str(item.get("edited_by", ""))
+        _raw_at = item.get("edited_at")
+        at      = format_date(_raw_at) if hasattr(_raw_at, "strftime") else str(_raw_at or "")
+        st.markdown(
+            f'<div style="background:var(--paper);border:1px solid var(--ink-10);'
+            f'border-radius:4px;padding:12px 16px;margin-bottom:8px;">'
+            f'<div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);'
+            f'text-transform:uppercase;margin-bottom:6px;">{_html.escape(tbl)}</div>'
+            f'<div style="display:flex;gap:24px;margin:6px 0;flex-wrap:wrap;">'
+            f'<div style="flex:1;min-width:240px;">'
+            f'<span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-40);">EN</span>'
+            f'<div style="font-family:var(--font-sans);font-size:14px;font-weight:500;color:var(--ink);">{_html.escape(name_en)}</div>'
+            f'<div style="font-family:var(--font-sans);font-size:12px;color:var(--ink-60);">{_html.escape(def_en)}</div>'
+            f'</div>'
+            f'<div style="flex:1;min-width:240px;">'
+            f'<span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-40);">FR</span>'
+            f'<div style="font-family:var(--font-sans);font-size:14px;font-weight:500;color:var(--ink);">{_html.escape(name_fr)}</div>'
+            f'<div style="font-family:var(--font-sans);font-size:12px;color:var(--ink-60);">{_html.escape(def_fr)}</div>'
+            f'</div>'
+            f'</div>'
+            f'<div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);margin-top:6px;">'
+            f'{t("admin.reviews_proposed_by", user=_html.escape(by), date=_html.escape(at))}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        _c_approve, _c_reject, _ = st.columns([2, 2, 8], gap="small")
+        with _c_approve:
+            if st.button(
+                t("admin.reviews_approve"),
+                key=f"tfn_approve_{tbl}",
+                type="primary", use_container_width=True,
+                help=t("help.btn_approve"),
+            ):
+                try:
+                    approve_table_business_name(tbl)
+                    st.toast(t("admin.table_friendly_approved_toast", table=tbl))
+                    st.rerun()
+                except Exception as exc:
+                    logging.error("Failed to approve table friendly name: %s", exc, exc_info=True)
+                    st.error(t("common.error"))
+        with _c_reject:
+            if st.button(
+                t("admin.reviews_reject"),
+                key=f"tfn_reject_{tbl}",
+                use_container_width=True,
+                help=t("help.btn_reject"),
+            ):
+                try:
+                    reject_table_business_name(tbl)
+                    st.toast(t("admin.table_friendly_rejected_toast", table=tbl))
+                    st.rerun()
+                except Exception as exc:
+                    logging.error("Failed to reject table friendly name: %s", exc, exc_info=True)
+                    st.error(t("common.error"))
+
+
 def render_admin_page():
     if not is_admin():
         st.error(t("admin.access_denied"))
@@ -618,6 +721,7 @@ def render_admin_page():
         with st.expander(t("help.admin_ops_expander")):
             st.markdown(t("help.admin_ops_content"))
         _render_pending_reviews_section()
+        _render_pending_table_friendly_names_section()
         _render_admin_cms_section()
         _render_admin_pipelines_section()
         _render_admin_editing_section()

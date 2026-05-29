@@ -18,6 +18,20 @@ _DEMO_TABLES = pd.DataFrame({
                           pd.Timestamp.now() - pd.Timedelta(hours=5),
                           pd.Timestamp.now() - pd.Timedelta(minutes=30),
                           pd.Timestamp.now() - pd.Timedelta(days=3)],
+    "business_name_en":        ["Customer Master", "Order History", None, None],
+    "business_name_fr":        ["Répertoire clients", "Historique des commandes", None, None],
+    "business_definition_en":  [
+        "Single source of truth for all customer identities and segments.",
+        "All confirmed orders placed by customers, enriched with fulfilment data.",
+        None,
+        None,
+    ],
+    "business_definition_fr":  [
+        "Source de vérité unique pour toutes les identités et segments clients.",
+        "Toutes les commandes confirmées, enrichies des données de traitement.",
+        None,
+        None,
+    ],
 })
 
 _DEMO_COLUMNS = {

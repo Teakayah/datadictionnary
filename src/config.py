@@ -54,6 +54,16 @@ MOCK_DEPT = os.getenv("MOCK_DEPT", "Finance")
 ENABLE_SEMANTIC_SEARCH = os.getenv("ENABLE_SEMANTIC_SEARCH", "false").lower() == "true"
 DATABRICKS_EMBEDDING_ENDPOINT = os.getenv("DATABRICKS_EMBEDDING_ENDPOINT", "")
 
+# ── Business friendly-name source (Unity Catalog) ────────────────────────────
+# Read on every sync, written to with admin approval. Table + column names are
+# configurable so the source can move or be renamed without a code change.
+BUSINESS_NAMES_TABLE         = os.getenv("BUSINESS_NAMES_TABLE", "governance.dictionary.business_names")
+BUSINESS_NAMES_COL_FULL_NAME = os.getenv("BUSINESS_NAMES_COL_FULL_NAME", "full_name")
+BUSINESS_NAMES_COL_NAME_EN   = os.getenv("BUSINESS_NAMES_COL_NAME_EN", "friendly_name_eng")
+BUSINESS_NAMES_COL_NAME_FR   = os.getenv("BUSINESS_NAMES_COL_NAME_FR", "friendly_name_fr")
+BUSINESS_NAMES_COL_DEF_EN    = os.getenv("BUSINESS_NAMES_COL_DEF_EN", "field_definition_eng")
+BUSINESS_NAMES_COL_DEF_FR    = os.getenv("BUSINESS_NAMES_COL_DEF_FR", "field_definition_fr")
+
 def is_demo_mode() -> bool:
     """Return True if demo mode is enabled via environment variable."""
     return os.getenv("DEMO_DATA", "false").lower() == "true"

@@ -23,7 +23,11 @@ from src.auth import is_admin
 from src.comments import get_table_comments, save_comment
 from src.audit import save_business_name, get_table_steward
 from src.ui.cards._shared import _dq_grade, _compute_live_completeness
-from src.ui.cards.detail import render_table_metadata_editor, render_data_sample
+from src.ui.cards.detail import (
+    render_data_sample,
+    render_table_business_name_editor,
+    render_table_metadata_editor,
+)
 from src.ui.lineage import _build_lineage_graph, _lineage_vis_html, render_lineage_fullscreen
 
 
@@ -96,8 +100,21 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         _cat  = str(row["catalog_name"])
         _sch  = str(row["schema_name"])
         _tbl  = str(row["table_name"])
+        # Friendly name and definition come from the bilingual UC reference
+        # table populated at sync time. Locale switches at runtime are picked
+        # up by reading st.session_state on every render.
+        _locale = st.session_state.get("locale", "en") or "en"
+        _bn_col = "business_name_fr" if _locale == "fr" else "business_name_en"
+        _bd_col = "business_definition_fr" if _locale == "fr" else "business_definition_en"
+        _friendly = row.get(_bn_col) if hasattr(row, "get") else None
+        _friendly = str(_friendly).strip() if _friendly else ""
+        _bdef = row.get(_bd_col) if hasattr(row, "get") else None
+        _bdef = str(_bdef).strip() if _bdef else ""
         _raw_desc = row.get("table_description", "")
-        _desc = _html.escape(str(_raw_desc) if isinstance(_raw_desc, str) else "")
+        # Prefer the friendly definition when present; the technical comment
+        # stays the fallback so the description rail is never blank.
+        _display_desc = _bdef or (str(_raw_desc) if isinstance(_raw_desc, str) else "")
+        _desc = _html.escape(_display_desc)
 
         _host = _html.escape(os.getenv("DATABRICKS_HOST", "").strip())
         _url_cat = quote(str(row["catalog_name"]))
@@ -129,23 +146,45 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         _grade, _gcls = _dq_grade(_score)
 
         _steward = _html.escape(str(row.get("steward_email", "")))
+        # When a friendly name is present we promote it to the H1 in the
+        # display font and demote the technical table name to a mono sub-line.
+        # When absent we keep the original H1 = table_name and skip the
+        # sub-line entirely so layout doesn't shift.
+        _h1 = _html.escape(_friendly) if _friendly else _html.escape(_tbl)
+        _sub = (
+            f'<div class="dd-tech-name-sub" style="margin-top:4px;margin-bottom:8px;">'
+            f'{_html.escape(_tbl)}</div>'
+            if _friendly else ""
+        )
         st.markdown(
             f'<div class="dd-eyebrow" style="margin-bottom:4px">{_html.escape(_cat)} · {_html.escape(_sch)}</div>'
-            f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
-            f'<div class="dd-detail-table-name" style="margin-bottom:0">{_html.escape(_tbl)}</div>'
+            f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0;">'
+            f'<div class="dd-detail-table-name" style="margin-bottom:0">{_h1}</div>'
             f'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">'
             f'<span class="dd-dq-badge {_gcls}" style="width:32px;height:32px;font-size:14px;" '
             f'title="Completeness {_score:.0f}/100">{_grade}</span>'
             f'<span style="font-family:var(--font-mono);font-size:13px;color:var(--ink-60);">{_score:.0f}%</span>'
             f'</div>'
             f'</div>'
+            f'{_sub}'
             f'<p class="dd-detail-desc">{_desc}</p>{_ext_link}',
             unsafe_allow_html=True,
         )
 
         if is_power_user():
-            if st.button(f"✎ {t('detail.edit_table')}", key=f"edit_tbl_{full_name}", help=t("detail.edit_table_help"), type="secondary"):
-                render_table_metadata_editor(full_name, _raw_desc, _steward)
+            _c_em, _c_efn = st.columns([1, 1], gap="small")
+            with _c_em:
+                if st.button(f"✎ {t('detail.edit_table')}", key=f"edit_tbl_{full_name}", help=t("detail.edit_table_help"), type="secondary", use_container_width=True):
+                    render_table_metadata_editor(full_name, _raw_desc, _steward)
+            with _c_efn:
+                if st.button(f"✎ {t('detail.edit_friendly_name')}", key=f"edit_friendly_{full_name}", help=t("detail.edit_friendly_name_help"), type="secondary", use_container_width=True):
+                    render_table_business_name_editor(
+                        full_name,
+                        current_name_en=str(row.get("business_name_en", "") or ""),
+                        current_name_fr=str(row.get("business_name_fr", "") or ""),
+                        current_def_en=str(row.get("business_definition_en", "") or ""),
+                        current_def_fr=str(row.get("business_definition_fr", "") or ""),
+                    )
 
         # Bookmark + full_name row
         _is_bk = full_name in st.session_state.get("bookmarks", set())

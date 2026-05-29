@@ -17,7 +17,9 @@ import logging
 import pandas as pd
 import streamlit as st
 
-from src.audit import save_table_metadata
+from src.audit import save_table_metadata, save_table_business_name
+from src.auth import is_admin
+from src.storage import get_table_business_name_override_storage
 from src.config import CATALOG_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import get_authorized_table_names, run_query
@@ -57,6 +59,67 @@ def render_table_metadata_editor(table_full_name: str, current_desc: str, curren
                     logging.error("Save failed for %s: %s", table_full_name, e, exc_info=True)
                     # Security: do not expose internal error details to UI
                     st.error(t("common.error"))
+    with c2:
+        if st.button(t("common.cancel"), use_container_width=True):
+            st.rerun()
+
+
+@st.dialog(t("detail.edit_friendly_name"), width="large")
+def render_table_business_name_editor(
+    table_full_name: str,
+    current_name_en: str = "",
+    current_name_fr: str = "",
+    current_def_en: str = "",
+    current_def_fr: str = "",
+):
+    """Editor for the bilingual table-level friendly name + definition.
+
+    Editors (non-admin power users) submit pending proposals; admins publish
+    immediately. The sidecar handles the write-back to the configured UC
+    reference table once a proposal is approved.
+    """
+    st.markdown(f"**{table_full_name}**")
+
+    # Hand-roll defaults from the override store when the caller didn't pass
+    # them (e.g. opening the dialog for a table that already has a pending
+    # proposal). The store returns the published value; an editor proposing
+    # on top of that will create a new pending row.
+    if not any([current_name_en, current_name_fr, current_def_en, current_def_fr]):
+        try:
+            override = get_table_business_name_override_storage().get_for_table(table_full_name)
+            current_name_en = override.get("business_name_en", "")
+            current_name_fr = override.get("business_name_fr", "")
+            current_def_en  = override.get("business_definition_en", "")
+            current_def_fr  = override.get("business_definition_fr", "")
+        except Exception as exc:
+            logging.warning("Could not load existing friendly name for %s: %s", table_full_name, exc)
+
+    if not is_admin():
+        st.info(t("detail.friendly_name_pending_notice"))
+
+    new_name_en = st.text_input(t("detail.friendly_name_en"), value=current_name_en)
+    new_name_fr = st.text_input(t("detail.friendly_name_fr"), value=current_name_fr)
+    new_def_en  = st.text_area(t("detail.friendly_definition_en"), value=current_def_en, height=120)
+    new_def_fr  = st.text_area(t("detail.friendly_definition_fr"), value=current_def_fr, height=120)
+
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        if st.button(t("common.save"), type="primary", use_container_width=True):
+            try:
+                save_table_business_name(
+                    table_full_name,
+                    new_name_en.strip(), new_name_fr.strip(),
+                    new_def_en.strip(),  new_def_fr.strip(),
+                )
+                st.toast(t("common.saved"))
+                st.rerun()
+            except PermissionError:
+                st.error(t("detail.unauthorized"))
+            except ValueError as e:
+                st.error(str(e))
+            except Exception as e:
+                logging.error("Friendly-name save failed for %s: %s", table_full_name, e, exc_info=True)
+                st.error(t("common.error"))
     with c2:
         if st.button(t("common.cancel"), use_container_width=True):
             st.rerun()

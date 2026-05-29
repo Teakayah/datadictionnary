@@ -337,3 +337,227 @@ class FakeBusinessNameOverrideStorage:
     def reject(self, table_full_name: str, column_name: str) -> None:
         self.data.get(table_full_name, {}).pop(column_name, None)
         self.pending_data.pop((table_full_name, column_name), None)
+
+
+# ── Table-level friendly-name overrides ──────────────────────────────────────
+
+
+@dataclass
+class TableBusinessNameOverride:
+    table_full_name: str
+    business_name_en: str
+    business_name_fr: str
+    business_definition_en: str
+    business_definition_fr: str
+    edited_by: str
+    status: str = "pending_approval"
+
+
+@runtime_checkable
+class TableBusinessNameOverrideStorage(Protocol):
+    """Read + write table-level bilingual friendly-name overrides.
+
+    Lifecycle: edits land as ``status='pending_approval'`` until an admin
+    approves; only published rows surface via ``get_for_table`` and only
+    approval enqueues the sidecar write-back into the UC reference table.
+    """
+
+    def get_for_table(self, table_full_name: str) -> dict: ...
+    def upsert(self, override: TableBusinessNameOverride) -> None: ...
+    def list_pending(self) -> list: ...
+    def approve(self, table_full_name: str) -> dict: ...
+    def reject(self, table_full_name: str) -> None: ...
+
+
+class DemoTableBusinessNameOverrideStorage:
+    _KEY = "demo_table_business_names"
+    _PENDING_KEY = "demo_table_business_names_pending"
+
+    def get_for_table(self, table_full_name: str) -> dict:
+        entry = st.session_state.get(self._KEY, {}).get(table_full_name)
+        if not entry or entry.get("status", "published") != "published":
+            return {}
+        return {k: v for k, v in entry.items() if k != "status"}
+
+    def upsert(self, override: TableBusinessNameOverride) -> None:
+        store = st.session_state.setdefault(self._KEY, {})
+        pending_store = st.session_state.setdefault(self._PENDING_KEY, {})
+        item = {
+            "business_name_en":       override.business_name_en,
+            "business_name_fr":       override.business_name_fr,
+            "business_definition_en": override.business_definition_en,
+            "business_definition_fr": override.business_definition_fr,
+            "edited_by":              override.edited_by,
+            "edited_at":              "just now",
+            "status":                 override.status,
+        }
+        store[override.table_full_name] = item
+        if override.status == "pending_approval":
+            pending_store[override.table_full_name] = {
+                "table_full_name": override.table_full_name,
+                **{k: v for k, v in item.items() if k != "status"},
+            }
+        else:
+            pending_store.pop(override.table_full_name, None)
+
+    def list_pending(self) -> list:
+        return list(st.session_state.get(self._PENDING_KEY, {}).values())
+
+    def approve(self, table_full_name: str) -> dict:
+        entry = st.session_state.get(self._KEY, {}).get(table_full_name)
+        if entry:
+            entry["status"] = "published"
+            st.session_state.get(self._PENDING_KEY, {}).pop(table_full_name, None)
+            return {k: v for k, v in entry.items() if k != "status"}
+        return {}
+
+    def reject(self, table_full_name: str) -> None:
+        st.session_state.get(self._KEY, {}).pop(table_full_name, None)
+        st.session_state.get(self._PENDING_KEY, {}).pop(table_full_name, None)
+
+
+class DuckDBTableBusinessNameOverrideStorage:
+    def get_for_table(self, table_full_name: str) -> dict:
+        try:
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT business_name_en, business_name_fr, "
+                    "business_definition_en, business_definition_fr, edited_by, edited_at "
+                    "FROM user_data.table_business_name_overrides "
+                    "WHERE table_full_name = %(fn)s AND status = 'published'",
+                    {"fn": table_full_name},
+                )
+                rows = cursor.fetchall_as_pandas()
+                if rows is None or rows.empty:
+                    return {}
+                r = rows.iloc[0]
+                return {
+                    "business_name_en":       str(r.get("business_name_en") or ""),
+                    "business_name_fr":       str(r.get("business_name_fr") or ""),
+                    "business_definition_en": str(r.get("business_definition_en") or ""),
+                    "business_definition_fr": str(r.get("business_definition_fr") or ""),
+                    "edited_by":              str(r.get("edited_by") or ""),
+                    "edited_at":              str(r.get("edited_at") or ""),
+                }
+        except Exception as exc:
+            log.warning("Could not fetch table friendly name for %s: %s", table_full_name, exc)
+        return {}
+
+    def upsert(self, override: TableBusinessNameOverride) -> None:
+        conn = _get_write_connection()
+        with conn.cursor() as cursor:
+            cursor.execute_write(
+                """
+                INSERT INTO user_data.table_business_name_overrides (
+                    table_full_name, business_name_en, business_name_fr,
+                    business_definition_en, business_definition_fr,
+                    edited_by, edited_at, status
+                ) VALUES (
+                    %(fn)s, %(name_en)s, %(name_fr)s,
+                    %(def_en)s, %(def_fr)s,
+                    %(by)s, current_localtimestamp(), %(status)s
+                )
+                ON CONFLICT (table_full_name) DO UPDATE SET
+                    business_name_en       = excluded.business_name_en,
+                    business_name_fr       = excluded.business_name_fr,
+                    business_definition_en = excluded.business_definition_en,
+                    business_definition_fr = excluded.business_definition_fr,
+                    edited_by              = excluded.edited_by,
+                    edited_at              = current_localtimestamp(),
+                    status                 = excluded.status
+                """,
+                {
+                    "fn":      override.table_full_name,
+                    "name_en": override.business_name_en,
+                    "name_fr": override.business_name_fr,
+                    "def_en":  override.business_definition_en,
+                    "def_fr":  override.business_definition_fr,
+                    "by":      override.edited_by,
+                    "status":  override.status,
+                },
+            )
+
+    def list_pending(self) -> list:
+        try:
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT table_full_name, business_name_en, business_name_fr, "
+                    "business_definition_en, business_definition_fr, edited_by, edited_at "
+                    "FROM user_data.table_business_name_overrides "
+                    "WHERE status = 'pending_approval' "
+                    "ORDER BY edited_at DESC"
+                )
+                rows = cursor.fetchall_as_pandas()
+                if rows is not None and not rows.empty:
+                    return rows.to_dict(orient="records")
+        except Exception as exc:
+            log.warning("Could not fetch pending table friendly names: %s", exc)
+        return []
+
+    def approve(self, table_full_name: str) -> dict:
+        conn = _get_write_connection()
+        with conn.cursor() as cursor:
+            cursor.execute_write(
+                "UPDATE user_data.table_business_name_overrides SET status = 'published' "
+                "WHERE table_full_name = %(fn)s",
+                {"fn": table_full_name},
+            )
+        # Return the now-published row so the caller can enqueue the sidecar push.
+        return self.get_for_table(table_full_name)
+
+    def reject(self, table_full_name: str) -> None:
+        conn = _get_write_connection()
+        with conn.cursor() as cursor:
+            cursor.execute_write(
+                "DELETE FROM user_data.table_business_name_overrides "
+                "WHERE table_full_name = %(fn)s AND status = 'pending_approval'",
+                {"fn": table_full_name},
+            )
+
+
+class FakeTableBusinessNameOverrideStorage:
+    def __init__(self) -> None:
+        self.data: dict[str, dict] = {}
+        self.pending_data: dict[str, dict] = {}
+
+    def get_for_table(self, table_full_name: str) -> dict:
+        entry = self.data.get(table_full_name)
+        if not entry or entry.get("status", "published") != "published":
+            return {}
+        return {k: v for k, v in entry.items() if k != "status"}
+
+    def upsert(self, override: TableBusinessNameOverride) -> None:
+        item = {
+            "business_name_en":       override.business_name_en,
+            "business_name_fr":       override.business_name_fr,
+            "business_definition_en": override.business_definition_en,
+            "business_definition_fr": override.business_definition_fr,
+            "edited_by":              override.edited_by,
+            "edited_at":              "just now",
+            "status":                 override.status,
+        }
+        self.data[override.table_full_name] = item
+        if override.status == "pending_approval":
+            self.pending_data[override.table_full_name] = {
+                "table_full_name": override.table_full_name,
+                **{k: v for k, v in item.items() if k != "status"},
+            }
+        else:
+            self.pending_data.pop(override.table_full_name, None)
+
+    def list_pending(self) -> list:
+        return list(self.pending_data.values())
+
+    def approve(self, table_full_name: str) -> dict:
+        entry = self.data.get(table_full_name)
+        if entry:
+            entry["status"] = "published"
+            self.pending_data.pop(table_full_name, None)
+            return {k: v for k, v in entry.items() if k != "status"}
+        return {}
+
+    def reject(self, table_full_name: str) -> None:
+        self.data.pop(table_full_name, None)
+        self.pending_data.pop(table_full_name, None)
