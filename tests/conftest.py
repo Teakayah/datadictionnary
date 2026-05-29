@@ -23,6 +23,31 @@ import streamlit as st
 from unittest.mock import MagicMock
 
 
+# ── AppTest ButtonGroup.value fix ─────────────────────────────────────────────
+# Streamlit AppTest's ButtonGroup.value reads session_state and returns whatever
+# is stored there. For st.segmented_control with selection_mode="single", the
+# stored value is a plain string. ButtonGroup.indices then does
+#   [format_func(v) for v in self.value]
+# and iterating over a string yields individual characters, causing:
+#   ValueError: content: "N" is not in list
+# Wrap non-list values in a list so the iteration works correctly.
+try:
+    from streamlit.testing.v1.element_tree import ButtonGroup as _BG
+    _orig_value_fget = _BG.value.fget
+
+    def _patched_value(self):
+        v = _orig_value_fget(self)
+        if v is None:
+            return []
+        if not isinstance(v, list):
+            return [v]
+        return v
+
+    _BG.value = property(_patched_value)
+except Exception:
+    pass  # if Streamlit internals change, fail loudly in the tests themselves
+
+
 # ── Test environment — enable mock auth so AppTest runs without Entra ID ──────
 import os as _os
 _os.environ.setdefault("ENABLE_MOCK_AUTH", "true")

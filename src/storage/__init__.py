@@ -52,10 +52,15 @@ from src.storage.audit_storage import (  # noqa: F401
     BusinessNameOverrideStorage,
     DemoAuditStorage,
     DemoBusinessNameOverrideStorage,
+    DemoTableBusinessNameOverrideStorage,
     DuckDBAuditStorage,
     DuckDBBusinessNameOverrideStorage,
+    DuckDBTableBusinessNameOverrideStorage,
     FakeAuditStorage,
     FakeBusinessNameOverrideStorage,
+    FakeTableBusinessNameOverrideStorage,
+    TableBusinessNameOverride,
+    TableBusinessNameOverrideStorage,
 )
 from src.storage.analytics_storage import (  # noqa: F401
     AnalyticsStorage,
@@ -140,6 +145,14 @@ def get_business_name_override_storage() -> BusinessNameOverrideStorage:
     return (
         DemoBusinessNameOverrideStorage() if _use_demo_backend()
         else DuckDBBusinessNameOverrideStorage()
+    )
+
+
+def get_table_business_name_override_storage() -> TableBusinessNameOverrideStorage:
+    """Pick a table-level friendly-name override backend (demo / DuckDB)."""
+    return (
+        DemoTableBusinessNameOverrideStorage() if _use_demo_backend()
+        else DuckDBTableBusinessNameOverrideStorage()
     )
 
 

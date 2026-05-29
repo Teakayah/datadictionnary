@@ -31,6 +31,37 @@ from src.db.duckdb_adapter import _duckdb_available, _DuckDBConn, _run_duckdb_qu
 from src.db.databricks_adapter import _run_databricks_query
 
 
+def _current_locale() -> str:
+    """Return the active Streamlit locale ('en' or 'fr'), defaulting to 'en'.
+
+    Read inline (not module-level) so locale switches mid-session are picked up
+    by the next query without a process restart.
+    """
+    try:
+        return st.session_state.get("locale", "en") or "en"
+    except Exception:
+        return "en"
+
+
+def business_name_expr(table_alias: str = "m") -> str:
+    """Locale-aware SQL expression for the user-facing table name.
+
+    Returns ``COALESCE(<alias>.business_name_<locale>, <alias>.table_name)``
+    so every read surfaces the friendly name when present and the technical
+    name otherwise. Use as a SELECT expression — caller adds the column alias.
+    """
+    col = "business_name_fr" if _current_locale() == "fr" else "business_name_en"
+    return f"COALESCE({table_alias}.{col}, {table_alias}.table_name)"
+
+
+def business_definition_expr(table_alias: str = "m") -> str:
+    """Locale-aware SQL expression for the friendly definition (no fallback —
+    callers chain their own COALESCE if they also want the technical comment).
+    """
+    col = "business_definition_fr" if _current_locale() == "fr" else "business_definition_en"
+    return f"{table_alias}.{col}"
+
+
 def _get_write_connection():
     """Return a DuckDB connection for write operations.
 
@@ -324,19 +355,34 @@ def _search_keywords(query: str, groups: tuple):
         else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.table_metadata_overrides"
     )
 
+    _bn_expr  = business_name_expr("m")
+    _bdf_expr = business_definition_expr("m")
+
     sql_query = (
         """
         SELECT DISTINCT
-            m.full_name, m.table_name AS name, 'Table' AS match_type,
-            COALESCE(o.description, m.comment) AS description, 
+            m.full_name,
+            """ + _bn_expr + """ AS name,
+            'Table' AS match_type,
+            COALESCE(""" + _bdf_expr + """, o.description, m.comment) AS description,
             m.catalog_name, m.schema_name, m.table_name,
-            COALESCE(o.description, m.comment) AS table_description,
-            COALESCE(dq.dq_score, '') AS dq_score
+            COALESCE(""" + _bdf_expr + """, o.description, m.comment) AS table_description,
+            COALESCE(dq.dq_score, '') AS dq_score,
+            m.business_name_en, m.business_name_fr,
+            m.business_definition_en, m.business_definition_fr
         FROM {0}.{1}.tables_metadata m
         JOIN {0}.{1}.permissions_cache p ON m.full_name = p.table_full_name
         LEFT JOIN {3} o ON m.full_name = o.table_full_name
         LEFT JOIN {0}.{1}.data_quality_cache dq ON m.full_name = dq.table_full_name
-        WHERE (m.table_name LIKE %(q)s OR m.comment LIKE %(q)s OR o.description LIKE %(q)s)
+        WHERE (
+              m.table_name LIKE %(q)s
+              OR m.comment LIKE %(q)s
+              OR o.description LIKE %(q)s
+              OR m.business_name_en LIKE %(q)s
+              OR m.business_name_fr LIKE %(q)s
+              OR m.business_definition_en LIKE %(q)s
+              OR m.business_definition_fr LIKE %(q)s
+        )
           AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
 
         UNION ALL
@@ -346,9 +392,11 @@ def _search_keywords(query: str, groups: tuple):
             COALESCE(ob.business_name, c.column_name) AS name,
             'Column' AS match_type,
             COALESCE(ob.definition, c.comment) AS description,
-            t.catalog_name, t.schema_name, t.table_name, 
+            t.catalog_name, t.schema_name, t.table_name,
             COALESCE(ot.description, t.comment) AS table_description,
-            COALESCE(dq.dq_score, '') AS dq_score
+            COALESCE(dq.dq_score, '') AS dq_score,
+            t.business_name_en, t.business_name_fr,
+            t.business_definition_en, t.business_definition_fr
         FROM {0}.{1}.columns_metadata c
         JOIN {0}.{1}.permissions_cache p ON c.table_full_name = p.table_full_name
         JOIN {0}.{1}.tables_metadata t ON c.table_full_name = t.full_name

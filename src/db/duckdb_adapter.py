@@ -107,6 +107,18 @@ _SCHEMA_STATEMENTS = (
         )
     """,
     """
+        CREATE TABLE IF NOT EXISTS user_data.table_business_name_overrides (
+            table_full_name        VARCHAR PRIMARY KEY,
+            business_name_en       VARCHAR,
+            business_name_fr       VARCHAR,
+            business_definition_en VARCHAR,
+            business_definition_fr VARCHAR,
+            edited_by              VARCHAR,
+            edited_at              TIMESTAMP,
+            status                 VARCHAR DEFAULT 'pending_approval'
+        )
+    """,
+    """
         CREATE TABLE IF NOT EXISTS user_data.audit_log (
             event_id        VARCHAR PRIMARY KEY,
             event_type      VARCHAR,

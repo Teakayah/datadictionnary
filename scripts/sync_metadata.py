@@ -29,16 +29,32 @@ def setup_cache_tables():
             # Table for structural metadata
             cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata (
-                    full_name      STRING,
-                    catalog_name   STRING,
-                    schema_name    STRING,
-                    table_name     STRING,
-                    table_type     STRING,
-                    comment        STRING,
-                    updated_at     TIMESTAMP,
-                    steward_email  STRING
+                    full_name              STRING,
+                    catalog_name           STRING,
+                    schema_name            STRING,
+                    table_name             STRING,
+                    table_type             STRING,
+                    comment                STRING,
+                    updated_at             TIMESTAMP,
+                    steward_email          STRING,
+                    business_name_en       STRING,
+                    business_name_fr       STRING,
+                    business_definition_en STRING,
+                    business_definition_fr STRING
                 )
             """)
+            # Forward-compatibility migrations for caches created before the
+            # business-name columns existed. ADD COLUMN IF NOT EXISTS is a
+            # Databricks Runtime 14.0+ feature; the four NOOPs on a fresh
+            # CREATE above are cheap.
+            for _col in (
+                "business_name_en", "business_name_fr",
+                "business_definition_en", "business_definition_fr",
+            ):
+                cursor.execute(
+                    f"ALTER TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata "
+                    f"ADD COLUMN IF NOT EXISTS {_col} STRING"
+                )
             
             # Table for column details
             cursor.execute(f"""
@@ -377,6 +393,52 @@ def sync():
     except Exception as e:
         print(f"  ⚠  DQ enrichment step failed: {e}")
 
+    # 2b-bis. Enrich tables_data with bilingual friendly names + definitions
+    # from the configured Unity Catalog reference table. Missing matches stay
+    # null. A missing/renamed source table logs a warning and skips the step
+    # — the rest of the sync continues so a one-off governance outage doesn't
+    # blank-out the catalog.
+    print("📛 Joining friendly names from business-names reference table...")
+    try:
+        if os.path.dirname(__file__) not in sys.path:
+            sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+        from src.config import (  # noqa: PLC0415
+            BUSINESS_NAMES_TABLE,
+            BUSINESS_NAMES_COL_FULL_NAME,
+            BUSINESS_NAMES_COL_NAME_EN,
+            BUSINESS_NAMES_COL_NAME_FR,
+            BUSINESS_NAMES_COL_DEF_EN,
+            BUSINESS_NAMES_COL_DEF_FR,
+        )
+        with get_sql_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT {BUSINESS_NAMES_COL_FULL_NAME} AS full_name, "
+                    f"       {BUSINESS_NAMES_COL_NAME_EN} AS name_en, "
+                    f"       {BUSINESS_NAMES_COL_NAME_FR} AS name_fr, "
+                    f"       {BUSINESS_NAMES_COL_DEF_EN}  AS def_en, "
+                    f"       {BUSINESS_NAMES_COL_DEF_FR}  AS def_fr "
+                    f"FROM {BUSINESS_NAMES_TABLE}"
+                )
+                bn_df = cursor.fetchall_as_pandas()
+        bn_map = {
+            str(r["full_name"]): r for _, r in bn_df.iterrows()
+        } if bn_df is not None and not bn_df.empty else {}
+        for row in tables_data:
+            match = bn_map.get(row["full_name"])
+            row["business_name_en"]       = (match["name_en"] if match is not None else None) or None
+            row["business_name_fr"]       = (match["name_fr"] if match is not None else None) or None
+            row["business_definition_en"] = (match["def_en"]  if match is not None else None) or None
+            row["business_definition_fr"] = (match["def_fr"]  if match is not None else None) or None
+        print(f"  matched {sum(1 for r in tables_data if r['business_name_en'] or r['business_name_fr'])} / {len(tables_data)} tables")
+    except Exception as e:
+        print(f"  ⚠  Friendly-name join failed ({e}); writing nulls for all rows")
+        for row in tables_data:
+            row.setdefault("business_name_en",       None)
+            row.setdefault("business_name_fr",       None)
+            row.setdefault("business_definition_en", None)
+            row.setdefault("business_definition_fr", None)
+
     # 2c. Generate semantic embeddings for search (Phase 2)
     print("🧠 Generating semantic embeddings for search...")
     embeddings_data = []
@@ -403,7 +465,11 @@ def sync():
 
             if tables_data:
                 cursor.executemany(
-                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp(), %(steward_email)s)",
+                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata "
+                    "VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, "
+                    "%(table_name)s, %(table_type)s, %(comment)s, current_timestamp(), "
+                    "%(steward_email)s, %(business_name_en)s, %(business_name_fr)s, "
+                    "%(business_definition_en)s, %(business_definition_fr)s)",
                     tables_data
                 )
             if columns_data:

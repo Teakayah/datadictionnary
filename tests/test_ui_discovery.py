@@ -51,7 +51,7 @@ class TestDiscoveryTabs:
         mock_get_posts.return_value = []
         at = AppTest.from_function(render_discovery_page_app).run()
 
-        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_bookmarks"]
+        at.button_group(key="discovery_active_tab").set_value([en_locale["personalization"]["tab_bookmarks"]])
         at.session_state["bookmarks"] = {"main.sales.orders"}
         at.run()
         html = [m.value for m in at.markdown]
@@ -63,7 +63,7 @@ class TestDiscoveryTabs:
         mock_get_posts.return_value = []
         at = AppTest.from_function(render_discovery_page_app).run()
 
-        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_recent"]
+        at.button_group(key="discovery_active_tab").set_value([en_locale["personalization"]["tab_recent"]])
         at.session_state["recent_views"] = ["main.finance.ledger"]
         at.run()
         html = [m.value for m in at.markdown]
@@ -75,7 +75,7 @@ class TestDiscoveryTabs:
         mock_get_posts.return_value = []
         at = AppTest.from_function(render_discovery_page_app).run()
 
-        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_recommended"]
+        at.button_group(key="discovery_active_tab").set_value([en_locale["personalization"]["tab_recommended"]])
 
         with patch("src.ui.cards.discovery._get_recommended_tables", return_value=["main.sales.orders"]):
             at.run()
@@ -140,7 +140,8 @@ class TestDiscoveryTabs:
         at = AppTest.from_function(render_discovery_page_app).run()
 
         # Test remap with stored invalid label (e.g. after language switch)
-        at.session_state["discovery_active_tab"] = "Non-existent label"
+        # Simulate locale switch: clear the tab value (None triggers remap) + set index
+        at.button_group(key="discovery_active_tab").set_value([])
         at.session_state["_disc_tab_idx"] = 1
         at.run()
 
@@ -153,7 +154,7 @@ class TestDiscoveryTabs:
         mock_get_posts.return_value = []
         at = AppTest.from_function(render_discovery_page_app).run()
 
-        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_bookmarks"]
+        at.button_group(key="discovery_active_tab").set_value([en_locale["personalization"]["tab_bookmarks"]])
         at.session_state["bookmarks"] = set()
         at.session_state["col_bookmarks"] = {"main.sales.orders::amount"}
         at.run()
@@ -167,7 +168,7 @@ class TestDiscoveryTabs:
         mock_get_posts.return_value = []
         at = AppTest.from_function(render_discovery_page_app).run()
 
-        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_bookmarks"]
+        at.button_group(key="discovery_active_tab").set_value([en_locale["personalization"]["tab_bookmarks"]])
         at.session_state["bookmarks"] = set()
         at.session_state["col_bookmarks"] = {"main.sales.orders::amount"}
         at.run()
@@ -187,7 +188,7 @@ class TestDiscoveryTabs:
         mock_get_posts.return_value = []
         at = AppTest.from_function(render_discovery_page_app).run()
 
-        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_bookmarks"]
+        at.button_group(key="discovery_active_tab").set_value([en_locale["personalization"]["tab_bookmarks"]])
         at.session_state["bookmarks"] = set()
         at.session_state["col_bookmarks"] = {"main.sales.orders::amount"}
         at.run()
@@ -288,7 +289,7 @@ class TestDiscoveryTabs:
         mock_get_posts.return_value = []
         at = AppTest.from_function(render_discovery_page_app).run()
 
-        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_recommended"]
+        at.button_group(key="discovery_active_tab").set_value([en_locale["personalization"]["tab_recommended"]])
 
         with patch("src.ui.cards.discovery._get_recommended_tables", return_value=[]):
             at.run()
@@ -302,7 +303,7 @@ class TestDiscoveryTabs:
         mock_get_posts.return_value = []
         at = AppTest.from_function(render_discovery_page_app_empty).run()
 
-        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_recommended"]
+        at.button_group(key="discovery_active_tab").set_value([en_locale["personalization"]["tab_recommended"]])
         at.run()
 
         assert any(en_locale["personalization"]["recommended_empty"] in m.value for m in at.info)
@@ -312,7 +313,7 @@ class TestDiscoveryTabs:
         mock_get_posts.return_value = []
         at = AppTest.from_function(render_discovery_page_app_empty).run()
 
-        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_recent"]
+        at.button_group(key="discovery_active_tab").set_value([en_locale["personalization"]["tab_recent"]])
         at.session_state["recent_views"] = ["main.finance.ledger"]
         at.run()
 
@@ -323,7 +324,7 @@ class TestDiscoveryTabs:
         mock_get_posts.return_value = []
         at = AppTest.from_function(render_discovery_page_app_empty).run()
 
-        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_bookmarks"]
+        at.button_group(key="discovery_active_tab").set_value([en_locale["personalization"]["tab_bookmarks"]])
         at.session_state["bookmarks"] = {"main.finance.ledger"}
         at.run()
 
@@ -334,7 +335,7 @@ class TestDiscoveryTabs:
         mock_get_posts.return_value = []
         at = AppTest.from_function(render_discovery_page_app_empty).run()
 
-        at.session_state["discovery_active_tab"] = en_locale["personalization"]["tab_notable"]
+        at.button_group(key="discovery_active_tab").set_value([en_locale["personalization"]["tab_notable"]])
         at.session_state["group_filter"] = "finance"
         at.run()
 

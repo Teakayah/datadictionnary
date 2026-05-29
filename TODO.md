@@ -259,6 +259,66 @@ independently identified this as the highest-recall enhancement for non-technica
 
 ---
 
+## Friendly table names (2026-05-29)
+
+Integrate `governance.dictionary.business_names` (bilingual friendly names +
+definitions) into the dictionary. UC table is the source of truth; the app
+reads on every sync and writes approved edits back via the sidecar.
+
+Configurable via `.env` (table name **and** column names — the source table
+will move/rename in the future):
+
+```
+BUSINESS_NAMES_TABLE=governance.dictionary.business_names
+BUSINESS_NAMES_COL_FULL_NAME=full_name
+BUSINESS_NAMES_COL_NAME_EN=friendly_name_eng
+BUSINESS_NAMES_COL_NAME_FR=friendly_name_fr
+BUSINESS_NAMES_COL_DEF_EN=field_definition_eng
+BUSINESS_NAMES_COL_DEF_FR=field_definition_fr
+```
+
+- [x] **Env config**: add the six vars above to `.env` / `.env.example` and
+      expose them as constants in `src/config.py`.
+- [x] **Cache schema**: add `business_name_en`, `business_name_fr`,
+      `business_definition_en`, `business_definition_fr` (nullable TEXT) to
+      `data_governance.dictionary_cache.tables_metadata`.
+      `setup_cache_tables()` adds `ADD COLUMN IF NOT EXISTS` migration.
+- [x] **Sync ingest**: in `scripts/sync_metadata.py`, step 2b-bis reads the
+      configured UC table and enriches `tables_data` rows on `full_name`.
+      Guard against the source table being missing.
+- [x] **Locale-aware SELECT helper**: `business_name_expr()` /
+      `business_definition_expr()` in `src/db/queries.py` yield
+      `COALESCE(business_name_<locale>, table_name)` for the active locale.
+- [x] **Search match**: WHERE clause LIKE-matches all four bilingual columns;
+      `COALESCE` ensures the friendly name is used as the display name.
+- [x] **Table-pane H1**: friendly name renders as H1 with `full_name` as
+      mono sub-line; definition shown above technical description.
+      Falls back to `full_name` when null.
+- [x] **Result cards**: friendly name surfaced on search-result cards;
+      technical `full_name` stays the nav key.
+- [x] **Edit + admin approval** (two-stage gate):
+      - **Propose** — `is_power_user()` gate; non-admins land as
+        `pending_approval`.
+      - **Approve / reject** — `is_admin()` gate; approval enqueues sidecar
+        write-back; rejection discards the override.
+      - `save_table_business_name` / `approve_table_business_name` /
+        `reject_table_business_name` in `src/audit.py`; admin queue in
+        `src/ui/cards/admin.py`; edit dialog in `src/ui/cards/detail.py`.
+- [x] **Sidecar write-back**: `TABLE_BUSINESS_NAME` action in
+      `src/sync/push.py` runs MERGE INTO the configured UC table using
+      env-validated identifiers. Idempotent.
+- [x] **Tests**: `tests/test_table_friendly_names.py` — 37 tests covering
+      locale helpers, sync JOIN (matched / unmatched / partial / empty
+      reference), bilingual WHERE clause, queue action shape, and
+      approve/reject lifecycle via `FakeTableBusinessNameOverrideStorage`.
+      `src/demo/data.py` `_DEMO_TABLES` gains bilingual columns so
+      `DEMO_DATA=true` exercises the friendly-name display path.
+
+**Invariant:** `full_name` stays the only stable identifier. Bookmarks,
+permissions, lineage, and audit references never use the friendly name.
+
+---
+
 ## UI follow-ups (2026-05-29)
 
 - [ ] **Discovery tab help tooltip is not bilingual.** Wrap the help= string

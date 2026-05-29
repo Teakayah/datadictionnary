@@ -184,7 +184,13 @@ class TestAdminPage:
         """Four metric cards render with the counts returned by get_admin_stats()."""
         at = self._run_admin(monkeypatch)
         assert not at.exception, f"Exception: {at.exception}"
-        # st.metric renders as markdown — check the labels
+        # Stats are on tab 1 (Quality Insights); navigate there
+        sql_returns(
+            pd.DataFrame({"tables": [42], "columns": [300], "comments": [5], "overrides": [2]}),
+        )
+        at.button_group(key="admin_active_tab").set_value(["Quality Insights"])
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
         metrics = {m.label: m.value for m in at.metric}
         assert "Total tables" in metrics
         assert "Total columns" in metrics
@@ -194,6 +200,11 @@ class TestAdminPage:
     def test_log_expand_buttons_present(self, monkeypatch):
         """Both change-log expand buttons are rendered (replaced expanders in 7b0abc2)."""
         at = self._run_admin(monkeypatch)
+        assert not at.exception, f"Exception: {at.exception}"
+        # Expand buttons are on tab 2 (Audit Logs); navigate there
+        sql_returns(pd.DataFrame(), pd.DataFrame())  # biz log, comment log
+        at.button_group(key="admin_active_tab").set_value(["Audit Logs"])
+        at.run()
         assert not at.exception, f"Exception: {at.exception}"
         button_keys = [b.key for b in at.button]
         assert "admin_biz_log_expand" in button_keys
@@ -263,7 +274,10 @@ class TestAuditLog:
         ]
         at = self._run_demo_admin(monkeypatch, pre_state={"demo_audit_log": pre_audit})
         assert not at.exception, f"Exception: {at.exception}"
-        # The page renders — verify stat cards are present (proxy for successful render)
+        # Stat cards are on tab 1 (Quality Insights); navigate there
+        at.button_group(key="admin_active_tab").set_value(["Quality Insights"])
+        at.run()
+        assert not at.exception, f"Exception: {at.exception}"
         metrics = {m.label: m.value for m in at.metric}
         assert "Total tables" in metrics
 
@@ -292,6 +306,10 @@ class TestAuditLog:
             },
         ]
         at = self._run_demo_admin(monkeypatch, pre_state={"demo_audit_log": pre_audit})
+        assert not at.exception, f"Exception: {at.exception}"
+        # Expand buttons are on tab 2 (Audit Logs); navigate there
+        at.button_group(key="admin_active_tab").set_value(["Audit Logs"])
+        at.run()
         assert not at.exception, f"Exception: {at.exception}"
         button_keys = [b.key for b in at.button]
         assert "admin_comment_log_expand" in button_keys

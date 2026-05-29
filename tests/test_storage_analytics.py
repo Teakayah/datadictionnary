@@ -90,6 +90,22 @@ def test_duckdb_analytics_alerts():
                     return self
                 def fetchall_as_pandas(self, query, params=None):
                     return self.con.execute(query, params).df()
+                def cursor(self):
+                    from contextlib import contextmanager
+                    outer_con = self.con
+                    @contextmanager
+                    def _cursor_ctx():
+                        class _Cur:
+                            def __init__(self_):
+                                self_._q = None
+                                self_._p = None
+                            def execute(self_, q, p=None):
+                                self_._q = q
+                                self_._p = p
+                            def fetchall_as_pandas(self_):
+                                return outer_con.execute(self_._q, self_._p).df()
+                        yield _Cur()
+                    return _cursor_ctx()
 
             mock_conn_class.side_effect = TestDuckDBConn
 

@@ -73,12 +73,13 @@ def test_admin_quality_insights_tab_renders(monkeypatch):
     )
     
     at.run()
-    
-    # Check for tabs
-    tab_labels = [t.label for t in at.tabs]
-    assert "Operations" in tab_labels
-    assert "Quality Insights" in tab_labels
-    assert "Audit Logs" in tab_labels
+
+    # Admin uses st.segmented_control (not st.tabs); inspect via button_group
+    bg = at.button_group(key="admin_active_tab")
+    options_text = [opt.content for opt in bg.options]
+    assert "Operations" in options_text
+    assert "Quality Insights" in options_text
+    assert "Audit Logs" in options_text
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 3. Health Tab SQL Push-down

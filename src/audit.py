@@ -40,9 +40,13 @@ from src.db.queries import (
     search_all_metadata,
 )
 from src.personalization import is_power_user
-from src.storage import get_audit_storage, get_business_name_override_storage
-from src.storage.audit_storage import ColumnOverride
-from src.sync.push import enqueue_column_sync, enqueue_sync
+from src.storage import (
+    get_audit_storage,
+    get_business_name_override_storage,
+    get_table_business_name_override_storage,
+)
+from src.storage.audit_storage import ColumnOverride, TableBusinessNameOverride
+from src.sync.push import enqueue_column_sync, enqueue_sync, enqueue_table_business_name_sync
 
 
 def log_audit_event(
@@ -224,6 +228,126 @@ def reject_business_name(table_full_name: str, column_name: str) -> None:
     if not is_admin():
         raise PermissionError("Only admins can reject metadata changes.")
     get_business_name_override_storage().reject(table_full_name, column_name)
+    search_all_metadata.clear()
+
+
+# ── Table-level friendly-name overrides (bilingual, admin-approved) ──────────
+
+
+def _validate_table_business_name_inputs(
+    name_en: str, name_fr: str, def_en: str, def_fr: str,
+) -> None:
+    """Apply the same length limits as the column-level fields."""
+    for fld, val in (("name_en", name_en), ("name_fr", name_fr)):
+        if val and len(val) > MAX_BUSINESS_NAME_LEN:
+            raise ValueError(
+                f"{fld} exceeds the {MAX_BUSINESS_NAME_LEN}-char limit "
+                f"(got {len(val)})."
+            )
+    for fld, val in (("definition_en", def_en), ("definition_fr", def_fr)):
+        if val and len(val) > MAX_DEFINITION_LEN:
+            raise ValueError(
+                f"{fld} exceeds the {MAX_DEFINITION_LEN}-char limit "
+                f"(got {len(val)})."
+            )
+
+
+def save_table_business_name(
+    table_full_name: str,
+    business_name_en: str,
+    business_name_fr: str,
+    definition_en: str = "",
+    definition_fr: str = "",
+) -> None:
+    """Propose (or, for admins, publish) a bilingual table friendly name.
+
+    Editors (``is_power_user()``) submit pending proposals. Admins publish
+    immediately AND enqueue the sidecar write-back into the UC reference
+    table. Viewers cannot reach this code path — callers gate at the UI.
+    """
+    if not is_power_user():
+        raise PermissionError("Only editors can propose table friendly names.")
+    _validate_table_business_name_inputs(
+        business_name_en, business_name_fr, definition_en, definition_fr,
+    )
+    user_name = st.session_state.get("user_name", "unknown")
+    old = get_table_business_name_override_storage().get_for_table(table_full_name)
+    old_value = "|".join((
+        old.get("business_name_en", ""),
+        old.get("business_name_fr", ""),
+    ))
+    new_value = "|".join((business_name_en, business_name_fr))
+
+    _admin = is_admin()
+    _status = "published" if _admin else "pending_approval"
+
+    override = TableBusinessNameOverride(
+        table_full_name=table_full_name,
+        business_name_en=business_name_en,
+        business_name_fr=business_name_fr,
+        business_definition_en=definition_en,
+        business_definition_fr=definition_fr,
+        edited_by=user_name,
+        status=_status,
+    )
+    get_table_business_name_override_storage().upsert(override)
+
+    if _duckdb_available():
+        try:
+            with _db_write_lock:
+                _get_shared_duckdb_connection().execute("CHECKPOINT user_data")
+        except Exception:
+            pass
+        if _admin:
+            enqueue_table_business_name_sync(
+                table_full_name,
+                business_name_en, business_name_fr,
+                definition_en, definition_fr,
+                user_name,
+            )
+
+    log_audit_event(
+        "table_friendly_name_change", "TABLE", table_full_name,
+        old_value, new_value,
+    )
+    search_all_metadata.clear()
+
+
+def approve_table_business_name(table_full_name: str) -> None:
+    """Publish a pending table friendly-name override and enqueue sidecar push."""
+    if not is_admin():
+        raise PermissionError("Only admins can approve metadata changes.")
+    storage = get_table_business_name_override_storage()
+    pending = next(
+        (r for r in storage.list_pending() if r["table_full_name"] == table_full_name),
+        None,
+    )
+    if pending is None:
+        return
+    published = storage.approve(table_full_name)
+    user_name = st.session_state.get("user_name", "unknown")
+    if _duckdb_available():
+        enqueue_table_business_name_sync(
+            table_full_name,
+            published.get("business_name_en", ""),
+            published.get("business_name_fr", ""),
+            published.get("business_definition_en", ""),
+            published.get("business_definition_fr", ""),
+            user_name,
+        )
+        try:
+            with _db_write_lock:
+                _get_shared_duckdb_connection().execute("CHECKPOINT user_data")
+        except Exception:
+            pass
+    search_all_metadata.clear()
+
+
+def reject_table_business_name(table_full_name: str) -> None:
+    """Reject and discard a pending table friendly-name override."""
+    if not is_admin():
+        raise PermissionError("Only admins can reject metadata changes.")
+    get_table_business_name_override_storage().reject(table_full_name)
     search_all_metadata.clear()
 
 

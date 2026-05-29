@@ -71,7 +71,7 @@ def enqueue_sync(sync_type: str, table_full_name: Optional[str], payload: dict, 
     payload_str = json.dumps(payload)
     with conn.cursor() as cursor:
         # For metadata types, we upsert to avoid duplicate pending work for the same object
-        if sync_type in ("COLUMN_DEF", "TABLE_DESC", "STEWARD"):
+        if sync_type in ("COLUMN_DEF", "TABLE_DESC", "STEWARD", "TABLE_BUSINESS_NAME"):
             _key_col = "payload_json->>'column_name'" if sync_type == "COLUMN_DEF" else "NULL"
             _match_val = payload.get("column_name") if sync_type == "COLUMN_DEF" else None
 
@@ -97,6 +97,32 @@ def enqueue_sync(sync_type: str, table_full_name: Optional[str], payload: dict, 
 def enqueue_column_sync(table_full_name: str, column_name: str, definition: str, queued_by: str) -> None:
     """Legacy wrapper for column definitions."""
     enqueue_sync("COLUMN_DEF", table_full_name, {"column_name": column_name, "definition": definition}, queued_by)
+
+
+def enqueue_table_business_name_sync(
+    table_full_name: str,
+    business_name_en: str,
+    business_name_fr: str,
+    definition_en: str,
+    definition_fr: str,
+    queued_by: str,
+) -> None:
+    """Queue a write-back of the bilingual friendly name into the UC reference table.
+
+    The sidecar drains TABLE_BUSINESS_NAME via MERGE against the table
+    configured by ``BUSINESS_NAMES_TABLE`` in the environment.
+    """
+    enqueue_sync(
+        "TABLE_BUSINESS_NAME",
+        table_full_name,
+        {
+            "business_name_en":       business_name_en or "",
+            "business_name_fr":       business_name_fr or "",
+            "business_definition_en": definition_en or "",
+            "business_definition_fr": definition_fr or "",
+        },
+        queued_by,
+    )
 
 
 def _push_to_databricks(sync_type: str, table_full_name: Optional[str], payload: dict) -> None:
@@ -166,6 +192,58 @@ def _push_to_databricks(sync_type: str, table_full_name: Optional[str], payload:
                     payload
                 )
 
+            elif sync_type == "TABLE_BUSINESS_NAME":
+                # MERGE the bilingual friendly name into the configured UC
+                # reference table. Column names are configurable via env vars
+                # so the source can move/rename without a code change — we
+                # still validate every identifier through _IDENT_RE before
+                # interpolation to prevent SQL injection from a malicious .env.
+                from src.config import (  # noqa: PLC0415
+                    BUSINESS_NAMES_TABLE,
+                    BUSINESS_NAMES_COL_FULL_NAME,
+                    BUSINESS_NAMES_COL_NAME_EN,
+                    BUSINESS_NAMES_COL_NAME_FR,
+                    BUSINESS_NAMES_COL_DEF_EN,
+                    BUSINESS_NAMES_COL_DEF_FR,
+                )
+                # Validate the table name (must be catalog.schema.table) and
+                # every column identifier — defense in depth against a
+                # tampered .env. Backtick-quote on use.
+                _tbl_parts_target = _split_full_name(BUSINESS_NAMES_TABLE)
+                _quoted_tbl = ".".join(f"`{p}`" for p in _tbl_parts_target)
+                _quoted = {
+                    "fn":      _safe_ident(BUSINESS_NAMES_COL_FULL_NAME),
+                    "name_en": _safe_ident(BUSINESS_NAMES_COL_NAME_EN),
+                    "name_fr": _safe_ident(BUSINESS_NAMES_COL_NAME_FR),
+                    "def_en":  _safe_ident(BUSINESS_NAMES_COL_DEF_EN),
+                    "def_fr":  _safe_ident(BUSINESS_NAMES_COL_DEF_FR),
+                }
+                cur.execute(
+                    f"MERGE INTO {_quoted_tbl} AS t "
+                    f"USING (SELECT %(full_name)s AS full_name, "
+                    f"              %(name_en)s  AS name_en, "
+                    f"              %(name_fr)s  AS name_fr, "
+                    f"              %(def_en)s   AS def_en, "
+                    f"              %(def_fr)s   AS def_fr) AS s "
+                    f"ON t.{_quoted['fn']} = s.full_name "
+                    f"WHEN MATCHED THEN UPDATE SET "
+                    f"  t.{_quoted['name_en']} = s.name_en, "
+                    f"  t.{_quoted['name_fr']} = s.name_fr, "
+                    f"  t.{_quoted['def_en']}  = s.def_en, "
+                    f"  t.{_quoted['def_fr']}  = s.def_fr "
+                    f"WHEN NOT MATCHED THEN INSERT "
+                    f"  ({_quoted['fn']}, {_quoted['name_en']}, {_quoted['name_fr']}, "
+                    f"   {_quoted['def_en']}, {_quoted['def_fr']}) "
+                    f"  VALUES (s.full_name, s.name_en, s.name_fr, s.def_en, s.def_fr)",
+                    {
+                        "full_name": table_full_name,
+                        "name_en":   payload.get("business_name_en", ""),
+                        "name_fr":   payload.get("business_name_fr", ""),
+                        "def_en":    payload.get("business_definition_en", ""),
+                        "def_fr":    payload.get("business_definition_fr", ""),
+                    },
+                )
+
             elif sync_type == "COMMENT":
                 comm_tbl = f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
                 cur.execute(
@@ -211,7 +289,7 @@ def _process_sync_queue(conn=None) -> int:
             # Weights: COLUMN_DEF/TABLE_DESC=1, STEWARD/TAG/COMMENT=2, AUDIT=3
             priority_sql = """
                 CASE
-                    WHEN sync_type IN ('COLUMN_DEF', 'TABLE_DESC') THEN 1
+                    WHEN sync_type IN ('COLUMN_DEF', 'TABLE_DESC', 'TABLE_BUSINESS_NAME') THEN 1
                     WHEN sync_type IN ('STEWARD', 'TAG', 'COMMENT') THEN 2
                     ELSE 3
                 END

@@ -652,6 +652,19 @@ def generate(
             has_desc = rng.random() < 0.75
             comment  = tbl_desc if has_desc else None
 
+            # Sparse friendly names: 60% of tables get bilingual friendly
+            # names + definitions, exercising both the present and fallback
+            # display paths in the UI.
+            has_friendly = rng.random() < 0.60
+            if has_friendly:
+                pretty   = tbl_name.replace("_", " ").title()
+                _name_en = pretty
+                _name_fr = pretty  # placeholder; real FR strings come from UC
+                _def_en  = tbl_desc
+                _def_fr  = tbl_desc
+            else:
+                _name_en = _name_fr = _def_en = _def_fr = None
+
             tables_rows.append({
                 "full_name":    full_name,
                 "catalog_name": CATALOG,
@@ -661,6 +674,10 @@ def generate(
                 "comment":      comment,
                 "updated_at":   _rand_ts(rng),
                 "steward_email": steward if rng.random() < 0.6 else None,
+                "business_name_en":       _name_en,
+                "business_name_fr":       _name_fr,
+                "business_definition_en": _def_en,
+                "business_definition_fr": _def_fr,
             })
 
             # ── columns ──────────────────────────────────────────────────────

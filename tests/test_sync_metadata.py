@@ -48,7 +48,12 @@ def test_setup_cache_tables(mock_get_sql_connection):
 
     setup_cache_tables()
 
-    assert mock_cursor.execute.call_count == 12
+    # 16 = CREATE CATALOG + CREATE SCHEMA + CREATE TABLE tables_metadata
+    #    + 4× ALTER TABLE ADD COLUMN (bilingual migration)
+    #    + CREATE TABLE columns_metadata + permissions_cache + lineage_cache
+    #    + object_tags + comments + business_name_overrides + audit_log
+    #    + data_quality_cache + tables_embedding_cache
+    assert mock_cursor.execute.call_count == 16
 
     calls = mock_cursor.execute.call_args_list
     assert f"CREATE CATALOG IF NOT EXISTS {CATALOG_CACHE}" in calls[0][0][0]
@@ -59,44 +64,48 @@ def test_setup_cache_tables(mock_get_sql_connection):
         f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata"
         in calls[2][0][0]
     )
+    # calls[3]–[6]: bilingual ADD COLUMN migrations
+    all_sql = " ".join(c[0][0] for c in calls)
+    assert "business_name_en" in all_sql, "migration must add business_name_en"
+    assert "business_name_fr" in all_sql, "migration must add business_name_fr"
     assert (
         f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata"
-        in calls[3][0][0]
+        in calls[7][0][0]
     )
     assert (
         f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache"
-        in calls[4][0][0]
+        in calls[8][0][0]
     )
     assert (
         f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache"
-        in calls[5][0][0]
+        in calls[9][0][0]
     )
     assert (
         f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags"
-        in calls[6][0][0]
+        in calls[10][0][0]
     )
     assert (
         f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
-        in calls[7][0][0]
+        in calls[11][0][0]
     )
-    assert "comment_id" in calls[7][0][0], "comments DDL must include comment_id"
-    assert "steward_email" in calls[7][0][0], "comments DDL must include steward_email"
+    assert "comment_id" in calls[11][0][0], "comments DDL must include comment_id"
+    assert "steward_email" in calls[11][0][0], "comments DDL must include steward_email"
     assert (
         f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
-        in calls[8][0][0]
+        in calls[12][0][0]
     )
-    assert "column_name" in calls[8][0][0], (
+    assert "column_name" in calls[12][0][0], (
         "business_name_overrides DDL must include column_name"
     )
-    assert "definition" in calls[8][0][0], (
+    assert "definition" in calls[12][0][0], (
         "business_name_overrides DDL must include definition"
     )
     assert (
         f"CREATE TABLE IF NOT EXISTS {CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log"
-        in calls[9][0][0]
+        in calls[13][0][0]
     )
-    assert "event_type" in calls[9][0][0], "audit_log DDL must include event_type"
-    assert "actor_email" in calls[9][0][0], "audit_log DDL must include actor_email"
+    assert "event_type" in calls[13][0][0], "audit_log DDL must include event_type"
+    assert "actor_email" in calls[13][0][0], "audit_log DDL must include actor_email"
 
 
 @patch("scripts.sync_metadata.concurrent.futures.ThreadPoolExecutor")
@@ -153,8 +162,9 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
     mock_cursor.fetchall_as_pandas.side_effect = [
         grants_df,      # 1. Grants query (bulk permissions fetch)
         pd.DataFrame(), # 2. DQ enrichment (enrich_dq_from_monitoring → Lakehouse Monitoring)
-        pd.DataFrame(), # 3. Audit log fetch for DuckDB export
-        pd.DataFrame(), # 4. push_business_name_overrides (no overrides → empty)
+        pd.DataFrame(), # 3. Step 2b-bis: fetch from business-names reference table
+        pd.DataFrame(), # 4. Audit log fetch for DuckDB export
+        pd.DataFrame(), # 5. push_business_name_overrides (no overrides → empty)
     ]
 
     # Mock ThreadPoolExecutor.map to return empty for lineage (since we aren't testing lineage specifically here)
@@ -192,38 +202,39 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
 
     # [0]  SELECT from permissions bulk fetch
     # [1]  SELECT from enrich_dq_from_monitoring (Lakehouse Monitoring)
-    # [2-8] 7 TRUNCATEs (tables, columns, permissions, lineage, object_tags, dq_cache, embedding_cache)
-    # [9]  SELECT audit_log for DuckDB export
-    # [10] SELECT from push_business_name_overrides (no overrides to push → returns empty)
+    # [2]  SELECT from step 2b-bis (business-names reference table JOIN)
+    # [3-9] 7 TRUNCATEs (tables, columns, permissions, lineage, object_tags, dq_cache, embedding_cache)
+    # [10] SELECT audit_log for DuckDB export
+    # [11] SELECT from push_business_name_overrides (no overrides to push → returns empty)
     execute_calls = mock_cursor.execute.call_args_list
-    assert len(execute_calls) == 11
+    assert len(execute_calls) == 12
     assert "system.information_schema.table_privileges" in execute_calls[0][0][0]
     assert (
         f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata"
-        in execute_calls[2][0][0]
-    )
-    assert (
-        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata"
         in execute_calls[3][0][0]
     )
     assert (
-        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache"
+        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata"
         in execute_calls[4][0][0]
     )
     assert (
-        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache"
+        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache"
         in execute_calls[5][0][0]
     )
     assert (
-        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags"
+        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache"
         in execute_calls[6][0][0]
     )
     assert (
-        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache"
+        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.object_tags"
         in execute_calls[7][0][0]
     )
-    assert "audit_log" in execute_calls[9][0][0]
-    assert "business_name_overrides" in execute_calls[10][0][0]
+    assert (
+        f"TRUNCATE TABLE {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache"
+        in execute_calls[8][0][0]
+    )
+    assert "audit_log" in execute_calls[10][0][0]
+    assert "business_name_overrides" in execute_calls[11][0][0]
 
     # 6 executemany calls: tables, columns, permissions, object_tags, data_quality, embeddings
     # (object_tags has 1 data row from table tags; dq data comes from mock_table.properties;
@@ -232,7 +243,7 @@ def test_sync(mock_get_sql_connection, mock_workspace_client, mock_executor_cls)
     executemany_calls = mock_cursor.executemany.call_args_list
     assert len(executemany_calls) == 6
     assert (
-        f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp(), %(steward_email)s)"
+        f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata VALUES (%(full_name)s, %(catalog_name)s, %(schema_name)s, %(table_name)s, %(table_type)s, %(comment)s, current_timestamp(), %(steward_email)s, %(business_name_en)s, %(business_name_fr)s, %(business_definition_en)s, %(business_definition_fr)s)"
         in executemany_calls[0][0][0]
     )
     assert (
@@ -321,7 +332,9 @@ def test_sync_grants_error(mock_print, mock_get_sql_connection, mock_workspace_c
     # We wrap in try except since the sync function catches the grant error but later queries like TRUNCATE will fail
     # because side_effect raises on every execute call.
     # Alternatively we can supply a list to side_effect to only fail on the first
-    mock_cursor.execute.side_effect = [Exception("Grants error")] + [MagicMock()] * 10
+    # 1 grants error + 11 successes:
+    # DQ SELECT, 2b-bis SELECT, 7 TRUNCATEs, audit log SELECT, push SELECT
+    mock_cursor.execute.side_effect = [Exception("Grants error")] + [MagicMock()] * 11
 
     sync()
 
