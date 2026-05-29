@@ -323,7 +323,6 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         from src.i18n import format_date
         for _c in _comments:
             _cid    = str(_c.get("comment_id", ""))
-            _cemail = str(_c.get("author_email", ""))
             st.markdown(
                 f'<div class="dd-comment-row">'
                 f'<span class="dd-comment-author">{_html.escape(str(_c.get("author_name", "")))}</span>'
