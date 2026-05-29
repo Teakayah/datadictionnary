@@ -398,6 +398,8 @@
     "glossary_content": "Browse and search business terms defined in Unity Catalog.\n\n**Term detail** — select a term to see its definition, calculation logic, domain, steward, and linked tables.\n\n**Concept map** — a visual graph of how the selected term relates to other tables and terms in the catalog.",
     "catalog_expander": "How to use this page",
     "catalog_content": "Drill down through the catalog hierarchy: catalog → schema → table.\n\nEach table shows a data quality badge (A–F) when available. Click any table name to view its full metadata, columns, and lineage on the Search page.\n\nUse Search for keyword-based lookup; use this browser when you know the schema you want to explore.",
+    "pipelines_expander": "How to use this page",
+    "pipelines_content": "**Run** — trigger a registered pipeline. Each pipeline supports a single active run; the row updates with live progress while a run is in flight.\n\n**Cancel** — stop an in-flight run. The backend (Databricks Jobs, ADF, or Azure DevOps) acknowledges the cancellation asynchronously.\n\n**Define** — admins can add, edit, or remove pipeline definitions from the Admin tab. Each definition needs a backend, a target identifier, and the operators allowed to trigger it.",
     "admin_ops_expander": "About this tab",
     "admin_ops_content": "**Pending reviews** — approve or reject column override proposals submitted by editors.\n\n**Sync queue** — monitor the background worker that pushes metadata changes to Unity Catalog.\n\n**CMS** — publish pinned announcements and featured tables in the Discovery feed.\n\n**Pipelines** — register, trigger, and monitor data pipeline runs.",
     "admin_insights_expander": "About this tab",
