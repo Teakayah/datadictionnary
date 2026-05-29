@@ -59,11 +59,13 @@ class DuckDBAnalyticsStorage:
     def get_zero_result_searches(self, limit: int = 50) -> List[dict]:
         from src.db.duckdb_adapter import _DuckDBConn
         with _DuckDBConn(self.db_path) as conn:
-            df = conn.fetchall_as_pandas(
-                "SELECT query, user_email, timestamp FROM user_data.search_analytics "
-                "WHERE results_count = 0 ORDER BY timestamp DESC LIMIT ?",
-                (limit,)
-            )
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT query, user_email, timestamp FROM user_data.search_analytics "
+                    "WHERE results_count = 0 ORDER BY timestamp DESC LIMIT ?",
+                    (limit,),
+                )
+                df = cur.fetchall_as_pandas()
             return df.to_dict('records') if df is not None else []
 
     def get_zero_result_alerts(self, days: int = 7) -> List[dict]:
@@ -83,7 +85,9 @@ class DuckDBAnalyticsStorage:
                 HAVING MIN(timestamp) < CAST(current_timestamp - INTERVAL '1' DAY * ? AS TIMESTAMP)
                 ORDER BY last_seen DESC
             """
-            df = conn.fetchall_as_pandas(query, (days,))
+            with conn.cursor() as cur:
+                cur.execute(query, (days,))
+                df = cur.fetchall_as_pandas()
             return df.to_dict('records') if df is not None else []
 
 class DemoAnalyticsStorage:

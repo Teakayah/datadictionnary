@@ -89,12 +89,6 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done
   push.py but never created — `_initialize_schema` now declares it AND
   runs `ALTER TABLE … ADD COLUMN IF NOT EXISTS` for migration.
 
-**Out of scope (still open):** PostgreSQL migration for multi-writer
-support. Today the sidecar plus the (multi-replica) Streamlit pods all open
-`USER_DATA_PATH` — DuckDB serialises writes via its OS-level file lock,
-which is fine at low write volume but will not scale linearly. File a
-separate ticket if write contention shows up.
-
 ### 2. Entra ID groups overage handling
 
 **Status:** done (branch `feat/entra-groups-overage`).
@@ -262,6 +256,28 @@ independently identified this as the highest-recall enhancement for non-technica
       "gross revenue" in its description.
 - [ ] Search p95 latency stays under 200 ms with vectors enabled (load-test at 300 users).
 - [ ] `ENABLE_SEMANTIC_SEARCH` defaults to `false`; existing search path unchanged when off.
+
+---
+
+## UI follow-ups (2026-05-29)
+
+- [ ] **Discovery tab help tooltip is not bilingual.** Wrap the help= string
+      in `t()` and add the key to `locale/en.json` + `locale/fr.json`.
+- [ ] **Pipelines and Admin tabs are visible to all users in the top nav.**
+      `app.py` already computes `show_admin` / `show_pipelines`; the header
+      must honour them (currently doesn't).
+- [ ] **Admin tab crashes** with
+      `AttributeError: '_DuckDBConn' object has no attribute 'fetchall_as_pandas'`
+      at `src/storage/analytics_storage.py:62`. `fetchall_as_pandas` belongs
+      to `_DuckDBCursor`, not `_DuckDBConn` — route via
+      `conn.execute(...).fetchall_as_pandas()`. Audit other storage callers
+      for the same shape.
+- [ ] **Pipelines and Admin pages are missing the help-tooltip pattern**
+      Discovery uses on its controls. Add `help=t(...)` to the primary
+      controls on both pages.
+- [ ] **Segmented-control pills elsewhere don't match Discovery's sub-tab
+      visual language.** Align typography, border, and active-state color
+      with the Discovery sub-tab pills via the design system.
 
 ---
 
