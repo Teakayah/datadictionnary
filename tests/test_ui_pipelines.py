@@ -109,8 +109,8 @@ class TestAdminPipelinesSection:
         assert any(en_locale["pipelines"]["no_pipelines"] in val for val in html_contents)
 
     @patch("src.ui.cards.pipelines.get_pipelines")
-    @patch("src.ui.cards.pipelines.delete_pipeline_def")
-    def test_render_with_pipelines_and_delete(self, mock_delete, mock_get_pipelines):
+    @patch("src.ui.cards.pipelines._show_delete_pipeline_dialog")
+    def test_render_with_pipelines_and_delete(self, mock_show_dialog, mock_get_pipelines):
         mock_get_pipelines.return_value = [
             {
                 "pipeline_id": "1",
@@ -133,6 +133,20 @@ class TestAdminPipelinesSection:
         delete_btn = at.button(key="pl_del_1")
         assert delete_btn is not None
         delete_btn.click().run()
+
+        mock_show_dialog.assert_called_once_with("1")
+
+    @patch("src.ui.cards.pipelines.delete_pipeline_def")
+    def test_show_delete_pipeline_dialog(self, mock_delete):
+        def dialog_app():
+            from src.ui.cards.pipelines import _show_delete_pipeline_dialog
+            _show_delete_pipeline_dialog("1")
+
+        at = AppTest.from_function(dialog_app).run()
+
+        confirm_btn = at.button(key="pl_confirm_del")
+        assert confirm_btn is not None
+        confirm_btn.click().run()
 
         mock_delete.assert_called_once_with("1")
 

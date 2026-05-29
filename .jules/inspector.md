@@ -13,3 +13,7 @@
 ## 2026-05-25 - Discovery Tab Crashes on Empty DataFrame
 **Learning:** `src.ui.cards.discovery` had logic handling bookmarks and recent views that blindly operated on `all_tables["full_name"].isin(bookmarks)` when `all_tables` was returned as an empty DataFrame or `None` by the authorized tables getter function, leading to `KeyError` crashes in edge cases (e.g. users with no access or empty catalog).
 **Action:** Always check `if df is None or df.empty` before accessing columns on DataFrames returned from upstream dependencies in UI modules.
+
+## 2026-05-29 - Testing nested st.dialog states
+**Learning:** When testing a parent component that triggers a dialog in Streamlit, `AppTest` does not natively expose the nested dialog state. In parent tests, mock the dialog function itself (e.g., `@patch('..._show_delete_pipeline_dialog')`) to verify it was called, and test the inner dialog logic in a separate isolated `AppTest`.
+**Action:** Add explicit `key` attributes to buttons inside dialogs and test them using an isolated app function containing only the dialog invocation.
