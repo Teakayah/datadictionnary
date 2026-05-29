@@ -50,11 +50,12 @@ class DuckDBAnalyticsStorage:
     def track_search(self, event: SearchEvent) -> None:
         from src.db.duckdb_adapter import _DuckDBConn
         with _DuckDBConn(self.db_path) as conn:
-            conn.execute_write(
-                "INSERT INTO user_data.search_analytics (query, results_count, user_email, timestamp) "
-                "VALUES (?, ?, ?, ?)",
-                (event.query, event.results_count, event.user_email, event.timestamp)
-            )
+            with conn.cursor() as cur:
+                cur.execute_write(
+                    "INSERT INTO user_data.search_analytics (query, results_count, user_email, timestamp) "
+                    "VALUES (?, ?, ?, ?)",
+                    (event.query, event.results_count, event.user_email, event.timestamp)
+                )
 
     def get_zero_result_searches(self, limit: int = 50) -> List[dict]:
         from src.db.duckdb_adapter import _DuckDBConn
