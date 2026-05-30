@@ -1,7 +1,6 @@
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-import pytest
 from streamlit.testing.v1 import AppTest
 
 with open("locale/en.json", "r") as f:
