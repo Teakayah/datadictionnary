@@ -91,6 +91,21 @@ def test_duckdb_analytics_alerts():
                 def fetchall_as_pandas(self, query, params=None):
                     return self.con.execute(query, params).df()
 
+                def cursor(self):
+                    class DummyCursor:
+                        def __init__(self, conn):
+                            self.conn = conn
+                        def __enter__(self):
+                            return self
+                        def __exit__(self, *_):
+                            pass
+                        def execute(self, query, params=None):
+                            self.conn.execute(query, params)
+                            return self
+                        def fetchall_as_pandas(self):
+                            return self.conn.df()
+                    return DummyCursor(self.con)
+
             mock_conn_class.side_effect = TestDuckDBConn
 
             storage = DuckDBAnalyticsStorage(db_path)
