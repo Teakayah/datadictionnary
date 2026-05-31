@@ -183,6 +183,9 @@ class TestAdminPage:
     def test_stats_cards_present(self, monkeypatch):
         """Four metric cards render with the counts returned by get_admin_stats()."""
         at = self._run_admin(monkeypatch)
+        at.session_state["admin_active_tab"] = "Quality Insights"
+        at.run()
+
         assert not at.exception, f"Exception: {at.exception}"
         # st.metric renders as markdown — check the labels
         metrics = {m.label: m.value for m in at.metric}
@@ -194,6 +197,9 @@ class TestAdminPage:
     def test_log_expand_buttons_present(self, monkeypatch):
         """Both change-log expand buttons are rendered (replaced expanders in 7b0abc2)."""
         at = self._run_admin(monkeypatch)
+        at.session_state["admin_active_tab"] = "Audit Logs"
+        at.run()
+
         assert not at.exception, f"Exception: {at.exception}"
         button_keys = [b.key for b in at.button]
         assert "admin_biz_log_expand" in button_keys
@@ -262,10 +268,14 @@ class TestAuditLog:
             },
         ]
         at = self._run_demo_admin(monkeypatch, pre_state={"demo_audit_log": pre_audit})
+
+        at.session_state["admin_active_tab"] = "Audit Logs"
+        at.run()
+
         assert not at.exception, f"Exception: {at.exception}"
-        # The page renders — verify stat cards are present (proxy for successful render)
-        metrics = {m.label: m.value for m in at.metric}
-        assert "Total tables" in metrics
+
+        button_keys = [b.key for b in at.button]
+        assert "admin_biz_log_expand" in button_keys
 
     def test_comment_log_rows(self, monkeypatch):
         """Admin page comment log displays comment_added and comment_reply events."""
@@ -292,6 +302,10 @@ class TestAuditLog:
             },
         ]
         at = self._run_demo_admin(monkeypatch, pre_state={"demo_audit_log": pre_audit})
+
+        at.session_state["admin_active_tab"] = "Audit Logs"
+        at.run()
+
         assert not at.exception, f"Exception: {at.exception}"
         button_keys = [b.key for b in at.button]
         assert "admin_comment_log_expand" in button_keys

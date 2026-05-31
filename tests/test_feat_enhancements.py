@@ -74,11 +74,15 @@ def test_admin_quality_insights_tab_renders(monkeypatch):
     
     at.run()
     
-    # Check for tabs
-    tab_labels = [t.label for t in at.tabs]
-    assert "Operations" in tab_labels
-    assert "Quality Insights" in tab_labels
-    assert "Audit Logs" in tab_labels
+    # Check for segmented control options
+    assert "admin_active_tab" in at.session_state
+
+    # Run the app and check that Quality Insights renders
+    at.session_state["admin_active_tab"] = "Quality Insights"
+    at.run()
+
+    html_contents = [m.value for m in at.markdown]
+    assert any("Data Integrity Insights" in val for val in html_contents)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 3. Health Tab SQL Push-down

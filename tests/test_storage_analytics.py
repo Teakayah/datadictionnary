@@ -88,8 +88,19 @@ def test_duckdb_analytics_alerts():
                 def execute_write(self, query, params=None):
                     self.con.execute(query, params)
                     return self
-                def fetchall_as_pandas(self, query, params=None):
-                    return self.con.execute(query, params).df()
+                def cursor(self):
+                    class MockCursor:
+                        def __init__(self, rel):
+                            self._rel = rel
+                        def execute(self, sql, params=None):
+                            self._rel = self._rel.execute(sql, params)
+                        def fetchall_as_pandas(self):
+                            return self._rel.df()
+                        def __enter__(self):
+                            return self
+                        def __exit__(self, *_):
+                            pass
+                    return MockCursor(self.con)
 
             mock_conn_class.side_effect = TestDuckDBConn
 
