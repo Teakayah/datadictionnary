@@ -22,3 +22,8 @@
 **Vulnerability:** Leaking exception details to UI via `st.error(str(exc))`
 **Learning:** Returning `str(exc)` in `st.error()` can expose sensitive internal data or traceback context to end users.
 **Prevention:** Always log exceptions internally using `logging.error(..., exc_info=True)` and return generic, safe error messages to the UI.
+
+## 2026-05-31 - [SMTP Header Injection]
+**Vulnerability:** SMTP Header Injection via unsanitized recipient emails in comments.
+**Learning:** Even though author and object names were sanitized before being added to email headers, the recipient emails were not. An attacker could inject CRLF characters to add arbitrary SMTP headers or control the email body.
+**Prevention:** Always sanitize all user-provided data, including recipient emails, before using them in email headers.
