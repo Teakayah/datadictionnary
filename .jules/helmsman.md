@@ -15,3 +15,7 @@
 **Cluster Quirk:** The `dd-app` deployment was triggering a warning from `kube-score` for using identical `httpGet` probes for both readiness and liveness.
 **Learning:** Using the same probe is dangerous because a temporary application busy state causing readiness to fail will also cause liveness to fail, resulting in a pod restart instead of gracefully halting traffic.
 **Resilience:** Configure readiness probes to hit the application root path (`/`) to check serving ability while preserving the memory-mandated `httpGet` liveness probe on `/_stcore/health` to detect Streamlit deadlocks.
+## 2026-05-31 - Streamlit Readiness Probe Performance
+**Cluster Quirk:** The readiness probe was hitting the root path `/`, which in Streamlit triggers a full frontend re-render on every check.
+**Learning:** Probing `/` for readiness in Streamlit applications deployed on Kubernetes causes severe performance bottlenecks due to constant re-renders.
+**Resilience:** Use `/_stcore/health` for both liveness and readiness probes to avoid triggering full re-renders while still verifying the pod is able to respond.
