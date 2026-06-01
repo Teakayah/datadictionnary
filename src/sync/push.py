@@ -59,10 +59,11 @@ def enqueue_sync(sync_type: str, table_full_name: Optional[str], payload: dict, 
     upserts the action by deleting previous pending items for the same target
     to avoid duplicate work.
 
-    @param sync_type: The type of metadata to sync (e.g., 'COLUMN_DEF', 'TABLE_DESC', 'STEWARD', 'AUDIT', 'COMMENT').
-    @param table_full_name: The Unity Catalog full name of the table (catalog.schema.table), or None if not applicable.
-    @param payload: A dictionary containing the type-specific data for the sync operation.
-    @param queued_by: The identifier (e.g., email) of the user who initiated the action.
+    Args:
+        sync_type: The type of metadata to sync (e.g., 'COLUMN_DEF', 'TABLE_DESC', 'STEWARD', 'AUDIT', 'COMMENT').
+        table_full_name: The Unity Catalog full name of the table (catalog.schema.table), or None if not applicable.
+        payload: A dictionary containing the type-specific data for the sync operation.
+        queued_by: The identifier (e.g., email) of the user who initiated the action.
     """
     if not _duckdb_available():
         return
@@ -106,9 +107,10 @@ def _push_to_databricks(sync_type: str, table_full_name: Optional[str], payload:
     based on the sync_type. Supports updating column definitions, table descriptions,
     steward tags, and inserting audit logs or comments.
 
-    @param sync_type: The type of metadata change to push (e.g., 'COLUMN_DEF', 'TABLE_DESC', 'STEWARD', 'AUDIT', 'COMMENT').
-    @param table_full_name: The Unity Catalog full name of the table (catalog.schema.table), or None if not applicable.
-    @param payload: A dictionary containing the data to push, matching the sync_type requirements.
+    Args:
+        sync_type: The type of metadata change to push (e.g., 'COLUMN_DEF', 'TABLE_DESC', 'STEWARD', 'AUDIT', 'COMMENT').
+        table_full_name: The Unity Catalog full name of the table (catalog.schema.table), or None if not applicable.
+        payload: A dictionary containing the data to push, matching the sync_type requirements.
     """
     host = os.getenv("DATABRICKS_HOST", "").strip()
     http_path = os.getenv("DATABRICKS_HTTP_PATH", "").strip()
@@ -191,7 +193,8 @@ def _push_definition_to_databricks(table_full_name: str, column_name: str, defin
 def _process_sync_queue(conn=None) -> int:
     """Drain pending sync items → Databricks. Returns number of items attempted.
 
-    @param conn: Optional injected connection (used by the sidecar daemon
+    Args:
+        conn: Optional injected connection (used by the sidecar daemon
                  with its own DuckDB handle). When None, falls back to the
                  Streamlit-cached _get_write_connection.
 

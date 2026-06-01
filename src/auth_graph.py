@@ -64,8 +64,9 @@ def fetch_member_groups(access_token: str, user_oid: str) -> list[str]:
     Caches per OID for ``GROUPS_TTL_S``. On any error returns ``[]`` and
     logs a warning — never silently grants access.
 
-    @param access_token: bearer token with User.Read scope
-    @param user_oid:    Entra ID user OID, used as the cache key
+    Args:
+        access_token: bearer token with User.Read scope
+        user_oid: Entra ID user OID, used as the cache key
     """
     if not user_oid:
         log.warning("fetch_member_groups called without user_oid; skipping cache.")

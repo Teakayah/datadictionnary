@@ -18,8 +18,10 @@ def get_table_comments(object_name: str) -> list:
     In demo mode reads from st.session_state["demo_comments"].
     Not cached — always fresh so new comments appear immediately.
 
-    @param object_name: The Unity Catalog full name of the table or object.
-    @returns: A list of root comment dictionaries, each containing a nested 'replies' list.
+    Args:
+        object_name: The Unity Catalog full name of the table or object.
+    Returns:
+        A list of root comment dictionaries, each containing a nested 'replies' list.
     """
     if is_demo_mode():
         flat = st.session_state.get("demo_comments", {}).get(object_name, [])

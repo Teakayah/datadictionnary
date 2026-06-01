@@ -84,9 +84,11 @@ def run_query(query, params=None):
     2. DuckDB cache: If available, routes the query to the local file for speed.
     3. Databricks SQL Warehouse: Fallback if DuckDB cache is unavailable.
 
-    @param query: The SQL query to execute.
-    @param params: Optional dictionary of parameters to substitute into the query.
-    @returns: A pandas DataFrame containing the query results.
+    Args:
+        query: The SQL query to execute.
+        params: Optional dictionary of parameters to substitute into the query.
+    Returns:
+        A pandas DataFrame containing the query results.
     """
     # ── Demo mode: return hardcoded DataFrames without hitting any DB ──────────
     if is_demo_mode():
@@ -141,8 +143,10 @@ def get_authorized_tables(groups):
     intersect with the table's allowed principals, or if the table is marked
     public with the sentinel value `SELECT_ALL_USERS`.
 
-    @param groups: A list or tuple of Entra ID group object IDs for the user.
-    @returns: A pandas DataFrame containing authorized table metadata.
+    Args:
+        groups: A list or tuple of Entra ID group object IDs for the user.
+    Returns:
+        A pandas DataFrame containing authorized table metadata.
     """
     if is_demo_mode():
         return _DEMO_TABLES
@@ -299,9 +303,11 @@ def _search_keywords(query: str, groups: tuple):
       - Substring match → 3 (Tables) / 0 (Columns)
       - Glossary match  → 1
 
-    @param query:  user-entered search string, matched via SQL ``LIKE '%q%'``.
-    @param groups: tuple of Entra ID group Object IDs the user belongs to.
-    @returns:      pandas DataFrame of combined results, sorted by score desc.
+    Args:
+        query:  user-entered search string, matched via SQL ``LIKE '%q%'``.
+        groups: tuple of Entra ID group Object IDs the user belongs to.
+    Returns:
+        pandas DataFrame of combined results, sorted by score desc.
     """
 
     logging.info("GLOBAL SEARCH query=%s groups=%s", query, groups)
@@ -469,9 +475,11 @@ def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
 
     Includes business name and definition overrides if present.
 
-    @param cols: A DataFrame containing the columns_metadata.
-    @param col_overrides: A dictionary mapping column names to override dictionaries.
-    @returns: A CSV-formatted string of the table metadata.
+    Args:
+        cols: A DataFrame containing the columns_metadata.
+        col_overrides: A dictionary mapping column names to override dictionaries.
+    Returns:
+        A CSV-formatted string of the table metadata.
     """
     output = io.StringIO()
     writer = csv.writer(output)
