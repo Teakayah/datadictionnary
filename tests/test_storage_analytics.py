@@ -75,6 +75,20 @@ def test_duckdb_analytics_alerts():
         # We need to mock _DuckDBConn to connect to our temp test file!
         with patch("src.db.duckdb_adapter._DuckDBConn") as mock_conn_class:
             # When _DuckDBConn is instantiated, return a real connection wrapper to our test database!
+            class TestDuckDBCursor:
+                def __init__(self, con):
+                    self.con = con
+                    self.rel = None
+                def __enter__(self):
+                    return self
+                def __exit__(self, *_):
+                    pass
+                def execute(self, query, params=None):
+                    self.rel = self.con.execute(query, params)
+                    return self
+                def fetchall_as_pandas(self):
+                    return self.rel.df()
+
             class TestDuckDBConn:
                 def __init__(self, *args, **kwargs):
                     self.con = duckdb.connect(db_path)
@@ -82,6 +96,8 @@ def test_duckdb_analytics_alerts():
                     return self
                 def __exit__(self, *_):
                     self.con.close()
+                def cursor(self):
+                    return TestDuckDBCursor(self.con)
                 def execute(self, query, params=None):
                     self.con.execute(query, params)
                     return self

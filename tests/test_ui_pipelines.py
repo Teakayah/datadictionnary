@@ -109,8 +109,8 @@ class TestAdminPipelinesSection:
         assert any(en_locale["pipelines"]["no_pipelines"] in val for val in html_contents)
 
     @patch("src.ui.cards.pipelines.get_pipelines")
-    @patch("src.ui.cards.pipelines.delete_pipeline_def")
-    def test_render_with_pipelines_and_delete(self, mock_delete, mock_get_pipelines):
+    @patch("src.ui.cards.pipelines._show_delete_pipeline_dialog")
+    def test_render_with_pipelines_and_delete(self, mock_show_delete_dialog, mock_get_pipelines):
         mock_get_pipelines.return_value = [
             {
                 "pipeline_id": "1",
@@ -134,7 +134,7 @@ class TestAdminPipelinesSection:
         assert delete_btn is not None
         delete_btn.click().run()
 
-        mock_delete.assert_called_once_with("1")
+        mock_show_delete_dialog.assert_called_once_with("1")
 
     @patch("src.ui.cards.pipelines._show_pipeline_create_dialog")
     def test_admin_section_new_pipeline_button(self, mock_show_dialog):

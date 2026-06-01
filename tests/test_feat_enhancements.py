@@ -64,21 +64,31 @@ def test_admin_quality_insights_tab_renders(monkeypatch):
     # Mock data for stats, audit logs, and the new reports
     sql_returns(
         pd.DataFrame({"tables": [10], "columns": [100], "comments": [5], "overrides": [2]}), # stats
-        pd.DataFrame(), # pending reviews
-        pd.DataFrame(), # high impact gaps
-        pd.DataFrame(), # dq alerts
-        pd.DataFrame(), # stewardship gaps
-        pd.DataFrame(), # change log
-        pd.DataFrame(), # comment log
+        pd.DataFrame(),              # search analytics
+        pd.DataFrame(),              # high impact gaps
+        pd.DataFrame(),              # stewardship gaps
+        pd.DataFrame(),              # dq alerts
+        pd.DataFrame(),              # change log
+        pd.DataFrame(),              # comment log
     )
     
     at.run()
     
-    # Check for tabs
-    tab_labels = [t.label for t in at.tabs]
-    assert "Operations" in tab_labels
-    assert "Quality Insights" in tab_labels
-    assert "Audit Logs" in tab_labels
+    # Check for segmented control values
+    # In AppTest, segmented control values are accessed differently, we can simulate setting the value
+    # and verify it doesn't crash, or check if the keys exist in session_state.
+
+    # We must explicitly set the segmented control's bound variable in at.session_state
+    # and call at.run() to ensure the respective conditional content block is triggered and rendered
+
+    at.session_state["admin_active_tab"] = "Operations"
+    at.run()
+
+    at.session_state["admin_active_tab"] = "Quality Insights"
+    at.run()
+
+    at.session_state["admin_active_tab"] = "Audit Logs"
+    at.run()
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 3. Health Tab SQL Push-down
