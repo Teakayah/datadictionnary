@@ -15,6 +15,7 @@ Dependencies: pathlib, streamlit (no databricks/msal imports — safe in tests).
 
 from pathlib import Path
 import streamlit as st
+import streamlit.components.v1 as components
 
 _ASSETS = Path(__file__).parent.parent.parent / "assets"
 
@@ -29,8 +30,10 @@ def render_css() -> None:
     sort/filter buttons render as ``div[aria-haspopup]`` without a ``role``
     attribute, which axe-core flags as ``aria-allowed-attr`` (WCAG 4.1.2).
 
-    The patch runs in three layers:
-      1. **One-shot** sweep on first paint via the ``onerror`` trick.
+    The patch runs in three layers, all targeting ``window.parent.document``
+    from a 0-height components.html iframe (Streamlit's React frontend rejects
+    string event handlers like ``<img onerror>``):
+      1. **One-shot** sweep on first paint.
       2. **MutationObserver** on ``childList + subtree + attributes`` — catches
          both newly-added nodes (typical case) AND existing nodes whose
          ``aria-haspopup`` attribute appears asynchronously after Streamlit's
@@ -43,15 +46,12 @@ def render_css() -> None:
     st.markdown(f"<style>{DESIGN_CSS}</style>", unsafe_allow_html=True)
 
     _patch_now = (
-        "document.querySelectorAll('div[aria-haspopup]').forEach(function(el){"
+        "doc.querySelectorAll('div[aria-haspopup]').forEach(function(el){"
         "if(!el.getAttribute('role')){el.setAttribute('role','combobox');}});"
     )
 
-    # Layer 2 — MutationObserver. childList catches added nodes; attributes
-    # (with attributeFilter) catches existing nodes that gain aria-haspopup
-    # later, which is what Streamlit's st.dataframe re-renders look like.
     _observer_js = (
-        "try{new MutationObserver(function(ms){"
+        "try{new (win.MutationObserver)(function(ms){"
         "ms.forEach(function(m){"
         "if(m.type==='attributes'&&m.target&&m.target.nodeType===1){"
         "if(m.target.hasAttribute('aria-haspopup')&&!m.target.getAttribute('role')){"
@@ -63,25 +63,23 @@ def render_css() -> None:
         "n.querySelectorAll&&n.querySelectorAll('div[aria-haspopup]').forEach(function(e){"
         "if(!e.getAttribute('role'))e.setAttribute('role','combobox');});"
         "});})"
-        "}).observe(document.body,{childList:true,subtree:true,"
+        "}).observe(doc.body,{childList:true,subtree:true,"
         "attributes:true,attributeFilter:['aria-haspopup']});"
         "}catch(e){}"
     )
-    # Layer 3 — 5 s polling fallback (20 ticks at 250 ms) for DOM operations
-    # that bypass MutationObserver's attribute watch (rare).
     _polling_js = (
-        "var ticks=0;var iv=setInterval(function(){"
+        "var ticks=0;var iv=win.setInterval(function(){"
         + _patch_now
-        + "if(++ticks>=20)clearInterval(iv);},250);"
+        + "if(++ticks>=20)win.clearInterval(iv);},250);"
     )
 
-    st.markdown(
-        '<img src="x" style="display:none" aria-hidden="true" onerror="'
-        "(function(){"
-        + _patch_now      # Layer 1 — one-shot sweep
-        + _observer_js    # Layer 2 — MutationObserver
-        + _polling_js     # Layer 3 — polling fallback
-        + "})();"
-        '">',
-        unsafe_allow_html=True,
+    components.html(
+        "<script>(function(){"
+        "var win=window.parent;if(!win)return;"
+        "var doc=win.document;if(!doc||!doc.body)return;"
+        + _patch_now
+        + _observer_js
+        + _polling_js
+        + "})();</script>",
+        height=0,
     )

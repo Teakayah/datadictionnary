@@ -588,13 +588,30 @@ def render_admin_page():
     </div>
     ''', unsafe_allow_html=True)
 
-    tab_ops, tab_insights, tab_audit = st.tabs([
+    _admin_tab_labels = [
         t("admin.tab_ops"),
         t("admin.tab_insights"),
         t("admin.tab_audit"),
-    ])
+    ]
+    _stored = st.session_state.get("admin_active_tab")
+    if _stored not in _admin_tab_labels:
+        _idx = st.session_state.get("_admin_tab_idx", 0)
+        st.session_state["admin_active_tab"] = (
+            _admin_tab_labels[_idx] if 0 <= _idx < len(_admin_tab_labels)
+            else _admin_tab_labels[0]
+        )
+    _admin_active = st.segmented_control(
+        "admin_tabs",
+        options=_admin_tab_labels,
+        key="admin_active_tab",
+        label_visibility="collapsed",
+        selection_mode="single",
+    )
+    if _admin_active is None:
+        _admin_active = _admin_tab_labels[st.session_state.get("_admin_tab_idx", 0)]
+    st.session_state["_admin_tab_idx"] = _admin_tab_labels.index(_admin_active)
 
-    with tab_ops:
+    if _admin_active == _admin_tab_labels[0]:
         with st.expander(t("help.admin_ops_expander")):
             st.markdown(t("help.admin_ops_content"))
         _render_pending_reviews_section()
@@ -603,15 +620,13 @@ def render_admin_page():
         _render_admin_editing_section()
         _render_admin_groups_cache_section()
         _render_admin_sync_section()
-
-    with tab_insights:
+    elif _admin_active == _admin_tab_labels[1]:
         with st.expander(t("help.admin_insights_expander")):
             st.markdown(t("help.admin_insights_content"))
         _render_admin_stats_section()
         _render_admin_search_analytics_section()
         _render_admin_integrity_report()
-
-    with tab_audit:
+    else:
         with st.expander(t("help.admin_audit_expander")):
             st.markdown(t("help.admin_audit_content"))
         _render_admin_biz_log_section()
