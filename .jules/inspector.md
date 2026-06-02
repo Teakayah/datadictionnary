@@ -13,3 +13,6 @@
 ## 2026-05-25 - Discovery Tab Crashes on Empty DataFrame
 **Learning:** `src.ui.cards.discovery` had logic handling bookmarks and recent views that blindly operated on `all_tables["full_name"].isin(bookmarks)` when `all_tables` was returned as an empty DataFrame or `None` by the authorized tables getter function, leading to `KeyError` crashes in edge cases (e.g. users with no access or empty catalog).
 **Action:** Always check `if df is None or df.empty` before accessing columns on DataFrames returned from upstream dependencies in UI modules.
+## 2026-06-01 - Testing Streamlit Segmented Control Navigation
+**Learning:** In Streamlit test automation with `AppTest`, components refactored from `st.tabs` to `st.segmented_control` cannot be verified by simply checking `at.tabs`. Furthermore, to navigate these tabs in tests, you must set the bound variable (e.g., `admin_active_tab`) in `at.session_state` to the exact locale-resolved label string (e.g., `t("admin.tab_insights")`), rather than an internal key or index, and call `at.run()` to ensure the respective conditional content block is rendered.
+**Action:** Always use the localized label text when mocking selection for `st.segmented_control` in AppTest to avoid test failures where expected components are hidden in inactive conditional blocks.
