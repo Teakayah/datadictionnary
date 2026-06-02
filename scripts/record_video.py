@@ -28,7 +28,8 @@ VIEWPORT = {"width": 1440, "height": 1080}
 # Streamlit renders inside a fixed-height scroll container — tall shots resize
 # the viewport rather than using full_page=True (which has no effect).
 DETAIL_HEIGHT = 3600
-WAIT_AFTER_NAV = 2000   # ms
+WAIT_AFTER_NAV = 1200   # ms — reduced for fluid pacing
+WAIT_STEP = 600          # ms — between minor interactions
 
 _base_url = os.getenv("RECORD_VIDEO_HOST", "http://127.0.0.1:8501")
 
@@ -39,14 +40,73 @@ def _wait(page: Page, ms: int = WAIT_AFTER_NAV) -> None:
     page.wait_for_timeout(ms)
 
 
+def _is_app_loaded(page: Page) -> bool:
+    """True when the app shell is already rendered (avoids full-reload flashes)."""
+    try:
+        return page.locator(".dd-search-hero").is_visible()
+    except Exception:
+        return False
+
+
+def _click_nav_tab(page: Page, tab_id: str) -> None:
+    """Click the in-app nav link — JS wires it to the hidden Streamlit button,
+    so Streamlit re-renders over WebSocket with no page reload and no flash."""
+    try:
+        link = page.locator(f'a.dd-nav-tab[data-tab="{tab_id}"]').first
+        link.wait_for(state="visible", timeout=3000)
+        link.hover()
+        page.wait_for_timeout(150)
+        link.click()
+        page.wait_for_timeout(900)
+    except Exception:
+        # Fallback: full reload
+        page.goto(f"{_base_url}/?tab={tab_id}&mock_login=true")
+        try:
+            page.wait_for_selector(".dd-search-hero", timeout=8000)
+            page.wait_for_timeout(400)
+        except Exception:
+            _wait(page)
+
+
 def _nav(page: Page, tab: str, extra: str = "") -> None:
-    page.goto(f"{_base_url}/?tab={tab}&mock_login=true{extra}")
-    _wait(page)
+    """Navigate to a tab. Uses in-app click when the app is already loaded
+    (no flash), falls back to a full page load for the first visit."""
+    if not extra and _is_app_loaded(page):
+        _click_nav_tab(page, tab)
+    else:
+        page.goto(f"{_base_url}/?tab={tab}&mock_login=true{extra}")
+        try:
+            page.wait_for_selector(".dd-search-hero", timeout=8000)
+            page.wait_for_timeout(400)
+        except Exception:
+            _wait(page)
+
+
+def _scroll(page: Page, y: int) -> None:
+    """Smooth-scroll by y pixels and wait for the animation to settle."""
+    page.evaluate(f"window.scrollBy({{top: {y}, behavior: 'smooth'}})")
+    page.wait_for_timeout(700)
+
+
+def _hover_click(page: Page, locator) -> None:
+    """Hover briefly before clicking to show intent in the recording."""
+    locator.hover()
+    page.wait_for_timeout(200)
+    locator.click()
+
+
+def _type_search(page: Page, locator, text: str, char_delay: int = 80) -> None:
+    """Type text character-by-character to simulate realistic user input."""
+    locator.click()
+    page.wait_for_timeout(300)
+    for char in text:
+        locator.type(char)
+        page.wait_for_timeout(char_delay)
 
 
 def _shot(page: Page, out: Path, name: str, *, tall: bool = False) -> None:
-    """Instead of taking a screenshot, we just wait a bit to record the frame in the video."""
-    page.wait_for_timeout(1000)
+    """Pause briefly so the video captures this state cleanly."""
+    page.wait_for_timeout(WAIT_STEP)
     mode = "tall" if tall else "viewport"
     print(f"  Recorded step: {name} [{mode}]")
 
@@ -105,60 +165,60 @@ def capture_search(page: Page, out: Path) -> None:
     _shot(page, out, "02_search_empty")
 
     box = page.locator('[data-testid="stSelectbox"] input').first
-    box.click()
-    _wait(page, 700)
+    _type_search(page, box, "budget")
     _shot(page, out, "03_search_autocomplete")
 
     first_opt = page.locator('[data-testid="stSelectboxVirtualDropdown"] li').first
     if not first_opt.is_visible():
         return
-    first_opt.click()
+    _hover_click(page, first_opt)
     _wait(page)
     _shot(page, out, "04_search_results_cards")
 
-    if not _open_first_detail(page):
+    btn = page.locator('button:has-text("View details"), button:has-text("Voir les détails")').first
+    if not btn.is_visible():
         return
+    _hover_click(page, btn)
+    _wait(page)
     _shot(page, out, "05_search_detail_panel", tall=True)
 
-    page.evaluate("window.scrollBy(0, 500)")
-    _wait(page, 500)
+    _scroll(page, 500)
     _shot(page, out, "06_search_detail_columns")
 
     preview_btn = page.locator('button:has-text("Preview data")').first
     if preview_btn.is_visible():
-        preview_btn.click()
-        _wait(page, 1500)
+        _hover_click(page, preview_btn)
+        _wait(page, 1200)
         _shot(page, out, "07_search_data_preview_dialog")
         page.keyboard.press("Escape")
-        _wait(page, 500)
+        _wait(page, 400)
 
     # Lineage graph interactivity — vis-network renders inside a component iframe.
-    # Scroll to bottom, find the canvas through page.frames, interact.
     print("  ── Lineage graph interactivity")
-    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-    _wait(page, 1500)
+    page.evaluate("window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'})")
+    _wait(page, 1200)
     _shot(page, out, "08a_lineage_graph_initial")
-    _graph_box = None
     for frame in page.frames:
         canvas = frame.locator("canvas").first
         try:
             canvas.wait_for(state="visible", timeout=2000)
             _graph_box = canvas.bounding_box()
             if _graph_box:
-                # Click a neighbour node (offset from centre toward top-right)
                 cx = _graph_box["x"] + _graph_box["width"] * 0.65
                 cy = _graph_box["y"] + _graph_box["height"] * 0.38
+                page.mouse.move(cx, cy, steps=15)
+                page.wait_for_timeout(300)
                 page.mouse.click(cx, cy)
-                _wait(page, 1000)
+                _wait(page, 900)
                 _shot(page, out, "08b_lineage_graph_node_selected")
-                # Drag to pan
-                page.mouse.move(_graph_box["x"] + _graph_box["width"] * 0.5,
-                                 _graph_box["y"] + _graph_box["height"] * 0.5)
+                # Smooth drag to pan
+                mx = _graph_box["x"] + _graph_box["width"] * 0.5
+                my = _graph_box["y"] + _graph_box["height"] * 0.5
+                page.mouse.move(mx, my, steps=10)
                 page.mouse.down()
-                page.mouse.move(_graph_box["x"] + _graph_box["width"] * 0.5 - 80,
-                                 _graph_box["y"] + _graph_box["height"] * 0.5 - 40, steps=20)
+                page.mouse.move(mx - 80, my - 40, steps=30)
                 page.mouse.up()
-                _wait(page, 600)
+                _wait(page, 500)
                 _shot(page, out, "08c_lineage_graph_panned")
                 print("  ✓  lineage graph interaction recorded")
                 break
@@ -166,19 +226,38 @@ def capture_search(page: Page, out: Path) -> None:
             continue
 
     # Bookmark the table so Discovery can show a populated bookmarks tab
-    page.evaluate("window.scrollTo(0, 0)")
-    _wait(page, 400)
+    page.evaluate("window.scrollTo({top: 0, behavior: 'smooth'})")
+    _wait(page, 500)
     star_btn = page.locator('button:has-text("☆")').first
     if star_btn.is_visible():
-        star_btn.click()
-        _wait(page, 800)
+        _hover_click(page, star_btn)
+        _wait(page, 700)
         _shot(page, out, "08_search_detail_bookmarked", tall=True)
         print("  ✓  table bookmarked for discovery showcase")
 
     back_btn = page.locator('button:has-text("Back to results")').first
     if back_btn.is_visible():
-        back_btn.click()
+        _hover_click(page, back_btn)
         _wait(page)
+
+
+def capture_navigation(page: Page, out: Path) -> None:
+    """Showcase fluid tab-switching to demonstrate app responsiveness.
+    Uses in-app nav clicks after the first load — no page-reload flash."""
+    print("\n── Navigation showcase")
+    # First load: full goto so mock auth cookie is set
+    _nav(page, "search")
+    _shot(page, out, "01_nav_search")
+    # Subsequent switches: in-app clicks, smooth and instant
+    for tab, name in [
+        ("catalog",   "02_nav_catalog"),
+        ("glossary",  "03_nav_glossary"),
+        ("discovery", "04_nav_discovery"),
+        ("health",    "05_nav_health"),
+        ("search",    "06_nav_back_search"),
+    ]:
+        _click_nav_tab(page, tab)
+        _shot(page, out, name)
 
 
 def capture_catalog(page: Page, out: Path) -> None:
@@ -186,11 +265,24 @@ def capture_catalog(page: Page, out: Path) -> None:
     _nav(page, "catalog")
     _shot(page, out, "09_catalog_browser")
 
-    exp = page.locator('[data-testid="stExpander"]').first
-    if exp.is_visible():
-        exp.click()
+    # The first expander is the help text — skip it.
+    # The second expander onwards are catalog entries ("📁 catalog_name").
+    catalog_exp = page.locator('[data-testid="stExpander"]').nth(1)
+    if not catalog_exp.is_visible():
+        catalog_exp = page.locator('[data-testid="stExpander"]').first
+    if catalog_exp.is_visible():
+        _hover_click(page, catalog_exp)
         _wait(page)
         _shot(page, out, "10_catalog_expanded")
+
+    # Schemas are plain HTML divs inside the catalog expander (no sub-expander).
+    # Table buttons ("📄 tablename") are rendered directly after each schema header.
+    table_btn = page.locator('button:has-text("📄")').first
+    if table_btn.is_visible():
+        print("  ── Clicking table in tree → search detail")
+        _hover_click(page, table_btn)
+        _wait(page, 1400)
+        _shot(page, out, "10b_catalog_table_detail")
 
 
 def capture_glossary(page: Page, out: Path) -> None:
@@ -198,15 +290,21 @@ def capture_glossary(page: Page, out: Path) -> None:
     _nav(page, "glossary")
     _shot(page, out, "11_glossary")
 
-    term = page.locator('[data-testid="stSelectbox"]').first
-    if term.is_visible():
-        term.click()
-        _wait(page, 600)
+    term_input = page.locator('[data-testid="stSelectbox"] input').first
+    if term_input.is_visible():
+        _type_search(page, term_input, "rev", char_delay=100)
+        _wait(page, 400)
         first = page.locator('[data-testid="stSelectboxVirtualDropdown"] li').first
         if first.is_visible():
-            first.click()
+            _hover_click(page, first)
             _wait(page)
             _shot(page, out, "12_glossary_term_detail", tall=True)
+
+    # Hover over the first "→ table" link to show it's clickable without navigating away
+    link_btn = page.locator('button:has-text("→")').first
+    if link_btn.is_visible():
+        link_btn.hover()
+        page.wait_for_timeout(600)
 
 
 def capture_discovery(page: Page, out: Path) -> None:
@@ -214,10 +312,16 @@ def capture_discovery(page: Page, out: Path) -> None:
     _nav(page, "discovery")
     _shot(page, out, "13_discovery_notable")
 
+    # Hover over the featured card CTA to show it's clickable, then move on
+    cms_nav = page.locator('button:has-text("→")').first
+    if cms_nav.is_visible():
+        cms_nav.hover()
+        page.wait_for_timeout(500)
+
     try:
         bk = page.locator('button:has-text("Bookmarks")').first
         bk.wait_for(state="visible", timeout=3000)
-        bk.click()
+        _hover_click(page, bk)
         _wait(page)
         _shot(page, out, "14_discovery_bookmarks_populated", tall=True)
     except Exception as exc:
@@ -226,7 +330,7 @@ def capture_discovery(page: Page, out: Path) -> None:
     try:
         rc = page.locator('button:has-text("Recent")').first
         rc.wait_for(state="visible", timeout=3000)
-        rc.click()
+        _hover_click(page, rc)
         _wait(page)
         _shot(page, out, "15_discovery_recent", tall=True)
     except Exception as exc:
@@ -238,9 +342,15 @@ def capture_health(page: Page, out: Path) -> None:
     _nav(page, "health")
     _shot(page, out, "16_health_overview")
 
-    page.evaluate("window.scrollBy(0, 500)")
-    _wait(page, 600)
+    _scroll(page, 400)
     _shot(page, out, "17_health_charts")
+
+    # Hover a priority-action button to show it's actionable without leaving the page
+    priority_btn = page.locator('button:has-text("📄")').first
+    if priority_btn.is_visible():
+        priority_btn.hover()
+        page.wait_for_timeout(600)
+        _shot(page, out, "17b_health_priority_hover")
 
 
 def capture_grants_filter(page: Page, out: Path) -> None:
@@ -251,13 +361,12 @@ def capture_grants_filter(page: Page, out: Path) -> None:
     if not _open_first_detail(page):
         return
 
-    page.evaluate("window.scrollBy(0, 1400)")
-    _wait(page, 600)
+    _scroll(page, 1400)
     _shot(page, out, "18_search_grants_section")
 
     group_btn = page.locator('button:has-text("Browse"), button:has-text("Search tables accessible")').first
     if group_btn.is_visible():
-        group_btn.click()
+        _hover_click(page, group_btn)
         _wait(page)
         _shot(page, out, "19_group_filter_results", tall=True)
 
@@ -277,15 +386,14 @@ def capture_french(page: Page, out: Path) -> None:
     # Search empty state in French
     _shot(page, out, "20_fr_search_empty")
 
-    # Autocomplete
+    # Autocomplete with typed query
     box = page.locator('[data-testid="stSelectbox"] input').first
-    box.click()
-    _wait(page, 700)
+    _type_search(page, box, "budget", char_delay=90)
     _shot(page, out, "21_fr_search_autocomplete")
 
     first_opt = page.locator('[data-testid="stSelectboxVirtualDropdown"] li').first
     if first_opt.is_visible():
-        first_opt.click()
+        _hover_click(page, first_opt)
         _wait(page)
         _shot(page, out, "22_fr_search_results_cards")
 
@@ -446,15 +554,13 @@ def capture_load_test_report(page: Page, out: Path) -> None:
         return
 
     page.goto(report.as_uri())
-    _wait(page, 1500)
+    _wait(page, 1200)
     _shot(page, out, "29_load_test_report_overview")
 
-    page.evaluate("window.scrollBy(0, 600)")
-    _wait(page, 400)
+    _scroll(page, 600)
     _shot(page, out, "30_load_test_report_table")
 
-    page.evaluate("window.scrollBy(0, 800)")
-    _wait(page, 400)
+    _scroll(page, 800)
     _shot(page, out, "31_load_test_report_charts")
 
 
@@ -596,11 +702,10 @@ def capture_wcag(page: Page, out: Path) -> None:
         tmp = Path(f.name)
 
     page.goto(tmp.as_uri())
-    _wait(page, 1500)
+    _wait(page, 1200)
     _shot(page, out, "32_wcag_summary")
 
-    page.evaluate("window.scrollBy(0, 700)")
-    _wait(page, 300)
+    _scroll(page, 700)
     _shot(page, out, "33_wcag_violations_detail")
 
     tmp.unlink(missing_ok=True)
@@ -641,6 +746,7 @@ def main() -> None:
         # English screens — capture_search must run before capture_discovery
         # so the bookmarked table shows up in the Bookmarks tab.
         capture_login(page, out)
+        capture_navigation(page, out)   # fluid tab-switching showcase
         capture_search(page, out)
         capture_catalog(page, out)
         capture_glossary(page, out)

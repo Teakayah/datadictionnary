@@ -26,9 +26,10 @@ VIS_WIDE_CSS: str = "<style>\n" + (_ASSETS / "vis_dialog.css").read_text(encodin
 def render_css() -> None:
     """Inject the design-system stylesheet and WCAG aria patch into the page.
 
-    The aria patch fixes a Streamlit framework violation: ``st.dataframe``
-    sort/filter buttons render as ``div[aria-haspopup]`` without a ``role``
-    attribute, which axe-core flags as ``aria-allowed-attr`` (WCAG 4.1.2).
+    The aria patch fixes two Streamlit framework violations on ``st.dataframe``
+    sort/filter buttons (WCAG 4.1.2):
+      1. ``aria-allowed-attr`` — ``div[aria-haspopup]`` rendered without ``role``.
+      2. ``aria-input-field-name`` — ``role="combobox"`` without an accessible name.
 
     The patch runs in three layers, all targeting ``window.parent.document``
     from a 0-height components.html iframe (Streamlit's React frontend rejects
@@ -47,21 +48,31 @@ def render_css() -> None:
 
     _patch_now = (
         "doc.querySelectorAll('div[aria-haspopup]').forEach(function(el){"
-        "if(!el.getAttribute('role')){el.setAttribute('role','combobox');}});"
+        "if(!el.getAttribute('role')){el.setAttribute('role','combobox');}"
+        "if(!el.getAttribute('aria-label')){"
+        "var hdr=el.closest('[role=\"columnheader\"]')||el.parentElement;"
+        "var txt=hdr?(hdr.innerText||hdr.textContent||'').split('\\n')[0].trim():'';"
+        "el.setAttribute('aria-label',txt||'Column options');}});"
     )
 
+    _patch_el = (
+        "function _p(el){"
+        "if(!el.getAttribute('role')){el.setAttribute('role','combobox');}"
+        "if(!el.getAttribute('aria-label')){"
+        "var hdr=el.closest('[role=\"columnheader\"]')||el.parentElement;"
+        "var txt=hdr?(hdr.innerText||hdr.textContent||'').split('\\n')[0].trim():'';"
+        "el.setAttribute('aria-label',txt||'Column options');}}"
+    )
     _observer_js = (
-        "try{new (win.MutationObserver)(function(ms){"
+        _patch_el
+        + "try{new (win.MutationObserver)(function(ms){"
         "ms.forEach(function(m){"
         "if(m.type==='attributes'&&m.target&&m.target.nodeType===1){"
-        "if(m.target.hasAttribute('aria-haspopup')&&!m.target.getAttribute('role')){"
-        "m.target.setAttribute('role','combobox');}}"
+        "if(m.target.hasAttribute('aria-haspopup')){_p(m.target);}}"
         "m.addedNodes&&m.addedNodes.forEach(function(n){"
         "if(n.nodeType!==1)return;"
-        "if(n.matches&&n.matches('div[aria-haspopup]')&&!n.getAttribute('role'))"
-        "n.setAttribute('role','combobox');"
-        "n.querySelectorAll&&n.querySelectorAll('div[aria-haspopup]').forEach(function(e){"
-        "if(!e.getAttribute('role'))e.setAttribute('role','combobox');});"
+        "if(n.matches&&n.matches('div[aria-haspopup]'))_p(n);"
+        "n.querySelectorAll&&n.querySelectorAll('div[aria-haspopup]').forEach(_p);"
         "});})"
         "}).observe(doc.body,{childList:true,subtree:true,"
         "attributes:true,attributeFilter:['aria-haspopup']});"
