@@ -257,6 +257,9 @@ class _DuckDBCursor:
         self._rel = None
 
     def execute(self, sql: str, params=None):
+        if self._con is None:
+            self._rel = None
+            return
         if params is None:
             self._rel = self._con.execute(sql)
         elif isinstance(params, dict):

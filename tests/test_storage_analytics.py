@@ -96,14 +96,17 @@ def test_duckdb_analytics_alerts():
                     return self
                 def __exit__(self, *_):
                     self.con.close()
+                @property
+                def open(self):
+                    return True
                 def cursor(self):
                     return TestDuckDBCursor(self.con)
                 def execute(self, query, params=None):
                     self.con.execute(query, params)
-                    return self
+                    return TestDuckDBCursor(self.con)
                 def execute_write(self, query, params=None):
                     self.con.execute(query, params)
-                    return self
+                    return TestDuckDBCursor(self.con)
 
             mock_conn_class.side_effect = TestDuckDBConn
 
