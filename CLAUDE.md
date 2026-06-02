@@ -167,4 +167,4 @@ The 1083-line `src/ui/cards.py` was split into 7 submodules (TODO #3):
 ## Roadmap context
 - TODO #1–7 (complete): sidecar sync worker, Entra groups overage, cards.py split, storage abstraction, server-side auth checks on writes, src/sync/push.py unit tests, deletion of the Databricks-direct write path.
 - Plus: groups-cache flush tool (admin page), sign-out/sign-in cache invalidation.
-- Open follow-ups (see `TODO.md`): PostgreSQL multi-writer if DuckDB contention shows up; reuse `BusinessNameOverrideStorage` from `src/pages/search.py`.
+- Open follow-ups (see `TODO.md`): reuse `BusinessNameOverrideStorage` from `src/pages/search.py`.

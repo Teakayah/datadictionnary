@@ -173,6 +173,9 @@ def render_pipelines_page():
     </div>
     ''', unsafe_allow_html=True)
 
+    with st.expander(t("help.pipelines_expander")):
+        st.markdown(t("help.pipelines_content"))
+
     pipelines = get_pipelines()
     if not pipelines:
         st.markdown(
