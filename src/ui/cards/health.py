@@ -227,7 +227,7 @@ def _render_zero_result_alerts():
         logging.error("Failed to render zero result alerts: %s", e)
 
 
-def render_health(groups: tuple, _unused_fn=None):
+def render_health(groups: tuple):
     st.markdown(f'''
     <div class="dd-search-hero">
       <div class="dd-eyebrow">{t("health.title")}</div>
