@@ -87,6 +87,13 @@ class TestFakeBusinessNameOverrideStorage:
         assert fake.get_for_table("t1")["c"]["business_name"] == "n1"
         assert fake.get_for_table("t2")["c"]["business_name"] == "n2"
 
+    def test_get_columns(self):
+        fake = FakeBusinessNameOverrideStorage()
+        import pandas as pd
+        df = fake.get_columns("t1")
+        assert isinstance(df, pd.DataFrame)
+        assert list(df.columns) == ["column_name", "data_type", "comment"]
+
 
 # ── DuckDB round-trip ────────────────────────────────────────────────────────
 
@@ -183,6 +190,19 @@ class TestDuckDBStorageRoundTrip:
         overrides.upsert(ColumnOverride("t1", "c1", "bn", "def", "alice", "pending_approval"))
         assert len(overrides.list_pending()) == 1
 
+    def test_duckdb_get_columns(self, storages, monkeypatch):
+        _, overrides = storages
+
+        def mock_run_query(query, params):
+            import pandas as pd
+            return pd.DataFrame([{"column_name": "c1", "data_type": "int", "comment": "test"}])
+
+        monkeypatch.setattr("src.db.queries.run_query", mock_run_query)
+
+        df = overrides.get_columns("t1")
+        assert list(df.columns) == ["column_name", "data_type", "comment"]
+        assert len(df) == 1
+
 
 # ── audit.py routing through storage ─────────────────────────────────────────
 
@@ -252,6 +272,25 @@ class TestDemoAuditStorage:
         assert len(st.session_state["demo_audit_log"]) == 1
 
 class TestDemoBusinessNameOverrideStorage:
+    def test_demo_get_columns(self, monkeypatch):
+        import streamlit as st
+        st.session_state.clear()
+
+        # Mock run_query since Demo uses it
+        from src.db.queries import run_query
+
+        def mock_run_query(query, params):
+            import pandas as pd
+            return pd.DataFrame([{"column_name": "c1", "data_type": "int", "comment": "test"}])
+
+        monkeypatch.setattr("src.db.queries.run_query", mock_run_query)
+
+        from src.storage.audit_storage import DemoBusinessNameOverrideStorage
+        storage = DemoBusinessNameOverrideStorage()
+        df = storage.get_columns("t1")
+        assert list(df.columns) == ["column_name", "data_type", "comment"]
+        assert len(df) == 1
+
     def test_demo_upsert_get(self, monkeypatch):
         import streamlit as st
         st.session_state.clear()
