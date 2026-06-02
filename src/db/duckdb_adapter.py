@@ -34,9 +34,12 @@ def _to_duckdb_sql(sql: str, params: dict) -> tuple:
     `IN %(name)s` clause and rewrites the SQL to use DuckDB's native `= ANY($name)` array
     operator instead, ensuring cross-driver compatibility.
 
-    @param sql - The SQL query string using pyformat placeholders.
-    @param params - A dictionary of parameters to interpolate.
-    @returns A tuple containing the converted SQL string and the converted parameters dictionary.
+    Args:
+        sql (str): The SQL query string using pyformat placeholders.
+        params (dict): A dictionary of parameters to interpolate.
+
+    Returns:
+        tuple: A tuple containing the converted SQL string and the converted parameters dictionary.
     """
     if not params:
         return sql, {}
