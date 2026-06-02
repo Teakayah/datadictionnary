@@ -64,6 +64,7 @@
       <li class="nav-item "><a href="adr-004-sidecar-sync-worker.html">ADR 004: Sync Worker</a></li>
       <li class="nav-item active"><a href="adr-005-storage-abstraction.html">ADR 005: Storage Abstraction</a></li>
       <li class="nav-item "><a href="adr-006-entra-groups-overage.html">ADR 006: Groups Overage</a></li>
+      <li class="nav-item "><a href="adr-007-api-mcp-server.html">ADR 007: API &amp; MCP</a></li>
     </ul>
   </nav>
   <nav class="nav-section">
@@ -77,6 +78,7 @@
     <div class="nav-section-title">Reference</div>
     <ul class="nav-list">
       <li class="nav-item "><a href="reference-locale-keys.html">Locale Keys</a></li>
+      <li class="nav-item "><a href="reference-api.html">API &amp; MCP Reference</a></li>
     </ul>
   </nav>
 </aside>
@@ -237,15 +239,18 @@ per write.</p>
 <ul>
   <li>Protocol-based typing has weaker IDE support than ABC inheritance in</li>
 </ul>  some editors. Hasn't been a problem in practice.
-<p><strong>Out of scope:</strong></p>
+<p><strong>Out of scope / follow-ups:</strong></p>
 <ul>
   <li>A <code>CommentStorage</code> for <code>src/comments.py</code>. The pattern is the same;</li>
 </ul>  migration is mechanical. Deferred to a future ticket if the
-  entity grows new fields.
+  entity grows new fields. <code>src/comments.py</code> still uses direct DuckDB
+  routing.
 <ul>
-  <li>Migrating <code>src/pages/search.py</code> from</li>
+  <li>~~Migrating <code>src/pages/search.py</code> from</li>
 </ul>  <code>src.db.queries.get_column_business_names</code> to
-  <code>BusinessNameOverrideStorage.get_for_table</code>. Mechanical follow-up.
+  <code>BusinessNameOverrideStorage.get_for_table</code>~~ — Done. <code>src/pages/search.py</code>
+  imports <code>get_business_name_override_storage</code> from <code>src/storage/__init__.py</code>
+  and routes all column business-name reads through the storage abstraction.
 </section>
       <footer class="site-footer">
         <p>Data Dictionary · Documented by Data Engineering</p>

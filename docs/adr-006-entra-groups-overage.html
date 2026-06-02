@@ -64,6 +64,7 @@
       <li class="nav-item "><a href="adr-004-sidecar-sync-worker.html">ADR 004: Sync Worker</a></li>
       <li class="nav-item "><a href="adr-005-storage-abstraction.html">ADR 005: Storage Abstraction</a></li>
       <li class="nav-item active"><a href="adr-006-entra-groups-overage.html">ADR 006: Groups Overage</a></li>
+      <li class="nav-item "><a href="adr-007-api-mcp-server.html">ADR 007: API &amp; MCP</a></li>
     </ul>
   </nav>
   <nav class="nav-section">
@@ -77,6 +78,7 @@
     <div class="nav-section-title">Reference</div>
     <ul class="nav-list">
       <li class="nav-item "><a href="reference-locale-keys.html">Locale Keys</a></li>
+      <li class="nav-item "><a href="reference-api.html">API &amp; MCP Reference</a></li>
     </ul>
   </nav>
 </aside>
@@ -194,11 +196,7 @@ default for an authorisation layer.</p>
    a new group, the user is still signed in, the admin clicks the
    button, the user reloads and sees the new tables.
 <h3>Required scope</h3>
-<p><code>SCOPE</code> in <code>src/config.py</code> includes <code>GroupMember.Read.All</code>. This was
-already in the scope list before this ADR but was load-bearing only
-once we added the Graph call. Removing it would break overage users —
-documented inline in <code>src/config.py</code> so future readers don't think
-it's safe to drop.</p>
+<p>Initially, <code>SCOPE</code> in <code>src/config.py</code> included <code>GroupMember.Read.All</code>. However, an audit (TODO #8) confirmed that <code>User.Read</code> is sufficient for the <code>/me/getMemberObjects</code> endpoint used here. To enforce the principle of least privilege, <code>GroupMember.Read.All</code> has been removed from <code>src/config.py</code>. Only <code>User.Read</code> and <code>email</code> are now requested.</p>
 <hr>
 </section>
 <section class="section" id="consequences">

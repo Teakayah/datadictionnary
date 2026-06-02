@@ -1,0 +1,206 @@
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    exclude:
+      - "*.md"
+      - "docs/**"
+      - "design_system/**"
+
+pr:
+  branches:
+    include:
+      - main
+
+variables:
+  # Override in the pipeline UI or a variable group for secrets.
+  ACR_NAME: "$(ACR_NAME)"           # e.g. myregistry
+  IMAGE_REPO: "$(ACR_NAME).azurecr.io/data-dictionary"
+  K8S_NAMESPACE: "data-dictionary"
+  K8S_CONNECTION: "$(K8S_SERVICE_CONNECTION)"  # AKS service connection name
+
+stages:
+
+# ── 1. Test ───────────────────────────────────────────────────────────────────
+
+  - stage: Test
+    displayName: Lint & Test
+    jobs:
+      - job: pytest
+        displayName: Run test suite
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: "3.11"
+              addToPath: true
+
+          - script: |
+              pip install --upgrade pip
+              pip install -r requirements.txt -r requirements-dev.txt
+            displayName: Install dependencies
+
+          - script: |
+              python -m pytest tests/ -q \
+                --ignore=tests/test_load_smoke.py \
+                --ignore=tests/test_wcag_axe.py \
+                --ignore=tests/test_nav_render.py \
+                --tb=short \
+                --junit-xml=test-results.xml
+            displayName: pytest
+            env:
+              TENANT_ID: "test-tenant"
+              CLIENT_ID: "test-client"
+              DUCKDB_PATH: ":memory:"
+
+          - task: PublishTestResults@2
+            condition: always()
+            inputs:
+              testResultsFiles: test-results.xml
+              testRunTitle: "pytest"
+
+# ── 2. Build ──────────────────────────────────────────────────────────────────
+
+  - stage: Build
+    displayName: Build & Push image
+    dependsOn: Test
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - job: docker_build
+        displayName: Build Docker image
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: AzureCLI@2
+            displayName: ACR login
+            inputs:
+              azureSubscription: "$(AZURE_SERVICE_CONNECTION)"
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: az acr login --name $(ACR_NAME)
+
+          - task: Docker@2
+            displayName: Build and push
+            inputs:
+              command: buildAndPush
+              containerRegistry: "$(ACR_DOCKER_SERVICE_CONNECTION)"
+              repository: data-dictionary
+              dockerfile: Dockerfile
+              tags: |
+                $(Build.BuildId)
+                latest
+
+# ── 3. Deploy ─────────────────────────────────────────────────────────────────
+
+  - stage: Deploy
+    displayName: Deploy to AKS
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: deploy_aks
+        displayName: kubectl apply
+        environment: production
+        pool:
+          vmImage: ubuntu-latest
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: KubernetesManifest@1
+                  displayName: Apply namespace
+                  inputs:
+                    action: deploy
+                    connectionType: kubernetesServiceConnection
+                    kubernetesServiceConnection: $(K8S_CONNECTION)
+                    namespace: $(K8S_NAMESPACE)
+                    manifests: k8s/namespace.yaml
+
+                - task: KubernetesManifest@1
+                  displayName: Apply config & secrets
+                  inputs:
+                    action: deploy
+                    connectionType: kubernetesServiceConnection
+                    kubernetesServiceConnection: $(K8S_CONNECTION)
+                    namespace: $(K8S_NAMESPACE)
+                    manifests: |
+                      k8s/configmap.yaml
+                      k8s/secret.yaml
+
+                - task: KubernetesManifest@1
+                  displayName: Apply network policies
+                  inputs:
+                    action: deploy
+                    connectionType: kubernetesServiceConnection
+                    kubernetesServiceConnection: $(K8S_CONNECTION)
+                    namespace: $(K8S_NAMESPACE)
+                    manifests: |
+                      k8s/networkpolicy.yaml
+                      k8s/networkpolicy-sync.yaml
+                      k8s/networkpolicy-redis.yaml
+                      k8s/networkpolicy-api.yaml
+
+                - task: KubernetesManifest@1
+                  displayName: Apply storage
+                  inputs:
+                    action: deploy
+                    connectionType: kubernetesServiceConnection
+                    kubernetesServiceConnection: $(K8S_CONNECTION)
+                    namespace: $(K8S_NAMESPACE)
+                    manifests: |
+                      k8s/pvc.yaml
+                      k8s/pvc-redis.yaml
+
+                - task: KubernetesManifest@1
+                  displayName: Apply workloads
+                  inputs:
+                    action: deploy
+                    connectionType: kubernetesServiceConnection
+                    kubernetesServiceConnection: $(K8S_CONNECTION)
+                    namespace: $(K8S_NAMESPACE)
+                    manifests: |
+                      k8s/deployment.yaml
+                      k8s/deployment-api.yaml
+                      k8s/deployment-sync-worker.yaml
+                      k8s/deployment-redis.yaml
+                      k8s/service.yaml
+                      k8s/service-api.yaml
+                      k8s/service-redis.yaml
+                      k8s/ingress.yaml
+                      k8s/hpa.yaml
+                      k8s/pdb.yaml
+                      k8s/resourcequota.yaml
+                    containers: |
+                      $(IMAGE_REPO):$(Build.BuildId)
+                    imagePullSecrets: |
+                      $(IMAGE_PULL_SECRET)
+
+                - task: Kubernetes@1
+                  displayName: Wait for dd-app rollout
+                  inputs:
+                    connectionType: kubernetesServiceConnection
+                    kubernetesServiceEndpoint: $(K8S_CONNECTION)
+                    namespace: $(K8S_NAMESPACE)
+                    command: rollout
+                    arguments: status deployment/dd-app --timeout=5m
+
+                - task: Kubernetes@1
+                  displayName: Wait for dd-api rollout
+                  inputs:
+                    connectionType: kubernetesServiceConnection
+                    kubernetesServiceEndpoint: $(K8S_CONNECTION)
+                    namespace: $(K8S_NAMESPACE)
+                    command: rollout
+                    arguments: status deployment/dd-api --timeout=5m
+
+                - task: Kubernetes@1
+                  displayName: Wait for dd-sync-worker rollout
+                  inputs:
+                    connectionType: kubernetesServiceConnection
+                    kubernetesServiceEndpoint: $(K8S_CONNECTION)
+                    namespace: $(K8S_NAMESPACE)
+                    command: rollout
+                    arguments: status deployment/dd-sync-worker --timeout=5m

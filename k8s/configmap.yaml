@@ -12,3 +12,8 @@ data:
   DEMO_DATA: "false"
   REDIRECT_URI: "https://datadictionary.internal/"
   DUCKDB_PATH: "/data/dictionary_cache.duckdb"
+  # Redis — shared by the Streamlit app, API server, and sync daemon.
+  REDIS_URL: "redis://dd-redis:6379"
+  # API_AUDIENCE defaults to CLIENT_ID. Set explicitly when the API uses
+  # a separate app registration from the Streamlit app.
+  # API_AUDIENCE: "api://your-api-app-id"
