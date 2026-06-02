@@ -266,12 +266,11 @@ independently identified this as the highest-recall enhancement for non-technica
 - [ ] **Pipelines and Admin tabs are visible to all users in the top nav.**
       `app.py` already computes `show_admin` / `show_pipelines`; the header
       must honour them (currently doesn't).
-- [ ] **Admin tab crashes** with
+- [x] **Admin tab crashes** with
       `AttributeError: '_DuckDBConn' object has no attribute 'fetchall_as_pandas'`
-      at `src/storage/analytics_storage.py:62`. `fetchall_as_pandas` belongs
-      to `_DuckDBCursor`, not `_DuckDBConn` — route via
-      `conn.execute(...).fetchall_as_pandas()`. Audit other storage callers
-      for the same shape.
+      at `src/storage/analytics_storage.py:62`. Fixed: added None guard to
+      `_DuckDBCursor.execute()` and routed analytics storage via
+      `conn.execute(...).fetchall_as_pandas()` with `conn.open` guard (commit 85b3679).
 - [ ] **Pipelines and Admin pages are missing the help-tooltip pattern**
       Discovery uses on its controls. Add `help=t(...)` to the primary
       controls on both pages.
