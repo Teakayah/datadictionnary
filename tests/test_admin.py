@@ -184,17 +184,29 @@ class TestAdminPage:
         """Four metric cards render with the counts returned by get_admin_stats()."""
         at = self._run_admin(monkeypatch)
         assert not at.exception, f"Exception: {at.exception}"
+
+        # In the new segmented control layout, we must select the "Insights" tab to render metrics
+        from src.i18n import t
+        at.session_state["admin_active_tab"] = t("admin.tab_insights")
+        at.run()
+
         # st.metric renders as markdown — check the labels
         metrics = {m.label: m.value for m in at.metric}
-        assert "Total tables" in metrics
-        assert "Total columns" in metrics
-        assert "Total comments" in metrics
-        assert "Business name overrides" in metrics
+        assert t("admin.stats_tables") in metrics
+        assert t("admin.stats_columns") in metrics
+        assert t("admin.stats_comments") in metrics
+        assert t("admin.stats_overrides") in metrics
 
     def test_log_expand_buttons_present(self, monkeypatch):
         """Both change-log expand buttons are rendered (replaced expanders in 7b0abc2)."""
         at = self._run_admin(monkeypatch)
         assert not at.exception, f"Exception: {at.exception}"
+
+        # In the new segmented control layout, we must select the "Audit Log" tab to render logs
+        from src.i18n import t
+        at.session_state["admin_active_tab"] = t("admin.tab_audit")
+        at.run()
+
         button_keys = [b.key for b in at.button]
         assert "admin_biz_log_expand" in button_keys
         assert "admin_comment_log_expand" in button_keys
@@ -263,9 +275,15 @@ class TestAuditLog:
         ]
         at = self._run_demo_admin(monkeypatch, pre_state={"demo_audit_log": pre_audit})
         assert not at.exception, f"Exception: {at.exception}"
-        # The page renders — verify stat cards are present (proxy for successful render)
-        metrics = {m.label: m.value for m in at.metric}
-        assert "Total tables" in metrics
+
+        # In the new segmented control layout, we must select the "Audit Log" tab to render logs
+        from src.i18n import t
+        at.session_state["admin_active_tab"] = t("admin.tab_audit")
+        at.run()
+
+        # The page renders — verify buttons for logs are present
+        button_keys = [b.key for b in at.button]
+        assert "admin_biz_log_expand" in button_keys
 
     def test_comment_log_rows(self, monkeypatch):
         """Admin page comment log displays comment_added and comment_reply events."""
@@ -293,6 +311,12 @@ class TestAuditLog:
         ]
         at = self._run_demo_admin(monkeypatch, pre_state={"demo_audit_log": pre_audit})
         assert not at.exception, f"Exception: {at.exception}"
+
+        # In the new segmented control layout, we must select the "Audit Log" tab to render logs
+        from src.i18n import t
+        at.session_state["admin_active_tab"] = t("admin.tab_audit")
+        at.run()
+
         button_keys = [b.key for b in at.button]
         assert "admin_comment_log_expand" in button_keys
 
