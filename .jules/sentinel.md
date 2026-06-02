@@ -23,7 +23,7 @@
 **Learning:** Returning `str(exc)` in `st.error()` can expose sensitive internal data or traceback context to end users.
 **Prevention:** Always log exceptions internally using `logging.error(..., exc_info=True)` and return generic, safe error messages to the UI.
 
-## 2026-05-31 - [SMTP Header Injection]
-**Vulnerability:** SMTP Header Injection via unsanitized recipient emails in comments.
-**Learning:** Even though author and object names were sanitized before being added to email headers, the recipient emails were not. An attacker could inject CRLF characters to add arbitrary SMTP headers or control the email body.
-**Prevention:** Always sanitize all user-provided data, including recipient emails, before using them in email headers.
+## 2026-05-28 - Fix Regex Newline Bypass Vulnerability
+**Vulnerability:** Regex patterns anchoring with `$` instead of `\Z` in `src/sync/push.py` allow newline injection.
+**Learning:** In Python's `re` module, `$` allows a trailing newline to bypass validation, leading to potential SQL injection or logic evasion.
+**Prevention:** Always use `\Z` to strictly anchor to the absolute end of a string.
