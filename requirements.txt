@@ -11,3 +11,11 @@ duckdb>=1.0,<2                     # 1.5.2
 streamlit-js-eval>=1.0,<2          # 1.0.0
 requests>=2.32,<3                  # 2.33.1 — used directly in src/pipelines.py
 streamlit-autorefresh>=1.0,<2          # 1.0.1 — used in src/ui/cards/pipelines.py for non-blocking UI refresh
+
+# ── REST API + MCP server ─────────────────────────────────────────────────────
+fastapi>=0.115,<1                      # REST API framework
+uvicorn[standard]>=0.30,<1             # ASGI server (start: uvicorn src.api.main:app)
+mcp>=1.9                               # MCP Python SDK (includes FastMCP + Streamable HTTP)
+redis>=5.0,<6                          # includes redis.asyncio for async cache
+python-jose[cryptography]>=3.3,<4      # Entra ID JWT validation (RS256)
+httpx>=0.27,<1                         # async HTTP for JWKS fetch + Graph API

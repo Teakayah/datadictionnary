@@ -37,3 +37,7 @@
 ## 2024-05-30 - Optimize unique extraction on dataframes
 **Learning:** Calling .unique().tolist() on pandas DataFrames allocates more memory and is slower than .drop_duplicates().tolist().
 **Action:** Replaced .unique().tolist() with .drop_duplicates().tolist() to improve execution speed.
+
+## 2024-06-03 - Optimize set instantiation from DataFrames
+**Learning:** Instantiating a set directly from a large Pandas column list (`set(df['col'].tolist())`) is significantly slower than deduping with numpy first (`set(df['col'].unique().tolist())`).
+**Action:** Always call `.unique().tolist()` before casting to a `set` to leverage fast C-level CPython/NumPy deduplication.

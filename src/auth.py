@@ -106,7 +106,8 @@ def _resolve_user_groups(claims: dict, access_token: str) -> list[str]:
 def _try_silent_refresh() -> bool:
     """Attempt a silent token refresh using MSAL's cached account.
 
-    Returns True if a fresh token was stored, False otherwise.
+    Returns:
+        bool: True if a fresh token was successfully retrieved and stored, False otherwise.
     """
     try:
         msal_app = get_msal_app()
@@ -241,7 +242,7 @@ def check_auth(sync_prefs_callback: Optional[callable] = None):
     """Main authentication gate. Handles OIDC flow and session initialisation.
 
     Args:
-        sync_prefs_callback: Optional callable to seed personalisation data on
+        sync_prefs_callback (Optional[callable]): Optional callable to seed personalisation data on
                              first login (usually _sync_prefs_to_session).
 
     Flow:

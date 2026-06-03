@@ -78,7 +78,7 @@
     "downstream_none": "Aucun actif aval connu.",
     "downstream_certified_warning": "Inclut des actifs certifiés ou en production — vérifiez attentivement avant de modifier.",
     "title": "§ Détails de la table",
-    "related_count": "liées",
+    "related_count": "{formatted_count} associées",
     "same_schema": "Même schéma",
     "shared_column": "Colonne partagée",
     "open_related": "Ouvrir →",
@@ -243,7 +243,8 @@
     "alert_count_col": "Nombre de recherches",
     "alert_first_seen_col": "Première recherche sans résultat",
     "alert_last_seen_col": "Dernière tentative",
-    "alert_date_format": "%d/%m/%Y %H:%M"
+    "alert_date_format": "%d/%m/%Y %H:%M",
+    "showing_first_50": "Affichage des 50 premières actions prioritaires sur {count} pour des raisons de performances."
   },
   "glossary": {
     "title": "§ Glossaire métier",
@@ -346,7 +347,11 @@
     "post_table_ref_placeholder": "catalogue.schema.nom_table",
     "confirm_delete_title": "Confirmer la suppression",
     "confirm_delete_prompt": "Voulez-vous vraiment supprimer cette publication ?",
-    "confirm_delete_button": "Supprimer la publication"
+    "confirm_delete_button": "Supprimer la publication",
+    "expiry_2_days": "2 jours",
+    "expiry_7_days": "7 jours",
+    "expiry_30_days": "30 jours",
+    "expiry_never": "Jamais"
   },
   "footer": {
     "built_with": "Data Dictionary · v0.1.0 · synchronisé chaque nuit depuis Unity Catalog"
@@ -413,5 +418,11 @@
     "search_extra_admin": "**Approuver les modifications** — les propositions des éditeurs apparaissent dans Admin → Révisions en attente. Approuvez pour publier directement dans Unity Catalog.",
     "health_priority_editor": "Cliquez sur un nom de table pour l'ouvrir et ajouter une description. La sauvegarder la retire de cette liste.",
     "health_priority_viewer": "Cliquez sur un nom de table pour ouvrir sa fiche. Contactez le responsable pour demander une description."
+  },
+  "notifications": {
+    "strip_label_one": "1 mise à jour sur un favori",
+    "strip_label_many": "{count} mises à jour sur des favoris",
+    "dismiss": "Ignorer",
+    "mark_all_read": "Tout marquer comme lu"
   }
 }

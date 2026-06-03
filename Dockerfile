@@ -49,10 +49,11 @@ USER appuser
 # Pre-cache the DuckDB vss extension for offline usage in production environments
 RUN python -c "import duckdb; con = duckdb.connect(':memory:'); con.execute('INSTALL vss;')"
 
-# The same image is used for two workloads:
+# The same image is used for three workloads:
 #   - dd-app          (default CMD)              — Streamlit UI on 8501
 #   - dd-sync-worker  (CMD overridden by k8s)    — `python -m src.sync.daemon` on 8765
-EXPOSE 8501 8765
+#   - dd-api          (CMD overridden by k8s)    — uvicorn src.api.main:app on 8080
+EXPOSE 8501 8765 8080
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8501/_stcore/health || exit 1

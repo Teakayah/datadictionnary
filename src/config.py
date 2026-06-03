@@ -54,6 +54,13 @@ MOCK_DEPT = os.getenv("MOCK_DEPT", "Finance")
 ENABLE_SEMANTIC_SEARCH = os.getenv("ENABLE_SEMANTIC_SEARCH", "false").lower() == "true"
 DATABRICKS_EMBEDDING_ENDPOINT = os.getenv("DATABRICKS_EMBEDDING_ENDPOINT", "")
 
+# ── API / MCP server ─────────────────────────────────────────────────────────
+# Override API_AUDIENCE when the API has its own app registration separate from
+# the Streamlit app; defaults to CLIENT_ID (same app registration).
+API_AUDIENCE = os.getenv("API_AUDIENCE", CLIENT_ID or "")
+REDIS_URL = os.getenv("REDIS_URL", "")
+
+
 def is_demo_mode() -> bool:
     """Return True if demo mode is enabled via environment variable."""
     return os.getenv("DEMO_DATA", "false").lower() == "true"
