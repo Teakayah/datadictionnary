@@ -192,7 +192,15 @@ def get_authorized_tables(groups):
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
-    """Fetch lineage edges up to a given depth."""
+    """Fetch lineage edges up to a given depth.
+
+    Args:
+        table_full_name (str): The Unity Catalog full name of the table to trace.
+        depth (int): The maximum number of hops to traverse up/downstream. Defaults to 1.
+
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing lineage edges with columns for direction, entity name, entity type, and depth.
+    """
     sql_query = (
         """
         WITH RECURSIVE lineage_cte AS (
