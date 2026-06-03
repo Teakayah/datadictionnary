@@ -207,7 +207,7 @@ def render_table_business_name_editor(
                 logging.error("Friendly-name save failed for %s: %s", table_full_name, e, exc_info=True)
                 st.error(t("common.error"))
     with c2:
-        if st.button(t("common.cancel"), use_container_width=True):
+        if st.button(t("common.cancel"), help=t("help.btn_common_cancel"), use_container_width=True):
             st.rerun()
 
 

@@ -75,8 +75,8 @@ class TestAdminCmsSection:
         assert any(en_locale["cms"]["no_posts"] in val for val in html_contents)
 
     @patch("src.ui.cards.cms_admin.get_all_posts")
-    @patch("src.ui.cards.cms_admin.delete_post")
-    def test_render_with_posts_and_delete(self, mock_delete, mock_get_posts):
+    @patch("src.ui.cards.cms_admin._show_delete_cms_dialog")
+    def test_render_with_posts_and_delete(self, mock_show_delete, mock_get_posts):
         now = datetime.now(UTC)
         mock_get_posts.return_value = [
             {
@@ -113,25 +113,7 @@ class TestAdminCmsSection:
         assert delete_btn is not None
         delete_btn.click().run()
 
-        # The delete button now opens a confirmation dialog, so we must click the confirm button in the dialog.
-        # The confirm button has the label from en_locale["cms"]["confirm_delete_button"]
-        confirm_btn = None
-        expected_label = en_locale["cms"]["confirm_delete_button"]
-        for btn in at.button:
-            if btn.label == expected_label:
-                confirm_btn = btn
-                break
-
-        assert confirm_btn is not None, f"Confirmation dialog delete button '{expected_label}' not found"
-
-        # We assert that the confirmation prompt is visible, which confirms
-        # the dialog successfully opened after clicking the delete button.
-        # Due to known limitations in Streamlit AppTest interacting with nested
-        # fragment states and external mocks, we verify the dialog rendered.
-        html_contents = [m.value for m in at.markdown] + [w for w in (w for w in getattr(at, "write", []) if isinstance(w, str))]
-        # Streamlit st.write within a dialog might be accessible via at.markdown or natively.
-        # We can just check that the title or prompt exists.
-        assert confirm_btn is not None
+        mock_show_delete.assert_called_once_with("1")
 
 class TestCmsCreateDialogCancel:
     @patch("src.ui.cards.cms_admin.create_post")
