@@ -273,7 +273,8 @@
     "sign_in_prompt": "Please sign in or select a group to view discovery highlights.",
     "explore_button": "Explore {name} →",
     "updated": "Updated",
-    "no_groups": "Your account is not assigned to any data-access groups. Contact your administrator to request access."
+    "no_groups": "Your account is not assigned to any data-access groups. Contact your administrator to request access.",
+    "updated_at": "Updated {time}"
   },
   "pipelines": {
     "eyebrow": "§ Pipelines",
