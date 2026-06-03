@@ -167,11 +167,14 @@ per write.
 - Protocol-based typing has weaker IDE support than ABC inheritance in
   some editors. Hasn't been a problem in practice.
 
-**Out of scope:**
+**Out of scope / follow-ups:**
 
 - A `CommentStorage` for `src/comments.py`. The pattern is the same;
   migration is mechanical. Deferred to a future ticket if the
-  entity grows new fields.
-- Migrating `src/pages/search.py` from
+  entity grows new fields. `src/comments.py` still uses direct DuckDB
+  routing.
+- ~~Migrating `src/pages/search.py` from
   `src.db.queries.get_column_business_names` to
-  `BusinessNameOverrideStorage.get_for_table`. Mechanical follow-up.
+  `BusinessNameOverrideStorage.get_for_table`~~ — Done. `src/pages/search.py`
+  imports `get_business_name_override_storage` from `src/storage/__init__.py`
+  and routes all column business-name reads through the storage abstraction.

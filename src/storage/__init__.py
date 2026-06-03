@@ -63,6 +63,12 @@ from src.storage.analytics_storage import (  # noqa: F401
     DuckDBAnalyticsStorage,
     SearchEvent,
 )
+from src.storage.notification_storage import (  # noqa: F401
+    DemoNotificationStorage,
+    DuckDBNotificationStorage,
+    FakeNotificationStorage,
+    NotificationStorage,
+)
 
 
 def _use_demo_backend() -> bool:
@@ -140,6 +146,14 @@ def get_business_name_override_storage() -> BusinessNameOverrideStorage:
     return (
         DemoBusinessNameOverrideStorage() if _use_demo_backend()
         else DuckDBBusinessNameOverrideStorage()
+    )
+
+
+def get_notification_storage() -> NotificationStorage:
+    """Pick a notification backend based on runtime env."""
+    return (
+        DemoNotificationStorage() if _use_demo_backend()
+        else DuckDBNotificationStorage()
     )
 
 

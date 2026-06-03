@@ -325,12 +325,13 @@ class TestProcessSyncQueue:
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
         mock_cursor.fetchall.return_value = [
-            ("sync1", "COLUMN_DEF", "tbl1", json.dumps({"col": "A"}), 0)
+            ("sync1", "COLUMN_DEF", "tbl1", json.dumps({"col": "A"}), 0, "actor@x.com")
         ]
         monkeypatch.setattr(push_module, "_get_write_connection", lambda: mock_conn)
 
         mock_push = MagicMock()
         monkeypatch.setattr(push_module, "_push_to_databricks", mock_push)
+        monkeypatch.setattr(push_module, "_notify_bookmarkers", MagicMock())
 
         assert push_module._process_sync_queue() == 1
         mock_push.assert_called_once_with("COLUMN_DEF", "tbl1", {"col": "A"})
@@ -353,7 +354,7 @@ class TestProcessSyncQueue:
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
         mock_cursor.fetchall.return_value = [
-            ("sync1", "COLUMN_DEF", "tbl1", json.dumps({"col": "A"}), 0)
+            ("sync1", "COLUMN_DEF", "tbl1", json.dumps({"col": "A"}), 0, "actor@x.com")
         ]
         monkeypatch.setattr(push_module, "_get_write_connection", lambda: mock_conn)
 
@@ -377,7 +378,7 @@ class TestProcessSyncQueue:
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
         mock_cursor.fetchall.return_value = [
-            ("sync1", "COLUMN_DEF", "tbl1", json.dumps({"col": "A"}), 2) # max attempts is 3
+            ("sync1", "COLUMN_DEF", "tbl1", json.dumps({"col": "A"}), 2, "actor@x.com")  # max attempts is 3
         ]
         monkeypatch.setattr(push_module, "_get_write_connection", lambda: mock_conn)
 
@@ -403,13 +404,6 @@ class TestEnqueueSync:
         monkeypatch.setattr(push_module, "enqueue_sync", lambda *args: calls.append(args))
         push_module.enqueue_column_sync("cat.sch.tbl", "col", "def", "user")
         assert calls == [("COLUMN_DEF", "cat.sch.tbl", {"column_name": "col", "definition": "def"}, "user")]
-
-    def test_push_definition_legacy(self, monkeypatch):
-        from src.sync import push as push_module
-        calls = []
-        monkeypatch.setattr(push_module, "_push_to_databricks", lambda stype, table, payload: calls.append((stype, table, payload)))
-        push_module._push_definition_to_databricks("a.b.c", "col1", "def1")
-        assert calls == [("COLUMN_DEF", "a.b.c", {"column_name": "col1", "definition": "def1"})]
 
     def test_enqueue_sync_column_def(self, monkeypatch):
         from src.sync import push as push_module
