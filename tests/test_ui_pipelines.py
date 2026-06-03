@@ -1,6 +1,7 @@
 import json
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
+import pytest
 from streamlit.testing.v1 import AppTest
 
 with open("locale/en.json", "r") as f:
@@ -108,8 +109,8 @@ class TestAdminPipelinesSection:
         assert any(en_locale["pipelines"]["no_pipelines"] in val for val in html_contents)
 
     @patch("src.ui.cards.pipelines.get_pipelines")
-    @patch("src.ui.cards.pipelines._show_delete_pipeline_dialog")
-    def test_render_with_pipelines_and_delete(self, mock_show_dialog, mock_get_pipelines):
+    @patch("src.ui.cards.pipelines.delete_pipeline_def")
+    def test_render_with_pipelines_and_delete(self, mock_delete, mock_get_pipelines):
         mock_get_pipelines.return_value = [
             {
                 "pipeline_id": "1",
@@ -129,27 +130,11 @@ class TestAdminPipelinesSection:
         assert any("Pipeline 1" in val for val in html_contents)
         assert any("Pipeline 2" in val for val in html_contents)
 
-        delete_btn = at.button(key="pl_del_1")
-        assert delete_btn is not None
-        delete_btn.click().run()
-
-        mock_show_dialog.assert_called_once_with("1")
-
-class TestPipelineDeleteDialog:
-    @patch("src.ui.cards.pipelines.delete_pipeline_def")
-    def test_delete_pipeline_dialog(self, mock_delete):
-        def dialog_app():
-            from src.ui.cards.pipelines import _show_delete_pipeline_dialog
-            _show_delete_pipeline_dialog("1")
-
-        at = AppTest.from_function(dialog_app).run()
-
-        from src.i18n import t
-        delete_label = t("pipelines.confirm_delete_button")
-        confirm_btn = [b for b in at.button if b.label == delete_label][0]
-
-        confirm_btn.click().run()
-        mock_delete.assert_called_once_with("1")
+        with patch("src.ui.cards.pipelines._show_delete_pipeline_dialog") as mock_dialog:
+            delete_btn = at.button(key="pl_del_1")
+            assert delete_btn is not None
+            delete_btn.click().run()
+            mock_dialog.assert_called_once_with("1")
 
     @patch("src.ui.cards.pipelines._show_pipeline_create_dialog")
     def test_admin_section_new_pipeline_button(self, mock_show_dialog):
@@ -392,3 +377,30 @@ class TestRenderPipelinesPage:
 
         assert any("SUCCESS" in val for val in html_contents)
         assert any("FAILED" in val for val in html_contents)
+
+def delete_dialog_app(pipeline_id="1"):
+    from src.ui.cards.pipelines import _show_delete_pipeline_dialog
+    _show_delete_pipeline_dialog(pipeline_id)
+
+class TestDeletePipelineDialog:
+    @patch("src.ui.cards.pipelines.delete_pipeline_def")
+    def test_delete_dialog_confirm(self, mock_delete):
+        at = AppTest.from_function(delete_dialog_app).run()
+
+        # Check for confirmation prompt
+        html_contents = [m.value for m in at.markdown]
+        assert any(en_locale["pipelines"]["confirm_delete_prompt"] in val for val in html_contents)
+
+        # Click confirm button
+        at.button[0].click().run()
+
+        mock_delete.assert_called_once_with("1")
+
+    @patch("src.ui.cards.pipelines.delete_pipeline_def")
+    def test_delete_dialog_cancel(self, mock_delete):
+        at = AppTest.from_function(delete_dialog_app).run()
+
+        # Click cancel button
+        at.button[1].click().run()
+
+        mock_delete.assert_not_called()
