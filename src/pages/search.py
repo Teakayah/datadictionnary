@@ -37,7 +37,7 @@ def _render_comment_form(
     _open_key = f"dd_comment_open_{key_suffix}"
     if not st.session_state.get(_open_key):
         _label = t("comment.reply") if parent_comment_id else t("comment.leave_a_comment")
-        if st.button(_label, key=f"dd_comment_btn_{key_suffix}", type="primary"):
+        if st.button(_label, key=f"dd_comment_btn_{key_suffix}", help=t("help.btn_leave_comment"), type="primary"):
             st.session_state[_open_key] = True
             st.rerun()
     else:
@@ -52,7 +52,7 @@ def _render_comment_form(
         )
         _cs, _cc, _ = st.columns([2, 2, 4], gap="small")
         with _cs:
-            if st.button(t("comment.send"), key=f"dd_comment_send_{key_suffix}", use_container_width=True, type="primary"):
+            if st.button(t("comment.send"), key=f"dd_comment_send_{key_suffix}", help=t("help.btn_send_comment"), use_container_width=True, type="primary"):
                 if _inp.strip():
                     save_comment(
                         "TABLE", full_name, _inp.strip(), steward,
@@ -63,7 +63,7 @@ def _render_comment_form(
                 else:
                     st.warning(t("comment.empty_error"))
         with _cc:
-            if st.button(t("comment.cancel"), key=f"dd_comment_cancel_{key_suffix}", use_container_width=True):
+            if st.button(t("comment.cancel"), key=f"dd_comment_cancel_{key_suffix}", help=t("help.btn_cancel_comment"), use_container_width=True):
                 st.session_state.pop(_open_key, None)
                 st.rerun()
         if not steward and not parent_comment_id:
@@ -181,7 +181,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
 
         _c_preview, _c_export = st.columns(2, gap="small")
         with _c_preview:
-            if st.button(t("detail.preview_data"), key=f"preview_{full_name}", use_container_width=True):
+            if st.button(t("detail.preview_data"), key=f"preview_{full_name}", help=t("help.btn_preview_data"), use_container_width=True):
                 render_data_sample(full_name)
         with _c_export:
             if n_cols > 0:
@@ -276,7 +276,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                     )
                     _sc, _cc, _ = st.columns([2, 2, 4], gap="small")
                     with _sc:
-                        if st.button(t("editor.save"), key=f"col_biz_save_{_edit_key}", use_container_width=True, type="primary"):
+                        if st.button(t("editor.save"), key=f"col_biz_save_{_edit_key}", help=t("help.btn_editor_save"), use_container_width=True, type="primary"):
                             try:
                                 save_business_name(full_name, _cname, _inp_name.strip(), _inp_def.strip())
                                 st.session_state.pop("dd_col_edit_mode", None)
@@ -292,7 +292,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                                 # Security: do not expose internal error details to UI
                                 st.error(t("common.error"))
                     with _cc:
-                        if st.button(t("editor.cancel"), key=f"col_biz_cancel_{_edit_key}", use_container_width=True):
+                        if st.button(t("editor.cancel"), key=f"col_biz_cancel_{_edit_key}", help=t("help.btn_editor_cancel"), use_container_width=True):
                             st.session_state.pop("dd_col_edit_mode", None)
                             st.rerun()
                     if _override.get("edited_by"):
@@ -578,7 +578,7 @@ def render_search_page(query_groups: tuple) -> None:
             else:
                 st.info(t("search.group_filter_active", group=active_group))
         with c2:
-            if st.button(f"← {t('common.back')}", use_container_width=True, type="secondary"):
+            if st.button(f"← {t('common.back')}", help=t("help.btn_common_back"), use_container_width=True, type="secondary"):
                 st.session_state.pop("group_filter", None)
                 st.rerun()
 

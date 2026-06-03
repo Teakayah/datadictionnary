@@ -412,6 +412,18 @@
     "search_extra_editor": "**Modifier les métadonnées** — cliquez sur l'icône crayon pour proposer une modification. Les propositions de colonnes passent par une révision admin avant publication.",
     "search_extra_admin": "**Approuver les modifications** — les propositions des éditeurs apparaissent dans Admin → Révisions en attente. Approuvez pour publier directement dans Unity Catalog.",
     "health_priority_editor": "Cliquez sur un nom de table pour l'ouvrir et ajouter une description. La sauvegarder la retire de cette liste.",
-    "health_priority_viewer": "Cliquez sur un nom de table pour ouvrir sa fiche. Contactez le responsable pour demander une description."
+    "health_priority_viewer": "Cliquez sur un nom de table pour ouvrir sa fiche. Contactez le responsable pour demander une description.",
+    "btn_leave_comment": "Laissez un commentaire ou posez une question",
+    "btn_send_comment": "Envoyer le commentaire",
+    "btn_cancel_comment": "Annuler le commentaire",
+    "btn_preview_data": "Aperçu d'un échantillon des données de cette table",
+    "btn_editor_save": "Enregistrer le nom métier et la définition",
+    "btn_editor_cancel": "Annuler la modification",
+    "btn_common_back": "Retourner à la page précédente",
+    "btn_confirm_delete_pipeline": "Confirmer la suppression du pipeline",
+    "btn_common_cancel": "Annuler l'action",
+    "btn_common_save": "Enregistrer les modifications",
+    "btn_confirm_delete_post": "Confirmer la suppression de l'annonce",
+    "btn_auth_sign_in": "Se connecter à l'application"
   }
 }

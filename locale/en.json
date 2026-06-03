@@ -412,6 +412,18 @@
     "search_extra_editor": "**Edit metadata** — click the pencil icon on any description, steward, or column field to propose a change. Column proposals go to admin review before publishing.",
     "search_extra_admin": "**Approve changes** — column override proposals from editors appear in Admin → Pending reviews. Approve to publish directly to Unity Catalog.",
     "health_priority_editor": "Click a table name to open it and add a description. Saving a description removes it from this list.",
-    "health_priority_viewer": "Click a table name to open its detail page. Contact the table steward to request a description update."
+    "health_priority_viewer": "Click a table name to open its detail page. Contact the table steward to request a description update.",
+    "btn_leave_comment": "Leave a comment or ask a question",
+    "btn_send_comment": "Send comment",
+    "btn_cancel_comment": "Cancel comment",
+    "btn_preview_data": "Preview a sample of the data in this table",
+    "btn_editor_save": "Save business name and definition",
+    "btn_editor_cancel": "Cancel editing",
+    "btn_common_back": "Go back to previous page",
+    "btn_confirm_delete_pipeline": "Confirm pipeline deletion",
+    "btn_common_cancel": "Cancel action",
+    "btn_common_save": "Save changes",
+    "btn_confirm_delete_post": "Confirm post deletion",
+    "btn_auth_sign_in": "Sign in to the application"
   }
 }

@@ -43,7 +43,7 @@ def render_table_metadata_editor(table_full_name: str, current_desc: str, curren
 
     c1, c2 = st.columns([1, 1])
     with c1:
-        if st.button(t("common.save"), type="primary", use_container_width=True):
+        if st.button(t("common.save"), help=t("help.btn_common_save"), type="primary", use_container_width=True):
             if new_stew.strip() and "@" not in new_stew:
                 st.error(t("detail.invalid_email"))
             else:
@@ -58,7 +58,7 @@ def render_table_metadata_editor(table_full_name: str, current_desc: str, curren
                     # Security: do not expose internal error details to UI
                     st.error(t("common.error"))
     with c2:
-        if st.button(t("common.cancel"), use_container_width=True):
+        if st.button(t("common.cancel"), help=t("help.btn_common_cancel"), use_container_width=True):
             st.rerun()
 
 
