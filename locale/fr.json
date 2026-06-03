@@ -319,7 +319,8 @@
     "confirm_delete_prompt": "Voulez-vous vraiment supprimer ce pipeline ?",
     "confirm_delete_button": "Supprimer le pipeline",
     "starting": "Démarrage du pipeline...",
-    "stopping": "Arrêt du pipeline..."
+    "stopping": "Arrêt du pipeline...",
+    "started": "Pipeline démarré."
   },
   "cms": {
     "section_title": "Gestion de contenu",
