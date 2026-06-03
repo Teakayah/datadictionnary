@@ -26,6 +26,22 @@ _jwks_fetched_at: float = 0.0
 JWKS_URL = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/v2.0/keys"
 ISSUER = f"https://login.microsoftonline.com/{TENANT_ID}/v2.0"
 
+# Groups mirroring generate_test_data.py / locustfile.py — used by mock auth only.
+_MOCK_DEPT_GROUPS: dict[str, list[str]] = {
+    "finance":  ["finance_group", "all_employees"],
+    "research": ["research_group", "all_employees"],
+    "hr":       ["hr_group", "all_employees"],
+    "it":       ["it_group", "all_employees"],
+    "admin":    ["finance_group", "research_group", "hr_group", "it_group", "all_employees"],
+}
+
+
+def _is_mock_auth() -> bool:
+    return (
+        os.getenv("ENABLE_MOCK_AUTH", "").lower() == "true"
+        and os.getenv("ENVIRONMENT", "production") == "development"
+    )
+
 
 def _validate_auth_config() -> None:
     """Raise RuntimeError at startup if required auth env vars are not set.
@@ -37,6 +53,9 @@ def _validate_auth_config() -> None:
     are both unset, python-jose receives audience=None and skips the audience
     check entirely — any valid Entra ID token from any app would be accepted.
     """
+    if _is_mock_auth():
+        logger.warning("Mock auth enabled — Entra ID validation is DISABLED. Development only.")
+        return
     if not TENANT_ID:
         raise RuntimeError(
             "TENANT_ID env var must be set — required for Entra ID JWT issuer "
@@ -79,12 +98,26 @@ async def validate_token(token: str) -> AuthenticatedUser:
     Audience defaults to CLIENT_ID; override with API_AUDIENCE env var when
     the API has its own app registration.
 
+    In development with ENABLE_MOCK_AUTH=true, accepts sentinel tokens of the
+    form "mock-<dept>" (e.g. "mock-finance") and returns a synthetic user with
+    the corresponding group memberships. Never active in production.
+
     Raises:
         RuntimeError: server is misconfigured (TENANT_ID or audience missing).
                       Callers must convert this to HTTP 500, not 401.
         ValueError:   token is invalid (expired, wrong audience, bad signature).
                       Callers should return HTTP 401.
     """
+    if _is_mock_auth() and token.startswith("mock-"):
+        dept = token[5:]
+        groups = _MOCK_DEPT_GROUPS.get(dept, ["all_employees"])
+        return AuthenticatedUser(
+            oid=f"mock-oid-{dept}",
+            email=f"{dept}@mock.test",
+            name=dept.title(),
+            groups=groups,
+        )
+
     # Re-read at call time so tests can monkeypatch the env.
     audience = os.getenv("API_AUDIENCE") or CLIENT_ID
     if not audience:

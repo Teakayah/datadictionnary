@@ -477,6 +477,95 @@ class DictionaryHTTPUser(HttpUser):
         self.client.get("/?tab=search", name="tab: search (detail)")
 
 
+# ── APIQueryUser ─────────────────────────────────────────────────────────────
+
+_API_HOST = os.getenv("API_HOST", "http://localhost:8080")
+
+
+@tag("api")
+class APIQueryUser(HttpUser):
+    """
+    Exercises the FastAPI + MCP REST layer (port 8080 by default).
+
+    Models realistic AI-assistant usage: mostly searches and table drilldowns,
+    occasional list-all and lineage traversal. Each virtual user picks a random
+    department on start and holds it for its lifetime — this exercises the
+    permission-filtered query paths under different group scopes.
+
+    Auth: requires the API server to run with ENABLE_MOCK_AUTH=true and
+    ENVIRONMENT=development. Sends "Bearer mock-<dept>" tokens which the API
+    accepts as synthetic identities without hitting Entra ID.
+
+    Run API load only:
+        API_HOST=http://localhost:8080 \\
+        locust -f tests/load/locustfile.py --headless -u 50 -r 5 --run-time 60s \\
+            --host http://localhost:8501 --tags api
+    """
+
+    host = _API_HOST
+    wait_time = between(1, 4)
+
+    _dept: str = "finance"
+    _auth_header: dict = {}
+
+    def on_start(self):
+        self._dept = random.choice(list(_DEPT_GROUPS.keys()))
+        self._auth_header = {"Authorization": f"Bearer mock-{self._dept}"}
+
+    @task(40)
+    def api_search(self):
+        """Search — the primary AI-assistant entry point."""
+        term = random.choice(_SEARCH_TERMS)
+        self.client.get(
+            f"/api/v1/search?q={term}",
+            headers=self._auth_header,
+            name=f"api: search ({self._dept})",
+        )
+
+    @task(30)
+    def api_table_detail(self):
+        """Table detail — drill into a specific table after a search."""
+        table = random.choice(_ALL_TABLES)
+        parts = table.split(".")
+        if len(parts) != 3:
+            return
+        catalog, schema, tbl = parts
+        self.client.get(
+            f"/api/v1/tables/{catalog}/{schema}/{tbl}",
+            headers=self._auth_header,
+            name=f"api: table detail ({self._dept})",
+        )
+
+    @task(15)
+    def api_list_tables(self):
+        """List all authorized tables — used when browsing or building context."""
+        self.client.get(
+            "/api/v1/tables",
+            headers=self._auth_header,
+            name=f"api: list tables ({self._dept})",
+        )
+
+    @task(10)
+    def api_lineage(self):
+        """Lineage traversal — occasional, only when an AI needs data provenance."""
+        table = random.choice(_ALL_TABLES)
+        parts = table.split(".")
+        if len(parts) != 3:
+            return
+        catalog, schema, tbl = parts
+        depth = random.choice([1, 2])
+        self.client.get(
+            f"/api/v1/lineage/{catalog}/{schema}/{tbl}?depth={depth}",
+            headers=self._auth_header,
+            name="api: lineage",
+        )
+
+    @task(5)
+    def api_health(self):
+        """Liveness probe — no auth, very cheap."""
+        self.client.get("/health", name="api: health")
+
+
 # ── Benchmark summary ─────────────────────────────────────────────────────────
 
 @events.quitting.add_listener
