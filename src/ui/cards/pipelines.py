@@ -53,11 +53,11 @@ def _show_delete_pipeline_dialog(pipeline_id: str):
     st.write(t("pipelines.confirm_delete_prompt"))
     _s, _c = st.columns(2)
     with _s:
-        if st.button(t("pipelines.confirm_delete_button"), type="primary", use_container_width=True):
+        if st.button(t("pipelines.confirm_delete_button"), help=t("help.btn_confirm_delete_pipeline"), type="primary", use_container_width=True):
             delete_pipeline_def(pipeline_id)
             st.rerun()
     with _c:
-        if st.button(t("common.cancel"), use_container_width=True):
+        if st.button(t("common.cancel"), help=t("help.btn_common_cancel"), use_container_width=True):
             st.rerun()
 
 
@@ -95,7 +95,7 @@ def _show_pipeline_create_dialog():
 
     _s, _c = st.columns(2)
     with _s:
-        if st.button(t("common.save"), type="primary", use_container_width=True, key="pl_save"):
+        if st.button(t("common.save"), help=t("help.btn_common_save"), type="primary", use_container_width=True, key="pl_save"):
             if not title.strip():
                 st.error(t("pipelines.error_title"))
                 return
@@ -107,7 +107,7 @@ def _show_pipeline_create_dialog():
             )
             st.rerun()
     with _c:
-        if st.button(t("common.cancel"), use_container_width=True, key="pl_cancel"):
+        if st.button(t("common.cancel"), help=t("help.btn_common_cancel"), use_container_width=True, key="pl_cancel"):
             st.rerun()
 
 
