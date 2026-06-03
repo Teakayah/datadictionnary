@@ -23,6 +23,7 @@ from src.config import is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import run_query
 from src.i18n import t
+from src.notifications import get_unread_notifications, mark_all_read, mark_read
 from src.ui.cards._shared import _POST_COLOR, _dq_grade
 
 
@@ -98,6 +99,64 @@ def _render_table_card(row, key_prefix: str, _pref_delete_fn=None, _pref_upsert_
     st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
 
 
+def render_notification_strip() -> None:
+    """Render unread bookmark-change notifications for the current user.
+
+    Shown as a collapsible strip above the CMS banner. Each item has a
+    dismiss button; a "Mark all read" shortcut clears the list in one click.
+    """
+    user_oid = (
+        st.session_state.get("user_oid")
+        or st.session_state.get("user_email")
+        or "anonymous"
+    )
+    if user_oid == "anonymous":
+        return
+
+    notifications = get_unread_notifications(user_oid)
+    if not notifications:
+        return
+
+    count = len(notifications)
+    label = (
+        t("notifications.strip_label_one")
+        if count == 1
+        else t("notifications.strip_label_many", count=count)
+    )
+
+    with st.expander(f"🔔 {label}", expanded=True):
+        for n in notifications:
+            tbl = _html.escape(n["table_full_name"])
+            summary = _html.escape(n["summary"])
+            by = _html.escape(n.get("changed_by") or "")
+            by_str = f" · {by}" if by else ""
+            card_html = (
+                f'<div style="font-family:var(--font-sans);font-size:13px;'
+                f'color:var(--ink);padding:6px 0;border-bottom:1px solid var(--ink-10);">'
+                f'<span style="font-family:var(--font-mono);color:var(--ink-60);">{tbl}</span>'
+                f' — {summary}'
+                f'<span style="color:var(--ink-40);font-size:11px;">{by_str}</span>'
+                f'</div>'
+            )
+            col_card, col_btn = st.columns([11, 1], gap="small")
+            with col_card:
+                st.markdown(card_html, unsafe_allow_html=True)
+            with col_btn:
+                if st.button(
+                    "✕",
+                    key=f"notif_dismiss_{n['notification_id']}",
+                    help=t("notifications.dismiss"),
+                    use_container_width=True,
+                ):
+                    mark_read(n["notification_id"])
+                    st.rerun()
+
+        st.markdown("<div style='margin-top:8px'></div>", unsafe_allow_html=True)
+        if st.button(t("notifications.mark_all_read"), key="notif_mark_all"):
+            mark_all_read(user_oid)
+            st.rerun()
+
+
 def render_cms_banner() -> None:
     """Render pinned CMS posts above the Discovery sub-tabs."""
     posts = get_active_posts()
@@ -170,6 +229,7 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
     </div>
     ''', unsafe_allow_html=True)
 
+    render_notification_strip()
     render_cms_banner()
 
     with st.expander(t("help.discovery_expander")):

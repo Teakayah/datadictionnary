@@ -198,7 +198,19 @@ _SCHEMA_STATEMENTS = (
     """
         ALTER TABLE user_data.pending_sync
         ADD COLUMN IF NOT EXISTS last_attempt_at TIMESTAMP
+    """,
     """
+        CREATE TABLE IF NOT EXISTS user_data.notifications (
+            notification_id  VARCHAR PRIMARY KEY,
+            user_oid         VARCHAR NOT NULL,
+            table_full_name  VARCHAR NOT NULL,
+            change_type      VARCHAR NOT NULL,
+            changed_by       VARCHAR,
+            summary          VARCHAR NOT NULL,
+            created_at       TIMESTAMP NOT NULL,
+            read_at          TIMESTAMP
+        )
+    """,
 )
 
 def _initialize_schema(con):

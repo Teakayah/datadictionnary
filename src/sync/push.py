@@ -7,6 +7,7 @@ import logging
 import os
 import re
 import uuid
+from datetime import datetime, timezone
 
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import _get_write_connection
@@ -189,6 +190,65 @@ def _push_definition_to_databricks(table_full_name: str, column_name: str, defin
     _push_to_databricks("COLUMN_DEF", table_full_name, {"column_name": column_name, "definition": definition})
 
 
+# ── Bookmark notifications ────────────────────────────────────────────────────
+
+_NOTIFIABLE_TYPES = frozenset({"TABLE_DESC", "COLUMN_DEF", "STEWARD"})
+
+
+def _build_summary(sync_type: str, payload: dict) -> str:
+    if sync_type == "TABLE_DESC":
+        return "Description updated"
+    if sync_type == "COLUMN_DEF":
+        col = payload.get("column_name", "")
+        return f"Column '{col}' definition updated" if col else "Column definition updated"
+    if sync_type == "STEWARD":
+        steward = payload.get("steward_email", "")
+        return f"Steward changed to {steward}" if steward else "Steward updated"
+    return "Table updated"
+
+
+def _notify_bookmarkers(conn, table_full_name: str, sync_type: str, payload: dict, changed_by: str) -> None:
+    """Insert an unread notification for every user who bookmarked table_full_name.
+
+    Skips the user who made the change so authors don't get self-notifications.
+    Failures are logged and swallowed — notification delivery must never block
+    or fail a sync cycle.
+    """
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT user_oid FROM user_data.user_preferences "
+                "WHERE table_full_name = ? AND pref_type = 'bookmark'",
+                [table_full_name],
+            )
+            rows = cur.fetchall() or []
+
+        if not rows:
+            return
+
+        summary = _build_summary(sync_type, payload)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        for (user_oid,) in rows:
+            if user_oid == changed_by:
+                continue
+            nid = str(uuid.uuid4())
+            with conn.cursor() as cur:
+                cur.execute_write(
+                    """
+                    INSERT INTO user_data.notifications
+                        (notification_id, user_oid, table_full_name, change_type,
+                         changed_by, summary, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    [nid, user_oid, table_full_name, sync_type, changed_by, summary, now],
+                )
+    except Exception as exc:
+        logging.warning(
+            "Could not notify bookmarkers of %s (%s): %s", table_full_name, sync_type, exc
+        )
+
+
 def _process_sync_queue(conn=None) -> int:
     """Drain pending sync items → Databricks. Returns number of items attempted.
 
@@ -219,7 +279,7 @@ def _process_sync_queue(conn=None) -> int:
                 END
             """
             cursor.execute(
-                f"SELECT sync_id, sync_type, table_full_name, payload_json, attempts "
+                f"SELECT sync_id, sync_type, table_full_name, payload_json, attempts, queued_by "
                 f"FROM user_data.pending_sync "
                 f"WHERE status = 'pending' AND attempts < %(max)s "
                 f"ORDER BY {priority_sql} ASC, queued_at ASC LIMIT %(limit)s",
@@ -232,7 +292,7 @@ def _process_sync_queue(conn=None) -> int:
 
         processed = 0
         for row in rows:
-            sync_id, stype, table_fn, payload_str, attempts = row
+            sync_id, stype, table_fn, payload_str, attempts, queued_by = row
             payload = json.loads(payload_str)
             new_attempts = attempts + 1
 
@@ -251,6 +311,10 @@ def _process_sync_queue(conn=None) -> int:
                         "UPDATE user_data.pending_sync SET status='done', completed_at=current_localtimestamp(), last_error=NULL WHERE sync_id=%(id)s",
                         {"id": sync_id},
                     )
+
+                if table_fn and stype in _NOTIFIABLE_TYPES:
+                    _notify_bookmarkers(conn, table_fn, stype, payload, queued_by or "")
+
                 processed += 1
             except Exception as exc:
                 err = str(exc)[:500]
