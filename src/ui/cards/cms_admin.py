@@ -73,23 +73,24 @@ def _show_cms_create_dialog():
 
     _save, _cancel = st.columns([1, 1], gap="small")
     with _save:
-        if st.button(t("common.save"), help=t("help.btn_common_save"), type="primary", use_container_width=True, key="cms_save_btn"):
-            if not title.strip():
-                st.error(t("cms.error_title_required"))
-                return
-            if post_type == "featured_table" and not (table_ref or "").strip():
-                st.error(t("cms.error_table_ref_required"))
-                return
-            actor = st.session_state.get("user_email", "admin")
-            create_post(PostParams(
-                post_type=post_type,
-                title=title.strip(),
-                body=body.strip(),
-                table_ref=(table_ref or "").strip() or None,
-                author_email=actor,
-                expiry_days=expiry_days,
-            ))
-            st.rerun()
+        if st.button(t("common.save"), type="primary", use_container_width=True, key="cms_save_btn"):
+            with st.spinner(t("common.saving")):
+                if not title.strip():
+                    st.error(t("cms.error_title_required"))
+                    return
+                if post_type == "featured_table" and not (table_ref or "").strip():
+                    st.error(t("cms.error_table_ref_required"))
+                    return
+                actor = st.session_state.get("user_email", "admin")
+                create_post(PostParams(
+                    post_type=post_type,
+                    title=title.strip(),
+                    body=body.strip(),
+                    table_ref=(table_ref or "").strip() or None,
+                    author_email=actor,
+                    expiry_days=expiry_days,
+                ))
+                st.rerun()
     with _cancel:
         if st.button(t("common.cancel"), help=t("help.btn_common_cancel"), use_container_width=True, key="cms_cancel_btn"):
             st.rerun()
@@ -170,8 +171,7 @@ def _render_admin_cms_section():
             st.markdown("<div style='margin-top:4px'></div>", unsafe_allow_html=True)
             if st.button(
                 "✕", key=f"cms_admin_del_{post['post_id']}",
-                help=t("cms.delete_post"), use_container_width=True,
+                help=t("cms.delete_post"),
+                use_container_width=True,
             ):
                 _show_delete_cms_dialog(post["post_id"])
-
-    st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)
