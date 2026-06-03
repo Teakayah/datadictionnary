@@ -373,6 +373,9 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             unsafe_allow_html=True,
         )
         if n_grants > 0:
+            if n_grants > 50:
+                st.info(t("detail.showing_first_50_grants", count=n_grants))
+                grants = grants.head(50)
             for g in grants.itertuples(index=False):
                 principal = str(getattr(g, "principal", ""))
                 privilege = str(getattr(g, "privilege", ""))
@@ -625,12 +628,17 @@ def render_search_page(query_groups: tuple) -> None:
         if "description"  not in _gr.columns:
             _desc_col = next((c for c in ("table_description", "comment") if c in _gr.columns), None)
             _gr["description"] = _gr[_desc_col] if _desc_col else ""
+        _results_to_show = _gr
+        if len(_gr) > 50:
+            st.info(t("search.showing_first_50", count=len(_gr)))
+            _results_to_show = _gr.head(50)
+
         st.markdown(
             f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);margin-bottom:12px">'
             f'{t("search.results_count", count=len(_gr))}</p>',
             unsafe_allow_html=True,
         )
-        for _i, _row in enumerate(_gr.itertuples(index=False)):
+        for _i, _row in enumerate(_results_to_show.itertuples(index=False)):
             _fn = str(getattr(_row, "full_name", ""))
             if not _fn:
                 continue
@@ -675,12 +683,17 @@ def render_search_page(query_groups: tuple) -> None:
                 if _nav_idx is None:
                     def _s(v):
                         return "" if _pd.isna(v) else str(v)
+                    _results_to_show = results
+                    if len(results) > 50:
+                        st.info(t("search.showing_first_50", count=len(results)))
+                        _results_to_show = results.head(50)
+
                     st.markdown(
                         f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);margin-bottom:12px">'
                         f'{t("search.results_count", count=len(results))}</p>',
                         unsafe_allow_html=True,
                     )
-                    for _sr_i, _sr in enumerate(results.itertuples(index=False)):
+                    for _sr_i, _sr in enumerate(_results_to_show.itertuples(index=False)):
                         _fn = _s(getattr(_sr, "full_name", None))
                         if not _fn:
                             continue
