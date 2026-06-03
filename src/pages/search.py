@@ -590,7 +590,7 @@ def render_search_page(query_groups: tuple) -> None:
         _table_options = []
     else:
         _table_options = (
-            sorted(_all_tables["table_name"].unique().tolist())
+            sorted(_all_tables["table_name"].drop_duplicates().tolist())
             if "table_name" in _all_tables.columns
             else []
         )
@@ -628,7 +628,7 @@ def render_search_page(query_groups: tuple) -> None:
             f'{t("search.results_count", count=len(_gr))}</p>',
             unsafe_allow_html=True,
         )
-        for _i, _row in enumerate(_gr.itertuples(index=False)):
+        for _i, _row in enumerate(_gr.head(50).itertuples(index=False)):
             _fn = str(getattr(_row, "full_name", ""))
             if not _fn:
                 continue
@@ -678,7 +678,7 @@ def render_search_page(query_groups: tuple) -> None:
                         f'{t("search.results_count", count=len(results))}</p>',
                         unsafe_allow_html=True,
                     )
-                    for _sr_i, _sr in enumerate(results.itertuples(index=False)):
+                    for _sr_i, _sr in enumerate(results.head(50).itertuples(index=False)):
                         _fn = _s(getattr(_sr, "full_name", None))
                         if not _fn:
                             continue

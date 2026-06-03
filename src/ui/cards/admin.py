@@ -213,6 +213,7 @@ def get_dq_alerts() -> pd.DataFrame:
         JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache dq ON m.full_name = dq.table_full_name
         WHERE dq.last_run_status = 'FAIL'
         ORDER BY dq.dq_score ASC
+        LIMIT 100
     """
     return run_query(query)
 
