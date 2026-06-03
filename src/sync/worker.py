@@ -27,7 +27,15 @@ WORKER_HEARTBEAT_KEY = "worker_heartbeat"
 
 
 def _read_setting(key: str, default: str = "") -> str:
-    """Read a single key from user_data.site_settings."""
+    """Read a single key from user_data.site_settings.
+
+    Args:
+        key (str): The configuration key to read.
+        default (str): The fallback value if the key is not found or DB is unavailable.
+
+    Returns:
+        str: The value from the database, or the default value.
+    """
     if not _duckdb_available():
         return default
     try:
@@ -47,10 +55,18 @@ def _read_setting(key: str, default: str = "") -> str:
 
 
 def read_dr_resync_status() -> str:
-    """Return the daemon's last DR resync status, or 'Idle' before any run."""
+    """Return the daemon's last DR resync status, or 'Idle' before any run.
+
+    Returns:
+        str: The most recent status string reported by the daemon.
+    """
     return _read_setting(DR_STATUS_KEY, default="Idle")
 
 
 def read_worker_heartbeat() -> str:
-    """Return the daemon's last heartbeat as an ISO timestamp string, or ''."""
+    """Return the daemon's last heartbeat as an ISO timestamp string, or ''.
+
+    Returns:
+        str: An ISO-8601 formatted timestamp string, or an empty string if no heartbeat exists.
+    """
     return _read_setting(WORKER_HEARTBEAT_KEY, default="")
