@@ -78,6 +78,8 @@ def test_admin_quality_insights_tab_renders(monkeypatch):
     at.run()
     
     # Render sections inside the insights tab
+    html = " ".join(m.value for m in at.markdown)
+    assert t("admin.integrity_title") in html
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 3. Health Tab SQL Push-down
