@@ -29,3 +29,7 @@
 ## 2026-05-26 - Optimize Pandas Timestamp Formatting
 **Learning:** Formatting timestamps with pandas `.apply()` running a custom Python function over string/datetime parsing is significantly slower than using vectorized `pd.to_datetime(...).dt.strftime(...)`.
 **Action:** Always prefer pandas vectorized `.dt` accessors for datetime manipulation and string formatting instead of scalar Python `.apply()` functions on DataFrames.
+
+## 2024-06-03 - Optimize set instantiation from DataFrames
+**Learning:** Instantiating a set directly from a large Pandas column list (`set(df['col'].tolist())`) is significantly slower than deduping with numpy first (`set(df['col'].unique().tolist())`).
+**Action:** Always call `.unique().tolist()` before casting to a `set` to leverage fast C-level CPython/NumPy deduplication.
