@@ -578,7 +578,7 @@ def render_search_page(query_groups: tuple) -> None:
             else:
                 st.info(t("search.group_filter_active", group=active_group))
         with c2:
-            if st.button(f"← {t('common.back')}", use_container_width=True, type="secondary"):
+            if st.button(f"← {t('common.back')}", help=t("search.back_to_results_help"), use_container_width=True, type="secondary"):
                 st.session_state.pop("group_filter", None)
                 st.rerun()
 
