@@ -14,12 +14,12 @@ import logging
 import threading
 
 import pandas as pd
-import streamlit as st
 
 from src.config import DUCKDB_PATH, USER_DATA_PATH, CATALOG_CACHE
 
 
 _db_write_lock = threading.Lock()
+_shared_connection = None
 
 
 def _duckdb_available() -> bool:
@@ -219,42 +219,54 @@ def _initialize_schema(con):
         con.execute(statement)
 
 
-@st.cache_resource(show_spinner=False, validate=lambda c: c is not None)
 def _get_shared_duckdb_connection():
-    """Singleton connection shared across all Streamlit sessions/threads."""
+    """Singleton connection shared across all Streamlit sessions/threads.
+
+    Uses double-checked locking so the connection is created once and reused.
+    Returns None (without caching it) when the DuckDB file isn't available yet,
+    so the next call retries — matching the validate= behaviour of st.cache_resource.
+    """
+    global _shared_connection
+    if _shared_connection is not None:
+        return _shared_connection
     if not _duckdb_available():
         return None
-
     with _db_write_lock:
+        if _shared_connection is not None:  # re-check after acquiring lock
+            return _shared_connection
         import duckdb
-
         import secrets
         try:
-            # Use an in-memory connection as the primary
             con = duckdb.connect(":memory:")
 
             def _escape_id(val: str) -> str:
                 return '"' + val.replace('"', '""') + '"'
 
-            # Sanitize paths to prevent SQL injection when using f-strings for ATTACH
-            # DuckDB dollar quoting allows safe injection of arbitrary strings
             safe_duckdb_path = DUCKDB_PATH.replace("\x00", "") if DUCKDB_PATH else ""
             safe_user_data_path = USER_DATA_PATH.replace("\x00", "") if USER_DATA_PATH else ""
 
             _tok = f"tok_{secrets.token_hex(8)}"
 
-            # Attach the main read-only cache
             con.execute(f"ATTACH ${_tok}${safe_duckdb_path}${_tok}$ AS {_escape_id(CATALOG_CACHE)} (READ_ONLY)")
-            # Attach the persistent user data database
             con.execute(f"ATTACH IF NOT EXISTS ${_tok}${safe_user_data_path}${_tok}$ AS {_escape_id('user_data')}")
 
-            # Initialize user data tables with primary keys (if they don't exist)
             _initialize_schema(con)
 
+            _shared_connection = con
             return con
         except Exception as e:
             logging.error("Failed to initialize shared DuckDB connection: %s", e)
             return None
+
+
+def _clear_shared_duckdb_connection() -> None:
+    global _shared_connection
+    _shared_connection = None
+
+
+# Attach .clear() so callers (tests, admin tooling) can reset the singleton
+# the same way they did when this was decorated with @st.cache_resource.
+_get_shared_duckdb_connection.clear = _clear_shared_duckdb_connection
 
 
 class _DuckDBCursor:
@@ -337,8 +349,7 @@ def _run_duckdb_query(query, params=None):
     """Uncached DuckDB query — local file is fast enough that caching adds
     overhead rather than benefit, and skipping the cache means the app
     always sees the freshest file after the nightly sync."""
-    with _db_write_lock:
-        conn = _DuckDBConn(DUCKDB_PATH)
-        with conn.cursor() as cursor:
-            cursor.execute(query, params)
-            return cursor.fetchall_as_pandas()
+    conn = _DuckDBConn(DUCKDB_PATH)
+    with conn.cursor() as cursor:
+        cursor.execute(query, params)
+        return cursor.fetchall_as_pandas()
