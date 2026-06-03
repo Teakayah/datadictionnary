@@ -241,8 +241,14 @@
     "run_cancelled": "Annulation du pipeline demandée.",
     "confirm_delete_prompt": "Voulez-vous vraiment supprimer ce pipeline ? Cette action est irréversible.",
     "confirm_delete_button": "Supprimer le pipeline",
+<<<<<<< HEAD
     "error_title": "Le titre est requis.",
     "error_target": "L'identifiant cible est requis."
+=======
+    "starting": "Démarrage du pipeline...",
+    "stopping": "Arrêt du pipeline...",
+    "started": "Pipeline démarré."
+>>>>>>> 6b131fd (🌍 Globe: Add missing pipeline started translation keys)
   },
   "cms": {
     "confirm_delete_prompt": "Voulez-vous vraiment supprimer cette annonce ? Cette action est irréversible.",
