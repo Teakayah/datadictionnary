@@ -236,12 +236,14 @@ class TestJWTClaimsValidation:
 
 class TestStartupConfigValidation:
     def test_raises_when_tenant_id_missing(self, monkeypatch):
+        monkeypatch.setenv("ENABLE_MOCK_AUTH", "false")
         monkeypatch.setattr("src.api.auth.TENANT_ID", "")
         monkeypatch.setattr("src.api.auth.CLIENT_ID", "some-client-id")
         with pytest.raises(RuntimeError, match="TENANT_ID"):
             _validate_auth_config()
 
     def test_raises_when_audience_and_client_id_both_missing(self, monkeypatch):
+        monkeypatch.setenv("ENABLE_MOCK_AUTH", "false")
         monkeypatch.setattr("src.api.auth.TENANT_ID", "tenant")
         monkeypatch.setattr("src.api.auth.CLIENT_ID", "")
         monkeypatch.delenv("API_AUDIENCE", raising=False)
