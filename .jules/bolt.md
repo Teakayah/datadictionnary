@@ -41,3 +41,7 @@
 ## 2024-06-03 - Optimize set instantiation from DataFrames
 **Learning:** Instantiating a set directly from a large Pandas column list (`set(df['col'].tolist())`) is significantly slower than deduping with numpy first (`set(df['col'].unique().tolist())`).
 **Action:** Always call `.unique().tolist()` before casting to a `set` to leverage fast C-level CPython/NumPy deduplication.
+
+## 2026-06-03 - Redundant String Manipulation
+**Learning:** Reconstructing a string by splitting and joining on the same delimiter (e.g., `s.split('.')[0] + '.' + '.'.join(s.split('.')[1:])`) is an O(N) redundant operation that wastes CPU cycles without changing the output.
+**Action:** Remove unnecessary string formatting operations when the target representation already exists.
