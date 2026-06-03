@@ -207,6 +207,9 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         _col_edit = st.session_state.get("dd_col_edit_mode", "")
 
         if n_cols > 0:
+            if n_cols > 50:
+                st.info(t("detail.showing_first_50_columns", count=n_cols))
+                cols = cols.head(50)
             for c in cols.itertuples(index=False):
                 _cname    = str(getattr(c, "column_name", ""))
                 _ctype    = str(getattr(c, "data_type", ""))
