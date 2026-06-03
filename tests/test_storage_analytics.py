@@ -75,6 +75,26 @@ def test_duckdb_analytics_alerts():
         # We need to mock _DuckDBConn to connect to our temp test file!
         with patch("src.db.duckdb_adapter._DuckDBConn") as mock_conn_class:
             # When _DuckDBConn is instantiated, return a real connection wrapper to our test database!
+            class TestDuckDBCursor:
+                def __init__(self, conn):
+                    self.conn = conn
+                    self._rel = None
+                def __enter__(self):
+                    return self
+                def __exit__(self, *_):
+                    pass
+                def execute(self, query, params=None):
+                    self._rel = self.conn.con.execute(query, params)
+                    return self
+                def execute_write(self, query, params=None):
+                    self._rel = self.conn.con.execute(query, params)
+                    return self
+                def fetchall_as_pandas(self):
+                    if self._rel is None:
+                        import pandas as pd
+                        return pd.DataFrame()
+                    return self._rel.df()
+
             class TestDuckDBConn:
                 def __init__(self, *args, **kwargs):
                     self.con = duckdb.connect(db_path)
@@ -82,6 +102,8 @@ def test_duckdb_analytics_alerts():
                     return self
                 def __exit__(self, *_):
                     self.con.close()
+                def cursor(self):
+                    return TestDuckDBCursor(self)
                 def execute(self, query, params=None):
                     self.con.execute(query, params)
                     return self
@@ -102,6 +124,68 @@ def test_duckdb_analytics_alerts():
             assert alerts[0]["search_count"] == 1
             assert "first_seen" in alerts[0]
             assert "last_seen" in alerts[0]
+    finally:
+        if os.path.exists(db_path):
+            os.remove(db_path)
+        os.rmdir(temp_dir)
+
+def test_duckdb_analytics_zero_result_searches():
+    temp_dir = tempfile.mkdtemp()
+    db_path = os.path.join(temp_dir, "test_analytics_zero.duckdb")
+
+    try:
+        with duckdb.connect(db_path) as conn:
+            conn.execute("CREATE SCHEMA IF NOT EXISTS user_data")
+            conn.execute("""
+                CREATE TABLE user_data.search_analytics (
+                    query           VARCHAR,
+                    results_count   INTEGER,
+                    user_email      VARCHAR,
+                    timestamp       TIMESTAMP
+                )
+            """)
+
+            conn.execute("INSERT INTO user_data.search_analytics VALUES ('term1', 0, 'u1@test.com', current_timestamp)")
+            conn.execute("INSERT INTO user_data.search_analytics VALUES ('term2', 5, 'u1@test.com', current_timestamp)")
+
+        with patch("src.db.duckdb_adapter._DuckDBConn") as mock_conn_class:
+            class TestDuckDBCursor:
+                def __init__(self, conn):
+                    self.conn = conn
+                    self._rel = None
+                def __enter__(self):
+                    return self
+                def __exit__(self, *_):
+                    pass
+                def execute(self, query, params=None):
+                    self._rel = self.conn.con.execute(query, params)
+                    return self
+                def fetchall_as_pandas(self):
+                    if self._rel is None:
+                        import pandas as pd
+                        return pd.DataFrame()
+                    return self._rel.df()
+
+            class TestDuckDBConn:
+                def __init__(self, *args, **kwargs):
+                    self.con = duckdb.connect(db_path)
+                def __enter__(self):
+                    return self
+                def __exit__(self, *_):
+                    self.con.close()
+                def cursor(self):
+                    return TestDuckDBCursor(self)
+                def execute(self, query, params=None):
+                    self.con.execute(query, params)
+                    return self
+
+            mock_conn_class.side_effect = TestDuckDBConn
+
+            storage = DuckDBAnalyticsStorage(db_path)
+            zeros = storage.get_zero_result_searches(limit=10)
+
+            assert len(zeros) == 1
+            assert zeros[0]["query"] == "term1"
     finally:
         if os.path.exists(db_path):
             os.remove(db_path)
