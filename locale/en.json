@@ -78,7 +78,7 @@
     "downstream_none": "No known downstream assets.",
     "downstream_certified_warning": "Includes certified or production assets — review carefully before changing.",
     "title": "§ Table detail",
-    "related_count": "related",
+    "related_count": "{formatted_count} related",
     "same_schema": "Same schema",
     "shared_column": "Shared column",
     "open_related": "Open →",

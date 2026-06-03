@@ -78,7 +78,7 @@
     "downstream_none": "Aucun actif aval connu.",
     "downstream_certified_warning": "Inclut des actifs certifiés ou en production — vérifiez attentivement avant de modifier.",
     "title": "§ Détails de la table",
-    "related_count": "liées",
+    "related_count": "{formatted_count} associées",
     "same_schema": "Même schéma",
     "shared_column": "Colonne partagée",
     "open_related": "Ouvrir →",
