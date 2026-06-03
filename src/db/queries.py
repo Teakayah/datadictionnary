@@ -84,9 +84,12 @@ def run_query(query, params=None):
     2. DuckDB cache: If available, routes the query to the local file for speed.
     3. Databricks SQL Warehouse: Fallback if DuckDB cache is unavailable.
 
-    @param query: The SQL query to execute.
-    @param params: Optional dictionary of parameters to substitute into the query.
-    @returns: A pandas DataFrame containing the query results.
+    Args:
+        query (str): The SQL query to execute.
+        params (dict, optional): Optional dictionary of parameters to substitute into the query.
+
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing the query results.
     """
     # ── Demo mode: return hardcoded DataFrames without hitting any DB ──────────
     if is_demo_mode():
@@ -129,7 +132,7 @@ def run_query(query, params=None):
 def get_authorized_table_names(groups):
     """Retrieve a set of full names for tables the user is authorized to access."""
     df = get_authorized_tables(groups)
-    return set(df["full_name"].tolist()) if df is not None and not df.empty else set()
+    return set(df["full_name"].unique().tolist()) if df is not None and not df.empty else set()
 
 
 @st.cache_data(ttl="1h", show_spinner=False)
@@ -141,8 +144,11 @@ def get_authorized_tables(groups):
     intersect with the table's allowed principals, or if the table is marked
     public with the sentinel value `SELECT_ALL_USERS`.
 
-    @param groups: A list or tuple of Entra ID group object IDs for the user.
-    @returns: A pandas DataFrame containing authorized table metadata.
+    Args:
+        groups (list or tuple): A list or tuple of Entra ID group object IDs for the user.
+
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing authorized table metadata.
     """
     if is_demo_mode():
         return _DEMO_TABLES
@@ -186,7 +192,15 @@ def get_authorized_tables(groups):
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
-    """Fetch lineage edges up to a given depth."""
+    """Fetch lineage edges up to a given depth.
+
+    Args:
+        table_full_name (str): The Unity Catalog full name of the table to trace.
+        depth (int): The maximum number of hops to traverse up/downstream. Defaults to 1.
+
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing lineage edges with columns for direction, entity name, entity type, and depth.
+    """
     sql_query = (
         """
         WITH RECURSIVE lineage_cte AS (
@@ -299,9 +313,12 @@ def _search_keywords(query: str, groups: tuple):
       - Substring match → 3 (Tables) / 0 (Columns)
       - Glossary match  → 1
 
-    @param query:  user-entered search string, matched via SQL ``LIKE '%q%'``.
-    @param groups: tuple of Entra ID group Object IDs the user belongs to.
-    @returns:      pandas DataFrame of combined results, sorted by score desc.
+    Args:
+        query (str): user-entered search string, matched via SQL ``LIKE '%q%'``.
+        groups (tuple): tuple of Entra ID group Object IDs the user belongs to.
+
+    Returns:
+        pd.DataFrame: pandas DataFrame of combined results, sorted by score desc.
     """
 
     logging.info("GLOBAL SEARCH query=%s groups=%s", query, groups)
@@ -469,9 +486,12 @@ def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
 
     Includes business name and definition overrides if present.
 
-    @param cols: A DataFrame containing the columns_metadata.
-    @param col_overrides: A dictionary mapping column names to override dictionaries.
-    @returns: A CSV-formatted string of the table metadata.
+    Args:
+        cols (pd.DataFrame): A DataFrame containing the columns_metadata.
+        col_overrides (dict): A dictionary mapping column names to override dictionaries.
+
+    Returns:
+        str: A CSV-formatted string of the table metadata.
     """
     output = io.StringIO()
     writer = csv.writer(output)

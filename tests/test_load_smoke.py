@@ -220,6 +220,55 @@ class TestLoadSmoke:
                     f"{key[1]} p99={p99:.0f}ms exceeds baseline {limit}ms"
                 )
 
+    # ── API layer SLAs ────────────────────────────────────────────────────────
+
+    @pytest.mark.parametrize("dept", ["finance", "research", "hr", "it", "admin"])
+    def test_api_search_p95(self, dept):
+        row = self._stats.get(("GET", f"api: search ({dept})"))
+        if row is None:
+            pytest.skip(f"No API search data for dept={dept!r} — API server may not be running")
+        p95 = row.get("95%", 0)
+        limit = self._sla["api_search"]["p95_max_ms"]
+        assert p95 <= limit, f"API search ({dept}) p95={p95:.0f}ms exceeds baseline {limit}ms"
+
+    @pytest.mark.parametrize("dept", ["finance", "research", "hr", "it", "admin"])
+    def test_api_table_detail_p95(self, dept):
+        row = self._stats.get(("GET", f"api: table detail ({dept})"))
+        if row is None:
+            pytest.skip(f"No API table-detail data for dept={dept!r}")
+        p95 = row.get("95%", 0)
+        limit = self._sla["api_table_detail"]["p95_max_ms"]
+        assert p95 <= limit, f"API table detail ({dept}) p95={p95:.0f}ms exceeds baseline {limit}ms"
+
+    @pytest.mark.parametrize("dept", ["finance", "research", "hr", "it", "admin"])
+    def test_api_list_tables_p95(self, dept):
+        row = self._stats.get(("GET", f"api: list tables ({dept})"))
+        if row is None:
+            pytest.skip(f"No API list-tables data for dept={dept!r}")
+        p95 = row.get("95%", 0)
+        limit = self._sla["api_list_tables"]["p95_max_ms"]
+        assert p95 <= limit, f"API list tables ({dept}) p95={p95:.0f}ms exceeds baseline {limit}ms"
+
+    def test_api_lineage_p95(self):
+        row = self._stats.get(("GET", "api: lineage"))
+        if row is None:
+            pytest.skip("No API lineage data — API server may not be running")
+        p95 = row.get("95%", 0)
+        limit = self._sla["api_lineage"]["p95_max_ms"]
+        assert p95 <= limit, f"API lineage p95={p95:.0f}ms exceeds baseline {limit}ms"
+
+    def test_api_search_p99_aggregate(self):
+        """p99 across all API search tasks (all departments) must stay within baseline."""
+        limit = self._sla["api_search"]["p99_max_ms"]
+        tested = 0
+        for key, row in self._stats.items():
+            if key[0] == "GET" and key[1].startswith("api: search ("):
+                p99 = row.get("99%", 0)
+                assert p99 <= limit, f"{key[1]} p99={p99:.0f}ms exceeds baseline {limit}ms"
+                tested += 1
+        if tested == 0:
+            pytest.skip("No API search data recorded — API server may not be running")
+
     # ── Minimum throughput ────────────────────────────────────────────────────
 
     def test_minimum_requests_recorded(self):

@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dd-redis
+  namespace: data-dictionary
+  labels:
+    app.kubernetes.io/name: data-dictionary
+    app.kubernetes.io/component: redis
+    app.kubernetes.io/part-of: data-dictionary
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  # Single replica — Redis is cache-only (not primary store).
+  # Data loss on pod restart is acceptable; callers re-populate.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: dd-redis
+  template:
+    metadata:
+      labels:
+        app: dd-redis
+        app.kubernetes.io/name: data-dictionary
+        app.kubernetes.io/component: redis
+        app.kubernetes.io/part-of: data-dictionary
+        app.kubernetes.io/managed-by: kubectl
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args:
+            - redis-server
+            - --appendonly
+            - "yes"
+            - --maxmemory
+            - "256mb"
+            - --maxmemory-policy
+            - allkeys-lru
+            - --save
+            - ""
+
+          ports:
+            - name: redis
+              containerPort: 6379
+              protocol: TCP
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "250m"
+              memory: "320Mi"
+
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: dd-redis-data

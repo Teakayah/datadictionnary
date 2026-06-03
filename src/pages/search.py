@@ -207,6 +207,9 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         _col_edit = st.session_state.get("dd_col_edit_mode", "")
 
         if n_cols > 0:
+            if n_cols > 50:
+                st.info(t("detail.showing_first_50_columns", count=n_cols))
+                cols = cols.head(50)
             for c in cols.itertuples(index=False):
                 _cname    = str(getattr(c, "column_name", ""))
                 _ctype    = str(getattr(c, "data_type", ""))
@@ -323,7 +326,6 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         from src.i18n import format_date
         for _c in _comments:
             _cid    = str(_c.get("comment_id", ""))
-            _cemail = str(_c.get("author_email", ""))
             st.markdown(
                 f'<div class="dd-comment-row">'
                 f'<span class="dd-comment-author">{_html.escape(str(_c.get("author_name", "")))}</span>'
@@ -371,6 +373,9 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             unsafe_allow_html=True,
         )
         if n_grants > 0:
+            if n_grants > 50:
+                st.info(t("detail.showing_first_50_grants", count=n_grants))
+                grants = grants.head(50)
             for g in grants.itertuples(index=False):
                 principal = str(getattr(g, "principal", ""))
                 privilege = str(getattr(g, "privilege", ""))
@@ -493,7 +498,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             st.markdown(
                 f'<div class="dd-section-header">'
                 f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_lineage")} & {t("detail.section_related")}</span>'
-                f'<span class="dd-section-count">{format_number(n_related)} {t("detail.related_count")}</span>'
+                f'<span class="dd-section-count">{t("detail.related_count", formatted_count=format_number(n_related))}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
@@ -537,7 +542,7 @@ def render_search_page(query_groups: tuple) -> None:
 
     try:
         _all_tables = get_authorized_tables(query_groups)
-        _auth_full_names = set(_all_tables["full_name"].tolist()) if _all_tables is not None and not _all_tables.empty else set()
+        _auth_full_names = set(_all_tables["full_name"].unique().tolist()) if _all_tables is not None and not _all_tables.empty else set()
     except Exception as e:
         logging.error("Error querying authorized tables: %s", e, exc_info=True)
         _all_tables = None
@@ -623,12 +628,17 @@ def render_search_page(query_groups: tuple) -> None:
         if "description"  not in _gr.columns:
             _desc_col = next((c for c in ("table_description", "comment") if c in _gr.columns), None)
             _gr["description"] = _gr[_desc_col] if _desc_col else ""
+        _results_to_show = _gr
+        if len(_gr) > 50:
+            st.info(t("search.showing_first_50", count=len(_gr)))
+            _results_to_show = _gr.head(50)
+
         st.markdown(
             f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);margin-bottom:12px">'
             f'{t("search.results_count", count=len(_gr))}</p>',
             unsafe_allow_html=True,
         )
-        for _i, _row in enumerate(_gr.itertuples(index=False)):
+        for _i, _row in enumerate(_results_to_show.itertuples(index=False)):
             _fn = str(getattr(_row, "full_name", ""))
             if not _fn:
                 continue
@@ -673,12 +683,17 @@ def render_search_page(query_groups: tuple) -> None:
                 if _nav_idx is None:
                     def _s(v):
                         return "" if _pd.isna(v) else str(v)
+                    _results_to_show = results
+                    if len(results) > 50:
+                        st.info(t("search.showing_first_50", count=len(results)))
+                        _results_to_show = results.head(50)
+
                     st.markdown(
                         f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);margin-bottom:12px">'
                         f'{t("search.results_count", count=len(results))}</p>',
                         unsafe_allow_html=True,
                     )
-                    for _sr_i, _sr in enumerate(results.itertuples(index=False)):
+                    for _sr_i, _sr in enumerate(_results_to_show.itertuples(index=False)):
                         _fn = _s(getattr(_sr, "full_name", None))
                         if not _fn:
                             continue

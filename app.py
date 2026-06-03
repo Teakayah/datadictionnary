@@ -172,7 +172,7 @@ elif current_tab == "glossary":
 elif current_tab == "discovery":
     render_discovery(query_groups, get_authorized_tables, _pref_delete, _pref_upsert)
 elif current_tab == "health":
-    render_health(query_groups, get_authorized_tables)
+    render_health(query_groups)
 elif current_tab == "pipelines":
     render_pipelines_page()
 elif current_tab == "admin":

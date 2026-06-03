@@ -62,13 +62,14 @@ def _show_cms_create_dialog():
             key="cms_create_tableref",
         )
 
-    expiry_label = st.selectbox(
+    expiry_key = st.selectbox(
         t("cms.post_expiry"),
         options=list(_EXPIRY_DAYS.keys()),
+        format_func=lambda x: t(f"cms.expiry_{x}"),
         index=0,
         key="cms_create_expiry",
     )
-    expiry_days = _EXPIRY_DAYS[expiry_label]
+    expiry_days = _EXPIRY_DAYS[expiry_key]
 
     _save, _cancel = st.columns([1, 1], gap="small")
     with _save:

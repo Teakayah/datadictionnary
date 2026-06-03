@@ -29,6 +29,9 @@ _os.environ.setdefault("ENABLE_MOCK_AUTH", "true")
 _os.environ.setdefault("ENVIRONMENT", "development")
 _os.environ.setdefault("DEMO_DATA", "true")
 _os.environ["DUCKDB_PATH"] = ""  # Force empty to ensure hermetic tests
+# Required by src.config / src.api.auth at import time so startup validation passes.
+_os.environ.setdefault("TENANT_ID", "test-tenant-id")
+_os.environ.setdefault("CLIENT_ID", "test-client-id")
 
 # ── Stub missing packages ─────────────────────────────────────────────────────
 

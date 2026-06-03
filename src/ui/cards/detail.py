@@ -84,17 +84,22 @@ def render_data_sample(table_full_name: str):
         if is_demo_mode():
             df = pd.DataFrame({"id": [1, 2, 3], "status": ["NEW", "SHIPPED", "CLOSED"]})
         elif _duckdb_available():
-            _safe_parts = ['"' + p.replace('"', '""') + '"' for p in table_full_name.split(".")]
-            _duckdb_parts = _safe_parts[1:] if len(_safe_parts) == 3 else _safe_parts
-            _safe_table_name = ".".join(_duckdb_parts)
-            _sample_query = f"SELECT * FROM {CATALOG_CACHE}.{_safe_table_name} LIMIT 100"  # nosec B608
-            df = run_query(_sample_query)
+            _parts = table_full_name.split(".")
+            _duckdb_parts = _parts[1:] if len(_parts) == 3 else _parts
+            _duckdb_table = f"{CATALOG_CACHE}." + ".".join(_duckdb_parts)
+            _sample_query = "SELECT * FROM query_table(%(t)s) LIMIT 100"
+            df = run_query(_sample_query, {"t": _duckdb_table})
         else:
             # Fallback for Databricks SQL where table_full_name is in format cat.sch.tbl
-            _safe_parts = ['"' + p.replace('"', '""') + '"' for p in table_full_name.split(".")]
-            _safe_table_name = ".".join(_safe_parts)
-            query = f"SELECT * FROM {_safe_table_name} LIMIT 100"  # nosec B608
-            df = run_query(query)
+            _parts = table_full_name.split(".")
+            query_parts = []
+            params = {}
+            for i, p in enumerate(_parts):
+                query_parts.append(f"IDENTIFIER(%(p{i})s)")
+                params[f"p{i}"] = p
+            _safe_table_name = ".".join(query_parts)
+            query = "".join(["SELECT * FROM ", _safe_table_name, " LIMIT 100"])
+            df = run_query(query, params)
         if df is not None and not df.empty:
             st.dataframe(df, use_container_width=True, height=2000)
         else:

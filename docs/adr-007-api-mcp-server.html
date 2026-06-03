@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Dictionary — ADR 007 — REST API and MCP server</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <a href="product-overview.html" style="text-decoration:none; color:inherit;">
+      <svg viewBox="0 0 260 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:24px">
+        <g transform="translate(4,2)">
+          <rect x="0.5" y="0.5" width="26" height="26" rx="1" fill="#FAF7F0" stroke="#14110C" stroke-width="1"/>
+          <line x1="0.5" y1="7" x2="26.5" y2="7" stroke="#14110C" stroke-width="0.8"/>
+          <circle cx="4" cy="3.5" r="1.5" fill="#B8362A"/>
+        </g>
+        <text x="40" y="25" font-family="Fraunces, serif" font-size="20" font-weight="400" fill="#14110C" letter-spacing="-0.3">Data Dictionary</text>
+      </svg>
+    </a>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-section-title">Guides</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="user-guide.html">User Guide</a></li>
+      <li class="nav-item "><a href="steward-guide.html">Steward Guide</a></li>
+      <li class="nav-item "><a href="admin-runbook.html">Admin Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Product</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="product-overview.html">Product Overview</a></li>
+      <li class="nav-item "><a href="business-requirements.html">Business Requirements</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Features</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="feature-unified-search.html">Unified Search</a></li>
+      <li class="nav-item "><a href="feature-personalization.html">Personalization</a></li>
+      <li class="nav-item "><a href="feature-data-quality.html">Data Quality</a></li>
+      <li class="nav-item "><a href="feature-data-preview.html">Data Preview</a></li>
+      <li class="nav-item "><a href="feature-enhanced-lineage.html">Enhanced Lineage</a></li>
+      <li class="nav-item "><a href="feature-metadata-export.html">Metadata Export</a></li>
+      <li class="nav-item "><a href="feature-recommendation-engine.html">Recommendation Engine</a></li>
+      <li class="nav-item "><a href="feature-hybrid-search.html">Hybrid Semantic Search</a></li>
+      <li class="nav-item "><a href="feature-search-analytics.html">Search Analytics</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Architecture</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="architecture.html">Architecture Overview</a></li>
+      <li class="nav-item "><a href="dependencies.html">Dependencies</a></li>
+      <li class="nav-item "><a href="adr-001-duckdb-local-cache.html">ADR 001: DuckDB Cache</a></li>
+      <li class="nav-item "><a href="adr-002-push-down-sql-auth.html">ADR 002: SQL Auth</a></li>
+      <li class="nav-item "><a href="adr-003-streamlit-not-fastapi.html">ADR 003: Streamlit</a></li>
+      <li class="nav-item "><a href="adr-004-sidecar-sync-worker.html">ADR 004: Sync Worker</a></li>
+      <li class="nav-item "><a href="adr-005-storage-abstraction.html">ADR 005: Storage Abstraction</a></li>
+      <li class="nav-item "><a href="adr-006-entra-groups-overage.html">ADR 006: Groups Overage</a></li>
+      <li class="nav-item active"><a href="adr-007-api-mcp-server.html">ADR 007: API &amp; MCP</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Operations</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="runbook-sync-worker.html">Sync Worker Runbook</a></li>
+      <li class="nav-item "><a href="runbook-secret-rotation.html">Secret Rotation Runbook</a></li>
+    </ul>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-section-title">Reference</div>
+    <ul class="nav-list">
+      <li class="nav-item "><a href="reference-locale-keys.html">Locale Keys</a></li>
+      <li class="nav-item "><a href="reference-api.html">API &amp; MCP Reference</a></li>
+    </ul>
+  </nav>
+</aside>
+
+  <main class="content-wrapper">
+    <article class="page">
+      <header class="site-header">
+        <span class="badge">Guides</span>
+      </header>
+      <section class="hero">
+        <div class="eyebrow">Guides</div>
+        <h1>ADR 007 — REST API and MCP server</h1>
+      </section>
+      <section class="section">
+<p><strong>Status:</strong> Accepted
+<strong>Date:</strong> 2026-06-02
+<strong>Deciders:</strong> Platform team</p>
+<hr>
+</section>
+<section class="section" id="context">
+<h2>Context</h2>
+<p>The Streamlit Data Dictionary is the only way to query the catalog. Several
+use cases now require programmatic access:</p>
+<ul>
+  <li><strong>CI/CD pipelines</strong> that assert expected tables and columns exist before</li>
+</ul>  deploying a model.
+<ul>
+  <li><strong>BI tools and notebooks</strong> that need to look up table descriptions</li>
+</ul>  without opening a browser.
+<ul>
+  <li><strong>AI coding assistants</strong> (GitHub Copilot, Claude, VS Code Copilot) that</li>
+</ul>  need structured data dictionary access via the Model Context Protocol (MCP).
+<p>ADR 003 chose Streamlit over FastAPI for the <em>interactive UI</em>. That decision
+still stands. This ADR adds a FastAPI layer that runs alongside Streamlit as
+a separate process, sharing the same codebase and the same permission model.</p>
+</section>
+<section class="section" id="decision">
+<h2>Decision</h2>
+<p>Add two new components that run from the same Docker image:</p>
+<ol class="steps">
+  <li><strong>FastAPI REST API</strong> (<code>src/api/</code>) — permission-filtered HTTP API for</li>
+</ol>   programmatic catalog access. Runs as a second Kubernetes Deployment
+   (<code>dd-api</code>) on port 8080.
+<ol class="steps">
+  <li><strong>FastMCP server</strong> (<code>src/mcp_server/</code>) — MCP Streamable HTTP endpoint</li>
+</ol>   mounted at <code>/mcp</code> inside the FastAPI app. Exposes four tools:
+   <code>search_tables</code>, <code>get_table_details</code>, <code>list_tables</code>, <code>get_lineage</code>.
+<ol class="steps">
+  <li><strong>Redis cache</strong> (<code>src/cache/</code>) — async Redis wrapper shared by both the</li>
+</ol>   API and MCP layer. Gracefully degrades to no-op when <code>REDIS_URL</code> is
+   unset, so a missing Redis pod never crashes the API.
+<h3>Auth</h3>
+<p>Both the REST API and the MCP endpoint validate <em></em>Microsoft Entra ID Bearer
+tokens<em></em> using RS256 JWT validation (<code>python-jose</code>). The JWKS endpoint is
+fetched from Entra's discovery URL and cached for one hour.</p>
+<p>The same permission enforcement principle from ADR 002 applies: groups are
+extracted from the token (or from Microsoft Graph on overage), and every SQL
+query runs the <code>JOIN permissions_cache</code> filter. The API layer never fetches
+all data and filters in Python.</p>
+<h3>MCP auth middleware</h3>
+<p>Because FastMCP does not natively support per-request Bearer token
+validation, we wrap the MCP ASGI sub-app in <code>_MCPAuthMiddleware</code> — a thin
+ASGI middleware that validates the token before the MCP handler runs. The
+validated <code>AuthenticatedUser</code> is passed to tools via a <code>contextvars.ContextVar</code>
+(<code>_current_user</code>), which is safe across async boundaries.</p>
+<h3>Redis cache design</h3>
+<table class="status-table">
+<thead>
+<tr><th>Key prefix</th><th>TTL</th><th>Scope</th></tr>
+</thead>
+<tbody>
+<tr><td><code>ddic:<hash></code> (search)</td><td>300 s</td><td>query + groups tuple</td></tr>
+<tr><td><code>ddic:<hash></code> (table detail)</td><td>600 s</td><td>full_name + groups tuple</td></tr>
+<tr><td><code>ddic:<hash></code> (lineage)</td><td>300 s</td><td>full_name + depth</td></tr>
+<tr><td><code>ddic:<hash></code> (groups overage)</td><td>3600 s</td><td>user OID</td></tr>
+</tbody>
+</table>
+Cache keys are SHA-256 hashes of the serialised arguments, namespaced with
+<code>ddic:</code>. The same Redis instance serves both the API and the MCP server.
+</section>
+<section class="section" id="consequences">
+<h2>Consequences</h2>
+<p><strong>Positive</strong></p>
+<ul>
+  <li>External callers get a stable, versioned REST API without touching</li>
+</ul>  Streamlit session state.
+<ul>
+  <li>AI assistants gain structured access via MCP, enabling natural-language</li>
+</ul>  catalog queries without scraping the UI.
+<ul>
+  <li>Redis cache significantly reduces load on DuckDB and Databricks for</li>
+</ul>  repeated queries from automated tools.
+<p><strong>Negative / trade-offs</strong></p>
+<ul>
+  <li>One additional Kubernetes Deployment (<code>dd-api</code>) and a Redis StatefulSet</li>
+</ul>  to maintain.
+<ul>
+  <li><code>python-jose</code> and <code>httpx</code> join the dependency surface for JWT validation</li>
+</ul>  and async JWKS fetching.
+<ul>
+  <li>The <code>_current_user</code> ContextVar pattern is implicit; future contributors</li>
+</ul>  must understand that MCP tools rely on middleware injection.
+</section>
+<section class="section" id="alternatives-considered">
+<h2>Alternatives considered</h2>
+<p><strong>Expose the API directly from Streamlit</strong> — Streamlit's server is not
+designed as an HTTP API host. Custom HTTP handlers were added in Streamlit
+1.45 but are considered experimental. Rejected: adds fragility to the UI
+process.</p>
+<p><strong>Single unified FastAPI app replacing Streamlit</strong> — Would require rewriting
+all UI components. Rejected: high cost, no clear benefit for the target
+users (non-technical business analysts).</p>
+<p><strong>SSE transport instead of Streamable HTTP</strong> — SSE is the older MCP
+transport and requires two connections (GET for stream, POST for messages).
+Streamable HTTP is the recommended transport for remotely hosted MCP servers
+and is simpler to deploy behind a standard reverse proxy. Chosen: Streamable HTTP.</p>
+</section>
+      <footer class="site-footer">
+        <p>Data Dictionary · Documented by Data Engineering</p>
+        <p>Internal Use Only</p>
+      </footer>
+    </article>
+  </main>
+</body>
+</html>
