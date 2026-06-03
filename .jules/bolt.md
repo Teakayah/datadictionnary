@@ -30,6 +30,14 @@
 **Learning:** Formatting timestamps with pandas `.apply()` running a custom Python function over string/datetime parsing is significantly slower than using vectorized `pd.to_datetime(...).dt.strftime(...)`.
 **Action:** Always prefer pandas vectorized `.dt` accessors for datetime manipulation and string formatting instead of scalar Python `.apply()` functions on DataFrames.
 
+## 2024-05-30 - Optimize rendering loop in search page
+**Learning:** Rendering UI components (like st.columns) inside a loop over a large, unbounded DataFrame causes severe main-thread blocking and browser freezing in Streamlit applications.
+**Action:** Applied a hard cap (.head(50)) before iterating over DataFrames to render repeating UI components to ensure performance and prevent UI blocking.
+
+## 2024-05-30 - Optimize unique extraction on dataframes
+**Learning:** Calling .unique().tolist() on pandas DataFrames allocates more memory and is slower than .drop_duplicates().tolist().
+**Action:** Replaced .unique().tolist() with .drop_duplicates().tolist() to improve execution speed.
+
 ## 2024-06-03 - Optimize set instantiation from DataFrames
 **Learning:** Instantiating a set directly from a large Pandas column list (`set(df['col'].tolist())`) is significantly slower than deduping with numpy first (`set(df['col'].unique().tolist())`).
 **Action:** Always call `.unique().tolist()` before casting to a `set` to leverage fast C-level CPython/NumPy deduplication.
