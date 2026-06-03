@@ -29,3 +29,7 @@
 ## 2026-05-26 - Optimize Pandas Timestamp Formatting
 **Learning:** Formatting timestamps with pandas `.apply()` running a custom Python function over string/datetime parsing is significantly slower than using vectorized `pd.to_datetime(...).dt.strftime(...)`.
 **Action:** Always prefer pandas vectorized `.dt` accessors for datetime manipulation and string formatting instead of scalar Python `.apply()` functions on DataFrames.
+
+## 2026-06-03 - Redundant String Manipulation
+**Learning:** Reconstructing a string by splitting and joining on the same delimiter (e.g., `s.split('.')[0] + '.' + '.'.join(s.split('.')[1:])`) is an O(N) redundant operation that wastes CPU cycles without changing the output.
+**Action:** Remove unnecessary string formatting operations when the target representation already exists.

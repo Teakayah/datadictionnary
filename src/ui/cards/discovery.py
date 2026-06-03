@@ -351,9 +351,9 @@ def _get_recommended_tables(groups: tuple, authorized_full_names: set, top_n: in
             return []
         # Filter to only authorized tables the user hasn't recently viewed
         recent = set(st.session_state.get("recent_views", [])[:5])
+        # ⚡ Bolt: Removed redundant and slow string split/join operations on object_name
         return [
-            str(r.object_name).split(".")[0] + "." + ".".join(str(r.object_name).split(".")[1:])
-            if "." in str(r.object_name) else str(r.object_name)
+            str(r.object_name)
             for r in result.itertuples(index=False)
             if str(r.object_name) in authorized_full_names
             and str(r.object_name) not in recent
