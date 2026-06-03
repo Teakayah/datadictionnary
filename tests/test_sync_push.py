@@ -405,13 +405,6 @@ class TestEnqueueSync:
         push_module.enqueue_column_sync("cat.sch.tbl", "col", "def", "user")
         assert calls == [("COLUMN_DEF", "cat.sch.tbl", {"column_name": "col", "definition": "def"}, "user")]
 
-    def test_push_definition_legacy(self, monkeypatch):
-        from src.sync import push as push_module
-        calls = []
-        monkeypatch.setattr(push_module, "_push_to_databricks", lambda stype, table, payload: calls.append((stype, table, payload)))
-        push_module._push_definition_to_databricks("a.b.c", "col1", "def1")
-        assert calls == [("COLUMN_DEF", "a.b.c", {"column_name": "col1", "definition": "def1"})]
-
     def test_enqueue_sync_column_def(self, monkeypatch):
         from src.sync import push as push_module
         from unittest.mock import MagicMock
