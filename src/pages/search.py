@@ -495,7 +495,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             st.markdown(
                 f'<div class="dd-section-header">'
                 f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_lineage")} & {t("detail.section_related")}</span>'
-                f'<span class="dd-section-count">{format_number(n_related)} {t("detail.related_count")}</span>'
+                f'<span class="dd-section-count">{t("detail.related_count", formatted_count=format_number(n_related))}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
