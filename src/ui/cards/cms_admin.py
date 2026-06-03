@@ -73,22 +73,23 @@ def _show_cms_create_dialog():
     _save, _cancel = st.columns([1, 1], gap="small")
     with _save:
         if st.button(t("common.save"), type="primary", use_container_width=True, key="cms_save_btn"):
-            if not title.strip():
-                st.error(t("cms.error_title_required"))
-                return
-            if post_type == "featured_table" and not (table_ref or "").strip():
-                st.error(t("cms.error_table_ref_required"))
-                return
-            actor = st.session_state.get("user_email", "admin")
-            create_post(PostParams(
-                post_type=post_type,
-                title=title.strip(),
-                body=body.strip(),
-                table_ref=(table_ref or "").strip() or None,
-                author_email=actor,
-                expiry_days=expiry_days,
-            ))
-            st.rerun()
+            with st.spinner(t("common.saving")):
+                if not title.strip():
+                    st.error(t("cms.error_title_required"))
+                    return
+                if post_type == "featured_table" and not (table_ref or "").strip():
+                    st.error(t("cms.error_table_ref_required"))
+                    return
+                actor = st.session_state.get("user_email", "admin")
+                create_post(PostParams(
+                    post_type=post_type,
+                    title=title.strip(),
+                    body=body.strip(),
+                    table_ref=(table_ref or "").strip() or None,
+                    author_email=actor,
+                    expiry_days=expiry_days,
+                ))
+                st.rerun()
     with _cancel:
         if st.button(t("common.cancel"), use_container_width=True, key="cms_cancel_btn"):
             st.rerun()

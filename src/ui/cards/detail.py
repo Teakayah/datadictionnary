@@ -44,19 +44,20 @@ def render_table_metadata_editor(table_full_name: str, current_desc: str, curren
     c1, c2 = st.columns([1, 1])
     with c1:
         if st.button(t("common.save"), type="primary", use_container_width=True):
-            if new_stew.strip() and "@" not in new_stew:
-                st.error(t("detail.invalid_email"))
-            else:
-                try:
-                    save_table_metadata(
-                        table_full_name, description=new_desc, steward_email=new_stew,
-                    )
-                    st.toast(t("common.saved"))
-                    st.rerun()
-                except Exception as e:
-                    logging.error("Save failed for %s: %s", table_full_name, e, exc_info=True)
-                    # Security: do not expose internal error details to UI
-                    st.error(t("common.error"))
+            with st.spinner(t("common.saving")):
+                if new_stew.strip() and "@" not in new_stew:
+                    st.error(t("detail.invalid_email"))
+                else:
+                    try:
+                        save_table_metadata(
+                            table_full_name, description=new_desc, steward_email=new_stew,
+                        )
+                        st.toast(t("common.saved"))
+                        st.rerun()
+                    except Exception as e:
+                        logging.error("Save failed for %s: %s", table_full_name, e, exc_info=True)
+                        # Security: do not expose internal error details to UI
+                        st.error(t("common.error"))
     with c2:
         if st.button(t("common.cancel"), use_container_width=True):
             st.rerun()
