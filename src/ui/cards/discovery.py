@@ -349,7 +349,7 @@ def _render_bookmarks_tab(groups, get_authorized_tables_fn, pref_delete_fn=None,
         st.info(t("personalization.no_col_bookmarks"))
     else:
         _col_bk_auth_fns = (
-            set(get_authorized_tables_fn(groups)["full_name"].tolist())
+            set(get_authorized_tables_fn(groups)["full_name"].unique().tolist())
             if groups else set()
         )
         for _bk_id in sorted(col_bookmarks):
@@ -439,7 +439,7 @@ def _render_recommended_tab(groups, get_authorized_tables_fn, pref_delete_fn=Non
         if all_tables is None or all_tables.empty:
             st.info(t("personalization.recommended_empty"))
             return
-        authorized_fns = set(all_tables["full_name"].tolist())
+        authorized_fns = set(all_tables["full_name"].unique().tolist())
         recommended_fns = _get_recommended_tables(groups, authorized_fns)
         if not recommended_fns:
             st.info(t("personalization.recommended_empty"))
