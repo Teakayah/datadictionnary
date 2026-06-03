@@ -243,7 +243,8 @@
     "alert_count_col": "Nombre de recherches",
     "alert_first_seen_col": "Première recherche sans résultat",
     "alert_last_seen_col": "Dernière tentative",
-    "alert_date_format": "%d/%m/%Y %H:%M"
+    "alert_date_format": "%d/%m/%Y %H:%M",
+    "showing_first_50": "Affichage des 50 premières actions prioritaires sur {count} pour des raisons de performances."
   },
   "glossary": {
     "title": "§ Glossaire métier",
