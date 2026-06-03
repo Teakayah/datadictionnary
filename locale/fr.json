@@ -413,5 +413,11 @@
     "search_extra_admin": "**Approuver les modifications** — les propositions des éditeurs apparaissent dans Admin → Révisions en attente. Approuvez pour publier directement dans Unity Catalog.",
     "health_priority_editor": "Cliquez sur un nom de table pour l'ouvrir et ajouter une description. La sauvegarder la retire de cette liste.",
     "health_priority_viewer": "Cliquez sur un nom de table pour ouvrir sa fiche. Contactez le responsable pour demander une description."
+  },
+  "notifications": {
+    "strip_label_one": "1 mise à jour sur un favori",
+    "strip_label_many": "{count} mises à jour sur des favoris",
+    "dismiss": "Ignorer",
+    "mark_all_read": "Tout marquer comme lu"
   }
 }

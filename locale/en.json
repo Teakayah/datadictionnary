@@ -413,5 +413,11 @@
     "search_extra_admin": "**Approve changes** — column override proposals from editors appear in Admin → Pending reviews. Approve to publish directly to Unity Catalog.",
     "health_priority_editor": "Click a table name to open it and add a description. Saving a description removes it from this list.",
     "health_priority_viewer": "Click a table name to open its detail page. Contact the table steward to request a description update."
+  },
+  "notifications": {
+    "strip_label_one": "1 update on a bookmarked table",
+    "strip_label_many": "{count} updates on bookmarked tables",
+    "dismiss": "Dismiss",
+    "mark_all_read": "Mark all as read"
   }
 }
