@@ -185,11 +185,6 @@ def _push_to_databricks(sync_type: str, table_full_name: Optional[str], payload:
                 )
 
 
-def _push_definition_to_databricks(table_full_name: str, column_name: str, definition: str) -> None:
-    """Legacy wrapper for backward compatibility."""
-    _push_to_databricks("COLUMN_DEF", table_full_name, {"column_name": column_name, "definition": definition})
-
-
 # ── Bookmark notifications ────────────────────────────────────────────────────
 
 _NOTIFIABLE_TYPES = frozenset({"TABLE_DESC", "COLUMN_DEF", "STEWARD"})
