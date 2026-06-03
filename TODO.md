@@ -259,6 +259,19 @@ independently identified this as the highest-recall enhancement for non-technica
 
 ---
 
+## Load test follow-ups (2026-06-03)
+
+- [ ] **`DuckDBQueryUser` never runs real queries.** `_open_con()` returns `None`
+      for all users because `SET search_path = 'dictionary_cache'` fails on a
+      direct DuckDB connection — that schema only exists when the file is
+      `ATTACH`ed under that name. Every DuckDB task reports a 0ms failure
+      instantly (100% failure rate confirmed in the 150-user full-load run).
+      Fix: open the working copy as `:memory:` + `ATTACH` (matching the main
+      app's connection pattern in `duckdb_adapter.py`) rather than connecting
+      directly, so `dictionary_cache.*` is resolvable.
+
+---
+
 ## UI follow-ups (2026-05-29)
 
 - [x] **Discovery tab help tooltip is not bilingual.** `help.discovery_content`
