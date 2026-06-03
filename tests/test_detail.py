@@ -138,7 +138,7 @@ class TestRenderDataSample:
         at = AppTest.from_function(data_sample_app, args=("invalid-name",)).run()
 
         # It should process correctly and escape the single part name
-        mock_run.assert_called_once_with('SELECT * FROM "invalid-name" LIMIT 100')
+        mock_run.assert_called_once_with("SELECT * FROM IDENTIFIER(%(p0)s) LIMIT 100", {"p0": "invalid-name"})
         assert len(at.dataframe) == 1
 
     @patch("src.ui.cards.detail.get_authorized_table_names")
@@ -168,8 +168,10 @@ class TestRenderDataSample:
 
         mock_run.assert_called_once()
         sql = mock_run.call_args[0][0]
+        params = mock_run.call_args[0][1]
         from src.config import CATALOG_CACHE
-        assert f'SELECT * FROM {CATALOG_CACHE}."sch"."tbl" LIMIT 100' in sql
+        assert sql == "SELECT * FROM query_table(%(t)s) LIMIT 100"
+        assert params == {"t": f"{CATALOG_CACHE}.sch.tbl"}
         assert len(at.dataframe) == 1
 
     @patch("src.ui.cards.detail.get_authorized_table_names")
@@ -185,7 +187,7 @@ class TestRenderDataSample:
         at = AppTest.from_function(data_sample_app, args=("not_three_parts",)).run()
 
         from src.config import CATALOG_CACHE
-        mock_run.assert_called_once_with(f'SELECT * FROM {CATALOG_CACHE}."not_three_parts" LIMIT 100')
+        mock_run.assert_called_once_with("SELECT * FROM query_table(%(t)s) LIMIT 100", {"t": f"{CATALOG_CACHE}.not_three_parts"})
         assert len(at.dataframe) == 1
 
     @patch("src.ui.cards.detail.get_authorized_table_names")
@@ -200,7 +202,7 @@ class TestRenderDataSample:
 
         at = AppTest.from_function(data_sample_app, args=("cat.sch.tbl",)).run()
 
-        mock_run.assert_called_once_with('SELECT * FROM "cat"."sch"."tbl" LIMIT 100')
+        mock_run.assert_called_once_with("SELECT * FROM IDENTIFIER(%(p0)s).IDENTIFIER(%(p1)s).IDENTIFIER(%(p2)s) LIMIT 100", {"p0": "cat", "p1": "sch", "p2": "tbl"})
         assert len(at.dataframe) == 1
 
     @patch("src.ui.cards.detail.get_authorized_table_names")
