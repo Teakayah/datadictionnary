@@ -1,14 +1,8 @@
 from __future__ import annotations
-"""Table-detail modal dialogs.
+"""Table detail cards and sections.
 
-These are consumed exclusively by the search page's table detail panel
-(``src/pages/search.py``). They live in cards/ rather than alongside the
-search page because they share visual idioms (and CSS) with the rest of
-the cards/ rendering surface, and because callers historically imported
-them from ``src.ui.cards``.
-
-- ``render_table_metadata_editor`` — table description + steward editor
-- ``render_data_sample``           — top-100-rows preview
+Includes the schema/columns viewer, business name editor, comments
+section, and data preview (local-only for prototype).
 """
 
 
@@ -17,44 +11,97 @@ import logging
 import pandas as pd
 import streamlit as st
 
-from src.audit import save_table_metadata
+from src.auth import is_admin, is_editor
+from src.comments import create_comment, get_comments, reply_to_comment
 from src.config import CATALOG_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
-from src.db.queries import get_authorized_table_names, run_query
+from src.db.queries import (
+    get_authorized_table_names,
+    run_query,
+)
 from src.i18n import t
 from src.ui.css import VIS_WIDE_CSS
 
 
-@st.dialog(t("detail.edit_table"), width="large")
-def render_table_metadata_editor(table_full_name: str, current_desc: str, current_steward: str):
-    """Editor for table-level metadata (description, steward)."""
-    st.markdown(f"**{table_full_name}**")
-
-    new_desc = st.text_area(
-        t("detail.table_description"),
-        value=current_desc,
-        placeholder=t("detail.table_desc_placeholder"),
+@st.dialog(t("editor.title"), width="large")
+def render_business_name_editor(table_full_name: str, column_name: str, current_val: str, current_def: str):
+    """Dialog to edit business name and definition for a column."""
+    st.markdown(f"**{table_full_name}** · `{column_name}`")
+    new_name = st.text_input(
+        t("table.business_name"),
+        value=current_val,
+        placeholder="e.g., Customer Loyalty ID",
+        key="edit_biz_name",
+    )
+    new_def = st.text_area(
+        t("table.description"),
+        value=current_def,
+        placeholder="Explain what this column represents in business terms.",
         height=150,
-    )
-    new_stew = st.text_input(
-        t("detail.steward_email"), value=current_steward,
-        placeholder=t("detail.steward_email_placeholder"),
+        key="edit_biz_def",
     )
 
-    c1, c2 = st.columns([1, 1])
+    c1, c2 = st.columns(2)
     with c1:
-        if st.button(t("common.save"), help=t("help.btn_common_save"), type="primary", use_container_width=True):
-            if new_stew.strip() and "@" not in new_stew:
-                st.error(t("detail.invalid_email"))
-            else:
+        if st.button(t("common.save"), type="primary", use_container_width=True, key="save_biz_edit"):
+            with st.spinner(t("common.saving")):
                 try:
-                    save_table_metadata(
-                        table_full_name, description=new_desc, steward_email=new_stew,
-                    )
+                    from src.db.queries import _get_write_connection
+                    import secrets
+                    from datetime import datetime
+
+                    conn = _get_write_connection()
+                    with conn.cursor() as cur:
+                        actor = st.session_state.get("user_email", "unknown")
+                        # 1. Update the local override table
+                        cur.execute_write(
+                            "INSERT OR REPLACE INTO user_data.business_name_overrides "
+                            "(table_full_name, column_name, business_name, definition, edited_by, edited_at, status) "
+                            "VALUES (%(t)s, %(c)s, %(n)s, %(d)s, %(u)s, current_timestamp, 'pending')",
+                            {
+                                "t": table_full_name,
+                                "c": column_name,
+                                "n": new_name.strip(),
+                                "d": new_def.strip(),
+                                "u": actor,
+                            },
+                        )
+                        # 2. Queue for background sync to Databricks
+                        payload = {
+                            "column_name": column_name,
+                            "business_name": new_name.strip(),
+                            "definition": new_def.strip(),
+                        }
+                        import json
+                        cur.execute_write(
+                            "INSERT INTO user_data.pending_sync "
+                            "(sync_id, sync_type, table_full_name, payload_json, queued_by, queued_at) "
+                            "VALUES (%(id)s, 'COLUMN_DEF', %(t)s, %(p)s, %(u)s, current_timestamp)",
+                            {
+                                "id": secrets.token_hex(8),
+                                "t": table_full_name,
+                                "p": json.dumps(payload),
+                                "u": actor,
+                            },
+                        )
+                        # 3. Log audit event
+                        cur.execute_write(
+                            "INSERT INTO user_data.audit_log "
+                            "(event_id, event_type, object_type, object_name, actor_email, old_value, new_value, created_at) "
+                            "VALUES (%(id)s, 'business_name_change', 'COLUMN', %(obj)s, %(u)s, %(old)s, %(new)s, current_timestamp)",
+                            {
+                                "id": secrets.token_hex(8),
+                                "obj": f"{table_full_name}.{column_name}",
+                                "u": actor,
+                                "old": current_val,
+                                "new": new_name.strip(),
+                            },
+                        )
+
                     st.toast(t("common.saved"))
                     st.rerun()
                 except Exception as e:
-                    logging.error("Save failed for %s: %s", table_full_name, e, exc_info=True)
+                    logging.error("Failed to save business name override: %s", e, exc_info=True)
                     # Security: do not expose internal error details to UI
                     st.error(t("common.error"))
     with c2:
