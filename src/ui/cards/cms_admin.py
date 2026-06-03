@@ -28,7 +28,7 @@ def _show_delete_cms_dialog(post_id: str):
             delete_post(post_id)
             st.rerun()
     with _c:
-        if st.button(t("common.cancel"), use_container_width=True):
+        if st.button(t("common.cancel"), use_container_width=True, help=t("help.btn_cancel")):
             st.rerun()
 
 
@@ -72,7 +72,7 @@ def _show_cms_create_dialog():
 
     _save, _cancel = st.columns([1, 1], gap="small")
     with _save:
-        if st.button(t("common.save"), type="primary", use_container_width=True, key="cms_save_btn"):
+        if st.button(t("common.save"), type="primary", use_container_width=True, key="cms_save_btn", help=t("help.btn_save")):
             if not title.strip():
                 st.error(t("cms.error_title_required"))
                 return
@@ -90,7 +90,7 @@ def _show_cms_create_dialog():
             ))
             st.rerun()
     with _cancel:
-        if st.button(t("common.cancel"), use_container_width=True, key="cms_cancel_btn"):
+        if st.button(t("common.cancel"), use_container_width=True, key="cms_cancel_btn", help=t("help.btn_cancel")):
             st.rerun()
 
 

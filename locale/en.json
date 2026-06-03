@@ -410,6 +410,10 @@
     "search_extra_editor": "**Edit metadata** — click the pencil icon on any description, steward, or column field to propose a change. Column proposals go to admin review before publishing.",
     "search_extra_admin": "**Approve changes** — column override proposals from editors appear in Admin → Pending reviews. Approve to publish directly to Unity Catalog.",
     "health_priority_editor": "Click a table name to open it and add a description. Saving a description removes it from this list.",
-    "health_priority_viewer": "Click a table name to open its detail page. Contact the table steward to request a description update."
+    "health_priority_viewer": "Click a table name to open its detail page. Contact the table steward to request a description update.",
+    "btn_save": "Save changes",
+    "btn_cancel": "Cancel without saving",
+    "btn_send_comment": "Send comment",
+    "btn_cancel_comment": "Discard comment"
   }
 }

@@ -52,7 +52,7 @@ def _render_comment_form(
         )
         _cs, _cc, _ = st.columns([2, 2, 4], gap="small")
         with _cs:
-            if st.button(t("comment.send"), key=f"dd_comment_send_{key_suffix}", use_container_width=True, type="primary"):
+            if st.button(t("comment.send"), key=f"dd_comment_send_{key_suffix}", help=t("help.btn_send_comment"), use_container_width=True, type="primary"):
                 if _inp.strip():
                     save_comment(
                         "TABLE", full_name, _inp.strip(), steward,
@@ -63,7 +63,7 @@ def _render_comment_form(
                 else:
                     st.warning(t("comment.empty_error"))
         with _cc:
-            if st.button(t("comment.cancel"), key=f"dd_comment_cancel_{key_suffix}", use_container_width=True):
+            if st.button(t("comment.cancel"), key=f"dd_comment_cancel_{key_suffix}", help=t("help.btn_cancel_comment"), use_container_width=True):
                 st.session_state.pop(_open_key, None)
                 st.rerun()
         if not steward and not parent_comment_id:
@@ -276,7 +276,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                     )
                     _sc, _cc, _ = st.columns([2, 2, 4], gap="small")
                     with _sc:
-                        if st.button(t("editor.save"), key=f"col_biz_save_{_edit_key}", use_container_width=True, type="primary"):
+                        if st.button(t("editor.save"), key=f"col_biz_save_{_edit_key}", help=t("help.btn_save"), use_container_width=True, type="primary"):
                             try:
                                 save_business_name(full_name, _cname, _inp_name.strip(), _inp_def.strip())
                                 st.session_state.pop("dd_col_edit_mode", None)
@@ -292,7 +292,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                                 # Security: do not expose internal error details to UI
                                 st.error(t("common.error"))
                     with _cc:
-                        if st.button(t("editor.cancel"), key=f"col_biz_cancel_{_edit_key}", use_container_width=True):
+                        if st.button(t("editor.cancel"), key=f"col_biz_cancel_{_edit_key}", help=t("help.btn_cancel"), use_container_width=True):
                             st.session_state.pop("dd_col_edit_mode", None)
                             st.rerun()
                     if _override.get("edited_by"):
