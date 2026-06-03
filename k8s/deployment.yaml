@@ -79,6 +79,14 @@ spec:
             - name: tmp
               mountPath: /tmp
 
+          startupProbe:
+            httpGet:
+              path: /_stcore/health
+              port: 8501
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 30
+
           livenessProbe:
             httpGet:
               path: /_stcore/health
