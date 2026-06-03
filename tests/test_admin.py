@@ -235,6 +235,13 @@ class TestAdminDemo:
         if pre_state:
             for k, v in pre_state.items():
                 at.session_state[k] = v
+        sql_returns(
+            pd.DataFrame({"tables": [42], "columns": [300], "comments": [5], "overrides": [2]}), # stats query
+            pd.DataFrame(columns=["issue"]),              # missing insights
+            pd.DataFrame(columns=["issue"]),              # missing steward insights
+            pd.DataFrame(),              # biz name change log
+            pd.DataFrame(),              # comment log
+        )
         at.run()
         return at
 
