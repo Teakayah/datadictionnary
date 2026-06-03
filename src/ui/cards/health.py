@@ -172,6 +172,11 @@ def _render_priority_actions(undocumented: pd.DataFrame):
 
     if not undocumented.empty:
         st.warning(t("health.missing_descriptions"))
+        # ⚡ Bolt: Apply hard cap of 50 to prevent O(N) main-thread blocking when rendering large DataFrames.
+        # Reduces severe UI freezing when there are hundreds of undocumented tables.
+        if len(undocumented) > 50:
+            st.info(f"Showing first 50 priority actions out of {len(undocumented)} for performance.")
+            undocumented = undocumented.head(50)
         for row in undocumented.itertuples(index=False):
             if st.button(
                 f"📄 {getattr(row, 'table_name', '')}",
