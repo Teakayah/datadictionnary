@@ -346,7 +346,11 @@
     "post_table_ref_placeholder": "catalogue.schema.nom_table",
     "confirm_delete_title": "Confirmer la suppression",
     "confirm_delete_prompt": "Voulez-vous vraiment supprimer cette publication ?",
-    "confirm_delete_button": "Supprimer la publication"
+    "confirm_delete_button": "Supprimer la publication",
+    "expiry_2_days": "2 jours",
+    "expiry_7_days": "7 jours",
+    "expiry_30_days": "30 jours",
+    "expiry_never": "Jamais"
   },
   "footer": {
     "built_with": "Data Dictionary · v0.1.0 · synchronisé chaque nuit depuis Unity Catalog"
