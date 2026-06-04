@@ -22,3 +22,8 @@
 **Vulnerability:** Leaking exception details to UI via `st.error(str(exc))`
 **Learning:** Returning `str(exc)` in `st.error()` can expose sensitive internal data or traceback context to end users.
 **Prevention:** Always log exceptions internally using `logging.error(..., exc_info=True)` and return generic, safe error messages to the UI.
+
+## 2024-05-24 - Fix SQL Injection in DuckDB ATTACH
+**Vulnerability:** SQL Injection via f-strings in DuckDB `ATTACH` DDL statements.
+**Learning:** DuckDB does not support parameterized bindings for DDL commands like `ATTACH`. Dollar quoting provides a safe alternative for string interpolation, but requires care.
+**Prevention:** To securely interpolate dynamic paths into DDL queries using f-strings, strip null bytes (`\x00`) to prevent C-string truncation, and enclose the string using dollar-quoting with a randomized alphabetic-prefixed token (e.g., `tok = 't' + secrets.token_hex(8)` then `f'ATTACH ${tok}${path}${tok}$ ...'`).
