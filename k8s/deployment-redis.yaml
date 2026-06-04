@@ -29,9 +29,9 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 999
-        runAsGroup: 999
-        fsGroup: 999
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
 
       containers:
         - name: redis
@@ -54,9 +54,9 @@ spec:
 
           securityContext:
             runAsNonRoot: true
-            runAsUser: 999
-            runAsGroup: 999
-            readOnlyRootFilesystem: false
+            runAsUser: 10001
+            runAsGroup: 10001
+            readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -66,9 +66,11 @@ spec:
             requests:
               cpu: "50m"
               memory: "64Mi"
+              ephemeral-storage: "128Mi"
             limits:
               cpu: "250m"
               memory: "320Mi"
+              ephemeral-storage: "256Mi"
 
           volumeMounts:
             - name: redis-data
@@ -83,7 +85,7 @@ spec:
 
           readinessProbe:
             exec:
-              command: ["redis-cli", "ping"]
+              command: ["sh", "-c", "redis-cli ping | grep PONG"]
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 3
