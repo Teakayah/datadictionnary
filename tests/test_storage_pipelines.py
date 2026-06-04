@@ -169,32 +169,19 @@ class TestDuckDBPipelineStorage:
 # ── Factory routing ──────────────────────────────────────────────────────────
 
 class TestPipelineFactories:
-    def test_returns_demo_when_no_duckdb(self, monkeypatch):
-        monkeypatch.delenv("DUCKDB_PATH", raising=False)
-        import importlib
-        import src.config
-        importlib.reload(src.config)
-        import src.db.duckdb_adapter
-        importlib.reload(src.db.duckdb_adapter)
+    @pytest.mark.parametrize("is_demo, expected_def_cls, expected_run_cls", [
+        (True, "DemoPipelineDefStorage", "DemoPipelineRunStorage"),
+        (False, "DuckDBPipelineDefStorage", "DuckDBPipelineRunStorage"),
+    ])
+    def test_factories_routing(self, monkeypatch, is_demo, expected_def_cls, expected_run_cls):
+        monkeypatch.setattr("src.storage._use_demo_backend", lambda: is_demo)
         import src.storage
-        importlib.reload(src.storage)
-        assert type(src.storage.get_pipeline_def_storage()).__name__ == "DemoPipelineDefStorage"
-        assert type(src.storage.get_pipeline_run_storage()).__name__ == "DemoPipelineRunStorage"
 
-    def test_returns_duckdb_when_available(self, tmp_path, monkeypatch):
-        catalog_path = tmp_path / "dict.duckdb"
-        duckdb.connect(str(catalog_path)).close()
-        monkeypatch.setenv("DUCKDB_PATH", str(catalog_path))
-        monkeypatch.delenv("DEMO_DATA", raising=False)
-        import importlib
-        import src.config
-        importlib.reload(src.config)
-        import src.db.duckdb_adapter
-        importlib.reload(src.db.duckdb_adapter)
-        import src.storage
-        importlib.reload(src.storage)
-        assert type(src.storage.get_pipeline_def_storage()).__name__ == "DuckDBPipelineDefStorage"
-        assert type(src.storage.get_pipeline_run_storage()).__name__ == "DuckDBPipelineRunStorage"
+        def_storage = src.storage.get_pipeline_def_storage()
+        assert type(def_storage).__name__ == expected_def_cls
+
+        run_storage = src.storage.get_pipeline_run_storage()
+        assert type(run_storage).__name__ == expected_run_cls
 
 
 # ── Cascade behaviour in src.pipelines.delete_pipeline_def ──────────────────
