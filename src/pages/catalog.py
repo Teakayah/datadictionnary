@@ -47,7 +47,11 @@ def render_catalog_browser(groups, get_authorized_tables_fn):
 
                 for sch in schemas:
                     st.html(f'<div style="margin-left: 20px; font-weight: 500; color: var(--ink-60); margin-top: 10px; margin-bottom: 5px;">📂 {_html.escape(str(sch))}</div>')
-                    tables = sorted(_grouped_tables.get((cat, sch), []))
+                    all_tables_in_sch = sorted(_grouped_tables.get((cat, sch), []))
+
+                    # ⚡ Bolt: Apply hard cap to prevent main-thread blocking on large schemas
+                    tables = all_tables_in_sch[:50]
+                    is_truncated = len(all_tables_in_sch) > 50
 
                     # Columns for tables to make it more compact
                     t_cols = st.columns(3)
@@ -67,6 +71,8 @@ def render_catalog_browser(groups, get_authorized_tables_fn):
                                 st.session_state["dd_search_override"] = tbl
                                 st.session_state["dd_nav_select"] = full_n
                                 st.rerun()
+                    if is_truncated:
+                        st.markdown(f"<div style='margin-left: 20px; font-size: 12px; color: var(--ink-40); margin-top: 8px;'>...and {len(all_tables_in_sch) - 50} more tables. Use search to find them.</div>", unsafe_allow_html=True)
     except Exception as e:
         logging.error("Error in catalog browser: %s", e)
         st.error(t("catalog.load_error"))
