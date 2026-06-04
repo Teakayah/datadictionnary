@@ -110,11 +110,7 @@ class TestAdminPipelinesSection:
 
     @patch("src.ui.cards.pipelines.get_pipelines")
     @patch("src.ui.cards.pipelines._show_delete_pipeline_dialog")
-<<<<<<< HEAD
-    def test_render_with_pipelines_and_delete(self, mock_show_delete, mock_get_pipelines):
-=======
     def test_render_with_pipelines_and_delete(self, mock_delete_dialog, mock_get_pipelines):
->>>>>>> b91f466 (🎨 Palette: Add async loading state to form submissions)
         mock_get_pipelines.return_value = [
             {
                 "pipeline_id": "1",
@@ -134,19 +130,11 @@ class TestAdminPipelinesSection:
         assert any("Pipeline 1" in val for val in html_contents)
         assert any("Pipeline 2" in val for val in html_contents)
 
-<<<<<<< HEAD
-        with patch("src.ui.cards.pipelines._show_delete_pipeline_dialog") as mock_dialog:
-            delete_btn = at.button(key="pl_del_1")
-            assert delete_btn is not None
-            delete_btn.click().run()
-            mock_dialog.assert_called_once_with("1")
-=======
         delete_btn = at.button(key="pl_del_1")
         assert delete_btn is not None
         delete_btn.click().run()
 
         mock_delete_dialog.assert_called_once_with("1")
->>>>>>> b91f466 (🎨 Palette: Add async loading state to form submissions)
 
     @patch("src.ui.cards.pipelines._show_pipeline_create_dialog")
     def test_admin_section_new_pipeline_button(self, mock_show_dialog):
@@ -192,6 +180,8 @@ class TestRenderPipelinesPage:
         mock_get_run.return_value = None
 
         at = AppTest.from_function(render_page_app).run()
+        at.session_state["user_email"] = "test@example.com"
+        at.run()
 
         start_btn = at.button(key="pl_start_1")
         assert start_btn is not None
@@ -216,6 +206,8 @@ class TestRenderPipelinesPage:
         mock_get_run.return_value = None
 
         at = AppTest.from_function(render_page_app).run()
+        at.session_state["user_email"] = "test@example.com"
+        at.run()
 
         start_btn = at.button(key="pl_start_1")
         start_btn.click().run()
@@ -252,6 +244,8 @@ class TestRenderPipelinesPage:
         }
 
         at = AppTest.from_function(render_page_app).run()
+        at.session_state["user_email"] = "test@example.com"
+        at.run()
 
         stop_btn = at.button(key="pl_stop_1")
         assert stop_btn is not None
@@ -288,6 +282,8 @@ class TestRenderPipelinesPage:
         }
 
         at = AppTest.from_function(render_page_app).run()
+        at.session_state["user_email"] = "test@example.com"
+        at.run()
 
         stop_btn = at.button(key="pl_stop_1")
         stop_btn.click().run()
@@ -323,6 +319,8 @@ class TestRenderPipelinesPage:
         }
 
         at = AppTest.from_function(render_page_app).run()
+        at.session_state["user_email"] = "test@example.com"
+        at.run()
 
         html_contents = [m.value for m in at.markdown]
         assert any("RUNNING" in val for val in html_contents)
@@ -384,6 +382,8 @@ class TestRenderPipelinesPage:
         mock_poll.side_effect = mock_poll_status
 
         at = AppTest.from_function(render_page_app).run()
+        at.session_state["user_email"] = "test@example.com"
+        at.run()
 
         html_contents = [m.value for m in at.markdown]
 

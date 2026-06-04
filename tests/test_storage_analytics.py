@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import patch
 import streamlit as st
 import duckdb
+import pandas as pd
 
 from src.storage.analytics_storage import (
     SearchEvent,
@@ -78,16 +79,18 @@ def test_duckdb_analytics_alerts():
             class TestDuckDBCursor:
                 def __init__(self, con):
                     self.con = con
+                    self.rel = None
                 def __enter__(self):
                     return self
                 def __exit__(self, *_):
                     pass
                 def execute(self, query, params=None):
-                    self.con.execute(query, params)
+                    self.rel = self.con.execute(query, params)
                     return self
                 def fetchall_as_pandas(self):
-                    # In get_zero_result_alerts it doesn't pass args to fetchall_as_pandas
-                    return self.con.df()
+                    if self.rel is None:
+                        return pd.DataFrame()
+                    return self.rel.df()
 
             class TestDuckDBConn:
                 def __init__(self, *args, **kwargs):
@@ -102,11 +105,9 @@ def test_duckdb_analytics_alerts():
                 def cursor(self):
                     return TestDuckDBCursor(self.con)
                 def execute(self, query, params=None):
-                    self.con.execute(query, params)
-                    return TestDuckDBCursor(self.con)
+                    return TestDuckDBCursor(self.con).execute(query, params)
                 def execute_write(self, query, params=None):
-                    self.con.execute(query, params)
-                    return TestDuckDBCursor(self.con)
+                    return TestDuckDBCursor(self.con).execute(query, params)
 
             mock_conn_class.side_effect = TestDuckDBConn
 
@@ -147,15 +148,18 @@ def test_duckdb_analytics_zero_result_searches():
             class TestDuckDBCursor:
                 def __init__(self, con):
                     self.con = con
+                    self.rel = None
                 def __enter__(self):
                     return self
                 def __exit__(self, *_):
                     pass
                 def execute(self, query, params=None):
-                    self.con.execute(query, params)
+                    self.rel = self.con.execute(query, params)
                     return self
                 def fetchall_as_pandas(self):
-                    return self.con.df()
+                    if self.rel is None:
+                        return pd.DataFrame()
+                    return self.rel.df()
 
             class TestDuckDBConn:
                 def __init__(self, *args, **kwargs):
@@ -170,8 +174,7 @@ def test_duckdb_analytics_zero_result_searches():
                 def cursor(self):
                     return TestDuckDBCursor(self.con)
                 def execute(self, query, params=None):
-                    self.con.execute(query, params)
-                    return self
+                    return TestDuckDBCursor(self.con).execute(query, params)
 
             mock_conn_class.side_effect = TestDuckDBConn
 

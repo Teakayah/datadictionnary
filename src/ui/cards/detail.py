@@ -11,8 +11,9 @@ import logging
 import pandas as pd
 import streamlit as st
 
-from src.auth import is_admin, is_editor
-from src.comments import create_comment, get_comments, reply_to_comment
+from src.auth import is_admin
+from src.personalization import is_power_user as is_editor
+from src.comments import get_table_comments, save_comment
 from src.config import CATALOG_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import (
@@ -21,6 +22,45 @@ from src.db.queries import (
 )
 from src.i18n import t
 from src.ui.css import VIS_WIDE_CSS
+from src.audit import save_table_metadata
+
+
+@st.dialog(t("detail.edit_table"), width="large")
+def render_table_metadata_editor(table_full_name: str, current_desc: str, current_steward: str):
+    """Editor for table-level metadata (description, steward)."""
+    st.markdown(f"**{table_full_name}**")
+
+    new_desc = st.text_area(
+        t("detail.table_description"),
+        value=current_desc,
+        placeholder=t("detail.table_desc_placeholder"),
+        height=150,
+    )
+    new_stew = st.text_input(
+        t("detail.steward_email"), value=current_steward,
+        placeholder=t("detail.steward_email_placeholder"),
+    )
+
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        if st.button(t("common.save"), help=t("help.btn_common_save"), type="primary", use_container_width=True, key="save_table_meta"):
+            if new_stew.strip() and "@" not in new_stew:
+                st.error(t("detail.invalid_email"))
+            else:
+                try:
+                    with st.spinner(t("common.saving")):
+                        save_table_metadata(
+                            table_full_name, description=new_desc, steward_email=new_stew,
+                        )
+                    st.toast(t("common.saved"))
+                    st.rerun()
+                except Exception as e:
+                    logging.error("Save failed for %s: %s", table_full_name, e, exc_info=True)
+                    # Security: do not expose internal error details to UI
+                    st.error(t("common.error"))
+    with c2:
+        if st.button(t("common.cancel"), help=t("help.btn_common_cancel"), use_container_width=True):
+            st.rerun()
 
 
 @st.dialog(t("editor.title"), width="large")
