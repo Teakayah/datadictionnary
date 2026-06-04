@@ -199,44 +199,48 @@ def save_comment(
         log_audit_event(_event_type, object_type, object_name, "", comment_text)
         return
 
-    conn = _get_write_connection()
-    with conn.cursor() as cursor:
-        if _duckdb_available():
-            cursor.execute_write(
-                "INSERT INTO user_data.comments "
-                "(comment_id, object_type, object_name, comment_text, author_name, author_email, "
-                "created_at, steward_email, parent_comment_id) "
-                "VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
-                "%(author_name)s, %(author_email)s, current_localtimestamp(), %(steward_email)s, %(parent_comment_id)s)",
-                {
-                    "comment_id":        comment_id,
-                    "object_type":       object_type,
-                    "object_name":       object_name,
-                    "comment_text":      comment_text,
-                    "author_name":       author_name,
-                    "author_email":      author_email,
-                    "steward_email":     steward_email,
-                    "parent_comment_id": parent_comment_id,
-                },
-            )
-        else:
-            cursor.execute(
-                f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
-                f"(comment_id, object_type, object_name, comment_text, author_name, author_email, "
-                f"created_at, steward_email, parent_comment_id) "
-                f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
-                f"%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
-                {
-                    "comment_id":        comment_id,
-                    "object_type":       object_type,
-                    "object_name":       object_name,
-                    "comment_text":      comment_text,
-                    "author_name":       author_name,
-                    "author_email":      author_email,
-                    "steward_email":     steward_email,
-                    "parent_comment_id": parent_comment_id,
-                },
-            )
+    try:
+        conn = _get_write_connection()
+        with conn.cursor() as cursor:
+            if _duckdb_available():
+                cursor.execute_write(
+                    "INSERT INTO user_data.comments "
+                    "(comment_id, object_type, object_name, comment_text, author_name, author_email, "
+                    "created_at, steward_email, parent_comment_id) "
+                    "VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
+                    "%(author_name)s, %(author_email)s, current_localtimestamp(), %(steward_email)s, %(parent_comment_id)s)",
+                    {
+                        "comment_id":        comment_id,
+                        "object_type":       object_type,
+                        "object_name":       object_name,
+                        "comment_text":      comment_text,
+                        "author_name":       author_name,
+                        "author_email":      author_email,
+                        "steward_email":     steward_email,
+                        "parent_comment_id": parent_comment_id,
+                    },
+                )
+            else:
+                cursor.execute(
+                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
+                    f"(comment_id, object_type, object_name, comment_text, author_name, author_email, "
+                    f"created_at, steward_email, parent_comment_id) "
+                    f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
+                    f"%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
+                    {
+                        "comment_id":        comment_id,
+                        "object_type":       object_type,
+                        "object_name":       object_name,
+                        "comment_text":      comment_text,
+                        "author_name":       author_name,
+                        "author_email":      author_email,
+                        "steward_email":     steward_email,
+                        "parent_comment_id": parent_comment_id,
+                    },
+                )
+    except Exception as e:
+        logging.error("Could not save comment for %s: %s", object_name, e)
+        return
 
     enqueue_sync("COMMENT", object_name, {
         "comment_id":        comment_id,

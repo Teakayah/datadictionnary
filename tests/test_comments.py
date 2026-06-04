@@ -197,6 +197,28 @@ def test_save_comment_prod_mode(monkeypatch):
         mock_send_email.assert_called_once()
     st.session_state.clear()
 
+def test_save_comment_prod_mode_error(monkeypatch, caplog):
+    from src.comments import save_comment
+    monkeypatch.setenv("DEMO_DATA", "false")
+    st.session_state["user_name"] = "Bob"
+    st.session_state["user_email"] = "bob@test.com"
+    from unittest.mock import patch
+
+    with patch("src.comments._get_write_connection") as mock_conn_func, \
+         patch("src.comments.enqueue_sync") as mock_enqueue, \
+         patch("src.audit.log_audit_event") as mock_audit, \
+         patch("src.comments.send_comment_email") as mock_send_email:
+
+        mock_conn_func.side_effect = Exception("Storage failed")
+
+        save_comment("table", "my.table", "Prod text", "steward@test.com")
+
+        assert "Could not save comment for my.table: Storage failed" in caplog.text
+        mock_enqueue.assert_not_called()
+        mock_audit.assert_not_called()
+        mock_send_email.assert_not_called()
+    st.session_state.clear()
+
 def test_save_comment_prod_mode_not_duckdb(monkeypatch):
     from src.comments import save_comment
     monkeypatch.setenv("DEMO_DATA", "false")
