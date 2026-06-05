@@ -45,3 +45,7 @@
 ## 2026-06-03 - Redundant String Manipulation
 **Learning:** Reconstructing a string by splitting and joining on the same delimiter (e.g., `s.split('.')[0] + '.' + '.'.join(s.split('.')[1:])`) is an O(N) redundant operation that wastes CPU cycles without changing the output.
 **Action:** Remove unnecessary string formatting operations when the target representation already exists.
+
+## 2024-06-05 - Optimize groupby unique extraction on DataFrames
+**Learning:** In pandas, when constructing unique mappings via `groupby()`, computing uniqueness inside the loop via `.unique().apply(list)` is significantly slower than globally dropping duplicates first (`.drop_duplicates(...)`) and then grouping and applying `.apply(list)`.
+**Action:** Always call `.drop_duplicates(...)` globally before grouping and collecting into a list to leverage faster vectorized operations.
