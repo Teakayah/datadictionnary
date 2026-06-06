@@ -687,7 +687,7 @@ def render_admin_page():
     st.markdown(f'''
     <div class="dd-search-hero">
       <div class="dd-eyebrow">{t("admin.title")}</div>
-      <h1>Administration.</h1>
+      <h1>{t("admin.hero_title")}</h1>
       <p class="lead">{t("admin.subtitle")}</p>
     </div>
     ''', unsafe_allow_html=True)
