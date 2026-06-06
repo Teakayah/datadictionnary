@@ -27,3 +27,8 @@
 **Cluster Quirk:** Streamlit initialization is slow.
 **Learning:** Premature liveness probe kills can occur during heavy initial loading.
 **Resilience:** Added startupProbe to accommodate the initialization burst.
+
+## 2024-05-24 - Hardened Redis Readiness and Liveness Probes
+**Cluster Quirk:** A basic `redis-cli ping` execution for readiness/liveness probes is insufficient because it returns a successful exit code (0) even when Redis is still starting up and returning `(error) LOADING`.
+**Learning:** The Kubernetes scheduler relies on accurate probes to route traffic only to ready pods. A successful probe exit code during startup causes premature traffic routing and potential failure cascades.
+**Resilience:** Use `sh -c "redis-cli ping | grep PONG"` to verify genuine readiness by checking for the exact `PONG` response string, preventing premature routing.
