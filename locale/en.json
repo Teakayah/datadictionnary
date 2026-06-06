@@ -169,7 +169,8 @@
     "integrity_issue": "Issue",
     "integrity_missing_desc": "Missing description",
     "integrity_missing_steward": "Missing steward",
-    "integrity_failed_dq": "Failing DQ checks"
+    "integrity_failed_dq": "Failing DQ checks",
+    "hero_title": "Administration."
   },
   "health": {
     "title": "§ Catalog health",
