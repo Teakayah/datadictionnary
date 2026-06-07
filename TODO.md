@@ -319,25 +319,41 @@ permissions, lineage, and audit references never use the friendly name.
 
 ---
 
+## Load test follow-ups (2026-06-03)
+
+- [ ] **`DuckDBQueryUser` never runs real queries.** `_open_con()` returns `None`
+      for all users because `SET search_path = 'dictionary_cache'` fails on a
+      direct DuckDB connection — that schema only exists when the file is
+      `ATTACH`ed under that name. Every DuckDB task reports a 0ms failure
+      instantly (100% failure rate confirmed in the 150-user full-load run).
+      Fix: open the working copy as `:memory:` + `ATTACH` (matching the main
+      app's connection pattern in `duckdb_adapter.py`) rather than connecting
+      directly, so `dictionary_cache.*` is resolvable.
+
+---
+
 ## UI follow-ups (2026-05-29)
 
-- [ ] **Discovery tab help tooltip is not bilingual.** Wrap the help= string
-      in `t()` and add the key to `locale/en.json` + `locale/fr.json`.
-- [ ] **Pipelines and Admin tabs are visible to all users in the top nav.**
-      `app.py` already computes `show_admin` / `show_pipelines`; the header
-      must honour them (currently doesn't).
-- [ ] **Admin tab crashes** with
+- [x] **Discovery tab help tooltip is not bilingual.** `help.discovery_content`
+      translated into French in commit b514823; both `locale/en.json` and
+      `locale/fr.json` now carry the key. Code already uses `t(...)`.
+- [x] **Pipelines and Admin tabs are visible to all users in the top nav.**
+      `render_header()` in `src/ui/header.py` already gates both the HTML
+      `<a>` links (lines 55–56) and the proxy `st.button` elements (lines
+      90–93) on `show_admin` / `show_pipelines`. Confirmed correct.
+- [x] **Admin tab crashes** with
       `AttributeError: '_DuckDBConn' object has no attribute 'fetchall_as_pandas'`
-      at `src/storage/analytics_storage.py:62`. `fetchall_as_pandas` belongs
-      to `_DuckDBCursor`, not `_DuckDBConn` — route via
-      `conn.execute(...).fetchall_as_pandas()`. Audit other storage callers
-      for the same shape.
-- [ ] **Pipelines and Admin pages are missing the help-tooltip pattern**
-      Discovery uses on its controls. Add `help=t(...)` to the primary
-      controls on both pages.
-- [ ] **Segmented-control pills elsewhere don't match Discovery's sub-tab
-      visual language.** Align typography, border, and active-state color
-      with the Discovery sub-tab pills via the design system.
+      at `src/storage/analytics_storage.py:62`. Fixed: added None guard to
+      `_DuckDBCursor.execute()` and routed analytics storage via
+      `conn.execute(...).fetchall_as_pandas()` with `conn.open` guard (commit 85b3679).
+- [x] **Pipelines and Admin pages are missing the help-tooltip pattern**
+      Discovery uses on its controls. Pipelines page has
+      `with st.expander(t("help.pipelines_expander"))` (commit b514823);
+      admin has per-sub-tab expanders at `help.admin_*_expander` keys.
+- [x] **Segmented-control pills elsewhere don't match Discovery's sub-tab
+      visual language.** Admin page switched from `st.tabs` to
+      `st.segmented_control` in commit b514823; CSS in `assets/design.css`
+      applies the pill theme uniformly via `[data-testid="stButtonGroup"]`.
 
 ---
 

@@ -182,6 +182,8 @@ class TestRenderPipelinesPage:
         mock_get_run.return_value = None
 
         at = AppTest.from_function(render_page_app).run()
+        at.session_state["user_email"] = "test@example.com"
+        at.run()
 
         start_btn = at.button(key="pl_start_1")
         assert start_btn is not None
@@ -206,6 +208,8 @@ class TestRenderPipelinesPage:
         mock_get_run.return_value = None
 
         at = AppTest.from_function(render_page_app).run()
+        at.session_state["user_email"] = "test@example.com"
+        at.run()
 
         start_btn = at.button(key="pl_start_1")
         start_btn.click().run()
@@ -242,6 +246,8 @@ class TestRenderPipelinesPage:
         }
 
         at = AppTest.from_function(render_page_app).run()
+        at.session_state["user_email"] = "test@example.com"
+        at.run()
 
         stop_btn = at.button(key="pl_stop_1")
         assert stop_btn is not None
@@ -278,6 +284,8 @@ class TestRenderPipelinesPage:
         }
 
         at = AppTest.from_function(render_page_app).run()
+        at.session_state["user_email"] = "test@example.com"
+        at.run()
 
         stop_btn = at.button(key="pl_stop_1")
         stop_btn.click().run()
@@ -313,6 +321,8 @@ class TestRenderPipelinesPage:
         }
 
         at = AppTest.from_function(render_page_app).run()
+        at.session_state["user_email"] = "test@example.com"
+        at.run()
 
         html_contents = [m.value for m in at.markdown]
         assert any("RUNNING" in val for val in html_contents)
@@ -374,8 +384,37 @@ class TestRenderPipelinesPage:
         mock_poll.side_effect = mock_poll_status
 
         at = AppTest.from_function(render_page_app).run()
+        at.session_state["user_email"] = "test@example.com"
+        at.run()
 
         html_contents = [m.value for m in at.markdown]
 
         assert any("SUCCESS" in val for val in html_contents)
         assert any("FAILED" in val for val in html_contents)
+
+def delete_dialog_app(pipeline_id="1"):
+    from src.ui.cards.pipelines import _show_delete_pipeline_dialog
+    _show_delete_pipeline_dialog(pipeline_id)
+
+class TestDeletePipelineDialog:
+    @patch("src.ui.cards.pipelines.delete_pipeline_def")
+    def test_delete_dialog_confirm(self, mock_delete):
+        at = AppTest.from_function(delete_dialog_app).run()
+
+        # Check for confirmation prompt
+        html_contents = [m.value for m in at.markdown]
+        assert any(en_locale["pipelines"]["confirm_delete_prompt"] in val for val in html_contents)
+
+        # Click confirm button
+        at.button[0].click().run()
+
+        mock_delete.assert_called_once_with("1")
+
+    @patch("src.ui.cards.pipelines.delete_pipeline_def")
+    def test_delete_dialog_cancel(self, mock_delete):
+        at = AppTest.from_function(delete_dialog_app).run()
+
+        # Click cancel button
+        at.button[1].click().run()
+
+        mock_delete.assert_not_called()

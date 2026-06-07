@@ -23,6 +23,7 @@ from src.config import is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import run_query
 from src.i18n import t
+from src.notifications import get_unread_notifications, mark_all_read, mark_read
 from src.ui.cards._shared import _POST_COLOR, _dq_grade
 
 
@@ -60,7 +61,7 @@ def _render_table_card(row, key_prefix: str, _pref_delete_fn=None, _pref_upsert_
             <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(getattr(row, "catalog_name", "")))} · {_html.escape(str(getattr(row, "schema_name", "")))}</div>
             <div style="display:flex;align-items:center;gap:6px;">
                 {_dq_html}
-                <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{t("discovery.updated")} {_time_str}</span>
+                <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{t("discovery.updated_at", time=_time_str)}</span>
             </div>
         </div>
         <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:4px 0 8px;">{_html.escape(str(getattr(row, "table_description", "")))}</p>
@@ -96,6 +97,64 @@ def _render_table_card(row, key_prefix: str, _pref_delete_fn=None, _pref_upsert_
                     _pref_upsert_fn(_full, "bookmark")
             st.rerun()
     st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
+
+
+def render_notification_strip() -> None:
+    """Render unread bookmark-change notifications for the current user.
+
+    Shown as a collapsible strip above the CMS banner. Each item has a
+    dismiss button; a "Mark all read" shortcut clears the list in one click.
+    """
+    user_oid = (
+        st.session_state.get("user_oid")
+        or st.session_state.get("user_email")
+        or "anonymous"
+    )
+    if user_oid == "anonymous":
+        return
+
+    notifications = get_unread_notifications(user_oid)
+    if not notifications:
+        return
+
+    count = len(notifications)
+    label = (
+        t("notifications.strip_label_one")
+        if count == 1
+        else t("notifications.strip_label_many", count=count)
+    )
+
+    with st.expander(f"🔔 {label}", expanded=True):
+        for n in notifications:
+            tbl = _html.escape(n["table_full_name"])
+            summary = _html.escape(n["summary"])
+            by = _html.escape(n.get("changed_by") or "")
+            by_str = f" · {by}" if by else ""
+            card_html = (
+                f'<div style="font-family:var(--font-sans);font-size:13px;'
+                f'color:var(--ink);padding:6px 0;border-bottom:1px solid var(--ink-10);">'
+                f'<span style="font-family:var(--font-mono);color:var(--ink-60);">{tbl}</span>'
+                f' — {summary}'
+                f'<span style="color:var(--ink-40);font-size:11px;">{by_str}</span>'
+                f'</div>'
+            )
+            col_card, col_btn = st.columns([11, 1], gap="small")
+            with col_card:
+                st.markdown(card_html, unsafe_allow_html=True)
+            with col_btn:
+                if st.button(
+                    "✕",
+                    key=f"notif_dismiss_{n['notification_id']}",
+                    help=t("notifications.dismiss"),
+                    use_container_width=True,
+                ):
+                    mark_read(n["notification_id"])
+                    st.rerun()
+
+        st.markdown("<div style='margin-top:8px'></div>", unsafe_allow_html=True)
+        if st.button(t("notifications.mark_all_read"), key="notif_mark_all"):
+            mark_all_read(user_oid)
+            st.rerun()
 
 
 def render_cms_banner() -> None:
@@ -170,6 +229,7 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
     </div>
     ''', unsafe_allow_html=True)
 
+    render_notification_strip()
     render_cms_banner()
 
     with st.expander(t("help.discovery_expander")):
@@ -289,7 +349,7 @@ def _render_bookmarks_tab(groups, get_authorized_tables_fn, pref_delete_fn=None,
         st.info(t("personalization.no_col_bookmarks"))
     else:
         _col_bk_auth_fns = (
-            set(get_authorized_tables_fn(groups)["full_name"].tolist())
+            set(get_authorized_tables_fn(groups)["full_name"].unique().tolist())
             if groups else set()
         )
         for _bk_id in sorted(col_bookmarks):
@@ -351,9 +411,9 @@ def _get_recommended_tables(groups: tuple, authorized_full_names: set, top_n: in
             return []
         # Filter to only authorized tables the user hasn't recently viewed
         recent = set(st.session_state.get("recent_views", [])[:5])
+        # ⚡ Bolt: Removed redundant and slow string split/join operations on object_name
         return [
-            str(r.object_name).split(".")[0] + "." + ".".join(str(r.object_name).split(".")[1:])
-            if "." in str(r.object_name) else str(r.object_name)
+            str(r.object_name)
             for r in result.itertuples(index=False)
             if str(r.object_name) in authorized_full_names
             and str(r.object_name) not in recent
@@ -379,7 +439,7 @@ def _render_recommended_tab(groups, get_authorized_tables_fn, pref_delete_fn=Non
         if all_tables is None or all_tables.empty:
             st.info(t("personalization.recommended_empty"))
             return
-        authorized_fns = set(all_tables["full_name"].tolist())
+        authorized_fns = set(all_tables["full_name"].unique().tolist())
         recommended_fns = _get_recommended_tables(groups, authorized_fns)
         if not recommended_fns:
             st.info(t("personalization.recommended_empty"))

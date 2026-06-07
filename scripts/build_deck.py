@@ -513,7 +513,7 @@ def slide_performance(prs):
         Inches(0.9),
         Inches(9),
         Inches(0.7),
-        text="Zero failures. Sub-10 ms at p95.",
+        text="Zero failures. Sub-7 ms at p95.",
         font_size=30,
         bold=True,
         color=INK,
@@ -521,12 +521,12 @@ def slide_performance(prs):
     _accent_bar(slide, Inches(0.6), Inches(0.08), Inches(4), Inches(0.06))
 
     stats = [
-        ("14,209", "total requests"),
+        ("14,345", "total requests"),
         ("0 (0%)", "failures"),
-        ("120 /s", "throughput"),
+        ("121 /s", "throughput"),
         ("2 ms", "p50 latency"),
-        ("9 ms", "p95 latency"),
-        ("52 ms", "p99 latency"),
+        ("7 ms", "p95 latency"),
+        ("13 ms", "p99 latency"),
     ]
     for i, (val, lbl) in enumerate(stats):
         col = Inches(0.6) + Inches(i % 3 * 4.2)
@@ -580,7 +580,7 @@ def slide_accessibility(prs):
         Inches(0.9),
         Inches(9),
         Inches(0.7),
-        text="4 of 5 pages: zero violations.",
+        text="5 of 5 pages: zero violations.",
         font_size=30,
         bold=True,
         color=INK,
@@ -591,11 +591,7 @@ def slide_accessibility(prs):
         ("§ Catalog browser", "0 violations", True),
         ("§ Glossary", "0 violations", True),
         ("§ Discovery", "0 violations", True),
-        (
-            "§ Health dashboard",
-            "1 violation — aria-allowed-attr (Streamlit widget)",
-            False,
-        ),
+        ("§ Health dashboard", "0 violations", True),
     ]
     for i, (name, result, ok) in enumerate(pages):
         top = Inches(2.0) + Inches(i * 0.9)

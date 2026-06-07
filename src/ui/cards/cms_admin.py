@@ -24,11 +24,11 @@ def _show_delete_cms_dialog(post_id: str):
     st.write(t("cms.confirm_delete_prompt"))
     _s, _c = st.columns(2)
     with _s:
-        if st.button(t("cms.confirm_delete_button"), type="primary", use_container_width=True):
+        if st.button(t("cms.confirm_delete_button"), help=t("help.btn_confirm_delete_post"), type="primary", use_container_width=True):
             delete_post(post_id)
             st.rerun()
     with _c:
-        if st.button(t("common.cancel"), use_container_width=True):
+        if st.button(t("common.cancel"), help=t("help.btn_common_cancel"), use_container_width=True):
             st.rerun()
 
 
@@ -62,35 +62,37 @@ def _show_cms_create_dialog():
             key="cms_create_tableref",
         )
 
-    expiry_label = st.selectbox(
+    expiry_key = st.selectbox(
         t("cms.post_expiry"),
         options=list(_EXPIRY_DAYS.keys()),
+        format_func=lambda x: t(f"cms.expiry_{x}"),
         index=0,
         key="cms_create_expiry",
     )
-    expiry_days = _EXPIRY_DAYS[expiry_label]
+    expiry_days = _EXPIRY_DAYS[expiry_key]
 
     _save, _cancel = st.columns([1, 1], gap="small")
     with _save:
         if st.button(t("common.save"), type="primary", use_container_width=True, key="cms_save_btn"):
-            if not title.strip():
-                st.error(t("cms.error_title_required"))
-                return
-            if post_type == "featured_table" and not (table_ref or "").strip():
-                st.error(t("cms.error_table_ref_required"))
-                return
-            actor = st.session_state.get("user_email", "admin")
-            create_post(PostParams(
-                post_type=post_type,
-                title=title.strip(),
-                body=body.strip(),
-                table_ref=(table_ref or "").strip() or None,
-                author_email=actor,
-                expiry_days=expiry_days,
-            ))
-            st.rerun()
+            with st.spinner(t("common.saving")):
+                if not title.strip():
+                    st.error(t("cms.error_title_required"))
+                    return
+                if post_type == "featured_table" and not (table_ref or "").strip():
+                    st.error(t("cms.error_table_ref_required"))
+                    return
+                actor = st.session_state.get("user_email", "admin")
+                create_post(PostParams(
+                    post_type=post_type,
+                    title=title.strip(),
+                    body=body.strip(),
+                    table_ref=(table_ref or "").strip() or None,
+                    author_email=actor,
+                    expiry_days=expiry_days,
+                ))
+                st.rerun()
     with _cancel:
-        if st.button(t("common.cancel"), use_container_width=True, key="cms_cancel_btn"):
+        if st.button(t("common.cancel"), help=t("help.btn_common_cancel"), use_container_width=True, key="cms_cancel_btn"):
             st.rerun()
 
 
@@ -169,8 +171,7 @@ def _render_admin_cms_section():
             st.markdown("<div style='margin-top:4px'></div>", unsafe_allow_html=True)
             if st.button(
                 "✕", key=f"cms_admin_del_{post['post_id']}",
-                help=t("cms.delete_post"), use_container_width=True,
+                help=t("cms.delete_post"),
+                use_container_width=True,
             ):
                 _show_delete_cms_dialog(post["post_id"])
-
-    st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)

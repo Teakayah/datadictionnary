@@ -1,8 +1,7 @@
 import json
 import pandas as pd
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from streamlit.testing.v1 import AppTest
-import pytest
 
 with open("locale/en.json", "r") as f:
     en_locale = json.load(f)

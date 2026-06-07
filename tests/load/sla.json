@@ -28,5 +28,30 @@
     "description": "Related-tables UNION JOIN — the most expensive query path",
     "p95_max_ms": 25,
     "p99_max_ms": 40
+  },
+
+  "api_search": {
+    "description": "GET /api/v1/search — FastAPI + DuckDB UNION search, no Redis in dev",
+    "_note": "Higher than raw DuckDB because of uvicorn/FastAPI overhead + asyncio.to_thread dispatch. Tighten once Redis is in the loop.",
+    "p95_max_ms": 60,
+    "p99_max_ms": 120
+  },
+
+  "api_table_detail": {
+    "description": "GET /api/v1/tables/{cat}/{schema}/{tbl} — permission check + columns fetch",
+    "p95_max_ms": 40,
+    "p99_max_ms": 80
+  },
+
+  "api_list_tables": {
+    "description": "GET /api/v1/tables — full authorized-tables scan",
+    "p95_max_ms": 60,
+    "p99_max_ms": 120
+  },
+
+  "api_lineage": {
+    "description": "GET /api/v1/lineage/{cat}/{schema}/{tbl} — recursive CTE lineage traversal",
+    "p95_max_ms": 40,
+    "p99_max_ms": 80
   }
 }

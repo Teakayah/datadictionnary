@@ -150,11 +150,14 @@ jobs:
         run: kubectl apply -f k8s/
 
       - name: Wait for rollout to complete
-        run: kubectl rollout status deployment/dd-app -n data-dictionary --timeout=120s
+        run: |
+          kubectl rollout status deployment/dd-app -n data-dictionary --timeout=120s
+          kubectl rollout status deployment/dd-api -n data-dictionary --timeout=120s
+          kubectl rollout status deployment/dd-sync-worker -n data-dictionary --timeout=120s
 
       - name: Verify deployment health
         run: |
-          kubectl get pods -n data-dictionary -l app=dd-app
+          kubectl get pods -n data-dictionary
           kubectl get svc -n data-dictionary
 
   # ─────────────────────────────────────────────────────────────────────────────

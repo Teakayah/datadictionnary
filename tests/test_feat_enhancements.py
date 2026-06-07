@@ -72,6 +72,9 @@ def test_admin_quality_insights_tab_renders(monkeypatch):
         pd.DataFrame(), # comment log
     )
     
+    # Switch to Insights tab
+    from src.i18n import t
+    at.session_state["admin_active_tab"] = t("admin.tab_insights")
     at.run()
 
     # Admin uses st.segmented_control (not st.tabs); inspect via button_group
