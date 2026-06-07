@@ -1,3 +1,0 @@
-## 2026-06-06 - Fixing Translation Dictionary Git Conflicts
-**Learning:** Hardcoding English fallbacks directly into a target language's JSON file (like French) when attempting to resolve a git conflict breaks translation dictionary symmetry, often breaks type-checkers, and defeats the purpose of an i18n library's automatic fallback mechanisms.
-**Action:** When resolving broken locales or missing keys, always use English strings specifically mapping to keys across both primary and secondary translation files. Avoid dumping unmatched strings randomly into the JSON to satisfy test runners; properly align keys across dictionaries instead.

@@ -56,7 +56,8 @@
     "hero_subtitle": "Naviguez des catalogues aux schémas et tables.",
     "no_catalogs": "Aucun catalogue accessible.",
     "load_error": "Impossible de charger la hiérarchie du catalogue.",
-    "tree_help": "Ouvrir la table dans le catalogue"
+    "tree_help": "Ouvrir la table dans le catalogue",
+    "more_tables": "...et {count} autres tables. Utilisez la recherche pour les trouver."
   },
   "table": {
     "columns": "Colonnes",
@@ -100,13 +101,15 @@
     "preview_error": "Impossible de récupérer l'échantillon de données. Vous n'avez peut-être pas la permission de voir les données sous-jacentes.",
     "showing_first_50": "Affichage des 50 premiers résultats sur {count}.",
     "table_desc_placeholder": "Décrivez l'objectif de la table, son contenu et les mises en garde importantes...",
-    "steward_email_placeholder": "ex. data.steward@example.com"
+    "steward_email_placeholder": "ex. data.steward@example.com",
+    "no_grants": "Aucune autorisation enregistrée."
   },
   "editor": {
     "save": "Enregistrer",
     "cancel": "Annuler",
     "edit": "Modifier",
-    "title": "Modifier le nom métier et la définition"
+    "title": "Modifier le nom métier et la définition",
+    "last_edited_by": "Dernière modification par {user} · {date}"
   },
   "comment": {
     "leave_a_comment": "Laisser un commentaire",
@@ -170,7 +173,10 @@
     "integrity_missing_desc": "Description manquante",
     "integrity_missing_steward": "Responsable manquant",
     "integrity_failed_dq": "Échec contrôles DQ",
-    "hero_title": "Administration."
+    "hero_title": "Administration.",
+    "tab_ops": "Opérations",
+    "tab_insights": "Indicateurs de Qualité",
+    "tab_audit": "Journal d'Audit"
   },
   "health": {
     "title": "§ Santé du catalogue",
@@ -248,7 +254,45 @@
     "error_target": "L'identifiant cible est requis.",
     "starting": "Démarrage du pipeline...",
     "stopping": "Arrêt du pipeline...",
-    "started": "Pipeline démarré."
+    "started": "Pipeline démarré.",
+    "access_denied": "Pipeline access required.",
+    "eyebrow": "§ Pipelines",
+    "hero_title": "Data Pipelines.",
+    "hero_subtitle": "Monitor and trigger ingestion flows.",
+    "admin_title": "Pipeline definitions",
+    "new_pipeline": "New pipeline",
+    "delete": "Delete pipeline",
+    "start": "Trigger",
+    "start_help": "Start a manual run",
+    "stop": "Cancel",
+    "stop_help": "Request cancellation",
+    "stopped": "Pipeline run cancellation requested.",
+    "started_by": "Started by {user} · {date}",
+    "start_error": "Failed to trigger pipeline.",
+    "stop_error": "Failed to cancel pipeline.",
+    "field_title": "Title",
+    "field_title_placeholder": "e.g., Sales Ingestion",
+    "field_desc": "Description",
+    "field_desc_placeholder": "Optional description...",
+    "backend": "Backend",
+    "field_job_id": "Databricks Job ID",
+    "field_job_id_placeholder": "123456",
+    "field_adf_sub": "Subscription ID",
+    "field_adf_sub_placeholder": "...",
+    "field_adf_rg": "Resource Group",
+    "field_adf_rg_placeholder": "...",
+    "field_adf_fact": "Factory Name",
+    "field_adf_fact_placeholder": "...",
+    "field_adf_pipe": "Pipeline Name",
+    "field_adf_pipe_placeholder": "...",
+    "field_ado_org": "Organization",
+    "field_ado_org_placeholder": "...",
+    "field_ado_proj": "Project",
+    "field_ado_proj_placeholder": "...",
+    "field_ado_pid": "Pipeline ID",
+    "field_ado_pid_placeholder": "...",
+    "create_title": "New Pipeline Definition",
+    "confirm_delete_title": "Delete Pipeline"
   },
   "cms": {
     "confirm_delete_prompt": "Voulez-vous vraiment supprimer cette annonce ? Cette action est irréversible.",
@@ -262,7 +306,25 @@
     "type_announcement": "Annonce",
     "type_warning": "Avertissement",
     "delete_post": "Supprimer cette annonce",
-    "author_date": "par {author} · {date}"
+    "author_date": "par {author} · {date}",
+    "confirm_delete_title": "Delete Post",
+    "create_title": "New Post",
+    "post_type": "Post type",
+    "type_featured": "Featured Table",
+    "type_guide": "Guide",
+    "post_title": "Title",
+    "post_title_placeholder": "e.g., Welcome to the Catalog",
+    "post_body": "Body",
+    "post_body_placeholder": "Write your post content here (markdown supported)...",
+    "post_table_ref": "Target Table",
+    "post_table_ref_placeholder": "catalog.schema.table",
+    "post_expiry": "Expires in",
+    "section_title": "CMS",
+    "new_post": "New post",
+    "no_posts": "No announcements published.",
+    "no_expiry": "Never",
+    "date_range": "{start} to {end}",
+    "error_table_ref_required": "Target table is required for featured posts."
   },
   "footer": {
     "built_with": "Dictionnaire de Données · v0.1.0 · synchronisé chaque nuit depuis Unity Catalog"

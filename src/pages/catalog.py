@@ -73,7 +73,7 @@ def render_catalog_browser(groups, get_authorized_tables_fn):
                                 st.session_state["dd_nav_select"] = full_n
                                 st.rerun()
                     if is_truncated:
-                        st.markdown(f"<div style='margin-left: 20px; font-size: 12px; color: var(--ink-40); margin-top: 8px;'>...and {len(all_tables_in_sch) - 50} more tables. Use search to find them.</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='margin-left: 20px; font-size: 12px; color: var(--ink-40); margin-top: 8px;'>{t('catalog.more_tables', count=len(all_tables_in_sch) - 50)}</div>", unsafe_allow_html=True)
     except Exception as e:
         logging.error("Error in catalog browser: %s", e)
         st.error(t("catalog.load_error"))
