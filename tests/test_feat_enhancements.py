@@ -79,7 +79,7 @@ def test_admin_quality_insights_tab_renders(monkeypatch):
 
     # Admin uses st.segmented_control (not st.tabs); inspect via button_group
     bg = at.button_group(key="admin_active_tab")
-    options_text = [opt.content for opt in bg.options]
+    options_text = bg.options
     assert "Operations" in options_text
     assert "Quality Insights" in options_text
     assert "Audit Logs" in options_text

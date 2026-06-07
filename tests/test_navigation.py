@@ -128,8 +128,9 @@ def unauthenticated_app() -> AppTest:
     return AppTest.from_file(APP_PATH, default_timeout=15)
 
 
-def _html(*markdowns) -> str:
-    return " ".join(m.value for m in markdowns)
+def _html(at: AppTest) -> str:
+    """Combine markdown output for easier searching."""
+    return " ".join(m.value for m in at.markdown)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -143,7 +144,7 @@ class TestNavigation:
         sql_returns(make_tables_df())
         at = authenticated_app()
         at.run()
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "§ Catalog search" in html
 
     def test_tab_catalog_renders_catalog_browser(self):
@@ -151,14 +152,14 @@ class TestNavigation:
         sql_returns(make_tables_df())
         at = authenticated_app(tab="catalog")
         at.run()
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "Catalog" in html
 
     def test_tab_glossary_renders_glossary(self):
         """?tab=glossary must render the glossary page."""
         at = authenticated_app(tab="glossary")
         at.run()
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "§ Business glossary" in html
 
     def test_tab_discovery_renders_discovery(self):
@@ -166,7 +167,7 @@ class TestNavigation:
         sql_returns(make_tables_df())
         at = authenticated_app(tab="discovery")
         at.run()
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "Discovery" in html
 
     def test_tab_health_renders_health(self):
@@ -174,26 +175,24 @@ class TestNavigation:
         sql_returns(make_tables_df(), make_health_col_stats())
         at = authenticated_app(tab="health")
         at.run()
-        html = _html(*at.markdown)
-        assert "health" in html.lower()
+        html = _html(at)
+        assert t("health.title") in html
 
     def test_active_tab_highlighted_in_header(self):
         """Switching to the catalog tab must render catalog page content."""
         sql_returns(make_tables_df())
         at = authenticated_app(tab="catalog")
         at.run()
-        html = _html(*at.markdown)
-        # st.html() content (nav bar) is not captured by at.markdown;
-        # verify the catalog page itself rendered instead.
-        assert "catalog" in html.lower()
+        # Verify the catalog page rendered by checking for the help expander
+        assert any(t("help.catalog_expander") in e.label for e in at.expander)
 
     def test_search_tab_not_visible_on_catalog(self):
         """When on catalog tab, the search hero must NOT render."""
         sql_returns(make_tables_df())
         at = authenticated_app(tab="catalog")
         at.run()
-        html = _html(*at.markdown)
-        assert "Search the catalog." not in html
+        html = _html(at)
+        assert t("search.hero_title") not in html
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -262,7 +261,7 @@ class TestAuthSecurity:
 
         # Must still be authenticated and rendering catalog content
         assert at.session_state["authenticated"] is True
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "Catalog" in html
 
     def test_permission_filtering_catalog_tab(self, monkeypatch):
@@ -295,7 +294,7 @@ class TestAuthSecurity:
         cursor.execute.side_effect = Exception("SECRET_INTERNAL_ERROR")
         at = authenticated_app(tab="catalog")
         at.run()
-        html = _html(*at.markdown)
+        html = _html(at)
         all_text = html + " ".join(e.value for e in at.error)
         assert "SECRET_INTERNAL_ERROR" not in all_text
         assert any("Could not load" in e.value for e in at.error)
@@ -307,7 +306,7 @@ class TestAuthSecurity:
         sql_returns(xss_df)
         at = authenticated_app(tab="catalog")
         at.run()
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "<script>" not in html
 
 
@@ -349,7 +348,7 @@ class TestGlossary:
         """Glossary must render term definitions from demo data."""
         at = authenticated_app(tab="glossary")
         at.run()
-        html = _html(*at.markdown)
+        html = _html(at)
         # The glossary has a selectbox with terms, and the first term should render
         assert "§ Business glossary" in html
 
@@ -367,7 +366,7 @@ class TestGlossary:
         # so the stewardship section is not rendered initially. We need to select a term first.
         at.selectbox(key="glossary_search").select("Active User")
         at.run()
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "Stewardship" in html or "stewardship" in html.lower()
 
 
@@ -379,7 +378,7 @@ class TestDiscovery:
         sql_returns(make_tables_df())
         at = authenticated_app(tab="discovery")
         at.run()
-        html = _html(*at.markdown)
+        html = _html(at)
         # The tables should be rendered with their names
         assert "orders" in html or "customers" in html
 
@@ -389,7 +388,7 @@ class TestDiscovery:
         sql_returns(make_tables_df())
         at = authenticated_app(tab="discovery")
         at.run()
-        html = _html(*at.markdown)
+        html = _html(at)
         # "orders" was updated 2026-04-22, "customers" 2026-04-21
         # orders should appear before customers
         orders_pos = html.find("orders")
@@ -416,8 +415,8 @@ class TestHealthDashboard:
         sql_returns(make_health_schema_stats(), make_health_col_stats(), make_health_undocumented_df())
         at = authenticated_app(tab="health")
         at.run()
-        html = _html(*at.markdown)
-        assert t("health.table_coverage") in html
+        html = _html(at)
+        assert "Table coverage" in html
 
     def test_health_coverage_calculation(self, monkeypatch):
         """Health dashboard must correctly calculate coverage %.
@@ -428,7 +427,7 @@ class TestHealthDashboard:
         sql_returns(make_health_schema_stats(), make_health_col_stats(), make_health_undocumented_df())
         at = authenticated_app(tab="health")
         at.run()
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "33%" in html, "Expected 33% table coverage (1 of 3 described)"
 
     def test_health_empty_state(self, monkeypatch):
@@ -437,7 +436,7 @@ class TestHealthDashboard:
         sql_returns(empty_tables_df())
         at = authenticated_app(tab="health")
         at.run()
-        assert any(t("health.no_data") in i.value for i in at.info)
+        assert any("No accessible data to audit." in i.value for i in at.info)
 
     def test_health_shows_priority_actions(self, monkeypatch):
         """Health dashboard must list undocumented tables as priority actions."""
@@ -445,7 +444,7 @@ class TestHealthDashboard:
         sql_returns(make_health_schema_stats(), make_health_col_stats(), make_health_undocumented_df())
         at = authenticated_app(tab="health")
         at.run()
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "§ Priority Actions" in html
 
     def test_health_click_priority_action_reruns(self, monkeypatch):
@@ -459,7 +458,7 @@ class TestHealthDashboard:
         at.button(key="health_fix_main.sales.customers").click().run()
 
         # Verify navigation to the search tab
-        assert at.query_params["tab"] == "search" or at.query_params["tab"] == ["search"]
+        assert at.query_params["tab"] in ("search", ["search"])
 
     def test_health_exception_shows_generic_error(self, monkeypatch):
         """When an exception occurs during query execution in render_health,
@@ -497,8 +496,8 @@ class TestHealthDashboard:
             at = authenticated_app(tab="health")
             at.run()
             
-            html = _html(*at.markdown)
-            assert t("health.steward_alert_title") in html
+            html = _html(at)
+            assert "Steward Alert: Catalog gaps detected" in html
 
 
 

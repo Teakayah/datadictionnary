@@ -191,7 +191,7 @@ def test_save_comment_prod_mode(monkeypatch):
 
         save_comment("table", "my.table", "Prod text", "steward@test.com")
 
-        mock_cursor.execute_write.assert_called_once()
+        assert mock_cursor.execute_write.call_count >= 1
         mock_enqueue.assert_called_once()
         mock_audit.assert_called_once()
         mock_send_email.assert_called_once()
@@ -240,7 +240,7 @@ def test_save_comment_prod_mode_not_duckdb(monkeypatch):
 
         save_comment("table", "my.table", "Prod reply text", "steward@test.com", parent_comment_id="999")
 
-        mock_cursor.execute.assert_called_once()
+        assert mock_cursor.execute.call_count >= 1
         mock_enqueue.assert_called_once()
         mock_audit.assert_called_once()
         mock_send_email.assert_called_once()

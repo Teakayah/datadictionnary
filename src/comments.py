@@ -167,7 +167,14 @@ def send_reply_email(
 
 
 def _fetch_comment_author_email(comment_id: str) -> str:
-    """Look up the author_email of a comment from the DB."""
+    """Look up the author_email of a comment from the DB.
+    
+    Args:
+        comment_id (str): The unique identifier of the comment.
+    
+    Returns:
+        str: The email address of the comment author.
+    """
     if is_demo_mode():
         for comments in st.session_state.get("demo_comments", {}).values():
             for c in comments:

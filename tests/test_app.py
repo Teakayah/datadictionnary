@@ -712,7 +712,7 @@ class TestGlossary:
         at.run()
 
         html = _html(*at.markdown)
-        assert "Define business concepts and map them to technical data assets." in html
+        assert "Define business concepts and link them to technical data." in html
         assert "Speak the same language." in html
 
     def test_glossary_search_term_selection(self):
