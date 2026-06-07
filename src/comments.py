@@ -46,7 +46,14 @@ def get_table_comments(object_name: str) -> list:
 
 
 def _build_comment_tree(flat: list) -> list:
-    """Group a flat list of comment dicts into a parent/replies tree."""
+    """Group a flat list of comment dicts into a parent/replies tree.
+
+    Args:
+        flat (list): A flat list of comment dictionaries.
+
+    Returns:
+        list: A list of root comment dictionaries, each with a nested 'replies' list.
+    """
     by_id = {c["comment_id"]: {**c, "replies": []} for c in flat}
     roots = []
     for c in by_id.values():
@@ -63,6 +70,15 @@ def send_comment_email(to_email: str, author_name: str, object_name: str, commen
 
     In demo mode logs to console instead of sending. Silently skips if
     SMTP_HOST or to_email is not configured rather than raising.
+
+    Args:
+        to_email (str): The email address of the steward.
+        author_name (str): The name of the comment author.
+        object_name (str): The full name of the object being commented on.
+        comment_text (str): The text of the comment.
+
+    Returns:
+        None
     """
     import smtplib
     from email.mime.text import MIMEText
@@ -102,6 +118,16 @@ def send_reply_email(
     """Notify the original commenter (and the steward if different) of a reply.
 
     In demo mode logs to console. Silently skips if SMTP_HOST is not configured.
+
+    Args:
+        parent_author_email (str): The email address of the original commenter.
+        reply_author_name (str): The name of the person replying.
+        object_name (str): The full name of the object being commented on.
+        reply_text (str): The text of the reply.
+        steward_email (str): The email address of the steward.
+
+    Returns:
+        None
     """
     import smtplib
     from email.mime.text import MIMEText
@@ -172,7 +198,18 @@ def save_comment(
     steward_email: str,
     parent_comment_id: str = None,
 ) -> None:
-    """Persist a comment (or reply) and trigger notification emails."""
+    """Persist a comment (or reply) and trigger notification emails.
+
+    Args:
+        object_type (str): The type of the object (e.g., 'table', 'column').
+        object_name (str): The full name of the object being commented on.
+        comment_text (str): The text of the comment.
+        steward_email (str): The email address of the steward.
+        parent_comment_id (str, optional): The ID of the parent comment, if this is a reply. Defaults to None.
+
+    Returns:
+        None
+    """
     comment_id   = str(uuid.uuid4())
     author_name  = st.session_state.get("user_name", "unknown")
     author_email = (st.session_state.get("user_email", "") or "").lower().strip()
