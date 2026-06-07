@@ -97,6 +97,15 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 3
 
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8765
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
           # SIGTERM grace — let the current cycle finish (max DR_RESYNC pass).
           # The daemon's signal handler sets _stop_event and exits the loop.
 

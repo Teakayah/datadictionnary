@@ -21,10 +21,10 @@ from src.auth import is_admin
 from src.storage import get_cms_storage
 
 _EXPIRY_DAYS: dict[str, Optional[int]] = {
-    "2 days":  2,
-    "7 days":  7,
-    "30 days": 30,
-    "Never":   None,
+    "2_days":  2,
+    "7_days":  7,
+    "30_days": 30,
+    "never":   None,
 }
 
 

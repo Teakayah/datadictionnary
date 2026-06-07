@@ -60,36 +60,36 @@ class DuckDBAnalyticsStorage:
     def get_zero_result_searches(self, limit: int = 50) -> List[dict]:
         from src.db.duckdb_adapter import _DuckDBConn
         with _DuckDBConn(self.db_path) as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT query, user_email, timestamp FROM user_data.search_analytics "
-                    "WHERE results_count = 0 ORDER BY timestamp DESC LIMIT ?",
-                    (limit,),
-                )
-                df = cur.fetchall_as_pandas()
-            return df.to_dict('records') if df is not None else []
+            if not conn.open:
+                return []
+            df = conn.execute(
+                "SELECT query, user_email, timestamp FROM user_data.search_analytics "
+                "WHERE results_count = 0 ORDER BY timestamp DESC LIMIT ?",
+                (limit,),
+            ).fetchall_as_pandas()
+        return df.to_dict('records') if df is not None and not df.empty else []
 
     def get_zero_result_alerts(self, days: int = 7) -> List[dict]:
         from src.db.duckdb_adapter import _DuckDBConn
         with _DuckDBConn(self.db_path) as conn:
-            # DuckDB-specific query: groups zero-result searches by query,
-            # calculates frequency, and flags terms where first search is > N days ago.
-            query = """
-                SELECT 
-                    query, 
-                    COUNT(*) as search_count, 
-                    MIN(timestamp) as first_seen, 
-                    MAX(timestamp) as last_seen 
-                FROM user_data.search_analytics 
-                WHERE results_count = 0 
-                GROUP BY query 
+            if not conn.open:
+                return []
+            df = conn.execute(
+                """
+                SELECT
+                    query,
+                    COUNT(*) as search_count,
+                    MIN(timestamp) as first_seen,
+                    MAX(timestamp) as last_seen
+                FROM user_data.search_analytics
+                WHERE results_count = 0
+                GROUP BY query
                 HAVING MIN(timestamp) < CAST(current_timestamp - INTERVAL '1' DAY * ? AS TIMESTAMP)
                 ORDER BY last_seen DESC
-            """
-            with conn.cursor() as cur:
-                cur.execute(query, (days,))
-                df = cur.fetchall_as_pandas()
-            return df.to_dict('records') if df is not None else []
+                """,
+                (days,),
+            ).fetchall_as_pandas()
+        return df.to_dict('records') if df is not None and not df.empty else []
 
 class DemoAnalyticsStorage:
     def track_search(self, event: SearchEvent) -> None:

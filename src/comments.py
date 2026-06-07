@@ -18,8 +18,11 @@ def get_table_comments(object_name: str) -> list:
     In demo mode reads from st.session_state["demo_comments"].
     Not cached — always fresh so new comments appear immediately.
 
-    @param object_name: The Unity Catalog full name of the table or object.
-    @returns: A list of root comment dictionaries, each containing a nested 'replies' list.
+    Args:
+        object_name (str): The Unity Catalog full name of the table or object.
+
+    Returns:
+        list: A list of root comment dictionaries, each containing a nested 'replies' list.
     """
     if is_demo_mode():
         flat = st.session_state.get("demo_comments", {}).get(object_name, [])
@@ -74,15 +77,16 @@ def send_comment_email(to_email: str, author_name: str, object_name: str, commen
     # Strip newlines from header fields to prevent SMTP header injection.
     safe_object_name = object_name.replace("\r", "").replace("\n", "")
     safe_author_name = author_name.replace("\r", "").replace("\n", "")
+    safe_to_email = to_email.replace("\r", "").replace("\n", "")
     msg = MIMEText(f"{safe_author_name} left a comment on {safe_object_name}:\n\n{comment_text}", "plain")
     msg["Subject"] = f"[Data Dictionary] Comment on {safe_object_name}"
     msg["From"]    = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
-    msg["To"]      = to_email
+    msg["To"]      = safe_to_email
     try:
         with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587"))) as s:
             s.starttls()
             s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASSWORD", ""))
-            s.sendmail(msg["From"], [to_email], msg.as_string())
+            s.sendmail(msg["From"], [safe_to_email], msg.as_string())
         logging.info("Comment email sent to %s", to_email)
     except Exception as e:
         logging.error("Failed to send comment email to %s: %s", to_email, e)
@@ -118,18 +122,19 @@ def send_reply_email(
     # Strip newlines from header fields to prevent SMTP header injection.
     safe_object_name  = object_name.replace("\r", "").replace("\n", "")
     safe_reply_author = reply_author_name.replace("\r", "").replace("\n", "")
+    safe_recipients = [r.replace("\r", "").replace("\n", "") for r in recipients]
     msg = MIMEText(
         f"{safe_reply_author} replied to a comment on {safe_object_name}:\n\n{reply_text}",
         "plain",
     )
     msg["Subject"] = f"[Data Dictionary] Reply on {safe_object_name}"
     msg["From"]    = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
-    msg["To"]      = ", ".join(recipients)
+    msg["To"]      = ", ".join(safe_recipients)
     try:
         with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587"))) as s:
             s.starttls()
             s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASSWORD", ""))
-            s.sendmail(msg["From"], recipients, msg.as_string())
+            s.sendmail(msg["From"], safe_recipients, msg.as_string())
         logging.info("Reply email sent to %s", recipients)
     except Exception as e:
         logging.error("Failed to send reply email to %s: %s", recipients, e)
@@ -194,44 +199,48 @@ def save_comment(
         log_audit_event(_event_type, object_type, object_name, "", comment_text)
         return
 
-    conn = _get_write_connection()
-    with conn.cursor() as cursor:
-        if _duckdb_available():
-            cursor.execute_write(
-                "INSERT INTO user_data.comments "
-                "(comment_id, object_type, object_name, comment_text, author_name, author_email, "
-                "created_at, steward_email, parent_comment_id) "
-                "VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
-                "%(author_name)s, %(author_email)s, current_localtimestamp(), %(steward_email)s, %(parent_comment_id)s)",
-                {
-                    "comment_id":        comment_id,
-                    "object_type":       object_type,
-                    "object_name":       object_name,
-                    "comment_text":      comment_text,
-                    "author_name":       author_name,
-                    "author_email":      author_email,
-                    "steward_email":     steward_email,
-                    "parent_comment_id": parent_comment_id,
-                },
-            )
-        else:
-            cursor.execute(
-                f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
-                f"(comment_id, object_type, object_name, comment_text, author_name, author_email, "
-                f"created_at, steward_email, parent_comment_id) "
-                f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
-                f"%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
-                {
-                    "comment_id":        comment_id,
-                    "object_type":       object_type,
-                    "object_name":       object_name,
-                    "comment_text":      comment_text,
-                    "author_name":       author_name,
-                    "author_email":      author_email,
-                    "steward_email":     steward_email,
-                    "parent_comment_id": parent_comment_id,
-                },
-            )
+    try:
+        conn = _get_write_connection()
+        with conn.cursor() as cursor:
+            if _duckdb_available():
+                cursor.execute_write(
+                    "INSERT INTO user_data.comments "
+                    "(comment_id, object_type, object_name, comment_text, author_name, author_email, "
+                    "created_at, steward_email, parent_comment_id) "
+                    "VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
+                    "%(author_name)s, %(author_email)s, current_localtimestamp(), %(steward_email)s, %(parent_comment_id)s)",
+                    {
+                        "comment_id":        comment_id,
+                        "object_type":       object_type,
+                        "object_name":       object_name,
+                        "comment_text":      comment_text,
+                        "author_name":       author_name,
+                        "author_email":      author_email,
+                        "steward_email":     steward_email,
+                        "parent_comment_id": parent_comment_id,
+                    },
+                )
+            else:
+                cursor.execute(
+                    f"INSERT INTO {CATALOG_CACHE}.{SCHEMA_CACHE}.comments "
+                    f"(comment_id, object_type, object_name, comment_text, author_name, author_email, "
+                    f"created_at, steward_email, parent_comment_id) "
+                    f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, "
+                    f"%(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
+                    {
+                        "comment_id":        comment_id,
+                        "object_type":       object_type,
+                        "object_name":       object_name,
+                        "comment_text":      comment_text,
+                        "author_name":       author_name,
+                        "author_email":      author_email,
+                        "steward_email":     steward_email,
+                        "parent_comment_id": parent_comment_id,
+                    },
+                )
+    except Exception as e:
+        logging.error("Could not save comment for %s: %s", object_name, e)
+        return
 
     enqueue_sync("COMMENT", object_name, {
         "comment_id":        comment_id,

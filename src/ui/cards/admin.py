@@ -37,7 +37,7 @@ from src.storage import (
     get_business_name_override_storage,
     get_table_business_name_override_storage,
 )
-from src.i18n import t
+from src.i18n import t, format_number, format_date
 from src.personalization import is_editing_enabled, set_editing_enabled
 from src.ui.cards.cms_admin import _render_admin_cms_section
 from src.ui.cards.pipelines import _render_admin_pipelines_section
@@ -222,6 +222,7 @@ def get_dq_alerts() -> pd.DataFrame:
         JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache dq ON m.full_name = dq.table_full_name
         WHERE dq.last_run_status = 'FAIL'
         ORDER BY dq.dq_score ASC
+        LIMIT 100
     """
     return run_query(query)
 
@@ -262,8 +263,6 @@ def _show_comment_log_dialog():
         use_container_width=True,
     )
 
-
-from src.i18n import format_number
 
 def _render_admin_stats_section():
     stats = get_admin_stats()
@@ -529,7 +528,6 @@ def _render_pending_reviews_section():
         col  = str(item.get("column_name", ""))
         biz  = str(item.get("business_name", "") or "")
         defn = str(item.get("definition", "") or "")
-        from src.i18n import format_date
         by   = str(item.get("edited_by", ""))
         _raw_at = item.get("edited_at")
         at   = format_date(_raw_at) if hasattr(_raw_at, "strftime") else str(_raw_at or "")

@@ -66,11 +66,11 @@ def format_number(val: int | float) -> str:
 
     # Very basic locale-aware formatting using standard python string formatting
     if lang == "fr":
-        # French uses space as thousand separator and comma as decimal
+        # French uses non-breaking space as thousand separator and comma as decimal
         if isinstance(val, int):
-            return f"{val:,}".replace(",", " ")
+            return f"{val:,}".replace(",", "\xa0")
         else:
-            return f"{val:,.2f}".replace(",", " ").replace(".", ",")
+            return f"{val:,.2f}".replace(",", "\xa0").replace(".", ",")
     else:
         # Default/English uses comma as thousand separator and dot as decimal
         if isinstance(val, int):

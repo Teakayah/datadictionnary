@@ -64,6 +64,12 @@ BUSINESS_NAMES_COL_NAME_FR   = os.getenv("BUSINESS_NAMES_COL_NAME_FR", "friendly
 BUSINESS_NAMES_COL_DEF_EN    = os.getenv("BUSINESS_NAMES_COL_DEF_EN", "field_definition_eng")
 BUSINESS_NAMES_COL_DEF_FR    = os.getenv("BUSINESS_NAMES_COL_DEF_FR", "field_definition_fr")
 
+# ── API / MCP server ─────────────────────────────────────────────────────────
+# Override API_AUDIENCE when the API has its own app registration separate from
+# the Streamlit app; defaults to CLIENT_ID (same app registration).
+API_AUDIENCE = os.getenv("API_AUDIENCE", CLIENT_ID or "")
+REDIS_URL = os.getenv("REDIS_URL", "")
+
 def is_demo_mode() -> bool:
     """Return True if demo mode is enabled via environment variable."""
     return os.getenv("DEMO_DATA", "false").lower() == "true"

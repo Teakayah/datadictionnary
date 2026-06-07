@@ -19,6 +19,7 @@ MAPPING = {
     "docs/runbooks/sync-worker.md": "runbook-sync-worker.html",
     "docs/runbooks/secret-rotation.md": "runbook-secret-rotation.html",
     "docs/api/locale-keys.md": "reference-locale-keys.html",
+    "docs/api/api-reference.md": "reference-api.html",
 }
 
 # ADRs
@@ -82,6 +83,7 @@ SIDEBAR_HTML = """
       <li class="nav-item {active_adr_004}"><a href="adr-004-sidecar-sync-worker.html">ADR 004: Sync Worker</a></li>
       <li class="nav-item {active_adr_005}"><a href="adr-005-storage-abstraction.html">ADR 005: Storage Abstraction</a></li>
       <li class="nav-item {active_adr_006}"><a href="adr-006-entra-groups-overage.html">ADR 006: Groups Overage</a></li>
+      <li class="nav-item {active_adr_007}"><a href="adr-007-api-mcp-server.html">ADR 007: API &amp; MCP</a></li>
     </ul>
   </nav>
   <nav class="nav-section">
@@ -95,6 +97,7 @@ SIDEBAR_HTML = """
     <div class="nav-section-title">Reference</div>
     <ul class="nav-list">
       <li class="nav-item {active_reference_locale_keys}"><a href="reference-locale-keys.html">Locale Keys</a></li>
+      <li class="nav-item {active_reference_api}"><a href="reference-api.html">API &amp; MCP Reference</a></li>
     </ul>
   </nav>
 </aside>
@@ -124,6 +127,8 @@ def get_sidebar(current_filename):
         "adr-004-sidecar-sync-worker.html": "active_adr_004",
         "adr-005-storage-abstraction.html": "active_adr_005",
         "adr-006-entra-groups-overage.html": "active_adr_006",
+        "adr-007-api-mcp-server.html": "active_adr_007",
+        "reference-api.html": "active_reference_api",
         "runbook-sync-worker.html": "active_runbook_sync_worker",
         "runbook-secret-rotation.html": "active_runbook_secret_rotation",
         "reference-locale-keys.html": "active_reference_locale_keys",
@@ -370,6 +375,7 @@ CATEGORIES = {
     "runbook-sync-worker.html": "Operations",
     "runbook-secret-rotation.html": "Operations",
     "reference-locale-keys.html": "Reference",
+    "reference-api.html": "Reference",
     "user-guide.html": "Guides",
     "steward-guide.html": "Guides",
     "admin-runbook.html": "Guides",

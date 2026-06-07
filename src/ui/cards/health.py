@@ -172,6 +172,11 @@ def _render_priority_actions(undocumented: pd.DataFrame):
 
     if not undocumented.empty:
         st.warning(t("health.missing_descriptions"))
+        # ⚡ Bolt: Apply hard cap of 50 to prevent O(N) main-thread blocking when rendering large DataFrames.
+        # Reduces severe UI freezing when there are hundreds of undocumented tables.
+        if len(undocumented) > 50:
+            st.info(t("health.showing_first_50", count=len(undocumented)))
+            undocumented = undocumented.head(50)
         for row in undocumented.itertuples(index=False):
             if st.button(
                 f"📄 {getattr(row, 'table_name', '')}",
@@ -227,7 +232,7 @@ def _render_zero_result_alerts():
         logging.error("Failed to render zero result alerts: %s", e)
 
 
-def render_health(groups: tuple, _unused_fn=None):
+def render_health(groups: tuple):
     st.markdown(f'''
     <div class="dd-search-hero">
       <div class="dd-eyebrow">{t("health.title")}</div>

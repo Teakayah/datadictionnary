@@ -143,6 +143,23 @@ Set `DUCKDB_PATH=data/test_data.duckdb` in `.env`, then run without `DEMO_DATA=t
 - `clear_groups_cache(user_oid=None)` flushes one user or all; admin page exposes a "Flush groups cache" button; sign-out clears the user's entry so re-auth picks up new groups
 - Background: ADR 006
 
+### Hybrid semantic search (`src/semantic.py`)
+- Controlled by `ENABLE_SEMANTIC_SEARCH=true` (defaults off; existing BM25 search path unchanged when off)
+- `EmbeddingEngine` Protocol — `embed_text(text) -> List[float]`, `embed_batch(texts) -> List[List[float]]`
+- `DatabricksEmbeddingEngine` — calls Databricks Model Serving endpoint named by `DATABRICKS_EMBEDDING_ENDPOINT`; falls back to zero-vectors on error so a failing endpoint never breaks the nightly sync
+- `MockEmbeddingEngine` — deterministic 384-dim vectors from character ordinals; used when `DATABRICKS_EMBEDDING_ENDPOINT` is unset
+- `get_embedding_engine()` — factory: returns `DatabricksEmbeddingEngine` if endpoint configured, else `MockEmbeddingEngine`
+- `generate_table_embeddings(tables)` — called by `scripts/sync_metadata.py` during the nightly crawl to populate `tables_embedding_cache`
+- `semantic_search(query, top_n=10)` — embeds the query, runs cosine similarity via DuckDB VSS extension, returns a list of `table_full_name` strings; called from `src/db/queries.py::search_all_metadata` for hybrid fusion with BM25 results
+- Requires DuckDB VSS extension (`INSTALL vss; LOAD vss`) — loaded automatically when semantic search is enabled
+
+### Comments and discussions (`src/comments.py`)
+- `get_table_comments(object_name)` — returns a tree of comment dicts with nested `replies`; reads from `user_data.comments` (DuckDB) or `st.session_state["demo_comments"]` (demo mode)
+- `save_comment(object_name, author_name, author_email, text, steward_email, parent_comment_id=None)` — writes to DuckDB and enqueues a `COMMENT` sync row via `src/sync/push.enqueue_sync`
+- Comment tree is built by `_build_comment_tree(flat)` — groups a flat list by `parent_comment_id`
+- DB table: `user_data.comments` (created by `_initialize_schema()`)
+- Note: `src/comments.py` still uses the direct DuckDB routing pattern rather than the storage abstraction (`CommentStorage` is deferred — see ADR 005 out-of-scope)
+
 ### Sidecar sync worker (`src/sync/daemon.py`)
 - Standalone process: `python -m src.sync.daemon [--once] [--healthz-port N]`
 - Drains `user_data.pending_sync` and runs DR resync (pulls new audit / comment / override rows back from Databricks every 20 cycles)
@@ -167,4 +184,4 @@ The 1083-line `src/ui/cards.py` was split into 7 submodules (TODO #3):
 ## Roadmap context
 - TODO #1–7 (complete): sidecar sync worker, Entra groups overage, cards.py split, storage abstraction, server-side auth checks on writes, src/sync/push.py unit tests, deletion of the Databricks-direct write path.
 - Plus: groups-cache flush tool (admin page), sign-out/sign-in cache invalidation.
-- Open follow-ups (see `TODO.md`): reuse `BusinessNameOverrideStorage` from `src/pages/search.py`.
+- All major follow-ups complete. Open UI items tracked in `TODO.md` (help-tooltip bilingualism, pipelines/admin nav visibility, segmented-control visual alignment).
