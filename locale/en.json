@@ -56,7 +56,8 @@
     "hero_subtitle": "Drill down from catalogs to schemas and tables.",
     "no_catalogs": "No catalogs accessible.",
     "load_error": "Could not load catalog hierarchy.",
-    "tree_help": "Open table in catalog"
+    "tree_help": "Open table in catalog",
+    "more_tables": "...and {count} more tables. Use search to find them."
   },
   "table": {
     "columns": "Columns",
@@ -100,13 +101,15 @@
     "preview_error": "Could not fetch data sample. You may not have permission to view the underlying data.",
     "showing_first_50": "Showing first 50 results out of {count}.",
     "table_desc_placeholder": "Describe the purpose of this table...",
-    "steward_email_placeholder": "steward@example.com"
+    "steward_email_placeholder": "steward@example.com",
+    "no_grants": "No grants recorded."
   },
   "editor": {
     "save": "Save",
     "cancel": "Cancel",
     "edit": "Edit",
-    "title": "Edit business name and definition"
+    "title": "Edit business name and definition",
+    "last_edited_by": "Last edited by {user} · {date}"
   },
   "comment": {
     "leave_a_comment": "Leave a comment",
