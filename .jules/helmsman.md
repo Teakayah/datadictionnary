@@ -27,3 +27,8 @@
 **Cluster Quirk:** Streamlit initialization is slow.
 **Learning:** Premature liveness probe kills can occur during heavy initial loading.
 **Resilience:** Added startupProbe to accommodate the initialization burst.
+
+## 2024-05-24 - Redis Readiness Probe Flaw
+**Cluster Quirk:** The standard `redis-cli ping` readiness and liveness probes return an exit code 0 even when Redis is in the `(error) LOADING` state during startup.
+**Learning:** Returning exit code 0 before Redis is actually ready to process commands routes premature traffic to the pod, causing application errors.
+**Resilience:** Replace the `redis-cli ping` array with `sh -c "redis-cli ping | grep PONG"` to strictly verify genuine readiness by checking for the `PONG` response string.
