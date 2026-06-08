@@ -58,10 +58,11 @@ def _render_comment_form(
         with _cs:
             if st.button(t("comment.send"), key=f"dd_comment_send_{key_suffix}", help=t("help.btn_send_comment"), use_container_width=True, type="primary"):
                 if _inp.strip():
-                    save_comment(
-                        "TABLE", full_name, _inp.strip(), steward,
-                        parent_comment_id=parent_comment_id,
-                    )
+                    with st.spinner(t("common.saving")):
+                        save_comment(
+                            "TABLE", full_name, _inp.strip(), steward,
+                            parent_comment_id=parent_comment_id,
+                        )
                     st.session_state.pop(_open_key, None)
                     st.rerun()
                 else:
@@ -320,7 +321,8 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                     with _sc:
                         if st.button(t("editor.save"), key=f"col_biz_save_{_edit_key}", help=t("help.btn_editor_save"), use_container_width=True, type="primary"):
                             try:
-                                save_business_name(full_name, _cname, _inp_name.strip(), _inp_def.strip())
+                                with st.spinner(t("common.saving")):
+                                    save_business_name(full_name, _cname, _inp_name.strip(), _inp_def.strip())
                                 st.session_state.pop("dd_col_edit_mode", None)
                                 st.session_state.pop(f"_live_completeness_{full_name}", None)
                                 st.rerun()
