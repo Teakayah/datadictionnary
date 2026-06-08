@@ -1,0 +1,19 @@
+--- src/ui/cards/discovery.py
++++ src/ui/cards/discovery.py
+@@ -194,14 +194,14 @@
+     _disc_active = _disc_tab_labels[0]
+
+     _disc_active = st.segmented_control(
+         t("personalization.tab_notable"),  # Hidden label
+         options=_disc_tab_labels,
+         default=_disc_active,
+         label_visibility="collapsed",
+         key="discovery_active_tab"
+     )
+
+     if not _disc_active:
+         _disc_active = _disc_tab_labels[0]
+
+     if _disc_active == _disc_tab_labels[0]:
+         _render_notable_tab(groups, get_authorized_tables_fn, pref_delete_fn, pref_upsert_fn)
+     elif _disc_active == _disc_tab_labels[1]:
