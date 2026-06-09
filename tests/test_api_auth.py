@@ -30,6 +30,11 @@ def _run(coro):
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
+def _set_mock_auth_env(monkeypatch, enable: bool):
+    monkeypatch.setenv("ENABLE_MOCK_AUTH", "true" if enable else "false")
+    monkeypatch.setenv("ENVIRONMENT", "development" if enable else "production")
+
+
 FAKE_CLAIMS = {
     "oid": "user-oid-123",
     "preferred_username": "user@example.com",
@@ -43,6 +48,31 @@ FAKE_JWKS = {"keys": [{"kty": "RSA", "kid": "1"}]}
 def _mock_jwks():
     return AsyncMock(return_value=FAKE_JWKS)
 
+
+# ── _validate_auth_config ─────────────────────────────────────────────────────
+
+class TestValidateAuthConfig:
+    def test_mock_auth_skips_validation(self, monkeypatch):
+        _set_mock_auth_env(monkeypatch, True)
+        # Should return without raising any errors even if TENANT_ID/API_AUDIENCE missing
+        monkeypatch.setattr(auth_mod, "TENANT_ID", "")
+        monkeypatch.delenv("API_AUDIENCE", raising=False)
+        monkeypatch.setattr(auth_mod, "CLIENT_ID", "")
+        auth_mod._validate_auth_config()
+
+    def test_missing_tenant_id_raises_runtime_error(self, monkeypatch):
+        _set_mock_auth_env(monkeypatch, False)
+        monkeypatch.setattr(auth_mod, "TENANT_ID", "")
+        with pytest.raises(RuntimeError, match="TENANT_ID env var must be set"):
+            auth_mod._validate_auth_config()
+
+    def test_missing_audience_raises_runtime_error(self, monkeypatch):
+        _set_mock_auth_env(monkeypatch, False)
+        monkeypatch.setattr(auth_mod, "TENANT_ID", "tenant")
+        monkeypatch.delenv("API_AUDIENCE", raising=False)
+        monkeypatch.setattr(auth_mod, "CLIENT_ID", "")
+        with pytest.raises(RuntimeError, match="CLIENT_ID or API_AUDIENCE env var must be set"):
+            auth_mod._validate_auth_config()
 
 # ── validate_token ────────────────────────────────────────────────────────────
 
@@ -78,6 +108,29 @@ class TestValidateToken:
              patch("src.api.auth.jwt.decode", side_effect=JWTError("expired")):
             with pytest.raises(ValueError, match="Invalid token"):
                 _run(validate_token("bad-token"))
+
+    def test_mock_auth_returns_mock_user(self, monkeypatch):
+        _set_mock_auth_env(monkeypatch, True)
+        user = _run(validate_token("mock-finance"))
+        assert isinstance(user, AuthenticatedUser)
+        assert user.oid == "mock-oid-finance"
+        assert user.email == "finance@mock.test"
+        assert user.name == "Finance"
+        assert user.groups == ["finance_group", "all_employees"]
+
+    def test_missing_audience_raises_runtime_error_in_validate(self, monkeypatch):
+        _set_mock_auth_env(monkeypatch, False)
+        monkeypatch.delenv("API_AUDIENCE", raising=False)
+        monkeypatch.setattr(auth_mod, "CLIENT_ID", "")
+        with pytest.raises(RuntimeError, match="Server misconfiguration: CLIENT_ID or API_AUDIENCE must be set"):
+            _run(validate_token("token"))
+
+    def test_missing_tenant_id_raises_runtime_error_in_validate(self, monkeypatch):
+        _set_mock_auth_env(monkeypatch, False)
+        monkeypatch.setenv("API_AUDIENCE", "audience")
+        monkeypatch.setattr(auth_mod, "TENANT_ID", "")
+        with pytest.raises(RuntimeError, match="Server misconfiguration: TENANT_ID must be set"):
+            _run(validate_token("token"))
 
     def test_groups_overage_calls_fetch_graph(self, monkeypatch):
         overage_claims = {
