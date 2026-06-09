@@ -57,15 +57,16 @@ def _render_comment_form(
         _cs, _cc, _ = st.columns([2, 2, 4], gap="small")
         with _cs:
             if st.button(t("comment.send"), key=f"dd_comment_send_{key_suffix}", help=t("help.btn_send_comment"), use_container_width=True, type="primary"):
-                if _inp.strip():
-                    save_comment(
-                        "TABLE", full_name, _inp.strip(), steward,
-                        parent_comment_id=parent_comment_id,
-                    )
-                    st.session_state.pop(_open_key, None)
-                    st.rerun()
-                else:
-                    st.warning(t("comment.empty_error"))
+                with st.spinner(t("common.saving")):
+                    if _inp.strip():
+                        save_comment(
+                            "TABLE", full_name, _inp.strip(), steward,
+                            parent_comment_id=parent_comment_id,
+                        )
+                        st.session_state.pop(_open_key, None)
+                        st.rerun()
+                    else:
+                        st.warning(t("comment.empty_error"))
         with _cc:
             if st.button(t("comment.cancel"), key=f"dd_comment_cancel_{key_suffix}", help=t("help.btn_cancel_comment"), use_container_width=True):
                 st.session_state.pop(_open_key, None)
@@ -319,20 +320,21 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                     _sc, _cc, _ = st.columns([2, 2, 4], gap="small")
                     with _sc:
                         if st.button(t("editor.save"), key=f"col_biz_save_{_edit_key}", help=t("help.btn_editor_save"), use_container_width=True, type="primary"):
-                            try:
-                                save_business_name(full_name, _cname, _inp_name.strip(), _inp_def.strip())
-                                st.session_state.pop("dd_col_edit_mode", None)
-                                st.session_state.pop(f"_live_completeness_{full_name}", None)
-                                st.rerun()
-                            except PermissionError:
-                                st.error(t("editor.permission_error"))
-                            except ValueError as exc:
-                                logging.error("Validation failed for %s.%s: %s", full_name, _cname, exc, exc_info=True)
-                                st.error(t("common.error"))
-                            except Exception as exc:
-                                logging.error("Save failed for %s.%s: %s", full_name, _cname, exc, exc_info=True)
-                                # Security: do not expose internal error details to UI
-                                st.error(t("common.error"))
+                            with st.spinner(t("common.saving")):
+                                try:
+                                    save_business_name(full_name, _cname, _inp_name.strip(), _inp_def.strip())
+                                    st.session_state.pop("dd_col_edit_mode", None)
+                                    st.session_state.pop(f"_live_completeness_{full_name}", None)
+                                    st.rerun()
+                                except PermissionError:
+                                    st.error(t("editor.permission_error"))
+                                except ValueError as exc:
+                                    logging.error("Validation failed for %s.%s: %s", full_name, _cname, exc, exc_info=True)
+                                    st.error(t("common.error"))
+                                except Exception as exc:
+                                    logging.error("Save failed for %s.%s: %s", full_name, _cname, exc, exc_info=True)
+                                    # Security: do not expose internal error details to UI
+                                    st.error(t("common.error"))
                     with _cc:
                         if st.button(t("editor.cancel"), key=f"col_biz_cancel_{_edit_key}", help=t("help.btn_editor_cancel"), use_container_width=True):
                             st.session_state.pop("dd_col_edit_mode", None)
