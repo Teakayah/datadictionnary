@@ -35,8 +35,8 @@
 **Action:** Applied a hard cap (.head(50)) before iterating over DataFrames to render repeating UI components to ensure performance and prevent UI blocking.
 
 ## 2024-05-30 - Optimize unique extraction on dataframes
-**Learning:** Calling .unique().tolist() on pandas DataFrames allocates more memory and is slower than .drop_duplicates().tolist().
-**Action:** Replaced .unique().tolist() with .drop_duplicates().tolist() to improve execution speed.
+**Learning:** Calling .unique().tolist() on pandas DataFrames is significantly faster and allocates less memory than .drop_duplicates().tolist() due to utilizing optimized C-level NumPy arrays.
+**Action:** Always prefer .unique().tolist() over .drop_duplicates().tolist() to improve execution speed.
 
 ## 2024-06-03 - Optimize set instantiation from DataFrames
 **Learning:** Instantiating a set directly from a large Pandas column list (`set(df['col'].tolist())`) is significantly slower than deduping with numpy first (`set(df['col'].unique().tolist())`).
