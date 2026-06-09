@@ -26,6 +26,14 @@ spec:
     - ports:
         - protocol: TCP
           port: 443
+    # Redis cache.
+    - to:
+        - podSelector:
+            matchLabels:
+              app: dd-redis
+      ports:
+        - protocol: TCP
+          port: 6379
     # Allow DNS resolution so the app can resolve external hostnames.
     - ports:
         - protocol: UDP

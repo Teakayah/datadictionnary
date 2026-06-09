@@ -32,3 +32,8 @@
 **Cluster Quirk:** A basic `redis-cli ping` execution for readiness/liveness probes is insufficient because it returns a successful exit code (0) even when Redis is still starting up and returning `(error) LOADING`.
 **Learning:** The Kubernetes scheduler relies on accurate probes to route traffic only to ready pods. A successful probe exit code during startup causes premature traffic routing and potential failure cascades.
 **Resilience:** Use `sh -c "redis-cli ping | grep PONG"` to verify genuine readiness by checking for the exact `PONG` response string, preventing premature routing.
+
+## 2024-05-18 - NetworkPolicy Health Probes
+**Cluster Quirk:** Kubelet health probes might appear blocked by default-deny NetworkPolicies, leading to a temptation to add broad ingress rules.
+**Learning:** Kubelet traffic is typically exempt via the CNI (e.g., Calico, Cilium).
+**Resilience:** Never create an `ingress` NetworkPolicy rule with `ports` but no `from` selector just to explicitly allow health probes, as this creates a severe vulnerability by opening the port to all namespaces. Rely on the CNI exemption.
