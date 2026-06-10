@@ -523,6 +523,10 @@ def _render_pending_reviews_section():
         )
         return
 
+    if len(pending) > 50:
+        st.info(t("search.showing_first_50", count=len(pending)))
+        pending = pending[:50]
+
     for item in pending:
         tbl  = str(item.get("table_full_name", ""))
         col  = str(item.get("column_name", ""))
@@ -616,6 +620,10 @@ def _render_pending_table_friendly_names_section():
         )
         return
 
+    if len(pending) > 50:
+        st.info(t("search.showing_first_50", count=len(pending)))
+        pending = pending[:50]
+
     from src.i18n import format_date
     for item in pending:
         tbl     = str(item.get("table_full_name", ""))
@@ -633,12 +641,12 @@ def _render_pending_table_friendly_names_section():
             f'text-transform:uppercase;margin-bottom:6px;">{_html.escape(tbl)}</div>'
             f'<div style="display:flex;gap:24px;margin:6px 0;flex-wrap:wrap;">'
             f'<div style="flex:1;min-width:240px;">'
-            f'<span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-40);">EN</span>'
+            f'<span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-40);">{t("language.en")}</span>'
             f'<div style="font-family:var(--font-sans);font-size:14px;font-weight:500;color:var(--ink);">{_html.escape(name_en)}</div>'
             f'<div style="font-family:var(--font-sans);font-size:12px;color:var(--ink-60);">{_html.escape(def_en)}</div>'
             f'</div>'
             f'<div style="flex:1;min-width:240px;">'
-            f'<span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-40);">FR</span>'
+            f'<span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-40);">{t("language.fr")}</span>'
             f'<div style="font-family:var(--font-sans);font-size:14px;font-weight:500;color:var(--ink);">{_html.escape(name_fr)}</div>'
             f'<div style="font-family:var(--font-sans);font-size:12px;color:var(--ink-60);">{_html.escape(def_fr)}</div>'
             f'</div>'

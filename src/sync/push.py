@@ -22,12 +22,24 @@ _SYNC_BATCH_SIZE = 25
 # UC permits only these characters, so anything outside this set in a column
 # or table-name part is either a metadata bug or a SQL injection attempt. We
 # refuse these outright rather than attempting to backtick-escape them.
+# Regex breakdown:
+# ^                - Start of string
+# [A-Za-z0-9_-]+   - One or more alphanumeric characters, underscores, or hyphens
+# \Z               - End of string (strictly end, ignores trailing newlines unlike $)
 _IDENT_RE = re.compile(r"^[A-Za-z0-9_-]+\Z")
 
 # Lightweight email syntax check matching standard local-part@domain format.
 # This explicitly enforces the expected structure and blocks malicious quote-escape
 # payloads (e.g., "a'@example.com") from breaking out of the f-string when
 # writing the steward tag value in Databricks.
+# Regex breakdown:
+# ^                    - Start of string
+# [A-Za-z0-9._%+\-]+   - Local part: letters, numbers, and allowed symbols
+# @                    - Literal @
+# [A-Za-z0-9.\-]+      - Domain name: letters, numbers, dots, and dashes
+# \.                   - Literal dot
+# [A-Za-z]{2,}         - TLD: at least 2 letters
+# \Z                   - End of string
 _EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\Z")
 
 
