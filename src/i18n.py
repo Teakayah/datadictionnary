@@ -62,7 +62,6 @@ def _ensure_locale() -> None:
 def format_number(val: int | float) -> str:
     """Format a number according to the active locale."""
     _ensure_locale()
-    lang = st.session_state.get("locale", "en")
 
     # Very basic locale-aware formatting using standard python string formatting
     if lang == "fr":
@@ -84,18 +83,16 @@ def format_date(dt, format_type="long") -> str:
         return str(dt or "")
 
     _ensure_locale()
-    lang = st.session_state.get("locale", "en")
 
-    if lang == "fr":
-        if format_type == "short":
-            return dt.strftime("%d %b")
-        else:
-            return dt.strftime("%d %b %Y %H:%M UTC")
+    # 🌍 Globe: Extract hardcoded strftime which breaks localization
+    month_key = str(dt.month)
+    month_name = t(f"date.months.{month_key}")
+
+    if format_type == "short":
+        return t("date.short", day=f"{dt.day:02d}", month=month_name)
     else:
-        if format_type == "short":
-            return dt.strftime("%b %d")
-        else:
-            return dt.strftime("%b %d, %Y %H:%M UTC")
+        time_str = dt.strftime("%H:%M")
+        return t("date.long", day=f"{dt.day:02d}", month=month_name, year=dt.year, time=time_str)
 
 
 def t(key: str, **kwargs) -> str:
@@ -105,7 +102,6 @@ def t(key: str, **kwargs) -> str:
     Supports str.format() style placeholders: t('search.results_count', count=5).
     """
     _ensure_locale()
-    lang = st.session_state.get("locale", "en")
 
     # Pluralization support
     count_vars = ["count", "n"]
