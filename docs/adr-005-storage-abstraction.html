@@ -93,9 +93,16 @@
         <h1>ADR 005 — Per-entity storage abstraction</h1>
       </section>
       <section class="section">
-<p><strong>Status:</strong> Accepted
+<p><strong>Status:</strong> Superseded (2026-06-10 over-engineering audit, TODO OE-1)
 <strong>Date:</strong> 2026-05-08
 <strong>Deciders:</strong> Platform team</p>
+<div class="callout"><strong>Superseded.</strong> The abstraction tripled the code per entity (6 Protocol</div>
+<div class="callout">modules × 3 backends, 1,769 lines) for a test-isolation benefit that</div>
+<div class="callout">patching <code>is_demo_mode()</code> achieves directly. <code>src/storage/</code> was deleted</div>
+<div class="callout">and the demo/DuckDB branching inlined into each data-layer module</div>
+<div class="callout">(<code>src/cms.py</code>, <code>src/pipelines.py</code>, <code>src/personalization.py</code>,</div>
+<div class="callout"><code>src/audit.py</code>, <code>src/notifications.py</code>, <code>src/analytics.py</code>). The</div>
+<div class="callout">original rationale below is kept as a record of the decision.</div>
 <hr>
 </section>
 <section class="section" id="context">

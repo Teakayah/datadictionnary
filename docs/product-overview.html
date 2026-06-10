@@ -205,8 +205,8 @@ Catalog-wide documentation coverage metrics:
   <li>Freshness grade per schema</li>
   <li>"Priority actions" panel listing up to 5 undocumented tables, deep-linkable to their detail view</li>
 </ul>
-<h3>F7 — Pipelines</h3>
-Members of <code>PIPELINE_GROUPS</code> (and admins) can trigger, monitor, and cancel named pipeline runs. Three backends are supported:
+<h3>F7 — Pipelines (optional, off by default)</h3>
+Gated behind <code>ENABLE_PIPELINES=true</code> — a baseline deploy doesn't need the three pipeline service-principal credentials. When enabled, members of <code>PIPELINE_GROUPS</code> (and admins) can trigger, monitor, and cancel named pipeline runs. Three backends are supported:
 <ul>
   <li><strong>Databricks Jobs</strong> (Jobs API 2.1)</li>
   <li><strong>Azure Data Factory</strong> (management API 2018-06-01)</li>
@@ -291,12 +291,12 @@ WCAG 2.0 Level AA compliance on every public page, measured by axe-core. Two kno
 <tbody>
 <tr><td><code>src/auth.py</code>, <code>src/auth_graph.py</code></td><td>MSAL OIDC flow, group resolution, Graph overage handling</td></tr>
 <tr><td><code>src/db/</code></td><td>DuckDB adapter, query layer, dialect translation</td></tr>
-<tr><td><code>src/storage/</code></td><td>Per-entity Protocol-based storage backends (Demo / DuckDB / Fake)</td></tr>
+<tr><td><code>src/analytics.py</code>, <code>src/notifications.py</code></td><td>Search analytics, bookmark-change notifications</td></tr>
 <tr><td><code>src/ui/cards/</code></td><td>7-module UI component package (discovery, health, pipelines, admin, CMS, detail, shared)</td></tr>
 <tr><td><code>src/pages/</code></td><td>Search page, catalog page</td></tr>
 <tr><td><code>src/sync/</code></td><td>Sync daemon, push logic, DR resync, worker status helpers</td></tr>
 <tr><td><code>src/personalization.py</code></td><td>Bookmarks, recents, editing toggle</td></tr>
-<tr><td><code>src/cms.py</code></td><td>CMS post logic (thin wrapper over <code>CMSStorage</code>)</td></tr>
+<tr><td><code>src/cms.py</code></td><td>CMS post logic</td></tr>
 <tr><td><code>src/pipelines.py</code></td><td>Pipeline trigger / poll / cancel</td></tr>
 </tbody>
 </table>
@@ -318,16 +318,13 @@ At startup the app:
   <li>Writes its heartbeat timestamp and DR resync status to <code>user_data.site_settings</code> so the admin sync panel can display them</li>
 </ul>
 The sidecar replaces the previous in-process daemon thread, which corrupted the Streamlit-cached DuckDB connection and ran without a <code>ScriptRunContext</code>.</p>
-<h3>Storage abstraction layer</h3>
-<p><code>src/storage/</code> collapses the demo / DuckDB branching that used to be duplicated across four modules into a single, consistent pattern. Each entity has:
+<h3>Storage pattern</h3>
+<p>Each data-layer module (<code>src/cms.py</code>, <code>src/pipelines.py</code>, <code>src/personalization.py</code>, <code>src/audit.py</code>, <code>src/notifications.py</code>, <code>src/analytics.py</code>) branches inline on <code>is_demo_mode()</code>:
 <ul>
-  <li>A <code>Protocol</code> defining its read/write surface</li>
-  <li>A <code>Demo*Storage</code> (session state — used in <code>DEMO_DATA=true</code> mode)</li>
-  <li>A <code>DuckDB*Storage</code> (production)</li>
-  <li>A <code>Fake*Storage</code> (in-memory — used only by unit tests)</li>
-  <li>A factory function in <code>src/storage/__init__.py</code> that picks the backend at call time</li>
+  <li>Demo mode (<code>DEMO_DATA=true</code>) — reads and writes <code>st.session_state</code></li>
+  <li>Otherwise — rows persist to <code>user_data.*</code> tables in DuckDB</li>
 </ul>
-Entities covered: <code>CMSStorage</code>, <code>PipelineDefStorage</code>, <code>PipelineRunStorage</code>, <code>PreferenceStorage</code>, <code>SiteSettingStorage</code>, <code>AuditStorage</code>, <code>BusinessNameOverrideStorage</code>.</p>
+The earlier Protocol-based <code>src/storage/</code> abstraction (ADR 005) was collapsed in the 2026-06 over-engineering audit: it tripled the code per entity, and tests achieve the same isolation by patching <code>is_demo_mode()</code> directly.</p>
 <h3>Design system</h3>
 <p>All UI components follow the design system defined in <a href="README.html"><code>design_system/README.md</code></a>:
 <ul>
@@ -432,9 +429,9 @@ Every write function raises <code>PermissionError</code> at the function boundar
 <h3>ADR 004 — Sidecar sync worker</h3>
 <p><strong>Decision:</strong> Move the write-back loop out of the Streamlit process into a separate sidecar process.</p>
 <p><strong>Why:</strong> The previous in-process daemon thread shared a Streamlit-cached DuckDB connection with the UI (corrupting concurrent reads), ran without a Streamlit <code>ScriptRunContext</code> (undefined behaviour), and tracked UI activity in two diverging state objects. A separate process with its own DuckDB connection and a clear queue-based interface eliminates all three problems. The Streamlit pods are now read-only from Databricks' perspective; the sidecar is the sole intentional writer.</p>
-<h3>ADR 005 — Per-entity storage abstraction</h3>
+<h3>ADR 005 — Per-entity storage abstraction (superseded)</h3>
 <p><strong>Decision:</strong> Replace ~13 duplicated three-way switches (<code>demo / DuckDB / Databricks</code>) across four modules with per-entity Protocol-based backends and factory functions.</p>
-<p><strong>Why:</strong> Each entity had a slightly different exception-handling shape, so a fix to one didn't reach the others. Tests were brittle because they mocked <code>_duckdb_available</code> directly. The Protocol pattern makes adding a new entity mechanical (define → implement Demo/DuckDB/Fake → add factory), and tests now inject <code>Fake*Storage</code> directly without touching routing internals.</p>
+<p><strong>Status:</strong> Superseded (2026-06). The over-engineering audit found the abstraction tripled the code per entity; it was collapsed back into inline <code>is_demo_mode()</code> branches in each data-layer module. Tests patch <code>is_demo_mode()</code> for isolation instead of injecting <code>Fake*Storage</code>.</p>
 <h3>ADR 006 — Entra ID groups overage handling</h3>
 <p><strong>Decision:</strong> Detect the <code>_claim_names.groups</code> pointer in the ID token and call Microsoft Graph <code>getMemberObjects</code> when the inline <code>groups</code> claim is absent.</p>
 <p><strong>Why:</strong> Entra omits the inline groups claim for users with >150 group memberships. Without this handling, those users see zero tables with no error — a silent, invisible production failure that only affects enterprise users (IT admins, partner teams). The Graph fallback is cached per-user for 1 hour, fail-closed on any error, and clears on sign-out.</p>

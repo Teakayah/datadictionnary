@@ -147,7 +147,7 @@ kubectl -n data-dictionary logs -l app=dd-sync-worker -f</code></pre>
 <pre><code class="language-bash">kubectl -n data-dictionary port-forward deploy/dd-sync-worker 8765:8765
 curl -s localhost:8765/healthz | jq
 # {"status": "ok", "heartbeat_age_s": 4.2}</code></pre>
-<p>A heartbeat older than <code>SYNC_HEALTHZ_TIMEOUT_S</code> (default 60s) returns 503
+<p>A heartbeat older than <code>HEALTHZ_TIMEOUT_S</code> (60s, constant in <code>src/sync/daemon.py</code>) returns 503
 and the liveness probe will restart the pod.</p>
 <h3>Inspect queue state</h3>
 <pre><code class="language-bash">kubectl -n data-dictionary exec -it deploy/dd-sync-worker -- \
@@ -181,15 +181,14 @@ or per-pod env). Defaults are sensible — only override if you have a reason.</
 <tbody>
 <tr><td><code>DUCKDB_PATH</code></td><td>— (required)</td><td>Catalog cache file. The worker derives <code>USER_DATA_PATH</code> by replacing <code>.duckdb</code> with <code>_user_data.duckdb</code>.</td></tr>
 <tr><td><code>DATABRICKS_HOST</code> / <code>_HTTP_PATH</code> / <code>_TOKEN</code></td><td>—</td><td>Required for write-back AND DR resync. If unset the daemon still runs (drains nothing, DR resync logs <code>Skipped</code>).</td></tr>
-<tr><td><code>SYNC_POLL_ACTIVE_S</code></td><td><code>5</code></td><td>Sleep between cycles when the previous cycle drained ≥1 row.</td></tr>
-<tr><td><code>SYNC_POLL_IDLE_S</code></td><td><code>30</code></td><td>Sleep between cycles when the previous cycle was empty.</td></tr>
-<tr><td><code>SYNC_DR_EVERY_N</code></td><td><code>20</code></td><td>Run DR resync every N cycles. Default ≈ every 10 min in active mode.</td></tr>
-<tr><td><code>SYNC_STALE_ROW_S</code></td><td><code>300</code></td><td>Rows in <code>'syncing'</code> state for longer than this flip back to <code>'pending'</code> at the top of every cycle.</td></tr>
 <tr><td><code>SYNC_HEALTHZ_PORT</code></td><td><code>8765</code></td><td>HTTP port for <code>/healthz</code>. Set to <code>0</code> to disable.</td></tr>
-<tr><td><code>SYNC_HEALTHZ_TIMEOUT_S</code></td><td><code>60</code></td><td>Heartbeat age above which <code>/healthz</code> returns 503.</td></tr>
 <tr><td><code>LOG_LEVEL</code></td><td><code>INFO</code></td><td>Stdlib logging level. <code>DEBUG</code> enables verbose cycle logs.</td></tr>
 </tbody>
 </table>
+Timing values (poll intervals, DR resync cadence, stale-row timeout, healthz
+heartbeat timeout) are module constants in <code>src/sync/daemon.py</code> — they never
+needed per-deployment overrides. Change them in code if a deployment truly
+requires different cadence.
 <hr>
 </section>
 <section class="section" id="state-written-to-user-data-site-settings">
@@ -226,7 +225,8 @@ out of band:</p>
 daemon resume.</p>
 <h3>Force a DR resync</h3>
 <p>Either bounce the pod (the first cycle always runs DR resync), or set the
-counter to a multiple of <code>SYNC_DR_EVERY_N</code> by waiting it out.</p>
+counter to a multiple of <code>DR_RESYNC_EVERY_N</code> (constant in <code>src/sync/daemon.py</code>)
+by waiting it out.</p>
 <hr>
 </section>
 <section class="section" id="failure-modes">

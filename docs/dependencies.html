@@ -188,11 +188,11 @@ Also used transitively by <code>msal</code>, <code>databricks-sdk</code>, and <c
 <hr>
 <h3><code>pytest</code> — <code>>=8.0</code> (installed: 9.0.3)</h3>
 <p><strong>What it does.</strong> The test runner. Discovers and executes all test files under <code>tests/</code>, applies fixtures (<code>conftest.py</code>), and reports pass/fail. Used via <code>python -m pytest tests/ -q --ignore=...</code> for the standard suite (475 tests at time of writing) and separately for load and accessibility suites.</p>
-<p><strong>Why it was chosen.</strong> Pytest is the dominant Python test framework. Streamlit ships a first-party <code>AppTest</code> integration (<code>streamlit.testing.v1</code>) that runs natively inside pytest. The <code>mock.patch</code> pattern used extensively in the storage tests (<code>mock.patch("src.cms.get_cms_storage", return_value=FakeCMSStorage())</code>) is pytest-compatible without extra plugins.</p>
+<p><strong>Why it was chosen.</strong> Pytest is the dominant Python test framework. Streamlit ships a first-party <code>AppTest</code> integration (<code>streamlit.testing.v1</code>) that runs natively inside pytest. The <code>mock.patch</code> pattern used extensively in the data-layer tests (<code>mock.patch("src.cms.is_demo_mode", return_value=True)</code>) is pytest-compatible without extra plugins.</p>
 <hr>
 <h3><code>pytest-cov</code> — <code>>=5.0</code> (installed: 7.1.0)</h3>
 <p><strong>What it does.</strong> Coverage measurement plugin for pytest. Records which lines and branches are executed during the test run and reports coverage percentages. Run with <code>--cov=src</code> to scope coverage to the application source.</p>
-<p><strong>Why it was chosen.</strong> Standard companion to pytest. Required for CI coverage gates and for identifying untested paths — particularly important given the three-backend storage abstraction where Demo, DuckDB, and Fake implementations must all be exercised.</p>
+<p><strong>Why it was chosen.</strong> Standard companion to pytest. Required for CI coverage gates and for identifying untested paths — particularly important given the dual demo/DuckDB branches in each data-layer module, which must both be exercised.</p>
 <hr>
 <h3><code>locust</code> — <code>>=2.29</code> (installed: 2.44.0)</h3>
 <p><strong>What it does.</strong> Load-testing framework. Simulates concurrent users executing defined task sequences against the application. The load test file (<code>tests/load/locustfile.py</code>) defines two user classes:
