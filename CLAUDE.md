@@ -88,12 +88,12 @@ All new UI work must follow the design system defined in `design_system/`. The c
 - `is_power_user()` gates on `is_editing_enabled()` first — returns `False` instantly when editing is globally off
 - Admin page renders a `§ Inline editing` toggle section; toggling calls `set_editing_enabled()` then `st.rerun()`
 
-### CMS discovery banner (`src/cms.py` + `src/storage/cms_storage.py`)
+### CMS discovery banner (`src/cms.py`)
 - Admins publish posts that appear as pinned cards above the Discovery sub-tabs
 - Post types: `announcement` (red), `featured_table` (blue), `guide` (green)
 - Schema: `post_id`, `post_type`, `title`, `body`, `table_ref` (featured_table only), `author_email`, `created_at`, `expires_at`
 - Expiry options live in `_EXPIRY_DAYS`: 2 / 7 / 30 days or `None` (never)
-- `src/cms.py` is a thin wrapper around `CMSStorage` — see `src/storage/cms_storage.py` for backends (Demo / DuckDB / Fake)
+- Each function in `src/cms.py` branches on `is_demo_mode()` — demo posts live in session state, otherwise DuckDB
 - `render_cms_banner()` in `src/ui/cards/discovery.py` — called from `render_discovery()` between the hero and the sub-tab selector; admin users see a ✕ delete button per card; featured_table cards navigate to the Search tab
 - Admin CRUD lives in `_render_admin_cms_section()` / `_show_cms_create_dialog()` in `src/ui/cards/cms_admin.py`
 - DB table: `user_data.cms_posts` (created by `_initialize_schema()`)
@@ -101,8 +101,9 @@ All new UI work must follow the design system defined in `design_system/`. The c
 - `create_post` and `delete_post` raise `PermissionError` if the caller is not an admin — defense-in-depth alongside the UI gate
 
 ### Pipelines tab (`src/pipelines.py`)
-- Visible to `PIPELINE_GROUPS` members and admins (`show_pipelines=is_pipeline_user() or is_admin()`)
-- `is_pipeline_user()` in `src/auth.py` checks `PIPELINE_GROUPS` env var (same pattern as `is_admin()`)
+- Disabled by default. Set `ENABLE_PIPELINES=true` to activate (`pipelines_enabled()` in `src/config.py`).
+- When enabled, visible to `PIPELINE_GROUPS` members and admins (`show_pipelines=pipelines_enabled() and (is_pipeline_user() or is_admin())`)
+- `is_pipeline_user()` in `src/auth.py` checks `PIPELINE_GROUPS` env var (same pattern as `is_admin()`); short-circuits to `False` when the feature is off
 - Admins define pipelines in `_render_admin_pipelines_section()` / `_show_pipeline_create_dialog()`
 - Backends: `databricks` (Jobs API 2.1), `adf` (Azure Data Factory management API 2018-06-01), `ado` (Azure DevOps Pipelines API 7.0)
 - All backends auth via MSAL client-credentials using `PIPELINE_SP_TENANT_ID` / `PIPELINE_SP_CLIENT_ID` / `PIPELINE_SP_CLIENT_SECRET`
@@ -111,7 +112,7 @@ All new UI work must follow the design system defined in `design_system/`. The c
 - `cancel_run()` calls the backend cancel API then clears the run row
 - `render_pipelines_page()` auto-polls every 3 s (`time.sleep(3); st.rerun()`) while any run is active
 - DB tables: `user_data.pipeline_definitions`, `user_data.pipeline_runs`
-- New required env vars: `PIPELINE_GROUPS`, `PIPELINE_SP_TENANT_ID`, `PIPELINE_SP_CLIENT_ID`, `PIPELINE_SP_CLIENT_SECRET`
+- Env vars (only needed when `ENABLE_PIPELINES=true`): `PIPELINE_GROUPS`, `PIPELINE_SP_TENANT_ID`, `PIPELINE_SP_CLIENT_ID`, `PIPELINE_SP_CLIENT_SECRET`
 
 ### Mock auth groups (development)
 The "Admin" mock department includes `mock_admin_group`. Set the following in `.env` for full admin + pipeline + editor access in local dev:
@@ -128,13 +129,12 @@ python scripts/generate_test_data.py --with-data  # adds row data for Preview ta
 ```
 Set `DUCKDB_PATH=data/test_data.duckdb` in `.env`, then run without `DEMO_DATA=true`.
 
-### Storage abstraction (`src/storage/`)
-- Per-entity Protocol-based backends collapsed the demo / DuckDB branching previously duplicated across cms / pipelines / personalization / audit
-- Entities: `CMSStorage`, `PipelineDefStorage` + `PipelineRunStorage`, `PreferenceStorage`, `SiteSettingStorage`, `AuditStorage`, `BusinessNameOverrideStorage`
-- Each has Demo (session-state) + DuckDB + Fake (in-memory, test-only) implementations. Direct-Databricks variants were deleted in TODO #7 — Streamlit pods only ever write locally
-- Factories live in `src/storage/__init__.py` (`get_<entity>_storage()`) and pick the backend at call time based on `is_demo_mode()` / `_duckdb_available()`
-- Tests inject `Fake*Storage` via `mock.patch("src.<module>.get_<entity>_storage")` — no more brittle `_duckdb_available` mocking
-- Background: ADR 005
+### Storage pattern (inline `is_demo_mode()` branching)
+- The Protocol-based `src/storage/` layer (ADR 005) was collapsed in the 2026-06 over-engineering audit (TODO OE-1) — the abstraction tripled the code per entity
+- Each data-layer module branches inline: demo mode reads/writes `st.session_state`, otherwise DuckDB (`user_data.*` tables)
+- Modules: `src/cms.py`, `src/pipelines.py`, `src/personalization.py`, `src/audit.py` (incl. column + table business-name overrides), `src/notifications.py`, `src/analytics.py`
+- Direct-Databricks write variants were deleted in TODO #7 — Streamlit pods only ever write locally; the sidecar daemon is the sole Databricks writer
+- Tests patch `is_demo_mode` (e.g. `mock.patch("src.cms.is_demo_mode", return_value=True)`) and seed/assert the session-state keys directly
 
 ### Entra groups overage (`src/auth_graph.py`)
 - Detects ID tokens that lack inline `groups` (Entra omits it for >150-group users) and falls back to `POST /v1.0/me/getMemberObjects {"securityEnabledOnly": true}`
@@ -151,6 +151,7 @@ Set `DUCKDB_PATH=data/test_data.duckdb` in `.env`, then run without `DEMO_DATA=t
 - `get_embedding_engine()` — factory: returns `DatabricksEmbeddingEngine` if endpoint configured, else `MockEmbeddingEngine`
 - `generate_table_embeddings(tables)` — called by `scripts/sync_metadata.py` during the nightly crawl to populate `tables_embedding_cache`
 - `semantic_search(query, top_n=10)` — embeds the query, runs cosine similarity via DuckDB VSS extension, returns a list of `table_full_name` strings; called from `src/db/queries.py::search_all_metadata` for hybrid fusion with BM25 results
+- Fusion: weighted sum of the normalized keyword score (0.7) and a rank-decayed semantic score (0.3); semantic hits missing from keyword results are fetched permission-filtered and appended
 - Requires DuckDB VSS extension (`INSTALL vss; LOAD vss`) — loaded automatically when semantic search is enabled
 
 ### Comments and discussions (`src/comments.py`)
@@ -158,14 +159,14 @@ Set `DUCKDB_PATH=data/test_data.duckdb` in `.env`, then run without `DEMO_DATA=t
 - `save_comment(object_name, author_name, author_email, text, steward_email, parent_comment_id=None)` — writes to DuckDB and enqueues a `COMMENT` sync row via `src/sync/push.enqueue_sync`
 - Comment tree is built by `_build_comment_tree(flat)` — groups a flat list by `parent_comment_id`
 - DB table: `user_data.comments` (created by `_initialize_schema()`)
-- Note: `src/comments.py` still uses the direct DuckDB routing pattern rather than the storage abstraction (`CommentStorage` is deferred — see ADR 005 out-of-scope)
+- `src/comments.py` uses the same inline demo/DuckDB routing pattern as the other data-layer modules
 
 ### Sidecar sync worker (`src/sync/daemon.py`)
 - Standalone process: `python -m src.sync.daemon [--once] [--healthz-port N]`
 - Drains `user_data.pending_sync` and runs DR resync (pulls new audit / comment / override rows back from Databricks every 20 cycles)
-- Stale-row recovery: rows in `'syncing'` for >`SYNC_STALE_ROW_S` (default 300s) flip back to `'pending'` at the top of every cycle
+- Stale-row recovery: rows in `'syncing'` for >`STALE_ROW_TIMEOUT_S` (300s, module constant) flip back to `'pending'` at the top of every cycle
 - Status keys written to `user_data.site_settings`: `worker_heartbeat`, `dr_resync_status`. Admin sync panel reads via `src.sync.worker.read_dr_resync_status()` / `read_worker_heartbeat()`
-- Tunables: `SYNC_POLL_ACTIVE_S` (5), `SYNC_POLL_IDLE_S` (30), `SYNC_DR_EVERY_N` (20), `SYNC_STALE_ROW_S` (300), `SYNC_HEALTHZ_PORT` (8765), `SYNC_HEALTHZ_TIMEOUT_S` (60)
+- Timing values (poll intervals, DR cadence, stale-row + heartbeat timeouts) are module constants in `src/sync/daemon.py`; the only env tunable is `SYNC_HEALTHZ_PORT` (8765)
 - Background: ADR 004 + `docs/runbooks/sync-worker.md`
 
 ### `src/ui/cards/` package layout

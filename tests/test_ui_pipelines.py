@@ -149,6 +149,10 @@ class TestAdminPipelinesSection:
         mock_show_dialog.assert_called_once()
 
 class TestRenderPipelinesPage:
+    @pytest.fixture(autouse=True)
+    def _enable_pipelines(self, monkeypatch):
+        monkeypatch.setenv("ENABLE_PIPELINES", "true")
+
     @patch("src.ui.cards.pipelines.is_admin", return_value=False)
     @patch("src.ui.cards.pipelines.is_pipeline_user", return_value=False)
     def test_render_page_access_denied(self, mock_user, mock_admin):

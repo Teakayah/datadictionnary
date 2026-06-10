@@ -138,10 +138,7 @@ stages:
                     kubernetesServiceConnection: $(K8S_CONNECTION)
                     namespace: $(K8S_NAMESPACE)
                     manifests: |
-                      k8s/networkpolicy.yaml
-                      k8s/networkpolicy-sync.yaml
-                      k8s/networkpolicy-redis.yaml
-                      k8s/networkpolicy-api.yaml
+                      k8s/networkpolicies.yaml
 
                 - task: KubernetesManifest@1
                   displayName: Apply storage

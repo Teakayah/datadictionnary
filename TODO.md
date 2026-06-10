@@ -357,6 +357,163 @@ permissions, lineage, and audit references never use the friendly name.
 
 ---
 
+## Architecture simplification (over-engineering audit, 2026-06-09)
+
+Six items from a full-codebase complexity audit. Each addresses a pattern
+where the implementation cost exceeds the problem being solved. Items are
+ordered by impact; OE-6 depends on OE-1.
+
+---
+
+### OE-1. Collapse the storage abstraction layer
+
+- [x] **Collapse storage abstraction** — done. `src/storage/` deleted (1,769 lines); demo/DuckDB branching inlined into `src/cms.py`, `src/pipelines.py`, `src/personalization.py`, `src/audit.py`, `src/notifications.py`, and new `src/analytics.py`. Tests patch `is_demo_mode()` and assert against session state; all `Fake*Storage` classes removed.
+
+  **What to do:**
+  - Delete `src/storage/cms_storage.py`, `pipeline_storage.py`, `preference_storage.py`, `audit_storage.py`, `analytics_storage.py`, `notification_storage.py`
+  - Simplify `src/storage/__init__.py`: replace the 9 factory functions with the 2 helper lines they delegate to (`_use_demo_backend()`, `_duckdb_available()`), or remove the file entirely and inline the branching in each caller
+  - In each caller (`src/cms.py`, `src/pipelines.py`, `src/personalization.py`, `src/audit.py`), replace `get_<entity>_storage()` calls with direct conditional logic:
+    ```python
+    if is_demo_mode():
+        # read/write st.session_state
+    else:
+        # run DuckDB query
+    ```
+  - In tests, patch `is_demo_mode()` (or `src.cms.is_demo_mode`) instead of patching `get_cms_storage`. Update all 6 `test_storage_*.py` files accordingly (or defer to OE-6)
+  - Delete the 8 `Fake*Storage` classes; tests that use them should instead call the real demo-mode path with `DEMO_DATA=true` or mock `is_demo_mode` directly
+
+  **Why this is safe:** The Protocol-based design was introduced to avoid brittle `_duckdb_available` mocking in tests (ADR 005). That problem is real, but the cure tripled the code per entity. Patching `is_demo_mode()` achieves the same test-isolation goal with no new abstraction.
+
+  **Acceptance:**
+  - `src/storage/` is empty or deleted; `src/storage/__init__.py` may remain as a thin compatibility shim during migration but should ultimately disappear
+  - `grep -r "Protocol" src/storage/` returns nothing
+  - `grep -r "Fake.*Storage" src/ tests/` returns nothing (or only test helpers, not production imports)
+  - `python -m pytest tests/ -q --ignore=tests/test_load_smoke.py --ignore=tests/test_wcag_axe.py --ignore=tests/test_nav_render.py` passes green
+
+---
+
+### OE-2. Complete or remove the hybrid semantic search scaffold
+
+- [x] **Resolve semantic search dead code** — finished (Option A): weighted fusion (0.7 keyword / 0.3 semantic) implemented in `search_all_metadata`; semantic-only hits are fetched permission-filtered and appended; tests in `tests/test_semantic.py` assert semantic results change ranking
+
+  **Current state:** `src/db/queries.py::search_all_metadata` (around line 290) ends with:
+  ```python
+  # For now, we just ensure semantic results are present in the list
+  # Future: Implement proper RRF (Reciprocal Rank Fusion)
+  return keyword_results
+  ```
+  `ENABLE_SEMANTIC_SEARCH=true` is wired but the hybrid step always returns the keyword-only results unchanged.
+
+  **What to do — choose one:**
+
+  *Option A — Finish it:* Implement real RRF in `search_all_metadata`. Embed the user query via `get_embedding_engine().embed_text(query)`, run `array_cosine_similarity` against `tables_embedding_cache`, merge with BM25 scores using a weighted sum (start 0.7 BM25 / 0.3 semantic), sort by combined score. Remove the `# Future` comment. Add a test asserting that semantic results influence ranking.
+
+  *Option B — Remove it:* Delete `src/semantic.py`. Remove the `semantic_fns` block and lazy import from `search_all_metadata` in `src/db/queries.py`. Remove `ENABLE_SEMANTIC_SEARCH` from `src/config.py`, `.env.example`, and `k8s/deployment.yaml`. Remove embedding generation from `scripts/nightly_sync.py`. Move to a `feat/semantic-search` branch for future pickup.
+
+  **Acceptance (either option):**
+  - No `# Future: Implement proper RRF` comment exists in `main`
+  - With Option A: `ENABLE_SEMANTIC_SEARCH=true` causes `search_all_metadata` to return a different-ordered result set than BM25 alone (verifiable with a test using `MockEmbeddingEngine`)
+  - With Option B: `grep -r "semantic" src/ scripts/` returns nothing; `ENABLE_SEMANTIC_SEARCH` is gone from all config/env files
+  - All tests pass
+
+---
+
+### OE-3. Gate the pipelines feature behind an explicit env flag
+
+- [x] **Make pipelines opt-in** — done. `pipelines_enabled()` in `src/config.py` (reads `ENABLE_PIPELINES`, default false, at call time so tests can monkeypatch); gates `show_pipelines` in `app.py`, `is_pipeline_user()` in `src/auth.py`, and `render_pipelines_page()`. `PIPELINE_*` vars moved to a commented-out optional section in `.env.example`; `networkpolicy-api.yaml` kept (it serves the REST API pod, not pipeline egress).
+
+  **What to do:**
+  - Add `ENABLE_PIPELINES: bool = os.getenv("ENABLE_PIPELINES", "false").lower() == "true"` to `src/config.py`
+  - In `app.py`, change the `show_pipelines` check from `is_pipeline_user() or is_admin()` to `ENABLE_PIPELINES and (is_pipeline_user() or is_admin())`
+  - In `src/auth.py::is_pipeline_user()`, short-circuit: `if not ENABLE_PIPELINES: return False`
+  - In `.env.example`, move all `PIPELINE_*` vars to an `# Optional: pipelines feature` section and comment them out
+  - Add a note to `CLAUDE.md` under "Pipelines tab": "Disabled by default. Set `ENABLE_PIPELINES=true` to activate."
+  - Remove `networkpolicy-api.yaml` if it was added solely for pipeline-backend egress (check annotations)
+
+  **Acceptance:**
+  - With `ENABLE_PIPELINES` unset or `false`, the Pipelines tab is invisible regardless of group membership
+  - `PIPELINE_SP_TENANT_ID`, `PIPELINE_SP_CLIENT_ID`, `PIPELINE_SP_CLIENT_SECRET` are not required for `streamlit run app.py` to start
+  - Existing pipeline tests still pass (they should set `ENABLE_PIPELINES=true` explicitly via mock or env)
+
+---
+
+### OE-4. Consolidate the four Kubernetes NetworkPolicy files
+
+- [x] **Merge NetworkPolicies into one file** — done. `k8s/networkpolicies.yaml` holds all 4 specs (distinct podSelectors verified: dd-app, dd-api, dd-sync, dd-redis); originals deleted; `azure-pipelines.yml` manifest list updated.
+
+  **Files to merge:**
+  - `k8s/networkpolicy.yaml` (app pod)
+  - `k8s/networkpolicy-api.yaml` (API pod)
+  - `k8s/networkpolicy-sync.yaml` (sync worker pod)
+  - `k8s/networkpolicy-redis.yaml` (Redis pod)
+
+  **What to do:**
+  - Read all 4 files; verify each has a distinct `spec.podSelector`
+  - Create `k8s/networkpolicies.yaml` concatenating all 4 specs separated by `---`
+  - Delete the 4 original files
+  - If `azure-pipelines.yml` or any CI script references the individual files by name, update those references to `networkpolicies.yaml`
+
+  **Acceptance:**
+  - `ls k8s/networkpolicy*.yaml` returns only `networkpolicies.yaml`
+  - `kubectl apply --dry-run=client -f k8s/networkpolicies.yaml` exits 0 (or `yamllint k8s/networkpolicies.yaml` if kubectl is unavailable)
+  - All 4 NetworkPolicy specs are present in the merged file with their original `spec.podSelector` values unchanged
+
+---
+
+### OE-5. Hard-code sync daemon timing constants; keep only port configurable
+
+- [x] **Reduce sync daemon env var surface** — done. The 5 timing values are module constants in `src/sync/daemon.py`; only `SYNC_HEALTHZ_PORT` remains env-configurable. `.env.example`, runbook, and CLAUDE.md updated.
+
+  **Current env vars in `src/sync/daemon.py` (or `src/config.py`):**
+  ```
+  SYNC_POLL_ACTIVE_S      → keep as constant: 5
+  SYNC_POLL_IDLE_S        → keep as constant: 30
+  SYNC_DR_EVERY_N         → keep as constant: 20
+  SYNC_STALE_ROW_S        → keep as constant: 300
+  SYNC_HEALTHZ_PORT       → keep configurable (port conflicts are real)
+  SYNC_HEALTHZ_TIMEOUT_S  → keep as constant: 60
+  ```
+
+  **What to do:**
+  - In `src/sync/daemon.py`, replace the five `int(os.getenv("SYNC_POLL_ACTIVE_S", "5"))` style reads with module-level constants (`_POLL_ACTIVE_S = 5`, etc.)
+  - Keep `SYNC_HEALTHZ_PORT = int(os.getenv("SYNC_HEALTHZ_PORT", "8765"))`
+  - Remove the 5 timing vars from `src/config.py` if exported there
+  - Remove them from `.env.example`
+  - In `docs/runbooks/sync-worker.md`, update the "Tunables" section to list only `SYNC_HEALTHZ_PORT`
+
+  **Acceptance:**
+  - `grep -r "SYNC_POLL_ACTIVE_S\|SYNC_POLL_IDLE_S\|SYNC_DR_EVERY_N\|SYNC_STALE_ROW_S\|SYNC_HEALTHZ_TIMEOUT_S" src/ .env.example` returns nothing
+  - `SYNC_HEALTHZ_PORT` still works (verify the daemon binds to a custom port when the env var is set)
+  - `python -m pytest tests/test_sync_daemon.py -q` passes green
+
+---
+
+### OE-6. Delete per-backend storage test files (depends on OE-1)
+
+- [x] **Remove redundant storage test files** — done alongside OE-1. All 7 `tests/test_storage_*.py` files deleted; the zero-result alert cutoff behavior (the only uncovered application-level logic) was ported to `tests/test_analytics.py`.
+
+  **Files to delete:**
+  - `tests/test_storage_cms.py`
+  - `tests/test_storage_audit.py`
+  - `tests/test_storage_analytics.py`
+  - `tests/test_storage_notification.py`
+  - `tests/test_storage_pipelines.py`
+  - `tests/test_storage_preferences.py`
+
+  **Before deleting:** For each file, scan for any test cases that assert application-level behavior (e.g. "expired CMS posts are excluded," "DuckDB preference upsert is idempotent"). If any such cases exist and aren't covered by the higher-level test files (`test_cms.py`, `test_pipelines.py`, `test_admin.py`), port them there first.
+
+  **What to do:**
+  - Run `python -m pytest tests/ -q` before and after deletion to confirm no regressions
+  - Delete the 6 files
+  - Remove any `conftest.py` fixtures used exclusively by these files
+
+  **Acceptance:**
+  - All 6 files are gone
+  - `python -m pytest tests/ -q --ignore=tests/test_load_smoke.py --ignore=tests/test_wcag_axe.py --ignore=tests/test_nav_render.py` passes with the same or fewer test failures as before
+  - No remaining test file imports from `src.storage.cms_storage`, `src.storage.audit_storage`, etc.
+
+---
+
 ## How to use this file with Claude
 
 > "Read TODO.md and complete item #3" — picks up the cards.py split.
