@@ -20,11 +20,11 @@ Analytics events are stored in a dedicated `user_data.search_analytics` table in
 Admins and Stewards can access the **Search Gaps** report in the Admin dashboard. This report filters the analytics for searches where `results_count = 0`, sorted by most recent.
 
 ## Implementation Details
-- **Protocol:** `AnalyticsStorage` defines the interface for tracking and retrieval.
+- **Module:** `src/analytics.py` — `track_search`, `get_zero_result_searches`, `get_zero_result_alerts`; branches on demo mode like the other data-layer modules.
 - **Integration:** Hooked into `src/pages/search.py` immediately following the hybrid search execution.
 - **Privacy:** Only records searches from authenticated users; search text is stored as-is without further processing.
 
 ## Initial Scaffolding
-- Implemented `src/storage/analytics_storage.py` with DuckDB, Demo, and Fake backends.
+- Implemented the analytics data layer (now `src/analytics.py`) with DuckDB and demo paths.
 - Updated `src/pages/search.py` to track all search events.
 - Added "Search gaps" section to the Admin dashboard Insights tab.

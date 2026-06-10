@@ -173,28 +173,29 @@ At startup the app opens the catalog file and <code>ATTACH</code>es the user dat
 <p>The design system CSS is injected via <code>st.markdown('<style>...</style>')</code> at startup. All Unity Catalog identifiers (<code>catalog.schema.table</code>) are rendered in <code>JetBrains Mono</code>. The only accent color is oxidized red <code>#B8362A</code> (CSS variable <code>--accent</code>).</p>
 <hr>
 </section>
-<section class="section" id="storage-abstraction">
-<h2>Storage abstraction</h2>
-<p>Per-entity storage backends live under <code>src/storage/</code> and collapse the
-demo / DuckDB branching that used to be duplicated across <code>cms.py</code>,
-<code>pipelines.py</code>, <code>personalization.py</code>, and <code>audit.py</code>.</p>
+<section class="section" id="storage-pattern">
+<h2>Storage pattern</h2>
+<p>Each data-layer module branches inline on <code>is_demo_mode()</code>: demo mode
+reads and writes <code>st.session_state</code>, otherwise rows persist to
+<code>user_data.*</code> tables in DuckDB.</p>
 <table class="status-table">
 <thead>
-<tr><th>Entity</th><th>Module</th><th>Backends</th></tr>
+<tr><th>Entity</th><th>Module</th><th>Demo store</th></tr>
 </thead>
 <tbody>
-<tr><td>CMS posts</td><td><code>src/storage/cms_storage.py</code></td><td>Demo (session), DuckDB, Fake</td></tr>
-<tr><td>Pipeline definitions / runs</td><td><code>src/storage/pipeline_storage.py</code></td><td>Demo (session), DuckDB, Fake</td></tr>
-<tr><td>User preferences / site settings</td><td><code>src/storage/preference_storage.py</code></td><td>Demo (no-op), DuckDB, Fake</td></tr>
-<tr><td>Audit log / business name overrides</td><td><code>src/storage/audit_storage.py</code></td><td>Demo (session), DuckDB, Fake</td></tr>
+<tr><td>CMS posts</td><td><code>src/cms.py</code></td><td><code>_demo_cms_posts</code> (session)</td></tr>
+<tr><td>Pipeline definitions / runs</td><td><code>src/pipelines.py</code></td><td><code>_demo_pipelines</code> / <code>_demo_run_<id></code> (session)</td></tr>
+<tr><td>User preferences / site settings</td><td><code>src/personalization.py</code></td><td>no-op (defaults apply)</td></tr>
+<tr><td>Audit log / business name overrides</td><td><code>src/audit.py</code></td><td><code>demo_audit_log</code>, <code>demo_business_names</code>, <code>demo_table_business_names</code> (session)</td></tr>
+<tr><td>Notifications</td><td><code>src/notifications.py</code></td><td><code>_demo_notifications</code> (session)</td></tr>
+<tr><td>Search analytics</td><td><code>src/analytics.py</code></td><td><code>demo_analytics</code> (session)</td></tr>
 </tbody>
 </table>
-Each entity has a <code>Protocol</code> defining its read/write surface and a
-factory in <code>src/storage/__init__.py</code> that picks the backend at call time
-(<code>is_demo_mode()</code> → demo, else <code>_duckdb_available()</code> → DuckDB,
-otherwise raise — Databricks-direct writes were removed in TODO #7).
-The <code>Fake*Storage</code> variants are session-free in-memory implementations
-used by unit tests. See ADR 005 for the design rationale.
+The earlier Protocol-based <code>src/storage/</code> layer (ADR 005) was collapsed
+in the 2026-06 over-engineering audit — the abstraction tripled the code
+per entity for a test-isolation benefit that patching <code>is_demo_mode()</code>
+achieves directly. Databricks-direct writes were removed in TODO #7;
+the sidecar daemon is the sole Databricks writer.
 <hr>
 </section>
 <section class="section" id="security-model">

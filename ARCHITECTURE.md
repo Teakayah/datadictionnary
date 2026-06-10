@@ -91,25 +91,26 @@ The design system CSS is injected via `st.markdown('<style>...</style>')` at sta
 
 ---
 
-## Storage abstraction
+## Storage pattern
 
-Per-entity storage backends live under `src/storage/` and collapse the
-demo / DuckDB branching that used to be duplicated across `cms.py`,
-`pipelines.py`, `personalization.py`, and `audit.py`.
+Each data-layer module branches inline on `is_demo_mode()`: demo mode
+reads and writes `st.session_state`, otherwise rows persist to
+`user_data.*` tables in DuckDB.
 
-| Entity | Module | Backends |
+| Entity | Module | Demo store |
 | -- | -- | -- |
-| CMS posts | `src/storage/cms_storage.py` | Demo (session), DuckDB, Fake |
-| Pipeline definitions / runs | `src/storage/pipeline_storage.py` | Demo (session), DuckDB, Fake |
-| User preferences / site settings | `src/storage/preference_storage.py` | Demo (no-op), DuckDB, Fake |
-| Audit log / business name overrides | `src/storage/audit_storage.py` | Demo (session), DuckDB, Fake |
+| CMS posts | `src/cms.py` | `_demo_cms_posts` (session) |
+| Pipeline definitions / runs | `src/pipelines.py` | `_demo_pipelines` / `_demo_run_<id>` (session) |
+| User preferences / site settings | `src/personalization.py` | no-op (defaults apply) |
+| Audit log / business name overrides | `src/audit.py` | `demo_audit_log`, `demo_business_names`, `demo_table_business_names` (session) |
+| Notifications | `src/notifications.py` | `_demo_notifications` (session) |
+| Search analytics | `src/analytics.py` | `demo_analytics` (session) |
 
-Each entity has a `Protocol` defining its read/write surface and a
-factory in `src/storage/__init__.py` that picks the backend at call time
-(`is_demo_mode()` → demo, else `_duckdb_available()` → DuckDB,
-otherwise raise — Databricks-direct writes were removed in TODO #7).
-The `Fake*Storage` variants are session-free in-memory implementations
-used by unit tests. See ADR 005 for the design rationale.
+The earlier Protocol-based `src/storage/` layer (ADR 005) was collapsed
+in the 2026-06 over-engineering audit — the abstraction tripled the code
+per entity for a test-isolation benefit that patching `is_demo_mode()`
+achieves directly. Databricks-direct writes were removed in TODO #7;
+the sidecar daemon is the sole Databricks writer.
 
 ---
 
