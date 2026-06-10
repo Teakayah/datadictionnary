@@ -235,30 +235,12 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
     with st.expander(t("help.discovery_expander")):
         st.markdown(t("help.discovery_content"))
 
-    _disc_tab_labels = [
-        t("personalization.tab_notable"),
-        t("personalization.tab_bookmarks"),
-        t("personalization.tab_recent"),
-        t("personalization.tab_recommended"),
-    ]
-
-    # Remap stored label → current locale whenever locale has changed.
-    # discovery_active_tab holds a translated string; after a language switch
-    # the stored value is stale and won't match any option in _disc_tab_labels,
-    # causing the segmented_control to silently reset to the first tab.
-    # _disc_tab_idx is locale-independent so we use it to remap.
-    _stored = st.session_state.get("discovery_active_tab")
-    if _stored not in _disc_tab_labels:
-        _disc_idx = st.session_state.get("_disc_tab_idx", 0)
-        st.session_state["discovery_active_tab"] = (
-            _disc_tab_labels[_disc_idx]
-            if 0 <= _disc_idx < len(_disc_tab_labels)
-            else _disc_tab_labels[0]
-        )
+    _disc_tabs = ["notable", "bookmarks", "recent", "recommended"]
 
     _disc_active = st.segmented_control(
         "discovery_tabs",
-        options=_disc_tab_labels,
+        options=_disc_tabs,
+        format_func=lambda x: t(f"personalization.tab_{x}"),
         key="discovery_active_tab",
         label_visibility="collapsed",
         selection_mode="single",
@@ -266,18 +248,15 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
 
     # Prevent deselecting all tabs (forces at least one to be active).
     if _disc_active is None:
-        _disc_active = _disc_tab_labels[st.session_state.get("_disc_tab_idx", 0)]
+        _disc_active = "notable"
 
-    if _disc_active in _disc_tab_labels:
-        st.session_state["_disc_tab_idx"] = _disc_tab_labels.index(_disc_active)
-
-    if _disc_active == _disc_tab_labels[0]:
+    if _disc_active == "notable":
         _render_notable_tab(groups, get_authorized_tables_fn, pref_delete_fn, pref_upsert_fn)
-    elif _disc_active == _disc_tab_labels[1]:
+    elif _disc_active == "bookmarks":
         _render_bookmarks_tab(groups, get_authorized_tables_fn, pref_delete_fn, pref_upsert_fn)
-    elif _disc_active == _disc_tab_labels[2]:
+    elif _disc_active == "recent":
         _render_recent_tab(groups, get_authorized_tables_fn, pref_delete_fn, pref_upsert_fn)
-    elif _disc_active == _disc_tab_labels[3]:
+    elif _disc_active == "recommended":
         _render_recommended_tab(groups, get_authorized_tables_fn, pref_delete_fn, pref_upsert_fn)
 
 
