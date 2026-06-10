@@ -20,6 +20,7 @@ def is_demo_mode() -> bool:
 from src.i18n import t  # noqa: E402
 from src.config import (  # noqa: E402
     MOCK_DEPT,
+    pipelines_enabled,
 )
 # Runtime flags kept as inline reads so per-test env overrides are picked up
 # on every AppTest execution without hitting the src.config module cache.
@@ -146,7 +147,7 @@ render_header(
     user_name=st.session_state.get("user_name", ""),
     active_tab=current_tab,
     show_admin=is_admin(),
-    show_pipelines=is_pipeline_user() or is_admin(),
+    show_pipelines=pipelines_enabled() and (is_pipeline_user() or is_admin()),
 )
 st.markdown('<div class="dd-page" role="main" aria-live="polite">', unsafe_allow_html=True)
 

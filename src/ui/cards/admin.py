@@ -32,10 +32,10 @@ from src.auth import is_admin
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import _get_write_connection, run_query
-from src.storage import (
-    get_analytics_storage,
-    get_business_name_override_storage,
-    get_table_business_name_override_storage,
+from src.analytics import get_zero_result_searches
+from src.audit import (
+    list_pending_business_names,
+    list_pending_table_business_names,
 )
 from src.i18n import t, format_number, format_date
 from src.personalization import is_editing_enabled, set_editing_enabled
@@ -163,7 +163,7 @@ def get_sync_queue_stats() -> dict:
 
 def get_search_analytics() -> pd.DataFrame:
     """Return the last 50 zero-result searches."""
-    data = get_analytics_storage().get_zero_result_searches(50)
+    data = get_zero_result_searches(50)
     if not data:
         return pd.DataFrame(columns=["query", "user_email", "timestamp"])
     return pd.DataFrame(data)
@@ -510,7 +510,7 @@ def _render_pending_reviews_section():
         unsafe_allow_html=True,
     )
     try:
-        pending = get_business_name_override_storage().list_pending()
+        pending = list_pending_business_names()
     except Exception as exc:
         logging.warning("Could not load pending reviews: %s", exc)
         pending = []
@@ -603,7 +603,7 @@ def _render_pending_table_friendly_names_section():
         unsafe_allow_html=True,
     )
     try:
-        pending = get_table_business_name_override_storage().list_pending()
+        pending = list_pending_table_business_names()
     except Exception as exc:
         logging.warning("Could not load pending table friendly names: %s", exc)
         pending = []

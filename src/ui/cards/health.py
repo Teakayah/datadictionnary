@@ -194,10 +194,10 @@ def _render_priority_actions(undocumented: pd.DataFrame):
 
 def _render_zero_result_alerts():
     """Render steward warnings for search terms returning zero results for >7 days."""
-    from src.storage import get_analytics_storage
-    
+    from src.analytics import get_zero_result_alerts
+
     try:
-        alerts = get_analytics_storage().get_zero_result_alerts(7)
+        alerts = get_zero_result_alerts(7)
         if not alerts:
             return
             

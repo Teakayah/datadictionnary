@@ -161,3 +161,77 @@ def test_search_all_metadata_with_semantic_search():
                     mock_semantic.assert_called_once_with("some-query")
                     mock_fetch.assert_called_once_with(["cat.sch.tab1"], ("group1",))
 
+
+def test_hybrid_fusion_semantic_results_influence_ranking():
+    """A strong semantic hit must outrank a keyword hit with a higher BM25 score."""
+    from src.db.queries import search_all_metadata
+    import pandas as pd
+
+    search_all_metadata.clear()
+
+    keyword_df = pd.DataFrame(
+        {
+            "full_name": ["cat.sch.kw_winner", "cat.sch.sem_winner"],
+            "table_description": ["keyword favourite", "semantic favourite"],
+            "_score": [3, 2],
+        }
+    )
+
+    with patch.dict(os.environ, {"ENABLE_SEMANTIC_SEARCH": "true"}):
+        with patch("src.db.queries._search_keywords", return_value=keyword_df.copy()):
+            # BM25 alone (semantic disabled inside semantic_search → []) keeps kw_winner first
+            with patch("src.semantic.semantic_search", return_value=[]):
+                bm25_only = search_all_metadata("some-query", ("group1",))
+            search_all_metadata.clear()
+
+        with patch("src.db.queries._search_keywords", return_value=keyword_df.copy()):
+            # Semantic ranks sem_winner first: 0.7*0.4 + 0.3*1.0 = 0.58 > 0.7*0.6 = 0.42
+            with patch(
+                "src.semantic.semantic_search", return_value=["cat.sch.sem_winner"]
+            ):
+                hybrid = search_all_metadata("some-query", ("group1",))
+            search_all_metadata.clear()
+
+    assert bm25_only["full_name"].tolist() == ["cat.sch.kw_winner", "cat.sch.sem_winner"]
+    assert hybrid["full_name"].tolist() == ["cat.sch.sem_winner", "cat.sch.kw_winner"]
+    assert "_score" not in hybrid.columns
+    assert "_hybrid_score" not in hybrid.columns
+
+
+def test_hybrid_fusion_appends_semantic_only_hits():
+    """Semantic hits missing from keyword results are fetched and appended."""
+    from src.db.queries import search_all_metadata
+    import pandas as pd
+
+    search_all_metadata.clear()
+
+    keyword_df = pd.DataFrame(
+        {
+            "full_name": ["cat.sch.kw_only"],
+            "table_description": ["keyword hit"],
+            "_score": [5],
+        }
+    )
+    fetched_df = pd.DataFrame(
+        {
+            "full_name": ["cat.sch.sem_only"],
+            "table_description": ["semantic hit"],
+            "_score": [1],
+        }
+    )
+
+    with patch.dict(os.environ, {"ENABLE_SEMANTIC_SEARCH": "true"}):
+        with patch("src.db.queries._search_keywords", return_value=keyword_df):
+            with patch(
+                "src.semantic.semantic_search", return_value=["cat.sch.sem_only"]
+            ):
+                with patch(
+                    "src.db.queries._fetch_metadata_for_fns", return_value=fetched_df
+                ) as mock_fetch:
+                    res = search_all_metadata("some-query", ("group1",))
+        search_all_metadata.clear()
+
+    mock_fetch.assert_called_once_with(["cat.sch.sem_only"], ("group1",))
+    # Exact keyword match (0.7) still beats semantic-only hit (0.3), but both present
+    assert res["full_name"].tolist() == ["cat.sch.kw_only", "cat.sch.sem_only"]
+

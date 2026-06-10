@@ -57,12 +57,14 @@ class TestIsPipelineUser:
 
     def test_true_when_group_matches(self, monkeypatch):
         """is_pipeline_user returns True when user belongs to PIPELINE_GROUPS."""
+        monkeypatch.setenv("ENABLE_PIPELINES", "true")
         monkeypatch.setenv("PIPELINE_GROUPS", "pipe_group")
         monkeypatch.setattr("src.auth.st.session_state", {"user_groups": ["pipe_group", "other_group"]})
         assert is_pipeline_user() is True
 
     def test_true_with_multiple_env_groups(self, monkeypatch):
         """is_pipeline_user works with comma-separated PIPELINE_GROUPS."""
+        monkeypatch.setenv("ENABLE_PIPELINES", "true")
         monkeypatch.setenv("PIPELINE_GROUPS", "other_group, pipe_group ")
         monkeypatch.setattr("src.auth.st.session_state", {"user_groups": ["pipe_group"]})
         assert is_pipeline_user() is True
