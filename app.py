@@ -43,9 +43,7 @@ st.set_page_config(
 # ── Design system CSS ──────────────────────────────────────────────────────────
 from src.ui.css import render_css  # noqa: E402
 render_css()  # inject design-system CSS on every render
-from src.db.queries import (  # noqa: E402
-    get_authorized_tables,
-)
+
 from src.personalization import (  # noqa: E402
     _pref_upsert, _pref_delete, _sync_prefs_to_session
 )
@@ -166,11 +164,11 @@ st.session_state["_dd_current_tab"] = current_tab
 if current_tab == "search":
     render_search_page(query_groups)
 elif current_tab == "catalog":
-    render_catalog_browser(query_groups, get_authorized_tables)
+    render_catalog_browser(query_groups)
 elif current_tab == "glossary":
     render_glossary(query_groups)
 elif current_tab == "discovery":
-    render_discovery(query_groups, get_authorized_tables, _pref_delete, _pref_upsert)
+    render_discovery(query_groups, _pref_delete, _pref_upsert)
 elif current_tab == "health":
     render_health(query_groups)
 elif current_tab == "pipelines":

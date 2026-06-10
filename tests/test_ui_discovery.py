@@ -24,7 +24,8 @@ def render_discovery_page_app():
             "dq_status": ["pass", "pass", "fail"]
         })
 
-    render_discovery(["finance", "sales"], mock_get_auth_tables)
+    with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=mock_get_auth_tables):
+        render_discovery(["finance", "sales"])
 
 def render_discovery_page_app_empty():
     import pandas as pd
@@ -33,7 +34,8 @@ def render_discovery_page_app_empty():
     def mock_get_auth_tables(groups):
         return pd.DataFrame()
 
-    render_discovery(["finance", "sales"], mock_get_auth_tables)
+    with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=mock_get_auth_tables):
+        render_discovery(["finance", "sales"])
 
 class TestDiscoveryTabs:
     @patch("src.ui.cards.discovery.get_active_posts")
