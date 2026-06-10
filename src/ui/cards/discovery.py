@@ -254,7 +254,7 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
     )
 
     # Prevent deselecting all tabs (forces at least one to be active).
-    if not _disc_active:
+    if _disc_active is None:
         _disc_active = "notable"
 
     if _disc_active == "notable":

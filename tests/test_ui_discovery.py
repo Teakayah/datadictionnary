@@ -45,36 +45,42 @@ class TestDiscoveryTabs:
         html = [m.value for m in at.markdown]
         assert any(en_locale["personalization"]["tab_notable"] in val for val in html)
 
+    @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
-    def test_discovery_tabs_render_bookmarks(self, mock_get_posts):
+    def test_discovery_tabs_render_bookmarks(self, mock_get_posts, mock_seg_ctrl):
         mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = "bookmarks"
         at = AppTest.from_function(render_discovery_page_app).run()
 
-        at.button_group(key="discovery_active_tab").set_value(["bookmarks"])
+
         at.session_state["bookmarks"] = {"main.sales.orders"}
         at.run()
         html = [m.value for m in at.markdown]
         assert any("My Bookmarks" in val for val in html)
         assert any("orders" in val for val in html)
 
+    @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
-    def test_discovery_tabs_render_recent(self, mock_get_posts):
+    def test_discovery_tabs_render_recent(self, mock_get_posts, mock_seg_ctrl):
         mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = "recent"
         at = AppTest.from_function(render_discovery_page_app).run()
 
-        at.button_group(key="discovery_active_tab").set_value(["recent"])
+
         at.session_state["recent_views"] = ["main.finance.ledger"]
         at.run()
         html = [m.value for m in at.markdown]
         assert any(en_locale["personalization"]["tab_recent"] in val for val in html)
         assert any("ledger" in val for val in html)
 
+    @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
-    def test_discovery_recommended_tab(self, mock_get_posts):
+    def test_discovery_recommended_tab(self, mock_get_posts, mock_seg_ctrl):
         mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = "recommended"
         at = AppTest.from_function(render_discovery_page_app).run()
 
-        at.button_group(key="discovery_active_tab").set_value(["recommended"])
+
 
         with patch("src.ui.cards.discovery._get_recommended_tables", return_value=["main.sales.orders"]):
             at.run()
@@ -133,12 +139,21 @@ class TestDiscoveryTabs:
             btn.click().run()
             assert "main.sales.orders" not in at.session_state["bookmarks"]
 
+    @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
+<<<<<<< HEAD
     def test_discovery_tabs_render_col_bookmarks(self, mock_get_posts):
         mock_get_posts.return_value = []
         at = AppTest.from_function(render_discovery_page_app).run()
 
         at.button_group(key="discovery_active_tab").set_value(["bookmarks"])
+=======
+    def test_discovery_tabs_render_col_bookmarks(self, mock_get_posts, mock_seg_ctrl):
+        mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = "bookmarks"
+        at = AppTest.from_function(render_discovery_page_app).run()
+
+>>>>>>> origin/validator-fix-discovery-tabs-15859312043213885173
         at.session_state["bookmarks"] = set()
         at.session_state["col_bookmarks"] = {"main.sales.orders::amount"}
         at.run()
@@ -147,12 +162,14 @@ class TestDiscoveryTabs:
         assert any("amount" in val for val in html)
         assert any("main · sales · orders" in val for val in html)
 
+    @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
-    def test_discovery_col_bookmark_click(self, mock_get_posts):
+    def test_discovery_col_bookmark_click(self, mock_get_posts, mock_seg_ctrl):
         mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = "bookmarks"
         at = AppTest.from_function(render_discovery_page_app).run()
 
-        at.button_group(key="discovery_active_tab").set_value(["bookmarks"])
+
         at.session_state["bookmarks"] = set()
         at.session_state["col_bookmarks"] = {"main.sales.orders::amount"}
         at.run()
@@ -167,12 +184,14 @@ class TestDiscoveryTabs:
             btn.click().run()
             assert at.query_params["tab"] == "search" or at.query_params["tab"] == ["search"]
 
+    @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
-    def test_discovery_col_bookmark_remove(self, mock_get_posts):
+    def test_discovery_col_bookmark_remove(self, mock_get_posts, mock_seg_ctrl):
         mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = "bookmarks"
         at = AppTest.from_function(render_discovery_page_app).run()
 
-        at.button_group(key="discovery_active_tab").set_value(["bookmarks"])
+
         at.session_state["bookmarks"] = set()
         at.session_state["col_bookmarks"] = {"main.sales.orders::amount"}
         at.run()
@@ -268,12 +287,14 @@ class TestDiscoveryTabs:
         mock_query.side_effect = Exception("DB error")
         assert _get_recommended_tables(["finance"], auth_tables) == []
 
+    @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
-    def test_discovery_recommended_tab_empty(self, mock_get_posts):
+    def test_discovery_recommended_tab_empty(self, mock_get_posts, mock_seg_ctrl):
         mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = "recommended"
         at = AppTest.from_function(render_discovery_page_app).run()
 
-        at.button_group(key="discovery_active_tab").set_value(["recommended"])
+
 
         with patch("src.ui.cards.discovery._get_recommended_tables", return_value=[]):
             at.run()
@@ -282,44 +303,52 @@ class TestDiscoveryTabs:
             assert any(en_locale["personalization"]["recommended_title"] in val for val in html)
             assert any(en_locale["personalization"]["recommended_empty"] in m.value for m in at.info)
 
+    @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
-    def test_discovery_recommended_tab_all_empty(self, mock_get_posts):
+    def test_discovery_recommended_tab_all_empty(self, mock_get_posts, mock_seg_ctrl):
         mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = "recommended"
         at = AppTest.from_function(render_discovery_page_app_empty).run()
 
-        at.button_group(key="discovery_active_tab").set_value(["recommended"])
+
         at.run()
 
         assert any(en_locale["personalization"]["recommended_empty"] in m.value for m in at.info)
 
+    @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
-    def test_discovery_recent_tab_empty_auth(self, mock_get_posts):
+    def test_discovery_recent_tab_empty_auth(self, mock_get_posts, mock_seg_ctrl):
         mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = "recent"
         at = AppTest.from_function(render_discovery_page_app_empty).run()
 
-        at.button_group(key="discovery_active_tab").set_value(["recent"])
+
         at.session_state["recent_views"] = ["main.finance.ledger"]
         at.run()
 
         assert any(en_locale["personalization"]["no_recent"] in m.value for m in at.info)
 
+    @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
-    def test_discovery_bookmarks_tab_empty_auth(self, mock_get_posts):
+    def test_discovery_bookmarks_tab_empty_auth(self, mock_get_posts, mock_seg_ctrl):
         mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = "bookmarks"
         at = AppTest.from_function(render_discovery_page_app_empty).run()
 
-        at.button_group(key="discovery_active_tab").set_value(["bookmarks"])
+
         at.session_state["bookmarks"] = {"main.finance.ledger"}
         at.run()
 
         assert any(en_locale["personalization"]["no_bookmarks"] in m.value for m in at.info)
 
+    @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
-    def test_discovery_notable_tab_empty_auth(self, mock_get_posts):
+    def test_discovery_notable_tab_empty_auth(self, mock_get_posts, mock_seg_ctrl):
         mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = "notable"
         at = AppTest.from_function(render_discovery_page_app_empty).run()
 
-        at.button_group(key="discovery_active_tab").set_value(["notable"])
+
         at.session_state["group_filter"] = "finance"
         at.run()
 
