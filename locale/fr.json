@@ -102,7 +102,20 @@
     "showing_first_50": "Affichage des 50 premiers résultats sur {count}.",
     "table_desc_placeholder": "Décrivez l'objectif de la table, son contenu et les mises en garde importantes...",
     "steward_email_placeholder": "ex. data.steward@example.com",
-    "no_grants": "Aucune autorisation enregistrée."
+    "no_grants": "Aucune autorisation enregistrée.",
+    "edit_table_help": "Edit table metadata",
+    "edit_friendly_name": "Edit friendly name",
+    "edit_friendly_name_help": "Propose bilingual table name + definition — admin approval required before write-back to Unity Catalog",
+    "friendly_name_en": "Friendly name (English)",
+    "friendly_name_fr": "Friendly name (Français)",
+    "friendly_definition_en": "Definition (English)",
+    "friendly_definition_fr": "Definition (Français)",
+    "friendly_name_pending_notice": "Editors propose changes; an admin must approve before they reach Unity Catalog.",
+    "expand_lineage": "Expand lineage graph",
+    "no_columns": "No columns recorded.",
+    "export_dictionary_help": "Download schema dictionary as CSV",
+    "placeholder_desc": "Describe the table's contents, grain, and common use cases...",
+    "placeholder_steward": "e.g. data.steward@example.com"
   },
   "editor": {
     "save": "Enregistrer",
@@ -411,5 +424,23 @@
     "strip_label_many": "{count} mises à jour sur des favoris",
     "dismiss": "Ignorer",
     "mark_all_read": "Tout marquer comme lu"
+  },
+  "date": {
+    "months": {
+      "1": "janv.",
+      "2": "févr.",
+      "3": "mars",
+      "4": "avr.",
+      "5": "mai",
+      "6": "juin",
+      "7": "juil.",
+      "8": "août",
+      "9": "sept.",
+      "10": "oct.",
+      "11": "nov.",
+      "12": "déc."
+    },
+    "short": "{day} {month}",
+    "long": "{day} {month} {year} {time} UTC"
   }
 }
