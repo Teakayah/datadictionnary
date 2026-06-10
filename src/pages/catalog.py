@@ -4,8 +4,9 @@ import logging
 import html as _html
 from src.i18n import t
 from src.ui.cards._shared import _dq_grade
+from src.db.queries import get_authorized_tables
 
-def render_catalog_browser(groups, get_authorized_tables_fn):
+def render_catalog_browser(groups):
     st.html(f'''
     <div class="dd-search-hero">
       <div class="dd-eyebrow">{_html.escape(t("catalog.eyebrow"))}</div>
@@ -18,7 +19,7 @@ def render_catalog_browser(groups, get_authorized_tables_fn):
         st.markdown(t("help.catalog_content"))
 
     try:
-        all_data = get_authorized_tables_fn(groups)
+        all_data = get_authorized_tables(groups)
         if all_data is None or all_data.empty or 'catalog_name' not in all_data.columns:
             st.info(t("catalog.no_catalogs"))
             return
