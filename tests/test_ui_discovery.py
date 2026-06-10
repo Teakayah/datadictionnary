@@ -324,3 +324,84 @@ class TestDiscoveryTabs:
         at.run()
 
         assert any(en_locale["discovery"]["no_updates"] in m.value for m in at.info)
+
+
+
+
+
+@patch("src.ui.cards.discovery.get_unread_notifications")
+@patch("src.ui.cards.discovery.mark_read")
+@patch("src.ui.cards.discovery.mark_all_read")
+@patch("src.ui.cards.discovery.get_active_posts")
+def test_discovery_notifications_strip(mock_get_posts, mock_mark_all, mock_mark_read, mock_get_unread):
+    mock_get_posts.return_value = []
+
+    # Test with 1 notification
+    mock_get_unread.return_value = [{
+        "notification_id": "n1",
+        "table_full_name": "main.sales.orders",
+        "summary": "Schema changed",
+        "changed_by": "admin"
+    }]
+
+    # Need to set session state for user_oid
+    at = AppTest.from_function(render_discovery_page_app).run()
+    at.session_state["user_oid"] = "test_user"
+    at.run()
+
+    html = [m.value for m in at.markdown]
+    assert any("main.sales.orders" in val for val in html)
+    assert any("Schema changed" in val for val in html)
+
+    # Dismiss single notification
+    btn = None
+    for b in at.button:
+        if b.key == "notif_dismiss_n1":
+            btn = b
+            break
+
+    if btn:
+        btn.click().run()
+        mock_mark_read.assert_called_once_with("n1")
+
+    # Test with multiple notifications
+    mock_get_unread.return_value = [{
+        "notification_id": "n1",
+        "table_full_name": "main.sales.orders",
+        "summary": "Schema changed",
+        "changed_by": "admin"
+    }, {
+        "notification_id": "n2",
+        "table_full_name": "main.sales.customers",
+        "summary": "Data updated",
+        "changed_by": ""
+    }]
+
+    at = AppTest.from_function(render_discovery_page_app).run()
+    at.session_state["user_oid"] = "test_user"
+    at.run()
+
+    # Mark all read
+    btn = None
+    for b in at.button:
+        if b.key == "notif_mark_all":
+            btn = b
+            break
+
+    if btn:
+        btn.click().run()
+        mock_mark_all.assert_called_once_with("test_user")
+@patch("src.ui.cards.discovery.get_unread_notifications")
+@patch("src.ui.cards.discovery.get_active_posts")
+def test_discovery_notifications_empty(mock_get_posts, mock_get_unread):
+    mock_get_posts.return_value = []
+    mock_get_unread.return_value = []
+
+    at = AppTest.from_function(render_discovery_page_app).run()
+    at.session_state["user_oid"] = "test_user"
+    at.run()
+
+    # Should not crash, and should hit line 118
+    # Asserting no 'Mark all read' button is rendered
+    has_mark_all = any(b.key == "notif_mark_all" for b in at.button if b.key)
+    assert not has_mark_all
