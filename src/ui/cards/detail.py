@@ -15,7 +15,7 @@ from src.audit import save_table_metadata, save_table_business_name
 from src.auth import is_admin
 from src.comments import get_table_comments, save_comment
 from src.personalization import is_power_user as is_editor
-from src.audit import get_table_business_name_override
+from src.storage import get_table_business_name_override_storage
 from src.config import CATALOG_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import (
@@ -172,7 +172,7 @@ def render_table_business_name_editor(
     # on top of that will create a new pending row.
     if not any([current_name_en, current_name_fr, current_def_en, current_def_fr]):
         try:
-            override = get_table_business_name_override(table_full_name)
+            override = get_table_business_name_override_storage().get_for_table(table_full_name)
             current_name_en = override.get("business_name_en", "")
             current_name_fr = override.get("business_name_fr", "")
             current_def_en  = override.get("business_definition_en", "")
@@ -204,7 +204,7 @@ def render_table_business_name_editor(
                     st.error(t("detail.unauthorized"))
                 except ValueError as e:
                     logging.error("Validation error for %s: %s", table_full_name, e, exc_info=True)
-                    st.error(t("common.error"))
+                    st.error(str(e))
                 except Exception as e:
                     logging.error("Friendly-name save failed for %s: %s", table_full_name, e, exc_info=True)
                     st.error(t("common.error"))
