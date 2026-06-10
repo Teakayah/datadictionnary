@@ -144,3 +144,29 @@ class TestFlushPrefix:
         with patch("redis.asyncio.from_url", return_value=mock_client):
             count = _run(rc.flush_prefix("ddic:"))
         assert count == 0
+
+
+# ── delete ────────────────────────────────────────────────────────────────────
+
+class TestDelete:
+    def setup_method(self):
+        _fresh_module()
+
+    def test_noop_when_redis_url_unset(self, monkeypatch):
+        monkeypatch.delenv("REDIS_URL", raising=False)
+        _run(rc.delete("key"))  # should not raise
+
+    def test_calls_delete_with_key(self, monkeypatch):
+        monkeypatch.setenv("REDIS_URL", "redis://localhost:6379")
+        mock_client = AsyncMock()
+        mock_client.delete = AsyncMock()
+        with patch("redis.asyncio.from_url", return_value=mock_client):
+            _run(rc.delete("key"))
+        mock_client.delete.assert_awaited_once_with("key")
+
+    def test_swallows_redis_error(self, monkeypatch):
+        monkeypatch.setenv("REDIS_URL", "redis://localhost:6379")
+        mock_client = AsyncMock()
+        mock_client.delete = AsyncMock(side_effect=Exception("connection refused"))
+        with patch("redis.asyncio.from_url", return_value=mock_client):
+            _run(rc.delete("key"))  # should not raise
