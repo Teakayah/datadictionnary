@@ -1,7 +1,15 @@
-## 2026-06-03 - Dialog/Tabs testing in Streamlit
-**Learning:** Testing functions wrapped in `@st.dialog` using `AppTest` often fails because the nested dialog layout state might not easily expose buttons or properties when directly triggering the component.
-**Action:** Extract the inner dialog logic to a private helper function, or unwrap the dialog via `_show_delete_cms_dialog.__wrapped__("arg")` to assert internal button clicks properly without crashing with "open() is not a valid Streamlit command".
-
-## 2026-06-03 - DuckDB testing in Pytest
-**Learning:** Instantiating DuckDB instances globally during pytest collection can cause `numpy: cannot load module more than once per process` and other import errors.
-**Action:** Isolate DuckDB initialization inside the test scope or use `patch` on `_DuckDBConn` during specific test runs instead of declaring module-level static DuckDB instances across different fixture boundaries.
+## 2024-05-27 - [Fix test_get_embedding_engine_databricks]
+**Coverage Gap:** `test_get_embedding_engine_databricks` failed due to incorrect mocking of environment variable derived config constant.
+**Learning:** When a configuration constant is derived from an environment variable and imported directly at the module level (e.g., `from src.config import DATABRICKS_EMBEDDING_ENDPOINT`), tests using `@patch.dict(os.environ, ...)` fail because the constant is resolved at import time.
+**Action:** Patch the variable directly in the module namespace where it is used (e.g., `@patch('src.semantic.DATABRICKS_EMBEDDING_ENDPOINT', 'my-endpoint')`) to reliably override the value during tests.
+## 2026-06-03 - NotificationStorage Coverage
+**Coverage Gap:** DemoNotificationStorage and DuckDBNotificationStorage in src/storage/notification_storage.py had no unit tests, leaving persistent tracking of changes untested.
+**Learning:** The application mocks dependencies deeply at the module level in tests (e.g., using a duckdb tmpfile). Exceptions from DB disconnections needed to be validated using pytest's mock framework. When using `unittest.mock.patch` to override environment variables across imported modules in Pytest fixtures, `monkeypatch` should be used instead of `importlib.reload()` sequence which could break object identity.
+**Assertion:** Created test_storage_notifications.py to instantiate local instances of DuckDBNotificationStorage and DemoNotificationStorage and execute assertions for list limits, mark read, and simulate broken DB connections.
+## 2024-06-09 - Coverage Gap: Auth Configuration Edge Cases
+**Coverage Gap:** The error branches for missing environment variables (`TENANT_ID`, `CLIENT_ID`/`API_AUDIENCE`) in both the startup check `_validate_auth_config` and the per-request validation `validate_token` were completely untested, as well as the mock authentication pathways.
+**Learning:** Testing these edge cases requires careful monkeypatching of the environment variables (e.g. `monkeypatch.delenv`) and overriding `src.api.auth.TENANT_ID`/`CLIENT_ID` which are imported at the module level.
+**Assertion:** Use `monkeypatch.setattr` on the specific module variables `src.api.auth.TENANT_ID` and `monkeypatch.delenv` to simulate missing configuration, and `pytest.raises` to ensure `RuntimeError` is correctly thrown to prevent silent bypass of authentication.
+## 2024-06-10 - Mocking Streamlit Session State and DuckDB Cursors
+**Learning:** When using Streamlit `AppTest` to verify nested UI state reliant on user sessions, the `st.session_state` properties (like `user_oid`) must be mocked and set directly on the `at.session_state` object before `at.run()`. Similarly, when mocking DuckDB connections that utilize context managers returning custom cursors, the mock must replicate the exact nested `__enter__` and `__exit__` pattern for cursors alongside providing methods like `fetchall_as_pandas` to prevent test crashes.
+**Action:** Ensure custom database adapters gracefully handle closed connections and empty query results, and properly document UI notification strips when unread notifications are mocked.
