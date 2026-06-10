@@ -191,21 +191,22 @@ def render_table_business_name_editor(
     c1, c2 = st.columns([1, 1])
     with c1:
         if st.button(t("common.save"), type="primary", use_container_width=True):
-            try:
-                save_table_business_name(
-                    table_full_name,
-                    new_name_en.strip(), new_name_fr.strip(),
-                    new_def_en.strip(),  new_def_fr.strip(),
-                )
-                st.toast(t("common.saved"))
-                st.rerun()
-            except PermissionError:
-                st.error(t("detail.unauthorized"))
-            except ValueError as e:
-                st.error(str(e))
-            except Exception as e:
-                logging.error("Friendly-name save failed for %s: %s", table_full_name, e, exc_info=True)
-                st.error(t("common.error"))
+            with st.spinner(t("common.saving")):
+                try:
+                    save_table_business_name(
+                        table_full_name,
+                        new_name_en.strip(), new_name_fr.strip(),
+                        new_def_en.strip(),  new_def_fr.strip(),
+                    )
+                    st.toast(t("common.saved"))
+                    st.rerun()
+                except PermissionError:
+                    st.error(t("detail.unauthorized"))
+                except ValueError as e:
+                    st.error(str(e))
+                except Exception as e:
+                    logging.error("Friendly-name save failed for %s: %s", table_full_name, e, exc_info=True)
+                    st.error(t("common.error"))
     with c2:
         if st.button(t("common.cancel"), help=t("help.btn_common_cancel"), use_container_width=True):
             st.rerun()
