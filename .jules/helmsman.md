@@ -37,3 +37,8 @@
 **Cluster Quirk:** Kubelet health probes might appear blocked by default-deny NetworkPolicies, leading to a temptation to add broad ingress rules.
 **Learning:** Kubelet traffic is typically exempt via the CNI (e.g., Calico, Cilium).
 **Resilience:** Never create an `ingress` NetworkPolicy rule with `ports` but no `from` selector just to explicitly allow health probes, as this creates a severe vulnerability by opening the port to all namespaces. Rely on the CNI exemption.
+## 2024-05-15 - Redis ReadOnlyRootFilesystem
+
+**Cluster Quirk:** The standard `redis:alpine` container images default to mounting the root filesystem as writable, even though Redis only needs write access to specific data and tmp volumes.
+**Learning:** Running containers with a writable root filesystem significantly increases the blast radius if an attacker achieves remote code execution.
+**Resilience:** Always set `securityContext.readOnlyRootFilesystem: true` in the pod spec. For Redis, ensure that the persistence directory (e.g., `/data`) and `/tmp` are mounted as volumes to satisfy runtime write requirements without exposing the entire OS.
