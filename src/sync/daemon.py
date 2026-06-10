@@ -15,11 +15,9 @@ Entry points:
 Environment:
     DUCKDB_PATH                — required, catalog cache file (read-only attach)
     DATABRICKS_HOST/HTTP_PATH/TOKEN — required for DR resync + write-back
-    SYNC_POLL_ACTIVE_S         — default 5  (next iter after a productive cycle)
-    SYNC_POLL_IDLE_S           — default 30 (next iter after an empty cycle)
-    SYNC_DR_EVERY_N            — default 20 (run DR resync every N cycles)
-    SYNC_STALE_ROW_S           — default 300 (rows in 'syncing' >this go back to pending)
-    SYNC_HEALTHZ_PORT          — default 8765
+    SYNC_HEALTHZ_PORT          — default 8765 (the only tunable; port
+                                 conflicts are real, timing values are not —
+                                 those are module constants below)
 """
 
 
@@ -42,12 +40,12 @@ load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 
 log = logging.getLogger("sync_daemon")
 
-# Tunables (env-overridable for tests).
-POLL_ACTIVE_S = int(os.getenv("SYNC_POLL_ACTIVE_S", "5"))
-POLL_IDLE_S = int(os.getenv("SYNC_POLL_IDLE_S", "30"))
-DR_RESYNC_EVERY_N = int(os.getenv("SYNC_DR_EVERY_N", "20"))
-STALE_ROW_TIMEOUT_S = int(os.getenv("SYNC_STALE_ROW_S", "300"))
-HEALTHZ_TIMEOUT_S = int(os.getenv("SYNC_HEALTHZ_TIMEOUT_S", "60"))
+# Timing constants. Tests monkeypatch these module attributes directly.
+POLL_ACTIVE_S = 5          # sleep after a productive cycle
+POLL_IDLE_S = 30           # sleep after an empty cycle
+DR_RESYNC_EVERY_N = 20     # run DR resync every N cycles
+STALE_ROW_TIMEOUT_S = 300  # rows in 'syncing' >this flip back to 'pending'
+HEALTHZ_TIMEOUT_S = 60     # heartbeat age above which /healthz returns 503
 
 _stop_event = threading.Event()
 _last_heartbeat: float = 0.0

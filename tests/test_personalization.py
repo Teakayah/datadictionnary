@@ -1,18 +1,20 @@
 """Tests for src/personalization.py.
 
-The DB plumbing has moved into ``src.storage.preference_storage`` (covered
-by ``tests/test_storage_preferences.py``). These tests focus on the
-higher-level concerns owned by ``src/personalization.py``:
+Covers the concerns owned by ``src/personalization.py``:
 
 - ``_user_oid`` resolution order (oid → email → 'anonymous')
-- routing the public API through the injected ``PreferenceStorage``
+- demo mode short-circuits (no DB access)
+- the DuckDB read path for ``_pref_load``
 - ``_sync_prefs_to_session`` populates ``st.session_state``
+- editing-toggle caching + admin gate
 """
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import pandas as pd
+import pytest
 import streamlit as st
 
 from src.personalization import (
@@ -21,8 +23,10 @@ from src.personalization import (
     _pref_upsert,
     _sync_prefs_to_session,
     _user_oid,
+    is_editing_enabled,
+    is_power_user,
+    set_editing_enabled,
 )
-from src.storage.preference_storage import FakePreferenceStorage
 
 
 class TestUserOid:
@@ -42,59 +46,94 @@ class TestUserOid:
         assert _user_oid() == "anonymous"
 
 
-class TestPrefRouting:
-    """The wrapper functions delegate to the injected storage backend."""
+def _mock_read_conn(rows_df):
+    """Build a get_db_connection() mock whose cursor returns ``rows_df``."""
+    conn = MagicMock()
+    cur = conn.cursor.return_value.__enter__.return_value
+    cur.fetchall_as_pandas.return_value = rows_df
+    return conn
 
-    def test_upsert_routes_to_storage(self):
+
+class TestPrefDemoMode:
+    """Demo mode is a no-op — preferences never touch the database."""
+
+    def test_upsert_skips_db(self):
         st.session_state.clear()
-        st.session_state["user_oid"] = "u1"
-        fake = FakePreferenceStorage()
-        with patch("src.personalization.get_preference_storage", return_value=fake):
+        with patch("src.personalization.is_demo_mode", return_value=True), \
+             patch("src.personalization.get_db_connection") as mock_conn:
             _pref_upsert("cat.sch.tbl", "bookmark")
-        assert fake.list_by_type("u1", "bookmark") == ["cat.sch.tbl"]
+        mock_conn.assert_not_called()
 
-    def test_delete_routes_to_storage(self):
+    def test_delete_skips_db(self):
         st.session_state.clear()
-        st.session_state["user_oid"] = "u1"
-        fake = FakePreferenceStorage()
-        fake.upsert("u1", "cat.sch.tbl", "bookmark")
-        with patch("src.personalization.get_preference_storage", return_value=fake):
+        with patch("src.personalization.is_demo_mode", return_value=True), \
+             patch("src.personalization.get_db_connection") as mock_conn:
             _pref_delete("cat.sch.tbl", "bookmark")
-        assert fake.list_by_type("u1", "bookmark") == []
+        mock_conn.assert_not_called()
 
-    def test_load_routes_to_storage(self):
+    def test_load_returns_empty(self):
+        st.session_state.clear()
+        with patch("src.personalization.is_demo_mode", return_value=True), \
+             patch("src.personalization.get_db_connection") as mock_conn:
+            assert _pref_load("bookmark") == []
+        mock_conn.assert_not_called()
+
+
+class TestPrefDuckDBPath:
+    def test_upsert_writes_row(self):
         st.session_state.clear()
         st.session_state["user_oid"] = "u1"
-        fake = FakePreferenceStorage()
-        fake.upsert("u1", "a.b.c", "bookmark")
-        fake.upsert("u1", "d.e.f", "bookmark")
-        with patch("src.personalization.get_preference_storage", return_value=fake):
-            result = _pref_load("bookmark")
-        # Newest-first ordering preserved by FakePreferenceStorage.
-        assert result == ["d.e.f", "a.b.c"]
+        conn = MagicMock()
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization.get_db_connection", return_value=conn):
+            _pref_upsert("cat.sch.tbl", "bookmark")
+        sql, params = conn.execute.call_args[0]
+        assert "INSERT INTO user_data.user_preferences" in sql
+        assert params == ["u1", "cat.sch.tbl", "bookmark"]
 
-    def test_load_passes_limit(self):
+    def test_delete_removes_row(self):
         st.session_state.clear()
         st.session_state["user_oid"] = "u1"
-        fake = FakePreferenceStorage()
-        for tbl in ("a", "b", "c", "d", "e"):
-            fake.upsert("u1", tbl, "recent")
-        with patch("src.personalization.get_preference_storage", return_value=fake):
+        conn = MagicMock()
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization.get_db_connection", return_value=conn):
+            _pref_delete("cat.sch.tbl", "bookmark")
+        sql, params = conn.execute.call_args[0]
+        assert "DELETE FROM user_data.user_preferences" in sql
+        assert params == ["u1", "cat.sch.tbl", "bookmark"]
+
+    def test_load_returns_names_and_passes_limit(self):
+        st.session_state.clear()
+        st.session_state["user_oid"] = "u1"
+        conn = _mock_read_conn(pd.DataFrame({"table_full_name": ["e", "d"]}))
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization.get_db_connection", return_value=conn):
             result = _pref_load("recent", limit=2)
         assert result == ["e", "d"]
+        cur = conn.cursor.return_value.__enter__.return_value
+        _, params = cur.execute.call_args[0]
+        assert params == {"oid": "u1", "type": "recent", "lim": 2}
+
+    def test_load_swallows_db_error(self):
+        st.session_state.clear()
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization.get_db_connection",
+                   side_effect=Exception("DB down")):
+            assert _pref_load("bookmark") == []
 
 
 class TestSyncPrefsToSession:
     def test_sync_populates_session_state(self):
         st.session_state.clear()
-        st.session_state["user_oid"] = "u1"
-        fake = FakePreferenceStorage()
-        fake.upsert("u1", "table_1", "bookmark")
-        fake.upsert("u1", "col_1", "col_bookmark")
-        fake.upsert("u1", "table_2", "recent")
-        fake.upsert("u1", "table_3", "recent")
 
-        with patch("src.personalization.get_preference_storage", return_value=fake):
+        def fake_load(pref_type, limit=20):
+            return {
+                "bookmark": ["table_1"],
+                "col_bookmark": ["col_1"],
+                "recent": ["table_3", "table_2"],
+            }[pref_type]
+
+        with patch("src.personalization._pref_load", side_effect=fake_load):
             _sync_prefs_to_session()
 
         assert st.session_state.bookmarks == {"table_1"}
@@ -102,60 +141,44 @@ class TestSyncPrefsToSession:
         # recent_views is a list (recency order), not a set.
         assert st.session_state.recent_views == ["table_3", "table_2"]
 
-from src.personalization import is_editing_enabled, set_editing_enabled, is_power_user  # noqa: E402
-
-class FakeSiteSettingStorage:
-    def __init__(self):
-        self._store = {}
-
-    def get(self, key: str) -> str | None:
-        return self._store.get(key)
-
-    def set(self, key: str, value: str, actor_email: str) -> None:
-        self._store[key] = value
 
 class TestEditingEnabled:
     def test_is_editing_enabled_cached(self):
         st.session_state.pop("_editing_enabled_cache", None)
         st.session_state["_editing_enabled_cache"] = False
-        fake = FakeSiteSettingStorage()
-        fake.set("editing_enabled", "1", "admin")
-        with patch("src.personalization.get_site_setting_storage", return_value=fake):
-            # Should return cached False, not "1" from fake
+        with patch("src.personalization._get_site_setting", return_value="1"):
+            # Should return cached False, not "1" from the backend
             assert is_editing_enabled() is False
 
     def test_is_editing_enabled_not_cached_db_1(self):
         st.session_state.pop("_editing_enabled_cache", None)
-        fake = FakeSiteSettingStorage()
-        fake.set("editing_enabled", "1", "admin")
-        with patch("src.personalization.get_site_setting_storage", return_value=fake):
+        with patch("src.personalization._get_site_setting", return_value="1"):
             assert is_editing_enabled() is True
             assert st.session_state["_editing_enabled_cache"] is True
 
     def test_is_editing_enabled_not_cached_db_0(self):
         st.session_state.pop("_editing_enabled_cache", None)
-        fake = FakeSiteSettingStorage()
-        fake.set("editing_enabled", "0", "admin")
-        with patch("src.personalization.get_site_setting_storage", return_value=fake):
+        with patch("src.personalization._get_site_setting", return_value="0"):
             assert is_editing_enabled() is False
             assert st.session_state["_editing_enabled_cache"] is False
 
     def test_is_editing_enabled_not_cached_db_none(self):
         st.session_state.pop("_editing_enabled_cache", None)
-        fake = FakeSiteSettingStorage()
-        with patch("src.personalization.get_site_setting_storage", return_value=fake):
+        with patch("src.personalization._get_site_setting", return_value=None):
             assert is_editing_enabled() is True
             assert st.session_state["_editing_enabled_cache"] is True
 
     def test_is_editing_enabled_not_cached_db_invalid(self):
         st.session_state.pop("_editing_enabled_cache", None)
-        fake = FakeSiteSettingStorage()
-        fake.set("editing_enabled", "invalid", "admin")
-        with patch("src.personalization.get_site_setting_storage", return_value=fake):
+        with patch("src.personalization._get_site_setting", return_value="invalid"):
             assert is_editing_enabled() is False
             assert st.session_state["_editing_enabled_cache"] is False
 
-import pytest
+    def test_demo_mode_defaults_to_enabled(self):
+        st.session_state.pop("_editing_enabled_cache", None)
+        with patch("src.personalization.is_demo_mode", return_value=True):
+            assert is_editing_enabled() is True
+
 
 class TestSetEditingEnabled:
     def test_set_editing_enabled_not_admin(self):
@@ -166,21 +189,28 @@ class TestSetEditingEnabled:
 
     def test_set_editing_enabled_true(self):
         st.session_state.clear()
-        fake = FakeSiteSettingStorage()
         with patch("src.personalization.is_admin", return_value=True), \
-             patch("src.personalization.get_site_setting_storage", return_value=fake):
+             patch("src.personalization._set_site_setting") as mock_set:
             set_editing_enabled(True, "admin@example.com")
-            assert fake.get("editing_enabled") == "1"
-            assert st.session_state["_editing_enabled_cache"] is True
+        mock_set.assert_called_once_with("editing_enabled", "1", "admin@example.com")
+        assert st.session_state["_editing_enabled_cache"] is True
 
     def test_set_editing_enabled_false(self):
         st.session_state.clear()
-        fake = FakeSiteSettingStorage()
         with patch("src.personalization.is_admin", return_value=True), \
-             patch("src.personalization.get_site_setting_storage", return_value=fake):
+             patch("src.personalization._set_site_setting") as mock_set:
             set_editing_enabled(False, "admin@example.com")
-            assert fake.get("editing_enabled") == "0"
-            assert st.session_state["_editing_enabled_cache"] is False
+        mock_set.assert_called_once_with("editing_enabled", "0", "admin@example.com")
+        assert st.session_state["_editing_enabled_cache"] is False
+
+    def test_set_editing_enabled_demo_mode_updates_cache(self):
+        """Demo mode: the persist step is a no-op but the cache still flips."""
+        st.session_state.clear()
+        with patch("src.personalization.is_admin", return_value=True), \
+             patch("src.personalization.is_demo_mode", return_value=True):
+            set_editing_enabled(False, "admin@example.com")
+        assert st.session_state["_editing_enabled_cache"] is False
+
 
 class TestPowerUser:
     def test_is_power_user_editing_disabled(self):

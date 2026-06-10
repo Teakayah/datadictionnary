@@ -17,7 +17,8 @@ from src.db.queries import (
     get_authorized_tables, search_all_metadata,
     get_multi_hop_lineage, run_query, export_schema_to_csv,
 )
-from src.storage import get_business_name_override_storage, get_analytics_storage, SearchEvent
+from src.analytics import SearchEvent, track_search
+from src.audit import get_column_overrides, get_table_columns
 from src.personalization import _pref_upsert, _pref_delete, is_power_user
 from src.auth import is_admin
 from src.comments import get_table_comments, save_comment
@@ -213,10 +214,9 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             st.session_state.recent_views = [full_name] + [x for x in _rv if x != full_name][:49]
             _pref_upsert(full_name, "recent")
 
-        # Columns section — route through storage abstraction (fix split-brain)
-        override_storage = get_business_name_override_storage()
-        col_overrides = override_storage.get_for_table(full_name)
-        cols = override_storage.get_columns(full_name)
+        # Columns section
+        col_overrides = get_column_overrides(full_name)
+        cols = get_table_columns(full_name)
         n_cols = len(cols) if cols is not None and not cols.empty else 0
 
         _c_preview, _c_export = st.columns(2, gap="small")
@@ -703,7 +703,7 @@ def render_search_page(query_groups: tuple) -> None:
             # Analytics: Track the search event
             try:
                 res_count = len(results) if results is not None else 0
-                get_analytics_storage().track_search(SearchEvent(
+                track_search(SearchEvent(
                     query=search_query,
                     results_count=res_count,
                     user_email=st.session_state.get("user_email", "unknown")

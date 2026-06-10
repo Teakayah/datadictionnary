@@ -162,7 +162,8 @@ def _render_admin_pipelines_section():
 
 
 def render_pipelines_page():
-    if not is_pipeline_user() and not is_admin():
+    from src.config import pipelines_enabled
+    if not pipelines_enabled() or (not is_pipeline_user() and not is_admin()):
         st.error(t("pipelines.access_denied"))
         st.stop()
 

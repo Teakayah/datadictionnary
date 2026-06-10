@@ -143,7 +143,7 @@ These are installed alongside runtime deps for local development and CI. They ar
 
 **What it does.** The test runner. Discovers and executes all test files under `tests/`, applies fixtures (`conftest.py`), and reports pass/fail. Used via `python -m pytest tests/ -q --ignore=...` for the standard suite (475 tests at time of writing) and separately for load and accessibility suites.
 
-**Why it was chosen.** Pytest is the dominant Python test framework. Streamlit ships a first-party `AppTest` integration (`streamlit.testing.v1`) that runs natively inside pytest. The `mock.patch` pattern used extensively in the storage tests (`mock.patch("src.cms.get_cms_storage", return_value=FakeCMSStorage())`) is pytest-compatible without extra plugins.
+**Why it was chosen.** Pytest is the dominant Python test framework. Streamlit ships a first-party `AppTest` integration (`streamlit.testing.v1`) that runs natively inside pytest. The `mock.patch` pattern used extensively in the data-layer tests (`mock.patch("src.cms.is_demo_mode", return_value=True)`) is pytest-compatible without extra plugins.
 
 ---
 
@@ -151,7 +151,7 @@ These are installed alongside runtime deps for local development and CI. They ar
 
 **What it does.** Coverage measurement plugin for pytest. Records which lines and branches are executed during the test run and reports coverage percentages. Run with `--cov=src` to scope coverage to the application source.
 
-**Why it was chosen.** Standard companion to pytest. Required for CI coverage gates and for identifying untested paths — particularly important given the three-backend storage abstraction where Demo, DuckDB, and Fake implementations must all be exercised.
+**Why it was chosen.** Standard companion to pytest. Required for CI coverage gates and for identifying untested paths — particularly important given the dual demo/DuckDB branches in each data-layer module, which must both be exercised.
 
 ---
 

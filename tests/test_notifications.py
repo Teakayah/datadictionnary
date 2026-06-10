@@ -7,8 +7,7 @@ Coverage:
   - _notify_bookmarkers: swallows DB errors (never raises)
   - _process_sync_queue: calls _notify_bookmarkers on successful notifiable push
   - _process_sync_queue: does NOT call _notify_bookmarkers for AUDIT/COMMENT
-  - FakeNotificationStorage: list_unread, mark_read, mark_all_read
-  - get_unread_notifications / mark_read / mark_all_read (public API)
+  - get_unread_notifications / mark_read / mark_all_read (public API, demo path)
 """
 
 from __future__ import annotations
@@ -19,7 +18,6 @@ from unittest.mock import MagicMock, patch, call
 
 import pytest
 
-from src.storage.notification_storage import FakeNotificationStorage
 from src.sync.push import _build_summary, _notify_bookmarkers, _NOTIFIABLE_TYPES
 
 
@@ -146,75 +144,72 @@ class TestProcessSyncQueueNotifications:
         mock_notify.assert_not_called()
 
 
-# ── FakeNotificationStorage ───────────────────────────────────────────────────
+# ── Public API (src.notifications, demo path) ────────────────────────────────
 
-class TestFakeNotificationStorage:
+class TestNotificationsAPI:
+    """Exercise the demo (session-state) path of the public API."""
+
+    @pytest.fixture(autouse=True)
+    def _demo_notifications(self):
+        import streamlit as st
+        st.session_state.pop("_demo_notifications", None)
+        with patch("src.notifications.is_demo_mode", return_value=True):
+            yield
+        st.session_state.pop("_demo_notifications", None)
+
+    @staticmethod
+    def _seed(notification_id, user_oid, table_full_name, change_type, changed_by, summary):
+        import streamlit as st
+        st.session_state.setdefault("_demo_notifications", []).append({
+            "notification_id": notification_id,
+            "user_oid": user_oid,
+            "table_full_name": table_full_name,
+            "change_type": change_type,
+            "changed_by": changed_by,
+            "summary": summary,
+            "created_at": datetime.now(),
+            "read_at": None,
+        })
+
     def _make(self):
-        store = FakeNotificationStorage()
-        store.create("n1", "user-a", "cat.s.t", "TABLE_DESC", "editor@x.com", "Description updated")
-        store.create("n2", "user-b", "cat.s.t", "COLUMN_DEF", "editor@x.com", "Column 'id' updated")
-        store.create("n3", "user-a", "cat.s.t2", "STEWARD", "admin@x.com", "Steward changed")
-        return store
+        self._seed("n1", "user-a", "cat.s.t", "TABLE_DESC", "editor@x.com", "Description updated")
+        self._seed("n2", "user-b", "cat.s.t", "COLUMN_DEF", "editor@x.com", "Column 'id' updated")
+        self._seed("n3", "user-a", "cat.s.t2", "STEWARD", "admin@x.com", "Steward changed")
 
     def test_list_unread_filters_by_user(self):
-        store = self._make()
-        items = store.list_unread("user-a")
+        from src.notifications import get_unread_notifications
+        self._make()
+        items = get_unread_notifications("user-a")
         assert len(items) == 2
         assert all("user_oid" not in i for i in items)  # user_oid stripped from output
 
     def test_list_unread_newest_first(self):
-        store = self._make()
-        items = store.list_unread("user-a")
+        from src.notifications import get_unread_notifications
+        self._make()
+        items = get_unread_notifications("user-a")
         # n3 was inserted after n1, so it comes first
         assert items[0]["notification_id"] == "n3"
 
     def test_mark_read_hides_from_list(self):
-        store = self._make()
-        store.mark_read("n1")
-        ids = [i["notification_id"] for i in store.list_unread("user-a")]
+        from src.notifications import get_unread_notifications, mark_read
+        self._make()
+        mark_read("n1")
+        ids = [i["notification_id"] for i in get_unread_notifications("user-a")]
         assert "n1" not in ids
         assert "n3" in ids
 
     def test_mark_all_read_empties_list(self):
-        store = self._make()
-        store.mark_all_read("user-a")
-        assert store.list_unread("user-a") == []
+        from src.notifications import get_unread_notifications, mark_all_read
+        self._make()
+        mark_all_read("user-a")
+        assert get_unread_notifications("user-a") == []
 
     def test_mark_all_read_does_not_affect_other_users(self):
-        store = self._make()
-        store.mark_all_read("user-a")
-        assert len(store.list_unread("user-b")) == 1
+        from src.notifications import get_unread_notifications, mark_all_read
+        self._make()
+        mark_all_read("user-a")
+        assert len(get_unread_notifications("user-b")) == 1
 
     def test_empty_when_no_notifications(self):
-        store = FakeNotificationStorage()
-        assert store.list_unread("unknown-user") == []
-
-
-# ── Public API (src.notifications) ───────────────────────────────────────────
-
-class TestPublicNotificationsAPI:
-    def test_get_unread_delegates_to_storage(self):
-        fake = FakeNotificationStorage()
-        fake.create("n1", "u1", "a.b.c", "TABLE_DESC", "e@x.com", "Updated")
-        with patch("src.notifications.get_notification_storage", return_value=fake):
-            from src.notifications import get_unread_notifications
-            result = get_unread_notifications("u1")
-        assert len(result) == 1
-        assert result[0]["notification_id"] == "n1"
-
-    def test_mark_read_delegates_to_storage(self):
-        fake = FakeNotificationStorage()
-        fake.create("n1", "u1", "a.b.c", "TABLE_DESC", "e@x.com", "Updated")
-        with patch("src.notifications.get_notification_storage", return_value=fake):
-            from src.notifications import mark_read
-            mark_read("n1")
-        assert fake.list_unread("u1") == []
-
-    def test_mark_all_read_delegates_to_storage(self):
-        fake = FakeNotificationStorage()
-        fake.create("n1", "u1", "a.b.c", "TABLE_DESC", "e@x.com", "A")
-        fake.create("n2", "u1", "a.b.d", "COLUMN_DEF", "e@x.com", "B")
-        with patch("src.notifications.get_notification_storage", return_value=fake):
-            from src.notifications import mark_all_read
-            mark_all_read("u1")
-        assert fake.list_unread("u1") == []
+        from src.notifications import get_unread_notifications
+        assert get_unread_notifications("unknown-user") == []

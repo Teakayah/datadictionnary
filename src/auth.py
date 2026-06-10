@@ -359,7 +359,13 @@ def _parse_groups(env_val: str) -> frozenset[str]:
 
 
 def is_pipeline_user() -> bool:
-    """True if the current user belongs to at least one PIPELINE_GROUPS group."""
+    """True if the current user belongs to at least one PIPELINE_GROUPS group.
+
+    Always False when the pipelines feature is disabled (``ENABLE_PIPELINES``).
+    """
+    from src.config import pipelines_enabled
+    if not pipelines_enabled():
+        return False
     pipeline_groups = _parse_groups(os.getenv("PIPELINE_GROUPS", ""))
     if not pipeline_groups:
         return False

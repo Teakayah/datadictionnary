@@ -104,7 +104,7 @@ Uses standard SQL <code>LIKE</code> patterns (and eventually full-text indices) 
 <h3>2. Semantic Path (Conceptual)</h3>
 Converts the user's query into a high-dimensional vector (embedding) and performs a "Nearest Neighbor" search against pre-calculated metadata embeddings stored in the local cache.
 <h3>3. Fused Ranking</h3>
-Results from both paths are combined. Keyword matches are typically given higher weight for exact name matches, while semantic results fill the gaps where keywords fail.
+Results from both paths are combined as a weighted sum: the normalized keyword score contributes 0.7 and a rank-decayed semantic score contributes 0.3. Semantic hits missing from the keyword results are fetched permission-filtered and appended, so vector matches never bypass the access model.
 </section>
 <section class="section" id="technical-architecture">
 <h2>Technical Architecture</h2>
@@ -114,12 +114,12 @@ Results from both paths are combined. Keyword matches are typically given higher
   <li><strong>Sync Integration:</strong> The nightly sync job is responsible for generating embeddings for any new or updated metadata.</li>
 </ul>
 </section>
-<section class="section" id="initial-scaffolding">
-<h2>Initial Scaffolding</h2>
+<section class="section" id="implementation-status">
+<h2>Implementation Status</h2>
 <ul>
-  <li>Added <code>tables_embedding_cache</code> to <code>scripts/sync_metadata.py</code>.</li>
-  <li>Defined <code>EmbeddingEngine</code> Protocol and <code>MockEmbeddingEngine</code> in <code>src/semantic.py</code>.</li>
-  <li>Refactored <code>src/db/queries.py</code> to a hybrid execution structure.</li>
+  <li><code>tables_embedding_cache</code> populated by <code>scripts/sync_metadata.py</code> during the nightly crawl.</li>
+  <li><code>EmbeddingEngine</code> Protocol with <code>DatabricksEmbeddingEngine</code> (Model Serving) and <code>MockEmbeddingEngine</code> fallback in <code>src/semantic.py</code>.</li>
+  <li>Weighted fusion implemented in <code>src/db/queries.py::search_all_metadata</code> (2026-06, TODO OE-2); gated behind <code>ENABLE_SEMANTIC_SEARCH</code> (default off).</li>
 </ul>
 </section>
       <footer class="site-footer">

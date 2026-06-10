@@ -2,7 +2,7 @@
 Tests for the CMS data layer + discovery banner.
 
 Coverage:
-  - Storage layer (FakeCMSStorage):
+  - Data layer (demo path, ``st.session_state['_demo_cms_posts']``):
       * create_post writes a post with expected fields
       * create_post with expiry_days=None leaves expires_at None
       * get_active_posts filters expired posts
@@ -17,12 +17,12 @@ from datetime import datetime, timedelta, timezone; UTC = timezone.utc
 from unittest.mock import patch
 
 import pytest
+import streamlit as st
 from streamlit.testing.v1 import AppTest
-
-from src.storage.cms_storage import FakeCMSStorage
 
 APP_PATH = os.path.join(os.path.dirname(__file__), "..", "app.py")
 ADMIN_GROUP = "admin_group_id"
+_DEMO_KEY = "_demo_cms_posts"
 
 
 @pytest.fixture
@@ -32,208 +32,161 @@ def admin_context():
         yield
 
 
-# ── Unit tests against FakeCMSStorage via the public src.cms API ─────────────
+@pytest.fixture
+def demo_posts():
+    """Route src.cms through the demo (session-state) path with a clean slate.
+
+    Yields the session-state proxy; tests seed ``st.session_state[_DEMO_KEY]``
+    and assert against it after calling the public API.
+    """
+    st.session_state.pop(_DEMO_KEY, None)
+    with patch("src.cms.is_demo_mode", return_value=True):
+        yield st.session_state
+    st.session_state.pop(_DEMO_KEY, None)
+
+
+def _make_post(post_id, title, *, created_at=None, expires_at=None):
+    return {
+        "post_id": post_id, "post_type": "guide", "title": title,
+        "body": "", "table_ref": None, "author_email": "a@b.com",
+        "created_at": created_at or datetime.now(UTC), "expires_at": expires_at,
+    }
+
+
+# ── Unit tests against the demo path via the public src.cms API ──────────────
 
 class TestCreatePost:
-    def test_writes_post_with_expected_fields(self, admin_context):
-        """create_post round-trips through the injected storage."""
-        fake = FakeCMSStorage()
-        with patch("src.cms.get_cms_storage", return_value=fake):
-            from src.cms import PostParams, create_post
-            create_post(PostParams("announcement", "Hello", "Body text", None, "admin@test.com", 2))
-        assert len(fake.posts) == 1
-        assert fake.posts[0]["title"] == "Hello"
-        assert fake.posts[0]["post_type"] == "announcement"
-        assert fake.posts[0]["expires_at"] is not None
+    def test_writes_post_with_expected_fields(self, admin_context, demo_posts):
+        """create_post round-trips through the demo session-state path."""
+        from src.cms import PostParams, create_post
+        create_post(PostParams("announcement", "Hello", "Body text", None, "admin@test.com", 2))
+        posts = demo_posts[_DEMO_KEY]
+        assert len(posts) == 1
+        assert posts[0]["title"] == "Hello"
+        assert posts[0]["post_type"] == "announcement"
+        assert posts[0]["expires_at"] is not None
 
-    def test_never_expiry_sets_none(self, admin_context):
+    def test_never_expiry_sets_none(self, admin_context, demo_posts):
         """create_post with expiry_days=None leaves expires_at as None."""
-        fake = FakeCMSStorage()
-        with patch("src.cms.get_cms_storage", return_value=fake):
-            from src.cms import PostParams, create_post
-            create_post(PostParams("guide", "Guide", "", None, "admin@test.com", None))
-        assert fake.posts[0]["expires_at"] is None
+        from src.cms import PostParams, create_post
+        create_post(PostParams("guide", "Guide", "", None, "admin@test.com", None))
+        assert demo_posts[_DEMO_KEY][0]["expires_at"] is None
 
-    def test_rejects_non_admin(self):
+    def test_rejects_non_admin(self, demo_posts):
         """create_post raises PermissionError when caller is not admin."""
-        fake = FakeCMSStorage()
-        with patch("src.cms.is_admin", return_value=False), \
-             patch("src.cms.get_cms_storage", return_value=fake):
-            from src.cms import PostParams, create_post
+        from src.cms import PostParams, create_post
+        with patch("src.cms.is_admin", return_value=False):
             with pytest.raises(PermissionError, match="admins"):
                 create_post(PostParams("announcement", "Hello", "", None, "u@x.com", 2))
         # Storage was not touched.
-        assert fake.posts == []
+        assert demo_posts.get(_DEMO_KEY) in (None, [])
 
     def test_create_post_storage_error_is_logged_and_propagated(self, admin_context, caplog):
         """create_post catches storage exceptions, logs them, and re-raises."""
         import logging
-        from unittest.mock import patch
-        import pytest
-        fake = FakeCMSStorage()
-        with patch("src.cms.get_cms_storage", return_value=fake):
-            with patch.object(fake, "create", side_effect=Exception("Storage offline")):
-                from src.cms import PostParams, create_post
-                with caplog.at_level(logging.ERROR):
-                    with pytest.raises(Exception, match="Storage offline") as exc_info:
-                        create_post(PostParams("guide", "Guide", "", None, "admin@test.com", None))
-                    assert str(exc_info.value) == "Storage offline"
+        with patch("src.cms.is_demo_mode", return_value=False), \
+             patch("src.cms._get_write_connection", side_effect=Exception("Storage offline")):
+            from src.cms import PostParams, create_post
+            with caplog.at_level(logging.ERROR):
+                with pytest.raises(Exception, match="Storage offline") as exc_info:
+                    create_post(PostParams("guide", "Guide", "", None, "admin@test.com", None))
+                assert str(exc_info.value) == "Storage offline"
 
         assert "Could not create CMS post: Storage offline" in caplog.text
 
 
 class TestGetActivePosts:
-    def test_empty_storage_returns_empty_list(self):
-        """get_active_posts returns an empty list when storage has no posts."""
-        fake = FakeCMSStorage([])
-        with patch("src.cms.get_cms_storage", return_value=fake):
-            from src.cms import get_active_posts
-            posts = get_active_posts()
-        assert posts == []
+    def test_empty_storage_returns_empty_list(self, demo_posts):
+        """get_active_posts returns an empty list when no posts exist."""
+        from src.cms import get_active_posts
+        assert get_active_posts() == []
 
-    def test_get_active_posts_delegates_to_storage(self):
-        """get_active_posts explicitly delegates to storage.list_active()."""
-        from unittest.mock import MagicMock
-        mock_storage = MagicMock()
-        mock_storage.list_active.return_value = [{"post_id": "test"}]
-        with patch("src.cms.get_cms_storage", return_value=mock_storage):
-            from src.cms import get_active_posts
-            posts = get_active_posts()
-        assert posts == [{"post_id": "test"}]
-        mock_storage.list_active.assert_called_once()
-
-    def test_filters_expired_posts(self):
+    def test_filters_expired_posts(self, demo_posts):
         """get_active_posts excludes posts whose expires_at is in the past."""
         now = datetime.now(UTC)
-        fake = FakeCMSStorage([
-            {"post_id": "1", "post_type": "announcement", "title": "Live",
-             "body": "", "table_ref": None, "author_email": "a@b.com",
-             "created_at": now, "expires_at": now + timedelta(days=1)},
-            {"post_id": "2", "post_type": "announcement", "title": "Expired",
-             "body": "", "table_ref": None, "author_email": "a@b.com",
-             "created_at": now - timedelta(days=3),
-             "expires_at": now - timedelta(days=1)},
-        ])
-        with patch("src.cms.get_cms_storage", return_value=fake):
-            from src.cms import get_active_posts
-            posts = get_active_posts()
-        titles = [p["title"] for p in posts]
+        demo_posts[_DEMO_KEY] = [
+            _make_post("1", "Live", expires_at=now + timedelta(days=1)),
+            _make_post("2", "Expired", created_at=now - timedelta(days=3),
+                       expires_at=now - timedelta(days=1)),
+        ]
+        from src.cms import get_active_posts
+        titles = [p["title"] for p in get_active_posts()]
         assert "Live" in titles
         assert "Expired" not in titles
 
-    def test_returns_never_expiry_posts(self):
+    def test_returns_never_expiry_posts(self, demo_posts):
         """get_active_posts includes posts with expires_at=None."""
-        now = datetime.now(UTC)
-        fake = FakeCMSStorage([
-            {"post_id": "3", "post_type": "guide", "title": "Permanent",
-             "body": "", "table_ref": None, "author_email": "a@b.com",
-             "created_at": now, "expires_at": None},
-        ])
-        with patch("src.cms.get_cms_storage", return_value=fake):
-            from src.cms import get_active_posts
-            posts = get_active_posts()
-        assert any(p["title"] == "Permanent" for p in posts)
+        demo_posts[_DEMO_KEY] = [_make_post("3", "Permanent")]
+        from src.cms import get_active_posts
+        assert any(p["title"] == "Permanent" for p in get_active_posts())
 
 
 class TestGetAllPosts:
-    def test_returns_all_posts_including_expired(self):
+    def test_returns_all_posts_including_expired(self, demo_posts):
         """get_all_posts returns all posts regardless of expiry."""
         now = datetime.now(UTC)
-        fake = FakeCMSStorage([
-            {"post_id": "1", "post_type": "announcement", "title": "Live",
-             "body": "", "table_ref": None, "author_email": "a@b.com",
-             "created_at": now, "expires_at": now + timedelta(days=1)},
-            {"post_id": "2", "post_type": "announcement", "title": "Expired",
-             "body": "", "table_ref": None, "author_email": "a@b.com",
-             "created_at": now - timedelta(days=3),
-             "expires_at": now - timedelta(days=1)},
-        ])
-        with patch("src.cms.get_cms_storage", return_value=fake):
-            from src.cms import get_all_posts
-            posts = get_all_posts()
-        titles = [p["title"] for p in posts]
+        demo_posts[_DEMO_KEY] = [
+            _make_post("1", "Live", expires_at=now + timedelta(days=1)),
+            _make_post("2", "Expired", created_at=now - timedelta(days=3),
+                       expires_at=now - timedelta(days=1)),
+        ]
+        from src.cms import get_all_posts
+        titles = [p["title"] for p in get_all_posts()]
         assert "Live" in titles
         assert "Expired" in titles
 
-    def test_empty_storage_returns_empty_list(self):
-        """get_all_posts returns an empty list when storage has no posts."""
-        fake = FakeCMSStorage([])
-        with patch("src.cms.get_cms_storage", return_value=fake):
-            from src.cms import get_all_posts
-            posts = get_all_posts()
-        assert posts == []
+    def test_empty_storage_returns_empty_list(self, demo_posts):
+        """get_all_posts returns an empty list when no posts exist."""
+        from src.cms import get_all_posts
+        assert get_all_posts() == []
 
 
 class TestDeletePost:
-    def test_removes_matching_post(self, admin_context):
+    def test_removes_matching_post(self, admin_context, demo_posts):
         """delete_post drops the matching post_id, leaves others alone."""
-        fake = FakeCMSStorage([
-            {"post_id": "abc", "title": "Keep", "post_type": "guide",
-             "body": "", "table_ref": None, "author_email": "x",
-             "created_at": datetime.now(UTC), "expires_at": None},
-            {"post_id": "xyz", "title": "Remove", "post_type": "guide",
-             "body": "", "table_ref": None, "author_email": "x",
-             "created_at": datetime.now(UTC), "expires_at": None},
-        ])
-        with patch("src.cms.get_cms_storage", return_value=fake):
-            from src.cms import delete_post
-            delete_post("xyz")
-        remaining = [p["post_id"] for p in fake.posts]
+        demo_posts[_DEMO_KEY] = [_make_post("abc", "Keep"), _make_post("xyz", "Remove")]
+        from src.cms import delete_post
+        delete_post("xyz")
+        remaining = [p["post_id"] for p in demo_posts[_DEMO_KEY]]
         assert "xyz" not in remaining
         assert "abc" in remaining
 
-    def test_missing_post_id_is_noop(self, admin_context):
+    def test_missing_post_id_is_noop(self, admin_context, demo_posts):
         """delete_post on an unknown id leaves storage untouched."""
-        fake = FakeCMSStorage([
-            {"post_id": "abc", "title": "Keep", "post_type": "guide",
-             "body": "", "table_ref": None, "author_email": "x",
-             "created_at": datetime.now(UTC), "expires_at": None},
-        ])
-        with patch("src.cms.get_cms_storage", return_value=fake):
-            from src.cms import delete_post
-            delete_post("does-not-exist")
-        assert [p["post_id"] for p in fake.posts] == ["abc"]
+        demo_posts[_DEMO_KEY] = [_make_post("abc", "Keep")]
+        from src.cms import delete_post
+        delete_post("does-not-exist")
+        assert [p["post_id"] for p in demo_posts[_DEMO_KEY]] == ["abc"]
 
-    def test_rejects_non_admin(self):
+    def test_rejects_non_admin(self, demo_posts):
         """delete_post raises PermissionError when caller is not admin."""
-        fake = FakeCMSStorage([
-            {"post_id": "abc", "title": "Keep", "post_type": "guide",
-             "body": "", "table_ref": None, "author_email": "x",
-             "created_at": datetime.now(UTC), "expires_at": None},
-        ])
-        with patch("src.cms.is_admin", return_value=False), \
-             patch("src.cms.get_cms_storage", return_value=fake):
-            from src.cms import delete_post
+        demo_posts[_DEMO_KEY] = [_make_post("abc", "Keep")]
+        from src.cms import delete_post
+        with patch("src.cms.is_admin", return_value=False):
             with pytest.raises(PermissionError, match="admins"):
                 delete_post("abc")
         # Storage was not touched.
-        assert len(fake.posts) == 1
+        assert len(demo_posts[_DEMO_KEY]) == 1
 
     def test_delete_post_storage_error_is_logged_and_propagated(self, admin_context, caplog):
         """delete_post catches storage exceptions, logs them, and re-raises."""
         import logging
-        fake = FakeCMSStorage([
-            {"post_id": "abc", "title": "Keep", "post_type": "guide",
-             "body": "", "table_ref": None, "author_email": "x",
-             "created_at": datetime.now(UTC), "expires_at": None},
-        ])
-        with patch("src.cms.get_cms_storage", return_value=fake):
-            with patch.object(fake, "delete", side_effect=Exception("Storage offline")):
-                from src.cms import delete_post
-                with caplog.at_level(logging.ERROR):
-                    with pytest.raises(Exception, match="Storage offline") as exc_info:
-                        delete_post("abc")
+        with patch("src.cms.is_demo_mode", return_value=False), \
+             patch("src.cms._get_write_connection", side_effect=Exception("Storage offline")):
+            from src.cms import delete_post
+            with caplog.at_level(logging.ERROR):
+                with pytest.raises(Exception, match="Storage offline") as exc_info:
+                    delete_post("abc")
 
-                    assert str(exc_info.value) == "Storage offline"
+                assert str(exc_info.value) == "Storage offline"
 
         assert "Could not delete CMS post: Storage offline" in caplog.text
 
 
 # ── AppTest: discovery tab banner rendering ──────────────────────────────────
 # These tests exercise the full app via DEMO_DATA=true, which routes through
-# DemoCMSStorage (session-state). They're integration tests, not unit tests,
-# so we don't inject FakeCMSStorage here — the goal is to verify the wiring
-# all the way from get_cms_storage() to the rendered HTML.
+# the demo (session-state) path. They're integration tests, not unit tests —
+# the goal is to verify the wiring all the way to the rendered HTML.
 
 class TestCmsBannerUI:
     def _discovery_app(self, groups, *, with_post=False):

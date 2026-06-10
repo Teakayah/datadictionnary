@@ -2,9 +2,11 @@ from __future__ import annotations
 from typing import Any, Optional
 """Pipeline definitions, run tracking, and execution for Databricks / ADF / ADO.
 
-Storage (definitions + runs) is delegated to ``src.storage`` — see
-``PipelineDefStorage`` and ``PipelineRunStorage``. Execution (HTTP calls
-to Databricks/ADF/ADO management APIs) stays here.
+Storage branches on ``is_demo_mode()``: demo keeps definitions in
+``st.session_state['_demo_pipelines']`` and runs in ``_demo_run_<pid>``
+keys; otherwise rows persist to ``user_data.pipeline_definitions`` /
+``user_data.pipeline_runs`` (DuckDB). Execution (HTTP calls to
+Databricks/ADF/ADO management APIs) lives below the storage section.
 """
 
 
@@ -12,6 +14,7 @@ import logging
 import uuid
 from datetime import datetime, timezone; UTC = timezone.utc
 
+import streamlit as st
 
 from src.auth import is_admin, is_pipeline_user
 from src.config import (
@@ -19,8 +22,29 @@ from src.config import (
     PIPELINE_SP_CLIENT_ID,
     PIPELINE_SP_CLIENT_SECRET,
     PIPELINE_SP_TENANT_ID,
+    is_demo_mode,
 )
-from src.storage import get_pipeline_def_storage, get_pipeline_run_storage
+from src.db.duckdb_adapter import _db_write_lock
+from src.db.queries import _get_write_connection, get_db_connection
+
+_DEMO_DEFS_KEY = "_demo_pipelines"
+
+_PIPELINE_COLUMNS = (
+    "pipeline_id", "title", "description", "backend",
+    "databricks_job_id",
+    "adf_subscription_id", "adf_resource_group",
+    "adf_factory_name", "adf_pipeline_name",
+    "ado_organization", "ado_project", "ado_pipeline_id",
+    "created_by", "created_at",
+)
+_RUN_COLUMNS = (
+    "backend_run_id", "triggered_by", "triggered_at",
+    "status", "last_checked",
+)
+
+
+def _demo_run_key(pipeline_id: str) -> str:
+    return f"_demo_run_{pipeline_id}"
 
 
 # ── Auth helpers (defense-in-depth) ──────────────────────────────────────────
@@ -94,7 +118,27 @@ def _get_sp_token(resource: str) -> str:
 
 def get_pipelines() -> list[dict]:
     """Return all pipeline definitions, oldest-first."""
-    return get_pipeline_def_storage().list_all()
+    if is_demo_mode():
+        return list(st.session_state.get(_DEMO_DEFS_KEY, []))
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT pipeline_id, title, description, backend,
+                       databricks_job_id,
+                       adf_subscription_id, adf_resource_group,
+                       adf_factory_name, adf_pipeline_name,
+                       ado_organization, ado_project, ado_pipeline_id,
+                       created_by, created_at
+                FROM user_data.pipeline_definitions
+                ORDER BY created_at ASC
+                """
+            )
+            return [dict(zip(_PIPELINE_COLUMNS, r)) for r in (cur.fetchall() or [])]
+    except Exception as exc:
+        logging.warning("Could not load pipeline definitions: %s", exc)
+        return []
 
 
 def create_pipeline_def(
@@ -113,7 +157,7 @@ def create_pipeline_def(
 ) -> None:
     """Persist a new pipeline definition to the configured backend."""
     _check_admin("create pipeline definitions")
-    get_pipeline_def_storage().create({
+    pipeline = {
         "pipeline_id":         str(uuid.uuid4()),
         "title":               title,
         "description":         description or None,
@@ -128,40 +172,131 @@ def create_pipeline_def(
         "ado_pipeline_id":     ado_pipeline_id or None,
         "created_by":          created_by,
         "created_at":          datetime.now(UTC),
-    })
+    }
+    if is_demo_mode():
+        st.session_state.setdefault(_DEMO_DEFS_KEY, []).append(pipeline)
+        return
+    conn = _get_write_connection()
+    with _db_write_lock:
+        conn.execute(
+            """
+            INSERT INTO user_data.pipeline_definitions
+                (pipeline_id, title, description, backend,
+                 databricks_job_id,
+                 adf_subscription_id, adf_resource_group,
+                 adf_factory_name, adf_pipeline_name,
+                 ado_organization, ado_project, ado_pipeline_id,
+                 created_by, created_at)
+            VALUES (?,?,?,?,?, ?,?,?,?, ?,?,?, ?,?)
+            """,
+            [pipeline[c] for c in _PIPELINE_COLUMNS],
+        )
 
 
 def delete_pipeline_def(pipeline_id: str) -> None:
-    """Delete a pipeline definition. Cascades: also clears any active run.
-
-    The cascade is the wrapper's job; each storage object stays cohesive
-    around its single table.
-    """
+    """Delete a pipeline definition. Cascades: also clears any active run."""
     _check_admin("delete pipeline definitions")
-    get_pipeline_def_storage().delete(pipeline_id)
-    get_pipeline_run_storage().clear(pipeline_id)
+    if is_demo_mode():
+        ps = st.session_state.get(_DEMO_DEFS_KEY, [])
+        st.session_state[_DEMO_DEFS_KEY] = [
+            p for p in ps if p["pipeline_id"] != pipeline_id
+        ]
+    else:
+        conn = _get_write_connection()
+        with _db_write_lock:
+            conn.execute(
+                "DELETE FROM user_data.pipeline_definitions WHERE pipeline_id = ?",
+                [pipeline_id],
+            )
+    _clear_run(pipeline_id)
 
 
 # ── Run state persistence ─────────────────────────────────────────────────────
 
 def get_active_run(pipeline_id: str) -> Optional[dict]:
     """Return the active run for a pipeline, or None if no run is in flight."""
-    return get_pipeline_run_storage().get_active(pipeline_id)
+    if is_demo_mode():
+        return st.session_state.get(_demo_run_key(pipeline_id))
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT backend_run_id, triggered_by, triggered_at, status, last_checked
+                FROM user_data.pipeline_runs WHERE pipeline_id = ?
+                """,
+                [pipeline_id],
+            )
+            rows = cur.fetchall()
+        if not rows:
+            return None
+        run = dict(zip(_RUN_COLUMNS, rows[0]))
+        run["pipeline_id"] = pipeline_id
+        return run
+    except Exception as exc:
+        logging.warning("Could not load active run for %s: %s", pipeline_id, exc)
+        return None
 
 
 def _save_run(pipeline_id: str, backend_run_id: str, triggered_by: str) -> None:
     """Upsert a freshly-triggered run (status = 'started')."""
-    get_pipeline_run_storage().upsert(pipeline_id, backend_run_id, triggered_by)
+    now = datetime.now(UTC)
+    if is_demo_mode():
+        st.session_state[_demo_run_key(pipeline_id)] = {
+            "pipeline_id":    pipeline_id,
+            "backend_run_id": backend_run_id,
+            "triggered_by":   triggered_by,
+            "triggered_at":   now,
+            "status":         "started",
+            "last_checked":   now,
+        }
+        return
+    conn = _get_write_connection()
+    with _db_write_lock:
+        conn.execute(
+            """
+            INSERT INTO user_data.pipeline_runs
+                (pipeline_id, backend_run_id, triggered_by, triggered_at, status, last_checked)
+            VALUES (?, ?, ?, ?, 'started', ?)
+            ON CONFLICT (pipeline_id) DO UPDATE
+                SET backend_run_id = excluded.backend_run_id,
+                    triggered_by   = excluded.triggered_by,
+                    triggered_at   = excluded.triggered_at,
+                    status         = 'started',
+                    last_checked   = excluded.last_checked
+            """,
+            [pipeline_id, backend_run_id, triggered_by, now, now],
+        )
 
 
 def _update_run(pipeline_id: str, status: str) -> None:
     """Update the status of the active run for ``pipeline_id``."""
-    get_pipeline_run_storage().update_status(pipeline_id, status)
+    if is_demo_mode():
+        run = st.session_state.get(_demo_run_key(pipeline_id))
+        if run:
+            run["status"] = status
+            run["last_checked"] = datetime.now(UTC)
+        return
+    conn = _get_write_connection()
+    with _db_write_lock:
+        conn.execute(
+            "UPDATE user_data.pipeline_runs SET status = ?, last_checked = ? "
+            "WHERE pipeline_id = ?",
+            [status, datetime.now(UTC), pipeline_id],
+        )
 
 
 def _clear_run(pipeline_id: str) -> None:
     """Remove the active-run record for ``pipeline_id`` (idempotent)."""
-    get_pipeline_run_storage().clear(pipeline_id)
+    if is_demo_mode():
+        st.session_state.pop(_demo_run_key(pipeline_id), None)
+        return
+    conn = _get_write_connection()
+    with _db_write_lock:
+        conn.execute(
+            "DELETE FROM user_data.pipeline_runs WHERE pipeline_id = ?",
+            [pipeline_id],
+        )
 
 
 # ── Execution — trigger ───────────────────────────────────────────────────────

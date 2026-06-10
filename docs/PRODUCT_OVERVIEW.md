@@ -115,8 +115,8 @@ Catalog-wide documentation coverage metrics:
 - Freshness grade per schema
 - "Priority actions" panel listing up to 5 undocumented tables, deep-linkable to their detail view
 
-### F7 — Pipelines
-Members of `PIPELINE_GROUPS` (and admins) can trigger, monitor, and cancel named pipeline runs. Three backends are supported:
+### F7 — Pipelines (optional, off by default)
+Gated behind `ENABLE_PIPELINES=true` — a baseline deploy doesn't need the three pipeline service-principal credentials. When enabled, members of `PIPELINE_GROUPS` (and admins) can trigger, monitor, and cancel named pipeline runs. Three backends are supported:
 - **Databricks Jobs** (Jobs API 2.1)
 - **Azure Data Factory** (management API 2018-06-01)
 - **Azure DevOps Pipelines** (API 7.0)
@@ -197,12 +197,12 @@ Cache tables:
 |---|---|
 | `src/auth.py`, `src/auth_graph.py` | MSAL OIDC flow, group resolution, Graph overage handling |
 | `src/db/` | DuckDB adapter, query layer, dialect translation |
-| `src/storage/` | Per-entity Protocol-based storage backends (Demo / DuckDB / Fake) |
+| `src/analytics.py`, `src/notifications.py` | Search analytics, bookmark-change notifications |
 | `src/ui/cards/` | 7-module UI component package (discovery, health, pipelines, admin, CMS, detail, shared) |
 | `src/pages/` | Search page, catalog page |
 | `src/sync/` | Sync daemon, push logic, DR resync, worker status helpers |
 | `src/personalization.py` | Bookmarks, recents, editing toggle |
-| `src/cms.py` | CMS post logic (thin wrapper over `CMSStorage`) |
+| `src/cms.py` | CMS post logic |
 | `src/pipelines.py` | Pipeline trigger / poll / cancel |
 
 At startup the app:
@@ -223,16 +223,13 @@ A standalone process (`dd-sync-worker`, `replicas: 1`, `strategy: Recreate`) tha
 
 The sidecar replaces the previous in-process daemon thread, which corrupted the Streamlit-cached DuckDB connection and ran without a `ScriptRunContext`.
 
-### Storage abstraction layer
+### Storage pattern
 
-`src/storage/` collapses the demo / DuckDB branching that used to be duplicated across four modules into a single, consistent pattern. Each entity has:
-- A `Protocol` defining its read/write surface
-- A `Demo*Storage` (session state — used in `DEMO_DATA=true` mode)
-- A `DuckDB*Storage` (production)
-- A `Fake*Storage` (in-memory — used only by unit tests)
-- A factory function in `src/storage/__init__.py` that picks the backend at call time
+Each data-layer module (`src/cms.py`, `src/pipelines.py`, `src/personalization.py`, `src/audit.py`, `src/notifications.py`, `src/analytics.py`) branches inline on `is_demo_mode()`:
+- Demo mode (`DEMO_DATA=true`) — reads and writes `st.session_state`
+- Otherwise — rows persist to `user_data.*` tables in DuckDB
 
-Entities covered: `CMSStorage`, `PipelineDefStorage`, `PipelineRunStorage`, `PreferenceStorage`, `SiteSettingStorage`, `AuditStorage`, `BusinessNameOverrideStorage`.
+The earlier Protocol-based `src/storage/` abstraction (ADR 005) was collapsed in the 2026-06 over-engineering audit: it tripled the code per entity, and tests achieve the same isolation by patching `is_demo_mode()` directly.
 
 ### Design system
 
@@ -358,11 +355,11 @@ The full rationale for each is in `docs/adr/`.
 
 **Why:** The previous in-process daemon thread shared a Streamlit-cached DuckDB connection with the UI (corrupting concurrent reads), ran without a Streamlit `ScriptRunContext` (undefined behaviour), and tracked UI activity in two diverging state objects. A separate process with its own DuckDB connection and a clear queue-based interface eliminates all three problems. The Streamlit pods are now read-only from Databricks' perspective; the sidecar is the sole intentional writer.
 
-### ADR 005 — Per-entity storage abstraction
+### ADR 005 — Per-entity storage abstraction (superseded)
 
 **Decision:** Replace ~13 duplicated three-way switches (`demo / DuckDB / Databricks`) across four modules with per-entity Protocol-based backends and factory functions.
 
-**Why:** Each entity had a slightly different exception-handling shape, so a fix to one didn't reach the others. Tests were brittle because they mocked `_duckdb_available` directly. The Protocol pattern makes adding a new entity mechanical (define → implement Demo/DuckDB/Fake → add factory), and tests now inject `Fake*Storage` directly without touching routing internals.
+**Status:** Superseded (2026-06). The over-engineering audit found the abstraction tripled the code per entity; it was collapsed back into inline `is_demo_mode()` branches in each data-layer module. Tests patch `is_demo_mode()` for isolation instead of injecting `Fake*Storage`.
 
 ### ADR 006 — Entra ID groups overage handling
 

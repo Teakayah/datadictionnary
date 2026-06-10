@@ -28,36 +28,24 @@ class TestIsEditingEnabled:
         """Returns True when the site-settings backend has no row yet."""
         import streamlit as st
         from src.personalization import is_editing_enabled
-        from src.storage.preference_storage import FakeSiteSettingStorage
         st.session_state.pop("_editing_enabled_cache", None)
-        with patch(
-            "src.personalization.get_site_setting_storage",
-            return_value=FakeSiteSettingStorage(),
-        ):
+        with patch("src.personalization._get_site_setting", return_value=None):
             assert is_editing_enabled() is True
 
     def test_reads_disabled_from_storage(self):
         """Returns False when site_settings holds value='0'."""
         import streamlit as st
         from src.personalization import is_editing_enabled
-        from src.storage.preference_storage import FakeSiteSettingStorage
         st.session_state.pop("_editing_enabled_cache", None)
-        with patch(
-            "src.personalization.get_site_setting_storage",
-            return_value=FakeSiteSettingStorage({"editing_enabled": "0"}),
-        ):
+        with patch("src.personalization._get_site_setting", return_value="0"):
             assert is_editing_enabled() is False
 
     def test_reads_enabled_from_storage(self):
         """Returns True when site_settings holds value='1'."""
         import streamlit as st
         from src.personalization import is_editing_enabled
-        from src.storage.preference_storage import FakeSiteSettingStorage
         st.session_state.pop("_editing_enabled_cache", None)
-        with patch(
-            "src.personalization.get_site_setting_storage",
-            return_value=FakeSiteSettingStorage({"editing_enabled": "1"}),
-        ):
+        with patch("src.personalization._get_site_setting", return_value="1"):
             assert is_editing_enabled() is True
 
     def test_returns_cached_value(self):
@@ -73,31 +61,23 @@ class TestIsEditingEnabled:
         """set_editing_enabled writes to both the storage and the session cache."""
         import streamlit as st
         from src.personalization import set_editing_enabled
-        from src.storage.preference_storage import FakeSiteSettingStorage
-        fake = FakeSiteSettingStorage()
         with patch("src.personalization.is_admin", return_value=True), \
-             patch(
-                 "src.personalization.get_site_setting_storage", return_value=fake,
-             ):
+             patch("src.personalization._set_site_setting") as mock_set:
             set_editing_enabled(False, "admin@test.com")
             assert st.session_state.get("_editing_enabled_cache") is False
-            assert fake.values["editing_enabled"] == "0"
+            mock_set.assert_called_with("editing_enabled", "0", "admin@test.com")
             set_editing_enabled(True, "admin@test.com")
             assert st.session_state.get("_editing_enabled_cache") is True
-            assert fake.values["editing_enabled"] == "1"
+            mock_set.assert_called_with("editing_enabled", "1", "admin@test.com")
 
     def test_set_editing_enabled_rejects_non_admin(self):
         """Non-admin caller gets PermissionError; storage unchanged."""
         from src.personalization import set_editing_enabled
-        from src.storage.preference_storage import FakeSiteSettingStorage
-        fake = FakeSiteSettingStorage()
         with patch("src.personalization.is_admin", return_value=False), \
-             patch(
-                 "src.personalization.get_site_setting_storage", return_value=fake,
-             ):
+             patch("src.personalization._set_site_setting") as mock_set:
             with pytest.raises(PermissionError, match="admins"):
                 set_editing_enabled(False, "rando@test.com")
-        assert fake.values == {}
+        mock_set.assert_not_called()
 
 
 class TestIsPowerUserGate:

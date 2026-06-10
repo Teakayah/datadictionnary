@@ -49,7 +49,7 @@ def test_save_business_name_duckdb_exception():
     """Verify that if DuckDB CHECKPOINT raises an Exception during save_business_name, it is handled gracefully."""
     with patch("src.audit.is_power_user", return_value=True), \
          patch("src.audit._get_old_business_name", return_value="Old Name"), \
-         patch("src.audit.get_business_name_override_storage"), \
+         patch("src.audit._upsert_column_override"), \
          patch("src.audit._duckdb_available", return_value=True), \
          patch("src.audit._get_shared_duckdb_connection") as mock_get_shared, \
          patch("src.audit.enqueue_column_sync"), \
@@ -148,18 +148,16 @@ def test_log_audit_event_demo_mode():
     """Verify log_audit_event in demo mode appends to storage but does not enqueue sync."""
     with patch("src.audit.st") as mock_st, \
          patch("src.audit.uuid.uuid4", return_value="1234-uuid"), \
-         patch("src.audit.get_audit_storage") as mock_get_storage, \
+         patch("src.audit._append_audit_event") as mock_append, \
          patch("src.audit.is_demo_mode", return_value=True), \
          patch("src.audit.enqueue_sync") as mock_enqueue:
 
         mock_st.session_state.get.return_value = "user@example.com"
-        mock_storage = MagicMock()
-        mock_get_storage.return_value = mock_storage
 
         log_audit_event("TYPE", "OBJ_TYPE", "OBJ_NAME", "OLD", "NEW")
 
         # Verify event appended to storage
-        mock_storage.append.assert_called_once_with({
+        mock_append.assert_called_once_with({
             "event_id": "1234-uuid",
             "event_type": "TYPE",
             "object_type": "OBJ_TYPE",
@@ -176,13 +174,11 @@ def test_log_audit_event_production_mode():
     """Verify log_audit_event in production mode appends to storage and enqueues sync."""
     with patch("src.audit.st") as mock_st, \
          patch("src.audit.uuid.uuid4", return_value="1234-uuid"), \
-         patch("src.audit.get_audit_storage") as mock_get_storage, \
+         patch("src.audit._append_audit_event"), \
          patch("src.audit.is_demo_mode", return_value=False), \
          patch("src.audit.enqueue_sync") as mock_enqueue:
 
         mock_st.session_state.get.return_value = "user@example.com"
-        mock_storage = MagicMock()
-        mock_get_storage.return_value = mock_storage
 
         log_audit_event("TYPE", "OBJ_TYPE", "OBJ_NAME", "OLD", "NEW")
 
@@ -217,17 +213,15 @@ def test_reject_business_name_permission_error():
 
 def test_approve_business_name_success():
     with patch("src.audit.is_admin", return_value=True), \
-         patch("src.audit.get_business_name_override_storage") as mock_get_storage, \
+         patch("src.audit.list_pending_business_names") as mock_pending, \
+         patch("src.audit._approve_column_override") as mock_approve, \
          patch("src.audit.st") as mock_st, \
          patch("src.audit._duckdb_available", return_value=True), \
          patch("src.audit.enqueue_column_sync") as mock_enqueue, \
          patch("src.audit._get_shared_duckdb_connection") as mock_get_shared, \
          patch("src.audit.search_all_metadata") as mock_search_clear:
 
-        mock_storage = MagicMock()
-        mock_get_storage.return_value = mock_storage
-
-        mock_storage.list_pending.return_value = [
+        mock_pending.return_value = [
             {"table_full_name": "catalog.schema.table", "column_name": "col1", "definition": "def1"}
         ]
 
@@ -238,35 +232,28 @@ def test_approve_business_name_success():
 
         approve_business_name("catalog.schema.table", "col1")
 
-        mock_storage.approve.assert_called_once_with("catalog.schema.table", "col1")
+        mock_approve.assert_called_once_with("catalog.schema.table", "col1")
         mock_enqueue.assert_called_once_with("catalog.schema.table", "col1", "def1", "admin_user")
         mock_shared_conn.execute.assert_called_once_with("CHECKPOINT user_data")
         mock_search_clear.clear.assert_called_once()
 
 def test_approve_business_name_not_found():
     with patch("src.audit.is_admin", return_value=True), \
-         patch("src.audit.get_business_name_override_storage") as mock_get_storage:
-
-        mock_storage = MagicMock()
-        mock_get_storage.return_value = mock_storage
-
-        mock_storage.list_pending.return_value = []
+         patch("src.audit.list_pending_business_names", return_value=[]), \
+         patch("src.audit._approve_column_override") as mock_approve:
 
         approve_business_name("catalog.schema.table", "col1")
 
-        mock_storage.approve.assert_not_called()
+        mock_approve.assert_not_called()
 
 def test_reject_business_name_success():
     with patch("src.audit.is_admin", return_value=True), \
-         patch("src.audit.get_business_name_override_storage") as mock_get_storage, \
+         patch("src.audit._reject_column_override") as mock_reject, \
          patch("src.audit.search_all_metadata") as mock_search_clear:
-
-        mock_storage = MagicMock()
-        mock_get_storage.return_value = mock_storage
 
         reject_business_name("catalog.schema.table", "col1")
 
-        mock_storage.reject.assert_called_once_with("catalog.schema.table", "col1")
+        mock_reject.assert_called_once_with("catalog.schema.table", "col1")
         mock_search_clear.clear.assert_called_once()
 
 def test_get_table_steward_local_override_found():
@@ -290,17 +277,15 @@ def test_get_table_steward_local_override_found():
 
 def test_approve_business_name_exception():
     with patch("src.audit.is_admin", return_value=True), \
-         patch("src.audit.get_business_name_override_storage") as mock_get_storage, \
+         patch("src.audit.list_pending_business_names") as mock_pending, \
+         patch("src.audit._approve_column_override"), \
          patch("src.audit.st") as mock_st, \
          patch("src.audit._duckdb_available", return_value=True), \
          patch("src.audit.enqueue_column_sync"), \
          patch("src.audit._get_shared_duckdb_connection") as mock_get_shared, \
          patch("src.audit.search_all_metadata"):
 
-        mock_storage = MagicMock()
-        mock_get_storage.return_value = mock_storage
-
-        mock_storage.list_pending.return_value = [
+        mock_pending.return_value = [
             {"table_full_name": "catalog.schema.table", "column_name": "col1", "definition": "def1"}
         ]
 
@@ -319,7 +304,7 @@ def test_save_business_name_admin():
     with patch("src.audit.is_power_user", return_value=True), \
          patch("src.audit.is_admin", return_value=True), \
          patch("src.audit._get_old_business_name", return_value="Old Name"), \
-         patch("src.audit.get_business_name_override_storage"), \
+         patch("src.audit._upsert_column_override"), \
          patch("src.audit._duckdb_available", return_value=True), \
          patch("src.audit._get_shared_duckdb_connection") as mock_get_shared, \
          patch("src.audit.enqueue_column_sync") as mock_enqueue, \
