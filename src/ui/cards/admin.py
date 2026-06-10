@@ -523,6 +523,10 @@ def _render_pending_reviews_section():
         )
         return
 
+    if len(pending) > 50:
+        st.info(t("search.showing_first_50", count=len(pending)))
+        pending = pending[:50]
+
     for item in pending:
         tbl  = str(item.get("table_full_name", ""))
         col  = str(item.get("column_name", ""))
@@ -615,6 +619,10 @@ def _render_pending_table_friendly_names_section():
             unsafe_allow_html=True,
         )
         return
+
+    if len(pending) > 50:
+        st.info(t("search.showing_first_50", count=len(pending)))
+        pending = pending[:50]
 
     from src.i18n import format_date
     for item in pending:
