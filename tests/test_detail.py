@@ -70,6 +70,158 @@ def data_sample_app(table_name):
     from src.ui.cards.detail import render_data_sample
     render_data_sample(table_name)
 
+def biz_editor_app(table_full_name, column_name, current_val, current_def):
+    from src.ui.cards.detail import render_business_name_editor
+    render_business_name_editor(table_full_name, column_name, current_val, current_def)
+
+def table_business_name_editor_app(table_full_name, current_name_en, current_name_fr, current_def_en, current_def_fr):
+    from src.ui.cards.detail import render_table_business_name_editor
+    render_table_business_name_editor(table_full_name, current_name_en, current_name_fr, current_def_en, current_def_fr)
+
+
+class TestRenderBusinessNameEditor:
+    @patch("src.db.queries._get_write_connection")
+    @patch("src.ui.cards.detail.st.rerun")
+    def test_render_business_name_editor_save(self, mock_rerun, mock_get_conn):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_get_conn.return_value = mock_conn
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        at = AppTest.from_function(biz_editor_app, args=("cat.sch.tbl", "col1", "old name", "old def")).run()
+        at.text_input[0].set_value("new name")
+        at.text_area[0].set_value("new def")
+        at.button[0].click().run()
+
+        mock_cursor.execute_write.assert_called()
+        assert "business_name_overrides" in mock_cursor.execute_write.call_args_list[0][0][0]
+        mock_rerun.assert_called_once()
+        assert not at.exception
+        assert not at.error
+
+    @patch("src.db.queries._get_write_connection")
+    @patch("src.ui.cards.detail.st.rerun")
+    def test_render_business_name_editor_exception(self, mock_rerun, mock_get_conn):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_get_conn.return_value = mock_conn
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_cursor.execute_write.side_effect = Exception("DB Error")
+
+        at = AppTest.from_function(biz_editor_app, args=("cat.sch.tbl", "col1", "old name", "old def")).run()
+        at.text_input[0].set_value("new name")
+        at.text_area[0].set_value("new def")
+        at.button[0].click().run()
+
+        mock_cursor.execute_write.assert_called()
+        mock_rerun.assert_not_called()
+        assert len(at.error) > 0
+        assert at.error[0].value == en_locale["common"]["error"]
+
+    @patch("src.db.queries._get_write_connection")
+    @patch("src.ui.cards.detail.st.rerun")
+    def test_render_business_name_editor_cancel(self, mock_rerun, mock_get_conn):
+        at = AppTest.from_function(biz_editor_app, args=("cat.sch.tbl", "col1", "old name", "old def")).run()
+        at.button[1].click().run()
+
+        mock_get_conn.assert_not_called()
+        mock_rerun.assert_called_once()
+
+class TestRenderTableBusinessNameEditor:
+    @patch("src.ui.cards.detail.save_table_business_name")
+    @patch("src.ui.cards.detail.st.rerun")
+    def test_render_table_business_name_editor_save(self, mock_rerun, mock_save):
+        at = AppTest.from_function(table_business_name_editor_app, args=("cat.sch.tbl", "old en", "old fr", "old def en", "old def fr")).run()
+        at.text_input[0].set_value("new en")
+        at.text_input[1].set_value("new fr")
+        at.text_area[0].set_value("new def en")
+        at.text_area[1].set_value("new def fr")
+        at.button[0].click().run()
+
+        mock_save.assert_called_once_with("cat.sch.tbl", "new en", "new fr", "new def en", "new def fr")
+        mock_rerun.assert_called_once()
+        assert not at.exception
+        assert not at.error
+
+    @patch("src.ui.cards.detail.save_table_business_name")
+    @patch("src.ui.cards.detail.st.rerun")
+    def test_render_table_business_name_editor_exception(self, mock_rerun, mock_save):
+        mock_save.side_effect = Exception("DB Error")
+
+        at = AppTest.from_function(table_business_name_editor_app, args=("cat.sch.tbl", "old en", "old fr", "old def en", "old def fr")).run()
+        at.text_input[0].set_value("new en")
+        at.button[0].click().run()
+
+        mock_save.assert_called_once()
+        mock_rerun.assert_not_called()
+        assert len(at.error) > 0
+        assert at.error[0].value == en_locale["common"]["error"]
+
+    @patch("src.ui.cards.detail.save_table_business_name")
+    @patch("src.ui.cards.detail.st.rerun")
+    def test_render_table_business_name_editor_permission_error(self, mock_rerun, mock_save):
+        mock_save.side_effect = PermissionError("Not allowed")
+
+        at = AppTest.from_function(table_business_name_editor_app, args=("cat.sch.tbl", "old en", "old fr", "old def en", "old def fr")).run()
+        at.text_input[0].set_value("new en")
+        at.button[0].click().run()
+
+        mock_save.assert_called_once()
+        mock_rerun.assert_not_called()
+        assert len(at.error) > 0
+        assert at.error[0].value == en_locale["detail"]["unauthorized"]
+
+    @patch("src.ui.cards.detail.save_table_business_name")
+    @patch("src.ui.cards.detail.st.rerun")
+    def test_render_table_business_name_editor_value_error(self, mock_rerun, mock_save):
+        mock_save.side_effect = ValueError("Invalid input")
+
+        at = AppTest.from_function(table_business_name_editor_app, args=("cat.sch.tbl", "old en", "old fr", "old def en", "old def fr")).run()
+        at.text_input[0].set_value("new en")
+        at.button[0].click().run()
+
+        mock_save.assert_called_once()
+        mock_rerun.assert_not_called()
+        assert len(at.error) > 0
+        assert at.error[0].value == "Invalid input"
+
+    @patch("src.ui.cards.detail.get_table_business_name_override_storage")
+    def test_render_table_business_name_editor_fetch_defaults(self, mock_storage):
+        mock_storage.return_value.get_for_table.return_value = {
+            "business_name_en": "fetched_en",
+            "business_name_fr": "fetched_fr",
+            "business_definition_en": "fetched_def_en",
+            "business_definition_fr": "fetched_def_fr"
+        }
+
+        at = AppTest.from_function(table_business_name_editor_app, args=("cat.sch.tbl", "", "", "", "")).run()
+
+        mock_storage.return_value.get_for_table.assert_called_once_with("cat.sch.tbl")
+        assert at.text_input[0].value == "fetched_en"
+        assert at.text_input[1].value == "fetched_fr"
+        assert at.text_area[0].value == "fetched_def_en"
+        assert at.text_area[1].value == "fetched_def_fr"
+
+    @patch("src.ui.cards.detail.get_table_business_name_override_storage")
+    def test_render_table_business_name_editor_fetch_defaults_exception(self, mock_storage):
+        mock_storage.return_value.get_for_table.side_effect = Exception("Storage error")
+
+        at = AppTest.from_function(table_business_name_editor_app, args=("cat.sch.tbl", "", "", "", "")).run()
+
+        mock_storage.return_value.get_for_table.assert_called_once_with("cat.sch.tbl")
+        # Should catch the error and log it, then render with empty fields
+        assert at.text_input[0].value == ""
+        assert at.text_input[1].value == ""
+
+    @patch("src.ui.cards.detail.save_table_business_name")
+    @patch("src.ui.cards.detail.st.rerun")
+    def test_render_table_business_name_editor_cancel(self, mock_rerun, mock_save):
+        at = AppTest.from_function(table_business_name_editor_app, args=("cat.sch.tbl", "old en", "old fr", "old def en", "old def fr")).run()
+        at.button[1].click().run()
+
+        mock_save.assert_not_called()
+        mock_rerun.assert_called_once()
+
 
 class TestRenderTableMetadataEditor:
     @patch("src.ui.cards.detail.save_table_metadata")
