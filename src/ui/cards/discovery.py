@@ -21,7 +21,7 @@ from src.auth import is_admin
 from src.cms import delete_post, get_active_posts
 from src.config import is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
-from src.db.queries import run_query
+from src.db.queries import run_query, get_authorized_tables
 from src.i18n import t
 from src.notifications import get_unread_notifications, mark_all_read, mark_read
 from src.ui.cards._shared import _POST_COLOR, _dq_grade
@@ -220,7 +220,7 @@ def render_cms_banner() -> None:
     st.markdown("<div style='margin-bottom:16px'></div>", unsafe_allow_html=True)
 
 
-def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref_upsert_fn=None):
+def render_discovery(groups, pref_delete_fn=None, pref_upsert_fn=None):
     st.markdown(f'''
     <div class="dd-search-hero">
       <div class="dd-eyebrow">{t("discovery.title")}</div>
@@ -258,16 +258,16 @@ def render_discovery(groups, get_authorized_tables_fn, pref_delete_fn=None, pref
         _disc_active = "notable"
 
     if _disc_active == "notable":
-        _render_notable_tab(groups, get_authorized_tables_fn, pref_delete_fn, pref_upsert_fn)
+        _render_notable_tab(groups, pref_delete_fn, pref_upsert_fn)
     elif _disc_active == "bookmarks":
-        _render_bookmarks_tab(groups, get_authorized_tables_fn, pref_delete_fn, pref_upsert_fn)
+        _render_bookmarks_tab(groups, pref_delete_fn, pref_upsert_fn)
     elif _disc_active == "recent":
-        _render_recent_tab(groups, get_authorized_tables_fn, pref_delete_fn, pref_upsert_fn)
+        _render_recent_tab(groups, pref_delete_fn, pref_upsert_fn)
     elif _disc_active == "recommended":
-        _render_recommended_tab(groups, get_authorized_tables_fn, pref_delete_fn, pref_upsert_fn)
+        _render_recommended_tab(groups, pref_delete_fn, pref_upsert_fn)
 
 
-def _render_notable_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, pref_upsert_fn=None):
+def _render_notable_tab(groups, pref_delete_fn=None, pref_upsert_fn=None):
     st.markdown(
         f'<div class="dd-section-header"><span class="dd-eyebrow" '
         f'style="margin-bottom:0;color:#14110C">{t("personalization.tab_notable")}</span></div>',
@@ -285,7 +285,7 @@ def _render_notable_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, p
     if primary_group:
         st.info(t("discovery.group_highlights", group=primary_group))
         try:
-            all_authorized = get_authorized_tables_fn((primary_group,))
+            all_authorized = get_authorized_tables((primary_group,))
             if not all_authorized.empty and "updated_at" in all_authorized.columns:
                 recent_tables = all_authorized.sort_values(by="updated_at", ascending=False).head(10)
                 for row in recent_tables.itertuples(index=False):
@@ -299,7 +299,7 @@ def _render_notable_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, p
         st.warning(t("discovery.sign_in_prompt"))
 
 
-def _render_bookmarks_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, pref_upsert_fn=None):
+def _render_bookmarks_tab(groups, pref_delete_fn=None, pref_upsert_fn=None):
     st.markdown(
         f'<div class="dd-section-header"><span class="dd-eyebrow" '
         f'style="margin-bottom:0;color:#14110C">{t("personalization.tab_bookmarks")}</span></div>',
@@ -310,7 +310,7 @@ def _render_bookmarks_tab(groups, get_authorized_tables_fn, pref_delete_fn=None,
         st.info(t("personalization.no_bookmarks"))
     else:
         try:
-            all_tables = get_authorized_tables_fn(groups)
+            all_tables = get_authorized_tables(groups)
             if all_tables is None or all_tables.empty:
                 st.info(t("personalization.no_bookmarks"))
             else:
@@ -335,7 +335,7 @@ def _render_bookmarks_tab(groups, get_authorized_tables_fn, pref_delete_fn=None,
         st.info(t("personalization.no_col_bookmarks"))
     else:
         _col_bk_auth_fns = (
-            set(get_authorized_tables_fn(groups)["full_name"].unique().tolist())
+            set(get_authorized_tables(groups)["full_name"].unique().tolist())
             if groups else set()
         )
         for _bk_id in sorted(col_bookmarks):
@@ -409,7 +409,7 @@ def _get_recommended_tables(groups: tuple, authorized_full_names: set, top_n: in
         return []
 
 
-def _render_recommended_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, pref_upsert_fn=None):
+def _render_recommended_tab(groups, pref_delete_fn=None, pref_upsert_fn=None):
     st.markdown(
         f'<div class="dd-section-header"><span class="dd-eyebrow" '
         f'style="margin-bottom:0;color:#14110C">{t("personalization.recommended_title")}</span></div>',
@@ -421,7 +421,7 @@ def _render_recommended_tab(groups, get_authorized_tables_fn, pref_delete_fn=Non
         unsafe_allow_html=True,
     )
     try:
-        all_tables = get_authorized_tables_fn(groups)
+        all_tables = get_authorized_tables(groups)
         if all_tables is None or all_tables.empty:
             st.info(t("personalization.recommended_empty"))
             return
@@ -441,7 +441,7 @@ def _render_recommended_tab(groups, get_authorized_tables_fn, pref_delete_fn=Non
         st.error(t("discovery.load_error"))
 
 
-def _render_recent_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, pref_upsert_fn=None):
+def _render_recent_tab(groups, pref_delete_fn=None, pref_upsert_fn=None):
     st.markdown(
         f'<div class="dd-section-header"><span class="dd-eyebrow" '
         f'style="margin-bottom:0;color:#14110C">{t("personalization.tab_recent")}</span></div>',
@@ -452,7 +452,7 @@ def _render_recent_tab(groups, get_authorized_tables_fn, pref_delete_fn=None, pr
         st.info(t("personalization.no_recent"))
     else:
         try:
-            all_tables = get_authorized_tables_fn(groups)
+            all_tables = get_authorized_tables(groups)
             if all_tables is None or all_tables.empty:
                 st.info(t("personalization.no_recent"))
                 return
