@@ -91,12 +91,13 @@ status keys (`worker_heartbeat`, `dr_resync_status`) into
 ### Health and recovery
 
 - HTTP `GET :8765/healthz` returns 200 if a heartbeat was written within
-  `SYNC_HEALTHZ_TIMEOUT_S` (default 60s), else 503 — used by the k8s
-  liveness probe.
+  `HEALTHZ_TIMEOUT_S` (60s; module constant since the 2026-06 audit,
+  formerly the `SYNC_HEALTHZ_TIMEOUT_S` env var), else 503 — used by the
+  k8s liveness probe.
 - Stale-row recovery at the top of every cycle: rows in `'syncing'`
-  state with `last_attempt_at < now - SYNC_STALE_ROW_S` (default 300s)
-  flip back to `'pending'`. A daemon crash mid-push therefore can't lock
-  rows permanently.
+  state with `last_attempt_at < now - STALE_ROW_TIMEOUT_S` (300s; module
+  constant, formerly `SYNC_STALE_ROW_S`) flip back to `'pending'`. A
+  daemon crash mid-push therefore can't lock rows permanently.
 - `SIGTERM` sets `_stop_event`; the current cycle finishes (max ~30s
   with `terminationGracePeriodSeconds: 60`) and the daemon exits cleanly.
 

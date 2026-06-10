@@ -115,7 +115,7 @@ Admins and Stewards can access the <strong>Search Gaps</strong> report in the Ad
 <section class="section" id="implementation-details">
 <h2>Implementation Details</h2>
 <ul>
-  <li><strong>Protocol:</strong> <code>AnalyticsStorage</code> defines the interface for tracking and retrieval.</li>
+  <li><strong>Module:</strong> <code>src/analytics.py</code> — <code>track_search</code>, <code>get_zero_result_searches</code>, <code>get_zero_result_alerts</code>; branches on demo mode like the other data-layer modules.</li>
   <li><strong>Integration:</strong> Hooked into <code>src/pages/search.py</code> immediately following the hybrid search execution.</li>
   <li><strong>Privacy:</strong> Only records searches from authenticated users; search text is stored as-is without further processing.</li>
 </ul>
@@ -123,7 +123,7 @@ Admins and Stewards can access the <strong>Search Gaps</strong> report in the Ad
 <section class="section" id="initial-scaffolding">
 <h2>Initial Scaffolding</h2>
 <ul>
-  <li>Implemented <code>src/storage/analytics_storage.py</code> with DuckDB, Demo, and Fake backends.</li>
+  <li>Implemented the analytics data layer (now <code>src/analytics.py</code>) with DuckDB and demo paths.</li>
   <li>Updated <code>src/pages/search.py</code> to track all search events.</li>
   <li>Added "Search gaps" section to the Admin dashboard Insights tab.</li>
 </ul>

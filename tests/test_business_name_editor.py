@@ -627,27 +627,30 @@ class TestBusinessNameEditorDB:
 
         from unittest.mock import patch
 
-        # Mock the storage since search.py now uses it instead of get_column_business_names
-        mock_patcher = patch("src.pages.search.get_business_name_override_storage")
-        mock_store = mock_patcher.start()
-        # Add cleanup to monkeypatch instead of using self.addCleanup which is for TestCase
-        monkeypatch.setattr("pytest.MonkeyPatch", lambda: mock_patcher.stop())
-
-        mock_store.return_value.get_for_table.return_value = {
-            COLUMN_NAME: {
-                "business_name": "Customer ID",
-                "definition": "",
-                "edited_by": "bob@example.com",
-                "edited_at": "2026-04-24 10:00:00"
-            }
-        }
-        mock_store.return_value.get_columns.return_value = pd.DataFrame(
-            {
-                "column_name": [COLUMN_NAME],
-                "data_type": ["STRING"],
-                "comment": [""],
-            }
+        overrides_patcher = patch(
+            "src.pages.search.get_column_overrides",
+            return_value={
+                COLUMN_NAME: {
+                    "business_name": "Customer ID",
+                    "definition": "",
+                    "edited_by": "bob@example.com",
+                    "edited_at": "2026-04-24 10:00:00",
+                }
+            },
         )
+        cols_patcher = patch(
+            "src.pages.search.get_table_columns",
+            return_value=pd.DataFrame(
+                {
+                    "column_name": [COLUMN_NAME],
+                    "data_type": ["STRING"],
+                    "comment": [""],
+                }
+            ),
+        )
+        overrides_patcher.start()
+        cols_patcher.start()
+        monkeypatch_undo = (overrides_patcher.stop, cols_patcher.stop)
 
         audit_overrides = pd.DataFrame(
             {
@@ -692,9 +695,13 @@ class TestBusinessNameEditorDB:
         if len(at.button) > 0 and any("View details" in b.label for b in at.button):
             next(b for b in at.button if "View details" in b.label).click().run()
 
-        html = _html(*at.markdown)
-        assert "Last edited by" in html, "Audit trail not rendered"
-        assert "bob@example.com" in html, "Audit trail editor name not rendered"
+        try:
+            html = _html(*at.markdown)
+            assert "Last edited by" in html, "Audit trail not rendered"
+            assert "bob@example.com" in html, "Audit trail editor name not rendered"
+        finally:
+            for undo in monkeypatch_undo:
+                undo()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -46,8 +46,18 @@ class TestIsPipelineUser:
         from src.auth import is_pipeline_user
         assert is_pipeline_user() is False
 
+    def test_false_when_feature_disabled(self, monkeypatch):
+        """is_pipeline_user returns False when ENABLE_PIPELINES is off, even with matching groups."""
+        monkeypatch.delenv("ENABLE_PIPELINES", raising=False)
+        monkeypatch.setenv("PIPELINE_GROUPS", PIPELINE_GROUP)
+        import streamlit as st
+        st.session_state["user_groups"] = [PIPELINE_GROUP]
+        from src.auth import is_pipeline_user
+        assert is_pipeline_user() is False
+
     def test_true_when_group_matches(self, monkeypatch):
         """is_pipeline_user returns True when user belongs to PIPELINE_GROUPS."""
+        monkeypatch.setenv("ENABLE_PIPELINES", "true")
         monkeypatch.setenv("PIPELINE_GROUPS", PIPELINE_GROUP)
         import streamlit as st
         st.session_state["user_groups"] = [PIPELINE_GROUP, STANDARD_GROUP]
@@ -56,6 +66,7 @@ class TestIsPipelineUser:
 
     def test_true_with_multiple_pipeline_groups(self, monkeypatch):
         """is_pipeline_user works with comma-separated PIPELINE_GROUPS."""
+        monkeypatch.setenv("ENABLE_PIPELINES", "true")
         monkeypatch.setenv("PIPELINE_GROUPS", f"other_group,{PIPELINE_GROUP}")
         import streamlit as st
         st.session_state["user_groups"] = [PIPELINE_GROUP]
@@ -63,19 +74,31 @@ class TestIsPipelineUser:
         assert is_pipeline_user() is True
 
 
-class TestGetPipelines:
-    def test_returns_empty_when_storage_empty(self):
-        """get_pipelines returns [] for an empty storage backend."""
-        from src.storage.pipeline_storage import FakePipelineDefStorage
-        fake = FakePipelineDefStorage()
-        with patch("src.pipelines.get_pipeline_def_storage", return_value=fake):
-            from src.pipelines import get_pipelines
-            assert get_pipelines() == []
+@pytest.fixture
+def demo_pipelines():
+    """Route src.pipelines through the demo (session-state) path, clean slate."""
+    import streamlit as st
+    stale = [k for k in st.session_state.keys()
+             if k == "_demo_pipelines" or str(k).startswith("_demo_run_")]
+    for k in stale:
+        st.session_state.pop(k, None)
+    with patch("src.pipelines.is_demo_mode", return_value=True):
+        yield st.session_state
+    stale = [k for k in st.session_state.keys()
+             if k == "_demo_pipelines" or str(k).startswith("_demo_run_")]
+    for k in stale:
+        st.session_state.pop(k, None)
 
-    def test_returns_pipelines_from_storage(self):
-        """get_pipelines returns whatever the def storage holds."""
-        from src.storage.pipeline_storage import FakePipelineDefStorage
-        fake = FakePipelineDefStorage([{
+
+class TestGetPipelines:
+    def test_returns_empty_when_storage_empty(self, demo_pipelines):
+        """get_pipelines returns [] when no pipelines exist."""
+        from src.pipelines import get_pipelines
+        assert get_pipelines() == []
+
+    def test_returns_pipelines_from_storage(self, demo_pipelines):
+        """get_pipelines returns whatever the demo store holds."""
+        demo_pipelines["_demo_pipelines"] = [{
             "pipeline_id": "p1", "title": "My Job", "description": "desc",
             "backend": "databricks", "databricks_job_id": "42",
             "adf_subscription_id": None, "adf_resource_group": None,
@@ -83,26 +106,18 @@ class TestGetPipelines:
             "ado_organization": None, "ado_project": None,
             "ado_pipeline_id": None, "created_by": "admin",
             "created_at": datetime.now(UTC),
-        }])
-        with patch("src.pipelines.get_pipeline_def_storage", return_value=fake):
-            from src.pipelines import get_pipelines
-            result = get_pipelines()
+        }]
+        from src.pipelines import get_pipelines
+        result = get_pipelines()
         assert len(result) == 1
         assert result[0]["title"] == "My Job"
 
-    def test_get_pipelines_with_mock(self):
-        """get_pipelines explicitly tested with mocked data."""
-        with patch("src.pipelines.get_pipeline_def_storage") as mock_get_storage:
+    def test_returns_empty_on_db_error(self):
+        """get_pipelines swallows DB errors and returns []."""
+        with patch("src.pipelines.is_demo_mode", return_value=False), \
+             patch("src.pipelines.get_db_connection", side_effect=Exception("DB down")):
             from src.pipelines import get_pipelines
-            mock_storage = MagicMock()
-            mock_storage.list_all.return_value = [{"id": "pipe1"}, {"id": "pipe2"}]
-            mock_get_storage.return_value = mock_storage
-
-            result = get_pipelines()
-
-            mock_get_storage.assert_called_once()
-            mock_storage.list_all.assert_called_once()
-            assert result == [{"id": "pipe1"}, {"id": "pipe2"}]
+            assert get_pipelines() == []
 
 
 # ── AppTest: pipelines page rendering ─────────────────────────────────────────
@@ -130,6 +145,7 @@ class TestPipelinesPageUI:
 
     def test_pipeline_user_can_access(self, monkeypatch):
         """Pipeline user sees the pipelines page without access denied."""
+        monkeypatch.setenv("ENABLE_PIPELINES", "true")
         monkeypatch.setenv("DEMO_DATA", "true")
         monkeypatch.setenv("PIPELINE_GROUPS", PIPELINE_GROUP)
         monkeypatch.setenv("ADMIN_GROUPS", ADMIN_GROUP)
@@ -141,6 +157,7 @@ class TestPipelinesPageUI:
 
     def test_admin_can_access_pipelines(self, monkeypatch):
         """Admin user can access the pipelines page even without PIPELINE_GROUPS."""
+        monkeypatch.setenv("ENABLE_PIPELINES", "true")
         monkeypatch.setenv("DEMO_DATA", "true")
         monkeypatch.setenv("PIPELINE_GROUPS", PIPELINE_GROUP)
         monkeypatch.setenv("ADMIN_GROUPS", ADMIN_GROUP)
@@ -152,6 +169,7 @@ class TestPipelinesPageUI:
 
     def test_pipelines_tab_visible_for_pipeline_user(self, monkeypatch):
         """Pipelines nav button is rendered for pipeline group members."""
+        monkeypatch.setenv("ENABLE_PIPELINES", "true")
         monkeypatch.setenv("DEMO_DATA", "true")
         monkeypatch.setenv("PIPELINE_GROUPS", PIPELINE_GROUP)
         at = self._make_app([PIPELINE_GROUP], tab="search")
@@ -429,156 +447,109 @@ class TestCancelRun:
 class TestPipelineDefAdminGuards:
     """create_pipeline_def and delete_pipeline_def are admin-only."""
 
-    def test_create_pipeline_def_rejects_non_admin(self):
+    def test_create_pipeline_def_rejects_non_admin(self, demo_pipelines):
         from src.pipelines import create_pipeline_def
-        with patch("src.pipelines.is_admin", return_value=False), \
-             patch("src.pipelines.get_pipeline_def_storage") as mock_storage:
+        with patch("src.pipelines.is_admin", return_value=False):
             with pytest.raises(PermissionError, match="admins"):
                 create_pipeline_def(
                     "title", "desc", "databricks", "42", None, None, None, None,
                     None, None, None, "u",
                 )
-        mock_storage.assert_not_called()
+        # Storage was not touched.
+        assert demo_pipelines.get("_demo_pipelines") in (None, [])
 
-    def test_create_pipeline_def_admin_succeeds(self, admin_caller_context):
+    def test_create_pipeline_def_admin_succeeds(self, admin_caller_context, demo_pipelines):
         from src.pipelines import create_pipeline_def
-        from src.storage.pipeline_storage import FakePipelineDefStorage
-        fake = FakePipelineDefStorage()
-        with patch("src.pipelines.get_pipeline_def_storage", return_value=fake):
-            create_pipeline_def(
-                "My Pipe", "desc", "databricks", "42", None, None, None, None,
-                None, None, None, "admin",
-            )
-        assert len(fake.list_all()) == 1
-        assert fake.list_all()[0]["title"] == "My Pipe"
+        create_pipeline_def(
+            "My Pipe", "desc", "databricks", "42", None, None, None, None,
+            None, None, None, "admin",
+        )
+        pipelines = demo_pipelines["_demo_pipelines"]
+        assert len(pipelines) == 1
+        assert pipelines[0]["title"] == "My Pipe"
 
-    def test_delete_pipeline_def_admin_succeeds(self, admin_caller_context):
+    def test_delete_pipeline_def_admin_succeeds(self, admin_caller_context, demo_pipelines):
         from src.pipelines import delete_pipeline_def
-        with patch("src.pipelines.get_pipeline_def_storage") as mock_def, \
-             patch("src.pipelines.get_pipeline_run_storage") as mock_run:
+        demo_pipelines["_demo_pipelines"] = [{"pipeline_id": "p1", "title": "Gone"}]
+        demo_pipelines["_demo_run_p1"] = {"backend_run_id": "r1"}
 
-            mock_def_storage = MagicMock()
-            mock_def.return_value = mock_def_storage
+        delete_pipeline_def("p1")
 
-            mock_run_storage = MagicMock()
-            mock_run.return_value = mock_run_storage
+        assert demo_pipelines["_demo_pipelines"] == []
+        assert "_demo_run_p1" not in demo_pipelines
 
-            delete_pipeline_def("p1")
-
-        mock_def_storage.delete.assert_called_once_with("p1")
-        mock_run_storage.clear.assert_called_once_with("p1")
-
-    def test_delete_pipeline_def_rejects_non_admin(self):
+    def test_delete_pipeline_def_rejects_non_admin(self, demo_pipelines):
         from src.pipelines import delete_pipeline_def
-        with patch("src.pipelines.is_admin", return_value=False), \
-             patch("src.pipelines.get_pipeline_def_storage") as mock_def, \
-             patch("src.pipelines.get_pipeline_run_storage") as mock_run:
+        demo_pipelines["_demo_pipelines"] = [{"pipeline_id": "p1", "title": "Stays"}]
+        with patch("src.pipelines.is_admin", return_value=False):
             with pytest.raises(PermissionError, match="admins"):
                 delete_pipeline_def("p1")
-        mock_def.assert_not_called()
-        mock_run.assert_not_called()
+        assert len(demo_pipelines["_demo_pipelines"]) == 1
 
-    def test_delete_pipeline_def_calls_storage(self, admin_caller_context):
+    def test_delete_pipeline_def_cascades(self, admin_caller_context, demo_pipelines):
+        """Deleting a definition also clears its active run, leaving others."""
         from src.pipelines import delete_pipeline_def
-        with patch("src.pipelines.get_pipeline_def_storage") as mock_def, \
-             patch("src.pipelines.get_pipeline_run_storage") as mock_run:
+        demo_pipelines["_demo_pipelines"] = [
+            {"pipeline_id": "p_cascade", "title": "Target"},
+            {"pipeline_id": "p_other", "title": "Other"},
+        ]
+        demo_pipelines["_demo_run_p_cascade"] = {"backend_run_id": "r1"}
+        demo_pipelines["_demo_run_p_other"] = {"backend_run_id": "r2"}
 
-            mock_def_storage = MagicMock()
-            mock_def.return_value = mock_def_storage
+        delete_pipeline_def("p_cascade")
 
-            mock_run_storage = MagicMock()
-            mock_run.return_value = mock_run_storage
-
-            delete_pipeline_def("target_pipeline_id")
-
-        mock_def_storage.delete.assert_called_once_with("target_pipeline_id")
-        mock_run_storage.clear.assert_called_once_with("target_pipeline_id")
-
-    def test_delete_pipeline_def_cascades(self, admin_caller_context):
-        from src.pipelines import delete_pipeline_def
-        from unittest.mock import call
-        with patch("src.pipelines.get_pipeline_def_storage") as mock_def, \
-             patch("src.pipelines.get_pipeline_run_storage") as mock_run:
-
-            mock_manager = MagicMock()
-            mock_def_storage = MagicMock()
-            mock_run_storage = MagicMock()
-            mock_def.return_value = mock_def_storage
-            mock_run.return_value = mock_run_storage
-
-            mock_manager.attach_mock(mock_def_storage.delete, 'delete')
-            mock_manager.attach_mock(mock_run_storage.clear, 'clear')
-
-            delete_pipeline_def("p_cascade")
-
-            expected_calls = [
-                call.delete("p_cascade"),
-                call.clear("p_cascade")
-            ]
-            assert mock_manager.mock_calls == expected_calls
-
+        remaining = [p["pipeline_id"] for p in demo_pipelines["_demo_pipelines"]]
+        assert remaining == ["p_other"]
+        assert "_demo_run_p_cascade" not in demo_pipelines
+        assert "_demo_run_p_other" in demo_pipelines
 
     def test_delete_pipeline_def_storage_error(self, admin_caller_context):
+        """A failing definition delete propagates and skips the run cascade."""
         from src.pipelines import delete_pipeline_def
-        with patch("src.pipelines.get_pipeline_def_storage") as mock_def, \
-             patch("src.pipelines.get_pipeline_run_storage") as mock_run:
-
-            mock_def_storage = MagicMock()
-            mock_def_storage.delete.side_effect = Exception("Storage error")
-            mock_def.return_value = mock_def_storage
-
-            mock_run_storage = MagicMock()
-            mock_run.return_value = mock_run_storage
-
+        with patch("src.pipelines.is_demo_mode", return_value=False), \
+             patch("src.pipelines._get_write_connection",
+                   side_effect=Exception("Storage error")), \
+             patch("src.pipelines._clear_run") as mock_clear:
             with pytest.raises(Exception, match="Storage error"):
                 delete_pipeline_def("error_pipeline_id")
-
-            mock_def_storage.delete.assert_called_once_with("error_pipeline_id")
-            mock_run_storage.clear.assert_not_called()
+            mock_clear.assert_not_called()
 
 
 class TestRunStatePersistence:
-    @patch("src.pipelines.get_pipeline_run_storage")
-    def test_get_active_run(self, mock_get_storage):
+    def test_get_active_run(self, demo_pipelines):
         from src.pipelines import get_active_run
-        mock_storage = MagicMock()
-        mock_storage.get_active.return_value = {"status": "running"}
-        mock_get_storage.return_value = mock_storage
+        demo_pipelines["_demo_run_pipe1"] = {"status": "running"}
 
-        result = get_active_run("pipe1")
+        assert get_active_run("pipe1") == {"status": "running"}
+        assert get_active_run("missing") is None
 
-        mock_storage.get_active.assert_called_once_with("pipe1")
-        assert result == {"status": "running"}
-
-    @patch("src.pipelines.get_pipeline_run_storage")
-    def test_save_run(self, mock_get_storage):
+    def test_save_run(self, demo_pipelines):
         from src.pipelines import _save_run
-        mock_storage = MagicMock()
-        mock_get_storage.return_value = mock_storage
 
         _save_run("pipe1", "run1", "user1")
 
-        mock_storage.upsert.assert_called_once_with("pipe1", "run1", "user1")
+        run = demo_pipelines["_demo_run_pipe1"]
+        assert run["backend_run_id"] == "run1"
+        assert run["triggered_by"] == "user1"
+        assert run["status"] == "started"
 
-    @patch("src.pipelines.get_pipeline_run_storage")
-    def test_update_run(self, mock_get_storage):
-        from src.pipelines import _update_run
-        mock_storage = MagicMock()
-        mock_get_storage.return_value = mock_storage
+    def test_update_run(self, demo_pipelines):
+        from src.pipelines import _save_run, _update_run
 
+        _save_run("pipe1", "run1", "user1")
         _update_run("pipe1", "success")
 
-        mock_storage.update_status.assert_called_once_with("pipe1", "success")
+        assert demo_pipelines["_demo_run_pipe1"]["status"] == "success"
 
-    @patch("src.pipelines.get_pipeline_run_storage")
-    def test_clear_run(self, mock_get_storage):
-        from src.pipelines import _clear_run
-        mock_storage = MagicMock()
-        mock_get_storage.return_value = mock_storage
+    def test_clear_run(self, demo_pipelines):
+        from src.pipelines import _clear_run, _save_run
 
+        _save_run("pipe1", "run1", "user1")
         _clear_run("pipe1")
 
-        mock_storage.clear.assert_called_once_with("pipe1")
+        assert "_demo_run_pipe1" not in demo_pipelines
+        # Idempotent — clearing again is a no-op.
+        _clear_run("pipe1")
 
 
 class TestPollRunStatusUnknownBackend:

@@ -488,11 +488,9 @@ class TestHealthDashboard:
             }
         ]
         
-        from unittest.mock import MagicMock, patch
-        mock_storage = MagicMock()
-        mock_storage.get_zero_result_alerts.return_value = mock_alerts
-        
-        with patch("src.storage.get_analytics_storage", return_value=mock_storage):
+        from unittest.mock import patch
+
+        with patch("src.analytics.get_zero_result_alerts", return_value=mock_alerts):
             at = authenticated_app(tab="health")
             at.run()
             

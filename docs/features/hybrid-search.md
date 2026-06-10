@@ -13,14 +13,14 @@ Uses standard SQL `LIKE` patterns (and eventually full-text indices) to find exa
 Converts the user's query into a high-dimensional vector (embedding) and performs a "Nearest Neighbor" search against pre-calculated metadata embeddings stored in the local cache.
 
 ### 3. Fused Ranking
-Results from both paths are combined. Keyword matches are typically given higher weight for exact name matches, while semantic results fill the gaps where keywords fail.
+Results from both paths are combined as a weighted sum: the normalized keyword score contributes 0.7 and a rank-decayed semantic score contributes 0.3. Semantic hits missing from the keyword results are fetched permission-filtered and appended, so vector matches never bypass the access model.
 
 ## Technical Architecture
 - **Embedding Store:** A new `tables_embedding_cache` table in the catalog cache stores the vectors.
 - **VSS Engine:** Uses DuckDB's built-in vector similarity features (e.g., `array_cosine_similarity`).
 - **Sync Integration:** The nightly sync job is responsible for generating embeddings for any new or updated metadata.
 
-## Initial Scaffolding
-- Added `tables_embedding_cache` to `scripts/sync_metadata.py`.
-- Defined `EmbeddingEngine` Protocol and `MockEmbeddingEngine` in `src/semantic.py`.
-- Refactored `src/db/queries.py` to a hybrid execution structure.
+## Implementation Status
+- `tables_embedding_cache` populated by `scripts/sync_metadata.py` during the nightly crawl.
+- `EmbeddingEngine` Protocol with `DatabricksEmbeddingEngine` (Model Serving) and `MockEmbeddingEngine` fallback in `src/semantic.py`.
+- Weighted fusion implemented in `src/db/queries.py::search_all_metadata` (2026-06, TODO OE-2); gated behind `ENABLE_SEMANTIC_SEARCH` (default off).

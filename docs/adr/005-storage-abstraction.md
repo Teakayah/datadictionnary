@@ -1,8 +1,16 @@
 # ADR 005 — Per-entity storage abstraction
 
-**Status:** Accepted
+**Status:** Superseded (2026-06-10 over-engineering audit, TODO OE-1)
 **Date:** 2026-05-08
 **Deciders:** Platform team
+
+> **Superseded.** The abstraction tripled the code per entity (6 Protocol
+> modules × 3 backends, 1,769 lines) for a test-isolation benefit that
+> patching `is_demo_mode()` achieves directly. `src/storage/` was deleted
+> and the demo/DuckDB branching inlined into each data-layer module
+> (`src/cms.py`, `src/pipelines.py`, `src/personalization.py`,
+> `src/audit.py`, `src/notifications.py`, `src/analytics.py`). The
+> original rationale below is kept as a record of the decision.
 
 ---
 

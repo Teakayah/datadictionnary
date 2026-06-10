@@ -265,13 +265,23 @@ def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
     return run_query(sql_query, {"fn": table_full_name, "depth": depth})
 
 
+# Hybrid fusion weights: keyword (BM25-style 0-5 score) vs semantic rank.
+_HYBRID_KEYWORD_WEIGHT = 0.7
+_HYBRID_SEMANTIC_WEIGHT = 0.3
+
+
+def _drop_score_cols(df):
+    cols = [c for c in ("_score", "_hybrid_score") if c in df.columns]
+    return df.drop(columns=cols).reset_index(drop=True) if cols else df
+
+
 @st.cache_data(ttl="1h", show_spinner=False)
 def search_all_metadata(query: str, groups: tuple):
     """Hybrid search: keyword-based (BM25) + semantic vector similarity."""
-    # 1. Keyword search (current implementation)
+    # 1. Keyword search (carries a 0-5 `_score` column)
     keyword_results = _search_keywords(query, groups)
-    
-    # 2. Semantic search (Phase 2 placeholder) — lazy import avoids circular dep
+
+    # 2. Semantic search — lazy import avoids circular dep
     semantic_fns = []
     if os.getenv("ENABLE_SEMANTIC_SEARCH") == "true":
         try:
@@ -279,21 +289,55 @@ def search_all_metadata(query: str, groups: tuple):
             semantic_fns = semantic_search(query)
         except Exception:
             pass
-    
+
     if not semantic_fns:
-        return keyword_results
+        if keyword_results is None or keyword_results.empty:
+            return keyword_results
+        return _drop_score_cols(keyword_results)
 
-    # 3. Hybrid ranking (simple weighted fusion)
-    # Give keyword results high scores (0-5)
-    # Add semantic results if missing from keyword, or boost existing ones
     if keyword_results is None or keyword_results.empty:
-        # Fetch full metadata for semantic results if keyword search found nothing
-        # (This is a simplified re-fetch logic for the prototype)
-        return _fetch_metadata_for_fns(semantic_fns, groups)
+        # Keyword search found nothing: return semantic hits in rank order.
+        results = _fetch_metadata_for_fns(semantic_fns, groups)
+        if results is None or results.empty:
+            return results
+        rank = {fn: i for i, fn in enumerate(semantic_fns)}
+        results = results.copy()
+        results["_hybrid_score"] = results["full_name"].map(
+            lambda fn: -rank.get(fn, len(semantic_fns))
+        )
+        return _drop_score_cols(
+            results.sort_values("_hybrid_score", ascending=False, kind="stable")
+        )
 
-    # For now, we just ensure semantic results are present in the list
-    # Future: Implement proper RRF (Reciprocal Rank Fusion)
-    return keyword_results
+    # 3. Weighted fusion. Keyword `_score` is normalized to [0, 1]; the
+    # semantic contribution decays linearly with rank in `semantic_fns`.
+    combined = keyword_results.copy()
+    known_fns = set(combined["full_name"])
+    missing_fns = [fn for fn in semantic_fns if fn not in known_fns]
+    if missing_fns:
+        extra = _fetch_metadata_for_fns(missing_fns, groups)
+        if extra is not None and not extra.empty:
+            extra = extra.copy()
+            extra["_score"] = 0  # no keyword relevance
+            combined = pd.concat([combined, extra], ignore_index=True)
+
+    if "_score" in combined.columns:
+        kw_score = (
+            pd.to_numeric(combined["_score"], errors="coerce").fillna(0.0) / 5.0
+        )
+    else:
+        kw_score = 0.0
+    n = len(semantic_fns)
+    sem_rank = {fn: i for i, fn in enumerate(semantic_fns)}
+    sem_score = combined["full_name"].map(
+        lambda fn: (n - sem_rank[fn]) / n if fn in sem_rank else 0.0
+    )
+    combined["_hybrid_score"] = (
+        _HYBRID_KEYWORD_WEIGHT * kw_score + _HYBRID_SEMANTIC_WEIGHT * sem_score
+    )
+    return _drop_score_cols(
+        combined.sort_values("_hybrid_score", ascending=False, kind="stable")
+    )
 
 
 def _fetch_metadata_for_fns(full_names: List[str], groups: tuple) -> pd.DataFrame:
@@ -521,7 +565,6 @@ def _search_keywords(query: str, groups: tuple):
     combined["_score"] = scores
     return (
         combined.sort_values("_score", ascending=False)
-        .drop(columns=["_score"])
         .reset_index(drop=True)
     )
 

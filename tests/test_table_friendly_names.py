@@ -6,7 +6,7 @@ Coverage:
   2. Sync ingest: JOIN logic — matched / unmatched / partial rows
   3. Search SQL: both bilingual columns in WHERE clause
   4. Sidecar queue action shape (enqueue_table_business_name_sync)
-  5. Audit approve/reject for table-level overrides (FakeStorage)
+  5. Audit approve/reject for table-level overrides (demo path)
   6. Demo-mode fixture: _DEMO_TABLES has bilingual columns so DEMO_DATA=true works
 """
 
@@ -332,80 +332,79 @@ class TestEnqueueTableBusinessName:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 5. Audit: save / approve / reject for table-level overrides (FakeStorage)
+# 5. Audit: save / approve / reject for table-level overrides (demo path)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestTableFriendlyNameAudit:
-    """save/approve/reject via FakeTableBusinessNameOverrideStorage."""
+    """save/approve/reject via the demo (session-state) override path."""
 
-    def _make_fake_store(self):
-        from src.storage.audit_storage import FakeTableBusinessNameOverrideStorage
-        return FakeTableBusinessNameOverrideStorage()
+    @pytest.fixture(autouse=True)
+    def _demo_overrides(self):
+        import streamlit as st
+        for key in ("demo_table_business_names", "demo_table_business_names_pending"):
+            st.session_state.pop(key, None)
+        with patch("src.audit.is_demo_mode", return_value=True):
+            yield
+        for key in ("demo_table_business_names", "demo_table_business_names_pending"):
+            st.session_state.pop(key, None)
+
+    @staticmethod
+    def _upsert_pending(name_en="Customers", name_fr="Clients", def_en="", def_fr=""):
+        from src.audit import TableBusinessNameOverride, _upsert_table_business_name_override
+        _upsert_table_business_name_override(TableBusinessNameOverride(
+            FULL_NAME, name_en, name_fr, def_en, def_fr, "alice", "pending_approval",
+        ))
 
     def test_upsert_pending_shows_in_list_pending(self):
-        store = self._make_fake_store()
-        from src.storage.audit_storage import TableBusinessNameOverride
-        store.upsert(TableBusinessNameOverride(
-            table_full_name=FULL_NAME,
-            business_name_en="Customers",
-            business_name_fr="Clients",
-            business_definition_en="EN def",
-            business_definition_fr="FR def",
-            edited_by="alice",
-            status="pending_approval",
-        ))
-        pending = store.list_pending()
+        from src.audit import list_pending_table_business_names
+        self._upsert_pending(def_en="EN def", def_fr="FR def")
+        pending = list_pending_table_business_names()
         assert len(pending) == 1
         assert pending[0]["table_full_name"] == FULL_NAME
 
     def test_get_for_table_returns_empty_before_approve(self):
         """A pending row must not surface via get_for_table (not yet published)."""
-        store = self._make_fake_store()
-        from src.storage.audit_storage import TableBusinessNameOverride
-        store.upsert(TableBusinessNameOverride(
-            FULL_NAME, "Customers", "Clients", "", "", "alice", "pending_approval",
-        ))
-        assert store.get_for_table(FULL_NAME) == {}
+        from src.audit import get_table_business_name_override
+        self._upsert_pending()
+        assert get_table_business_name_override(FULL_NAME) == {}
 
     def test_approve_publishes_row_and_returns_data(self):
-        store = self._make_fake_store()
-        from src.storage.audit_storage import TableBusinessNameOverride
-        store.upsert(TableBusinessNameOverride(
-            FULL_NAME, "Customers", "Clients", "EN def", "FR def", "alice", "pending_approval",
-        ))
-        published = store.approve(FULL_NAME)
+        from src.audit import _approve_table_business_name_override
+        self._upsert_pending(def_en="EN def", def_fr="FR def")
+        published = _approve_table_business_name_override(FULL_NAME)
         assert published["business_name_en"] == "Customers"
         assert published["business_name_fr"]  == "Clients"
 
     def test_approve_removes_from_pending(self):
-        store = self._make_fake_store()
-        from src.storage.audit_storage import TableBusinessNameOverride
-        store.upsert(TableBusinessNameOverride(
-            FULL_NAME, "Customers", "Clients", "", "", "alice", "pending_approval",
-        ))
-        store.approve(FULL_NAME)
-        assert store.list_pending() == []
+        from src.audit import (
+            _approve_table_business_name_override,
+            list_pending_table_business_names,
+        )
+        self._upsert_pending()
+        _approve_table_business_name_override(FULL_NAME)
+        assert list_pending_table_business_names() == []
 
     def test_get_for_table_returns_data_after_approve(self):
-        store = self._make_fake_store()
-        from src.storage.audit_storage import TableBusinessNameOverride
-        store.upsert(TableBusinessNameOverride(
-            FULL_NAME, "Customers", "Clients", "EN def", "FR def", "alice", "pending_approval",
-        ))
-        store.approve(FULL_NAME)
-        data = store.get_for_table(FULL_NAME)
+        from src.audit import (
+            _approve_table_business_name_override,
+            get_table_business_name_override,
+        )
+        self._upsert_pending(def_en="EN def", def_fr="FR def")
+        _approve_table_business_name_override(FULL_NAME)
+        data = get_table_business_name_override(FULL_NAME)
         assert data["business_name_en"] == "Customers"
 
     def test_reject_removes_pending_row(self):
-        store = self._make_fake_store()
-        from src.storage.audit_storage import TableBusinessNameOverride
-        store.upsert(TableBusinessNameOverride(
-            FULL_NAME, "Customers", "Clients", "", "", "alice", "pending_approval",
-        ))
-        store.reject(FULL_NAME)
-        assert store.list_pending() == []
-        assert store.get_for_table(FULL_NAME) == {}
+        from src.audit import (
+            _reject_table_business_name_override,
+            get_table_business_name_override,
+            list_pending_table_business_names,
+        )
+        self._upsert_pending()
+        _reject_table_business_name_override(FULL_NAME)
+        assert list_pending_table_business_names() == []
+        assert get_table_business_name_override(FULL_NAME) == {}
 
     def test_save_table_business_name_raises_for_non_power_user(self, monkeypatch):
         """save_table_business_name raises PermissionError when user is not an editor."""
@@ -430,58 +429,51 @@ class TestTableFriendlyNameAudit:
 
     def test_save_as_admin_sets_published_status(self, monkeypatch):
         """When an admin saves, the override is published immediately."""
-        fake_store = self._make_fake_store()
+        import streamlit as st
+        st.session_state["user_name"] = "Admin User"
         with patch("src.audit.is_power_user", return_value=True), \
              patch("src.audit.is_admin", return_value=True), \
-             patch("src.audit.get_table_business_name_override_storage", return_value=fake_store), \
              patch("src.audit._duckdb_available", return_value=False), \
              patch("src.audit.log_audit_event"), \
-             patch("src.audit.search_all_metadata"), \
-             patch("src.audit.st") as mock_st:
-            mock_st.session_state.get.return_value = "Admin User"
+             patch("src.audit.search_all_metadata"):
             from src.audit import save_table_business_name
             save_table_business_name(FULL_NAME, "Customers", "Clients", "EN def", "FR def")
 
-        data = fake_store.get_for_table(FULL_NAME)
+        from src.audit import get_table_business_name_override
+        data = get_table_business_name_override(FULL_NAME)
         assert data["business_name_en"] == "Customers"
 
     def test_save_as_editor_sets_pending_approval_status(self):
         """When an editor (not admin) saves, the override stays pending."""
-        fake_store = self._make_fake_store()
+        import streamlit as st
+        st.session_state["user_name"] = "Editor User"
         with patch("src.audit.is_power_user", return_value=True), \
              patch("src.audit.is_admin", return_value=False), \
-             patch("src.audit.get_table_business_name_override_storage", return_value=fake_store), \
              patch("src.audit._duckdb_available", return_value=False), \
              patch("src.audit.log_audit_event"), \
-             patch("src.audit.search_all_metadata"), \
-             patch("src.audit.st") as mock_st:
-            mock_st.session_state.get.return_value = "Editor User"
+             patch("src.audit.search_all_metadata"):
             from src.audit import save_table_business_name
             save_table_business_name(FULL_NAME, "Customers", "Clients")
 
         # Pending — not yet published
-        assert fake_store.get_for_table(FULL_NAME) == {}
-        assert len(fake_store.list_pending()) == 1
+        from src.audit import get_table_business_name_override, list_pending_table_business_names
+        assert get_table_business_name_override(FULL_NAME) == {}
+        assert len(list_pending_table_business_names()) == 1
 
     def test_approve_enqueues_sidecar_sync(self):
         """approve_table_business_name enqueues a TABLE_BUSINESS_NAME sync when DuckDB is available."""
-        fake_store = self._make_fake_store()
-        from src.storage.audit_storage import TableBusinessNameOverride
-        fake_store.upsert(TableBusinessNameOverride(
-            FULL_NAME, "Customers", "Clients", "EN def", "FR def", "alice", "pending_approval",
-        ))
+        import streamlit as st
+        st.session_state["user_name"] = "Admin User"
+        self._upsert_pending(def_en="EN def", def_fr="FR def")
 
         enqueued = []
         with patch("src.audit.is_admin", return_value=True), \
-             patch("src.audit.get_table_business_name_override_storage", return_value=fake_store), \
              patch("src.audit._duckdb_available", return_value=True), \
              patch("src.audit.enqueue_table_business_name_sync",
                    side_effect=lambda *a, **kw: enqueued.append(a)), \
              patch("src.audit._get_shared_duckdb_connection"), \
              patch("src.audit._db_write_lock"), \
-             patch("src.audit.search_all_metadata"), \
-             patch("src.audit.st") as mock_st:
-            mock_st.session_state.get.return_value = "Admin User"
+             patch("src.audit.search_all_metadata"):
             from src.audit import approve_table_business_name
             approve_table_business_name(FULL_NAME)
 

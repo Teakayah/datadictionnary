@@ -38,6 +38,14 @@ USER_DATA_PATH = (
     else DUCKDB_PATH + "_user_data.duckdb"
 ) if DUCKDB_PATH else ""
 
+# ── Pipelines feature gate ───────────────────────────────────────────────────
+# Disabled by default: the Pipelines tab needs 3 service-principal credentials
+# that a baseline deploy shouldn't require. Read at call time so tests can
+# flip it with monkeypatch.setenv.
+def pipelines_enabled() -> bool:
+    return os.getenv("ENABLE_PIPELINES", "false").lower() == "true"
+
+
 # ── Pipeline execution service principal ─────────────────────────────────────
 PIPELINE_SP_TENANT_ID     = os.getenv("PIPELINE_SP_TENANT_ID", "")
 PIPELINE_SP_CLIENT_ID     = os.getenv("PIPELINE_SP_CLIENT_ID", "")

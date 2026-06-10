@@ -65,7 +65,7 @@ curl -s localhost:8765/healthz | jq
 # {"status": "ok", "heartbeat_age_s": 4.2}
 ```
 
-A heartbeat older than `SYNC_HEALTHZ_TIMEOUT_S` (default 60s) returns 503
+A heartbeat older than `HEALTHZ_TIMEOUT_S` (60s, constant in `src/sync/daemon.py`) returns 503
 and the liveness probe will restart the pod.
 
 ### Inspect queue state
@@ -108,13 +108,13 @@ or per-pod env). Defaults are sensible — only override if you have a reason.
 | -- | -- | -- |
 | `DUCKDB_PATH` | — (required) | Catalog cache file. The worker derives `USER_DATA_PATH` by replacing `.duckdb` with `_user_data.duckdb`. |
 | `DATABRICKS_HOST` / `_HTTP_PATH` / `_TOKEN` | — | Required for write-back AND DR resync. If unset the daemon still runs (drains nothing, DR resync logs `Skipped`). |
-| `SYNC_POLL_ACTIVE_S` | `5` | Sleep between cycles when the previous cycle drained ≥1 row. |
-| `SYNC_POLL_IDLE_S` | `30` | Sleep between cycles when the previous cycle was empty. |
-| `SYNC_DR_EVERY_N` | `20` | Run DR resync every N cycles. Default ≈ every 10 min in active mode. |
-| `SYNC_STALE_ROW_S` | `300` | Rows in `'syncing'` state for longer than this flip back to `'pending'` at the top of every cycle. |
 | `SYNC_HEALTHZ_PORT` | `8765` | HTTP port for `/healthz`. Set to `0` to disable. |
-| `SYNC_HEALTHZ_TIMEOUT_S` | `60` | Heartbeat age above which `/healthz` returns 503. |
 | `LOG_LEVEL` | `INFO` | Stdlib logging level. `DEBUG` enables verbose cycle logs. |
+
+Timing values (poll intervals, DR resync cadence, stale-row timeout, healthz
+heartbeat timeout) are module constants in `src/sync/daemon.py` — they never
+needed per-deployment overrides. Change them in code if a deployment truly
+requires different cadence.
 
 ---
 
@@ -162,7 +162,8 @@ daemon resume.
 ### Force a DR resync
 
 Either bounce the pod (the first cycle always runs DR resync), or set the
-counter to a multiple of `SYNC_DR_EVERY_N` by waiting it out.
+counter to a multiple of `DR_RESYNC_EVERY_N` (constant in `src/sync/daemon.py`)
+by waiting it out.
 
 ---
 
