@@ -12,7 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from src.audit import save_table_metadata, save_table_business_name
-from src.auth import is_admin
+import src.auth
 from src.comments import get_table_comments, save_comment
 from src.personalization import is_power_user as is_editor
 from src.storage import get_table_business_name_override_storage
@@ -180,7 +180,7 @@ def render_table_business_name_editor(
         except Exception as exc:
             logging.warning("Could not load existing friendly name for %s: %s", table_full_name, exc)
 
-    if not is_admin():
+    if not src.auth.is_admin():
         st.info(t("detail.friendly_name_pending_notice"))
 
     new_name_en = st.text_input(t("detail.friendly_name_en"), value=current_name_en)

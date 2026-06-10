@@ -49,3 +49,6 @@
 ## 2024-06-06 - Optimize unique mapping construction in Pandas DataFrames
 **Learning:** In pandas, when constructing unique mappings via `groupby()`, computing uniqueness inside the loop via `.unique().apply(list)` is significantly slower than globally dropping duplicates first (`.drop_duplicates(...)`) and then grouping and applying `.apply(list)`.
 **Action:** Replaced `.groupby(...)[...].unique().apply(list)` with `.drop_duplicates(subset=[...]).groupby(...)[...].apply(list)` to improve execution speed.
+## 2026-06-10 - Limit Unbounded Admin Iterations
+**Learning:** Rendering complex UI components (like `st.columns`, `st.button`) inside unbounded loops over a potentially large list of items (e.g. pending reviews in admin panels) causes severe Streamlit main-thread blocking and browser freezes.
+**Action:** Added hard caps (e.g., `[:50]`) and UI truncation notices when rendering repeating components from potentially unbounded queries to guarantee performance without freezing the browser.

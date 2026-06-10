@@ -235,7 +235,7 @@ class TestSearch:
             next(b for b in at.button if "View details" in b.label).click().run()
         cursor = get_db_cursor()
         first_call_params = cursor.execute.call_args_list[0][0][1]
-        # SQL injection fix: groups are now bound as individual params (group_0, group_1, ...)
+        # Groups are bound as individual params (group_0, group_1, ...) to prevent SQL injection.
         group_values = [v for k, v in first_call_params.items() if k.startswith("group_")]
         assert "finance_dept_id" in group_values, (
             "finance_dept_id not in group params — permission filter may be bypassable"
