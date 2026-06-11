@@ -62,6 +62,7 @@ def _ensure_locale() -> None:
 def format_number(val: int | float) -> str:
     """Format a number according to the active locale."""
     _ensure_locale()
+    lang = st.session_state["locale"]
 
     # Very basic locale-aware formatting using standard python string formatting
     if lang == "fr":
@@ -102,6 +103,7 @@ def t(key: str, **kwargs) -> str:
     Supports str.format() style placeholders: t('search.results_count', count=5).
     """
     _ensure_locale()
+    lang = st.session_state["locale"]
 
     # Pluralization support
     count_vars = ["count", "n"]
