@@ -503,7 +503,7 @@ class TestBusinessNameAudit:
             next(b for b in at.button if "View details" in b.label).click().run()
 
         html = _html(*at.markdown)
-        assert "Last edited by" in html, "Audit trail 'Last edited by' not rendered"
+        from src.i18n import t; assert t("editor.last_edited_by", user="X", date="Y").split("X")[0].strip() in html, "Audit trail not rendered"
         assert "alice@example.com" in html, "Audit trail editor name not rendered"
 
 
@@ -693,7 +693,7 @@ class TestBusinessNameEditorDB:
             next(b for b in at.button if "View details" in b.label).click().run()
 
         html = _html(*at.markdown)
-        assert "Last edited by" in html, "Audit trail not rendered"
+        from src.i18n import t; assert t("editor.last_edited_by", user="X", date="Y").split("X")[0].strip() in html, "Audit trail not rendered"
         assert "bob@example.com" in html, "Audit trail editor name not rendered"
 
 

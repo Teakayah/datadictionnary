@@ -106,7 +106,8 @@
     "save": "Save",
     "cancel": "Cancel",
     "edit": "Edit",
-    "title": "Edit business name and definition"
+    "title": "Edit business name and definition",
+    "last_edited_by": "Last edited by {user} on {date}"
   },
   "comment": {
     "leave_a_comment": "Leave a comment",

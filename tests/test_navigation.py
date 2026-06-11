@@ -416,7 +416,7 @@ class TestHealthDashboard:
         at = authenticated_app(tab="health")
         at.run()
         html = _html(*at.markdown)
-        assert "Table Coverage" in html
+        from src.i18n import t; assert t("health.table_coverage") in html
 
     def test_health_coverage_calculation(self, monkeypatch):
         """Health dashboard must correctly calculate coverage %.
@@ -436,7 +436,7 @@ class TestHealthDashboard:
         sql_returns(empty_tables_df())
         at = authenticated_app(tab="health")
         at.run()
-        assert any("No data" in i.value for i in at.info)
+        from src.i18n import t; assert any(t("health.no_data") in i.value for i in at.info)
 
     def test_health_shows_priority_actions(self, monkeypatch):
         """Health dashboard must list undocumented tables as priority actions."""
@@ -497,7 +497,7 @@ class TestHealthDashboard:
             at.run()
             
             html = _html(*at.markdown)
-            assert "Steward Alert: Catalog Gaps Detected" in html
+            from src.i18n import t; assert t("health.steward_alert_title") in html
 
 
 
