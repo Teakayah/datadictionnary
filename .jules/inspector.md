@@ -13,3 +13,7 @@
 ## 2024-06-10 - Mocking Streamlit Session State and DuckDB Cursors
 **Learning:** When using Streamlit `AppTest` to verify nested UI state reliant on user sessions, the `st.session_state` properties (like `user_oid`) must be mocked and set directly on the `at.session_state` object before `at.run()`. Similarly, when mocking DuckDB connections that utilize context managers returning custom cursors, the mock must replicate the exact nested `__enter__` and `__exit__` pattern for cursors alongside providing methods like `fetchall_as_pandas` to prevent test crashes.
 **Action:** Ensure custom database adapters gracefully handle closed connections and empty query results, and properly document UI notification strips when unread notifications are mocked.
+## 2026-06-12 - Fix i18n Localization Tests
+**Coverage Gap:** Test discovery failed due to uninitialized global `lang` variable causing `NameError` in `i18n.py`.
+**Learning:** In Streamlit applications, variables derived from state (like `st.session_state`) might be missing in test environments if tests bypass standard initialization functions. To prevent `NameError` or `KeyError` crashes, explicitly extract required state locally within functions using safe accessors with fallbacks (e.g., `lang = st.session_state.get("locale", "en")`) rather than relying on implicit global scope.
+**Action:** Extract `lang = st.session_state.get("locale", "en")` locally within `format_number` and `t` functions in `src/i18n.py` to ensure safe access in tests.
