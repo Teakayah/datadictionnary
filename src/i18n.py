@@ -64,6 +64,7 @@ def format_number(val: int | float) -> str:
     _ensure_locale()
 
     # Very basic locale-aware formatting using standard python string formatting
+    lang = st.session_state.get("locale", "en")
     if lang == "fr":
         # French uses non-breaking space as thousand separator and comma as decimal
         if isinstance(val, int):
@@ -102,6 +103,8 @@ def t(key: str, **kwargs) -> str:
     Supports str.format() style placeholders: t('search.results_count', count=5).
     """
     _ensure_locale()
+
+    lang = st.session_state.get("locale", "en")
 
     # Pluralization support
     count_vars = ["count", "n"]
