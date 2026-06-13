@@ -64,6 +64,7 @@ def format_number(val: int | float) -> str:
     _ensure_locale()
 
     # Very basic locale-aware formatting using standard python string formatting
+    lang = st.session_state.get("locale", "en")
     if lang == "fr":
         # French uses non-breaking space as thousand separator and comma as decimal
         if isinstance(val, int):
@@ -115,7 +116,7 @@ def t(key: str, **kwargs) -> str:
         suffix = "zero" if count_val == 0 else "one" if count_val == 1 else "other"
         plural_key = f"{key}_{suffix}"
         parts = plural_key.split(".")
-        val = _lookup(LOCALES.get(lang, {}), parts) or _lookup(LOCALES.get("en", {}), parts)
+        val = _lookup(LOCALES.get(st.session_state.get("locale", "en"), {}), parts) or _lookup(LOCALES.get("en", {}), parts)
         if val is not None:
             try:
                 return val.format(**kwargs)
@@ -123,7 +124,7 @@ def t(key: str, **kwargs) -> str:
                 pass
 
     parts = key.split(".")
-    val = _lookup(LOCALES.get(lang, {}), parts) or _lookup(LOCALES.get("en", {}), parts) or key
+    val = _lookup(LOCALES.get(st.session_state.get("locale", "en"), {}), parts) or _lookup(LOCALES.get("en", {}), parts) or key
     try:
         return val.format(**kwargs) if kwargs else val
     except (KeyError, IndexError):
