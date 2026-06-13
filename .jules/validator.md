@@ -18,3 +18,8 @@
 **Coverage Gap:** The test suite for `discovery.py` UI routing was tightly coupled to hardcoded English localized strings and would break when testing different locales or decoupling internal IDs from the frontend `format_func`.
 **Learning:** In Streamlit `AppTest` (< v1.40), simulating user selection on `st.segmented_control` or `button_group` using `.set_value()` fails if a `format_func` is applied to the widget's options. `AppTest` attempts to map the state using formatted representations rather than internal IDs, which leads to `None` values and failed test routing assertions.
 **Assertion:** To robustly test the underlying application routing and logic without being blocked by this `AppTest` framework bug, bypass the widget interaction by patching the component directly in the test suite (e.g., `@patch("src.ui.cards.discovery.st.segmented_control")` and setting `mock.return_value = "internal_option"`).
+
+## 2024-05-18 - Missing global state in Streamlit AppTest tests
+**Coverage Gap:** Test suite failures due to NameError when testing functions bypassing state initialization.
+**Learning:** Variables derived from Streamlit state (like locale) must be explicitly extracted locally within functions using safe accessors.
+**Assertion:** Ensure `lang = st.session_state.get("locale", "en")` is used instead of relying on an implicit global variable.
