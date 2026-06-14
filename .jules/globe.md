@@ -13,3 +13,7 @@
 ## 2026-06-07 - Extracting truncation messages with count placeholders
 **Learning:** Hardcoded truncation indicators like "...and 42 more tables" embed English grammar and sentence structure directly in the UI components, breaking localization efforts.
 **Action:** Always extract dynamic truncation messages into the translation dictionary using named placeholders (e.g., `{count}`) and formatting the dynamic numeric parameters natively.
+
+## 2026-06-14 - Refactoring Ternary Pluralization
+**Learning:** Hardcoding English-centric ternary pluralization logic (e.g. `t(...) if count == 1 else t(...)`) directly in UI components prevents correct grammar tokenization for languages with different plural rules.
+**Action:** Replace manual ternary pluralization logic with native `count`-based tokens that resolve the appropriate suffix (e.g. `_one`, `_other`) directly through the i18n library.

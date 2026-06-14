@@ -24,12 +24,14 @@ def render_discovery_page_app():
             "dq_status": ["pass", "pass", "fail"]
         })
 
+    from unittest.mock import patch
     with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=mock_get_auth_tables):
         render_discovery(["finance", "sales"])
 
 def render_discovery_page_app_empty():
     import pandas as pd
     from src.ui.cards.discovery import render_discovery
+    from unittest.mock import patch
 
     def mock_get_auth_tables(groups):
         return pd.DataFrame()
@@ -143,19 +145,11 @@ class TestDiscoveryTabs:
 
     @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
-<<<<<<< HEAD
-    def test_discovery_tabs_render_col_bookmarks(self, mock_get_posts):
-        mock_get_posts.return_value = []
-        at = AppTest.from_function(render_discovery_page_app).run()
-
-        at.button_group(key="discovery_active_tab").set_value(["bookmarks"])
-=======
     def test_discovery_tabs_render_col_bookmarks(self, mock_get_posts, mock_seg_ctrl):
         mock_get_posts.return_value = []
         mock_seg_ctrl.return_value = "bookmarks"
         at = AppTest.from_function(render_discovery_page_app).run()
 
->>>>>>> origin/validator-fix-discovery-tabs-15859312043213885173
         at.session_state["bookmarks"] = set()
         at.session_state["col_bookmarks"] = {"main.sales.orders::amount"}
         at.run()
