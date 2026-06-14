@@ -63,6 +63,7 @@ def format_number(val: int | float) -> str:
     """Format a number according to the active locale."""
     _ensure_locale()
 
+    lang = st.session_state.get("locale", "en")
     # Very basic locale-aware formatting using standard python string formatting
     if lang == "fr":
         # French uses non-breaking space as thousand separator and comma as decimal
@@ -110,6 +111,8 @@ def t(key: str, **kwargs) -> str:
         if cv in kwargs and isinstance(kwargs[cv], (int, float)):
             count_val = kwargs[cv]
             break
+
+    lang = st.session_state.get("locale", "en")
 
     if count_val is not None:
         suffix = "zero" if count_val == 0 else "one" if count_val == 1 else "other"
