@@ -13,3 +13,7 @@
 ## 2026-06-07 - Extracting truncation messages with count placeholders
 **Learning:** Hardcoded truncation indicators like "...and 42 more tables" embed English grammar and sentence structure directly in the UI components, breaking localization efforts.
 **Action:** Always extract dynamic truncation messages into the translation dictionary using named placeholders (e.g., `{count}`) and formatting the dynamic numeric parameters natively.
+
+## YYYY-MM-DD - Removed English-centric ternary pluralization logic
+**Learning:** Avoid hardcoding English-centric ternary pluralization logic in Python using `count == 1`. Instead, use count-based key tokenization directly by using the i18n function like `t("key", count=count)`.
+**Action:** Define corresponding `_zero`, `_one`, and `_other` suffixed keys in the translation files directly to use the i18n native count handling system for formatting plurals dynamically based on locale.

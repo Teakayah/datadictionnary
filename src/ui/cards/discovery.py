@@ -118,11 +118,7 @@ def render_notification_strip() -> None:
         return
 
     count = len(notifications)
-    label = (
-        t("notifications.strip_label_one")
-        if count == 1
-        else t("notifications.strip_label_many", count=count)
-    )
+    label = t("notifications.strip_label", count=count)
 
     with st.expander(f"🔔 {label}", expanded=True):
         for n in notifications:
