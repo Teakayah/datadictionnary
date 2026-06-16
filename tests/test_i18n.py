@@ -139,3 +139,67 @@ def test_lookup_intermediate_not_dict():
 def test_lookup_return_not_string():
     from src.i18n import _lookup
     assert _lookup({"a": {"b": 123}}, ["a", "b"]) is None
+
+def test_format_number_fr_int():
+    from src.i18n import format_number
+    with patch("src.i18n.st") as mock_st:
+        mock_st.session_state = {"locale": "fr"}
+        assert format_number(1000) == "1\xa0000"
+
+def test_format_number_fr_float():
+    from src.i18n import format_number
+    with patch("src.i18n.st") as mock_st:
+        mock_st.session_state = {"locale": "fr"}
+        assert format_number(1000.5) == "1\xa0000,50"
+
+def test_format_number_en_int():
+    from src.i18n import format_number
+    with patch("src.i18n.st") as mock_st:
+        mock_st.session_state = {"locale": "en"}
+        assert format_number(1000) == "1,000"
+
+def test_format_number_en_float():
+    from src.i18n import format_number
+    with patch("src.i18n.st") as mock_st:
+        mock_st.session_state = {"locale": "en"}
+        assert format_number(1000.5) == "1,000.50"
+
+def test_format_date_short():
+    from src.i18n import format_date
+    import datetime
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"date": {"months": {"1": "Jan"}, "short": "{month} {day}"}}}):
+        mock_st.session_state = {"locale": "en"}
+        dt = datetime.datetime(2023, 1, 15)
+        assert format_date(dt, format_type="short") == "Jan 15"
+
+def test_format_date_long():
+    from src.i18n import format_date
+    import datetime
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"date": {"months": {"1": "Jan"}, "long": "{month} {day}, {year} {time}"}}}):
+        mock_st.session_state = {"locale": "en"}
+        dt = datetime.datetime(2023, 1, 15, 14, 30)
+        assert format_date(dt, format_type="long") == "Jan 15, 2023 14:30"
+
+def test_format_date_invalid():
+    from src.i18n import format_date
+    assert format_date(None) == ""
+
+def test_t_plural_zero():
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items_zero": "No items", "items_one": "1 item", "items_other": "{count} items"}}):
+        mock_st.session_state = {"locale": "en"}
+        assert t("items", count=0) == "No items"
+
+def test_t_plural_one():
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items_zero": "No items", "items_one": "1 item", "items_other": "{count} items"}}):
+        mock_st.session_state = {"locale": "en"}
+        assert t("items", count=1) == "1 item"
+
+def test_t_plural_other():
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items_zero": "No items", "items_one": "1 item", "items_other": "{count} items"}}):
+        mock_st.session_state = {"locale": "en"}
+        assert t("items", count=5) == "5 items"
+
+def test_t_plural_key_error():
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items_other": "{missing} items", "items": "fallback items"}}):
+        mock_st.session_state = {"locale": "en"}
+        assert t("items", count=5) == "fallback items"
