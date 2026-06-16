@@ -14,11 +14,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.sync.push import _build_summary, _notify_bookmarkers, _NOTIFIABLE_TYPES
+from src.sync.push import _build_summary, _notify_bookmarkers
 
 
 # ── _build_summary ────────────────────────────────────────────────────────────

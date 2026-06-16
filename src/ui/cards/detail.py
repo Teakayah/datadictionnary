@@ -13,8 +13,6 @@ import streamlit as st
 
 from src.audit import save_table_metadata, save_table_business_name
 import src.auth
-from src.comments import get_table_comments, save_comment
-from src.personalization import is_power_user as is_editor
 from src.storage import get_table_business_name_override_storage
 from src.config import CATALOG_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
@@ -89,7 +87,6 @@ def render_business_name_editor(table_full_name: str, column_name: str, current_
                 try:
                     from src.db.queries import _get_write_connection
                     import secrets
-                    from datetime import datetime
 
                     conn = _get_write_connection()
                     with conn.cursor() as cur:

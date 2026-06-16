@@ -226,7 +226,6 @@ class TestFetchGroupsGraph:
         assert result == ["g1", "g2"]
 
     def test_returns_empty_list_on_http_error(self, monkeypatch):
-        import httpx as _httpx
         with patch("src.api.auth.cache_key", return_value="ck"), \
              patch("src.api.auth.rcache_get", AsyncMock(return_value=None)), \
              patch("src.api.auth.rcache_set", AsyncMock()), \

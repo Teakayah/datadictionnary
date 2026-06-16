@@ -243,7 +243,7 @@ def test_approve_business_name_success():
     with patch("src.audit.is_admin", return_value=True), \
          patch("src.audit.list_pending_business_names") as mock_pending, \
          patch("src.audit._approve_column_override") as mock_approve, \
-         patch("src.audit._reject_column_override") as mock_reject, \
+         patch("src.audit._reject_column_override"), \
          patch("src.audit._duckdb_available", return_value=True), \
          patch("src.audit._get_shared_duckdb_connection") as mock_get_shared, \
          patch("src.audit.enqueue_column_sync") as mock_enqueue, \
@@ -276,7 +276,7 @@ def test_approve_business_name_missing_item():
     with patch("src.audit.is_admin", return_value=True), \
          patch("src.audit.list_pending_business_names") as mock_pending, \
          patch("src.audit._approve_column_override") as mock_approve, \
-         patch("src.audit._reject_column_override") as mock_reject, \
+         patch("src.audit._reject_column_override"), \
          patch("src.audit._duckdb_available", return_value=True), \
          patch("src.audit._get_shared_duckdb_connection"), \
          patch("src.audit.enqueue_column_sync") as mock_enqueue, \
@@ -303,8 +303,8 @@ def test_approve_business_name_db_exception():
     from src.audit import approve_business_name
     with patch("src.audit.is_admin", return_value=True), \
          patch("src.audit.list_pending_business_names") as mock_pending, \
-         patch("src.audit._approve_column_override") as mock_approve, \
-         patch("src.audit._reject_column_override") as mock_reject, \
+         patch("src.audit._approve_column_override"), \
+         patch("src.audit._reject_column_override"), \
          patch("src.audit._duckdb_available", return_value=True), \
          patch("src.audit._get_shared_duckdb_connection") as mock_get_shared, \
          patch("src.audit.enqueue_column_sync"), \
@@ -329,8 +329,8 @@ def test_reject_business_name_success():
     """Verify reject_business_name calls reject and clears cache."""
     from src.audit import reject_business_name
     with patch("src.audit.is_admin", return_value=True), \
-         patch("src.audit.list_pending_business_names") as mock_pending, \
-         patch("src.audit._approve_column_override") as mock_approve, \
+         patch("src.audit.list_pending_business_names"), \
+         patch("src.audit._approve_column_override"), \
          patch("src.audit._reject_column_override") as mock_reject, \
          patch("src.audit.search_all_metadata") as mock_search_all:
 
