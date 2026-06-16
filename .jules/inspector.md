@@ -13,3 +13,6 @@
 ## 2024-06-10 - Mocking Streamlit Session State and DuckDB Cursors
 **Learning:** When using Streamlit `AppTest` to verify nested UI state reliant on user sessions, the `st.session_state` properties (like `user_oid`) must be mocked and set directly on the `at.session_state` object before `at.run()`. Similarly, when mocking DuckDB connections that utilize context managers returning custom cursors, the mock must replicate the exact nested `__enter__` and `__exit__` pattern for cursors alongside providing methods like `fetchall_as_pandas` to prevent test crashes.
 **Action:** Ensure custom database adapters gracefully handle closed connections and empty query results, and properly document UI notification strips when unread notifications are mocked.
+## 2026-06-16 - [Missing Streamlit Context in Tests]
+**Learning:** Streamlit session state variables must use safe accessors with fallbacks (e.g., `st.session_state.get()`), and test utilities like `patch` must be imported locally inside `AppTest.from_function` scopes to prevent `NameError` crashes during bare pytest runs.
+**Action:** Ensure test helper functions encapsulate their own imports and safely extract state.
