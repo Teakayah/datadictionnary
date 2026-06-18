@@ -204,7 +204,7 @@ def render_table_business_name_editor(
                     st.error(t("detail.unauthorized"))
                 except ValueError as e:
                     logging.error("Validation error for %s: %s", table_full_name, e, exc_info=True)
-                    st.error(str(e))
+                    st.error(t("common.error"))
                 except Exception as e:
                     logging.error("Friendly-name save failed for %s: %s", table_full_name, e, exc_info=True)
                     st.error(t("common.error"))

@@ -183,7 +183,7 @@ class TestRenderTableBusinessNameEditor:
         mock_save.assert_called_once()
         mock_rerun.assert_not_called()
         assert len(at.error) > 0
-        assert at.error[0].value == "Invalid input"
+        assert at.error[0].value == "An error occurred."
 
     @patch("src.ui.cards.detail.get_table_business_name_override_storage")
     def test_render_table_business_name_editor_fetch_defaults(self, mock_storage):
