@@ -379,3 +379,28 @@ class TestMCPAuthIndependence:
         assert resp.status_code == 401
         assert resp.headers.get("cache-control") == "no-store"
         assert resp.headers.get("x-content-type-options") == "nosniff"
+
+    def test_mcp_validate_token_value_error(self):
+        """MCP must return 401 with detail when validate_token raises ValueError."""
+        with patch("src.api.main.validate_token", AsyncMock(side_effect=ValueError("Invalid signature"))):
+            with TestClient(app, raise_server_exceptions=False) as c:
+                resp = c.post(
+                    "/mcp",
+                    json={"jsonrpc": "2.0", "method": "initialize", "id": 1, "params": {}},
+                    headers={"Content-Type": "application/json", "Authorization": "Bearer fake_token"},
+                )
+            assert resp.status_code == 401
+            assert resp.json() == {"detail": "Invalid signature"}
+
+    def test_mcp_validate_token_runtime_error(self, monkeypatch):
+        """MCP must return 500 with a safe message when validate_token raises RuntimeError."""
+        monkeypatch.setenv("ENABLE_MOCK_AUTH", "false")
+        with patch("src.api.main.validate_token", AsyncMock(side_effect=RuntimeError("Misconfigured keys"))):
+            with TestClient(app, raise_server_exceptions=False) as c:
+                resp = c.post(
+                    "/mcp",
+                    json={"jsonrpc": "2.0", "method": "initialize", "id": 1, "params": {}},
+                    headers={"Content-Type": "application/json", "Authorization": "Bearer fake_token"},
+                )
+            assert resp.status_code == 500
+            assert resp.json() == {"detail": "Authentication service misconfigured"}
