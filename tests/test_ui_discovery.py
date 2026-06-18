@@ -7,6 +7,7 @@ with open("locale/en.json", "r") as f:
     en_locale = json.load(f)
 
 def render_discovery_page_app():
+    from unittest.mock import patch
     import pandas as pd
     from unittest.mock import patch
     from src.ui.cards.discovery import render_discovery
@@ -30,6 +31,7 @@ def render_discovery_page_app():
         render_discovery(["finance", "sales"])
 
 def render_discovery_page_app_empty():
+    from unittest.mock import patch
     import pandas as pd
     from unittest.mock import patch
     from src.ui.cards.discovery import render_discovery
