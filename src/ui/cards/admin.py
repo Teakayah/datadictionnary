@@ -491,8 +491,9 @@ def _render_admin_groups_cache_section():
         key="admin_groups_cache_flush",
         type="secondary",
     ):
-        from src.auth_graph import clear_groups_cache  # noqa: PLC0415
-        n = clear_groups_cache()
+        with st.spinner(t("admin.groups_cache_flushing")):
+            from src.auth_graph import clear_groups_cache  # noqa: PLC0415
+            n = clear_groups_cache()
         st.success(t("admin.groups_cache_flushed", n=n))
 
 
