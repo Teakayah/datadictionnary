@@ -32,3 +32,7 @@
 **Vulnerability:** SQL Injection in DuckDB `ATTACH` statements caused by unsafe f-string formatting and insufficient path sanitization.
 **Learning:** DuckDB does not support parameterized query bindings for DDL commands like `ATTACH`. Attempting to escape quotes manually is prone to failure or evasion. DuckDB dollar quoting is required for safe injection.
 **Prevention:** Use dollar-quoting with a uniquely generated token (e.g., `$token$path$token$`) combined with null-byte stripping (``) to prevent parser truncation and securely interpolate dynamic paths.
+## 2024-05-31 - Information disclosure via raw exceptions
+**Vulnerability:** Raw Python exceptions were passed directly to `st.error(str(e))` in Streamlit applications.
+**Learning:** Exposing raw exception details (like `ValueError` messages which might contain user inputs, schema paths, or variable values) to the UI is a security vulnerability (information disclosure). Even "safe-looking" validation errors should be abstracted behind generic localized strings.
+**Prevention:** Always log exceptions internally using `logging.error(..., exc_info=True)` and present generic, translated error messages to the user like `st.error(t("common.error"))`.
