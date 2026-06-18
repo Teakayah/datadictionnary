@@ -25,6 +25,7 @@ def render_discovery_page_app():
             "dq_status": ["pass", "pass", "fail"]
         })
 
+    from unittest.mock import patch
     with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=mock_get_auth_tables):
         render_discovery(["finance", "sales"])
 
@@ -32,6 +33,7 @@ def render_discovery_page_app_empty():
     import pandas as pd
     from unittest.mock import patch
     from src.ui.cards.discovery import render_discovery
+    from unittest.mock import patch
 
     def mock_get_auth_tables(groups):
         return pd.DataFrame()
@@ -149,6 +151,7 @@ class TestDiscoveryTabs:
         mock_get_posts.return_value = []
         mock_seg_ctrl.return_value = "bookmarks"
         at = AppTest.from_function(render_discovery_page_app).run()
+
         at.session_state["bookmarks"] = set()
         at.session_state["col_bookmarks"] = {"main.sales.orders::amount"}
         at.run()

@@ -421,7 +421,7 @@
   },
   "notifications": {
     "strip_label_one": "1 update on a bookmarked table",
-    "strip_label_many": "{count} updates on bookmarked tables",
+    "strip_label_other": "{count} updates on bookmarked tables",
     "dismiss": "Dismiss",
     "mark_all_read": "Mark all as read"
   },

@@ -42,3 +42,7 @@
 **Cluster Quirk:** The standard `redis:alpine` container images default to mounting the root filesystem as writable, even though Redis only needs write access to specific data and tmp volumes.
 **Learning:** Running containers with a writable root filesystem significantly increases the blast radius if an attacker achieves remote code execution.
 **Resilience:** Always set `securityContext.readOnlyRootFilesystem: true` in the pod spec. For Redis, ensure that the persistence directory (e.g., `/data`) and `/tmp` are mounted as volumes to satisfy runtime write requirements without exposing the entire OS.
+## 2024-05-24 - Hardened Redis Deployment Security and Limits
+**Cluster Quirk:** The `dd-redis` deployment was using a low UID/GID (999) and missing ephemeral storage limits.
+**Learning:** Using a UID/GID below 10000 can conflict with host users. Missing ephemeral storage limits can lead to node disk exhaustion (resource DDOS).
+**Resilience:** Always configure `runAsUser` and `runAsGroup` to a value > 10000, and explicitly define `ephemeral-storage` requests and limits to ensure node stability.
