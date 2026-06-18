@@ -189,7 +189,8 @@
     "hero_title": "Administration.",
     "tab_ops": "Opérations",
     "tab_insights": "Indicateurs de Qualité",
-    "tab_audit": "Journal d'Audit"
+    "tab_audit": "Journal d'Audit",
+    "groups_cache_flushing": "Vidage du cache..."
   },
   "health": {
     "title": "§ Santé du catalogue",
@@ -357,7 +358,8 @@
     "app_title": "Dictionnaire de Données",
     "beta": "Bêta",
     "saving": "Enregistrement...",
-    "saved": "Changes saved."
+    "saved": "Changes saved.",
+    "deleting": "Suppression..."
   },
   "language": {
     "en": "EN",
