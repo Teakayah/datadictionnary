@@ -139,3 +139,72 @@ def test_lookup_intermediate_not_dict():
 def test_lookup_return_not_string():
     from src.i18n import _lookup
     assert _lookup({"a": {"b": 123}}, ["a", "b"]) is None
+
+from datetime import datetime
+from src.i18n import format_number, format_date, t
+from unittest.mock import patch
+
+def test_format_number_en():
+    with patch("src.i18n.st") as mock_st:
+        mock_st.session_state = {"locale": "en"}
+        assert format_number(1234567) == "1,234,567"
+        assert format_number(1234.56) == "1,234.56"
+
+def test_format_number_fr():
+    with patch("src.i18n.st") as mock_st:
+        mock_st.session_state = {"locale": "fr"}
+        assert format_number(1234567) == "1\xa0234\xa0567"
+        assert format_number(1234.56) == "1\xa0234,56"
+
+def test_format_date_none():
+    assert format_date(None) == ""
+    assert format_date("") == ""
+
+def test_format_date_short_en():
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"date": {"months": {"1": "Jan"}, "short": "{month} {day}"}}}):
+        mock_st.session_state = {"locale": "en"}
+        dt = datetime(2023, 1, 5, 14, 30)
+        assert format_date(dt, "short") == "Jan 05"
+
+def test_format_date_long_en():
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"date": {"months": {"1": "Jan"}, "long": "{month} {day}, {year} {time}"}}}):
+        mock_st.session_state = {"locale": "en"}
+        dt = datetime(2023, 1, 5, 14, 30)
+        assert format_date(dt, "long") == "Jan 05, 2023 14:30"
+
+def test_t_pluralization_zero():
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items_zero": "No items", "items_one": "1 item", "items_other": "{count} items"}}):
+        mock_st.session_state = {"locale": "en"}
+        assert t("items", count=0) == "No items"
+
+def test_t_pluralization_one():
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items_zero": "No items", "items_one": "{count} item", "items_other": "{count} items"}}):
+        mock_st.session_state = {"locale": "en"}
+        assert t("items", count=1) == "1 item"
+
+def test_t_pluralization_other():
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items_zero": "No items", "items_one": "1 item", "items_other": "{count} items"}}):
+        mock_st.session_state = {"locale": "en"}
+        assert t("items", count=5) == "5 items"
+
+def test_t_pluralization_n_variable():
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items_zero": "No items", "items_one": "1 item", "items_other": "{n} items"}}):
+        mock_st.session_state = {"locale": "en"}
+        assert t("items", n=5) == "5 items"
+
+def test_t_pluralization_fallback():
+    # If the _zero/_one/_other keys don't exist, it should gracefully ignore and just use standard lookup
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items": "Just items {count}"}}):
+        mock_st.session_state = {"locale": "en"}
+        assert t("items", count=5) == "Just items 5"
+
+def test_t_pluralization_handles_key_error_in_format():
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items_other": "{count} items {missing}"}}):
+        mock_st.session_state = {"locale": "en"}
+        # If there's a key error, it falls back to regular non-plural search, or returns raw string or key
+        assert "items" in t("items", count=5)
+
+def test_t_pluralization_handles_index_error_in_format():
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items_other": "{0} items"}}):
+        mock_st.session_state = {"locale": "en"}
+        assert "items" in t("items", count=5)

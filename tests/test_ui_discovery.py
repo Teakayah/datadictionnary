@@ -8,6 +8,7 @@ with open("locale/en.json", "r") as f:
 
 def render_discovery_page_app():
     import pandas as pd
+    from unittest.mock import patch
     from src.ui.cards.discovery import render_discovery
 
     # Mock groups and authorized tables for the app run
@@ -30,6 +31,7 @@ def render_discovery_page_app():
 
 def render_discovery_page_app_empty():
     import pandas as pd
+    from unittest.mock import patch
     from src.ui.cards.discovery import render_discovery
     from unittest.mock import patch
 
