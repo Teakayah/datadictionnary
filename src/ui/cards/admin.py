@@ -566,7 +566,8 @@ def _render_pending_reviews_section():
                 help=t("help.btn_approve"),
             ):
                 try:
-                    approve_business_name(tbl, col)
+                    with st.spinner(t("common.saving")):
+                        approve_business_name(tbl, col)
                     st.toast(t("admin.reviews_approved_toast", col=col))
                     st.rerun()
                 except Exception as exc:
@@ -581,7 +582,8 @@ def _render_pending_reviews_section():
                 help=t("help.btn_reject"),
             ):
                 try:
-                    reject_business_name(tbl, col)
+                    with st.spinner(t("common.saving")):
+                        reject_business_name(tbl, col)
                     st.toast(t("admin.reviews_rejected_toast", col=col))
                     st.rerun()
                 except Exception as exc:
@@ -666,7 +668,8 @@ def _render_pending_table_friendly_names_section():
                 help=t("help.btn_approve"),
             ):
                 try:
-                    approve_table_business_name(tbl)
+                    with st.spinner(t("common.saving")):
+                        approve_table_business_name(tbl)
                     st.toast(t("admin.table_friendly_approved_toast", table=tbl))
                     st.rerun()
                 except Exception as exc:
@@ -680,7 +683,8 @@ def _render_pending_table_friendly_names_section():
                 help=t("help.btn_reject"),
             ):
                 try:
-                    reject_table_business_name(tbl)
+                    with st.spinner(t("common.saving")):
+                        reject_table_business_name(tbl)
                     st.toast(t("admin.table_friendly_rejected_toast", table=tbl))
                     st.rerun()
                 except Exception as exc:
