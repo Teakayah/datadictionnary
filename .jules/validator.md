@@ -26,3 +26,7 @@
 **Coverage Gap:** The `ValueError` and `RuntimeError` exception handlers in the MCP authentication middleware (`_MCPAuthMiddleware.__call__` in `src.api.main`) lacked test coverage, potentially allowing unhandled misconfiguration exceptions to leak.
 **Learning:** Testing ASGI middleware exception paths requires patching the imported external async functions (like `validate_token`) directly within the middleware's module space and validating the raw HTTP response payloads and status codes that the middleware returns upon catching those exceptions.
 **Assertion:** Use FastAPI's `TestClient` combined with `unittest.mock.patch` returning an `AsyncMock(side_effect=...)` to inject the target exceptions during the middleware execution, and assert on `resp.status_code` and `resp.json()`.
+## 2026-06-20 - Coverage Gap: get_sync_queue_stats
+**Coverage Gap:** `get_sync_queue_stats` in `src/ui/cards/admin.py` had no unit tests, leaving the `pending_sync` read operations untested.
+**Learning:** When testing Streamlit UI components that abstract DB queries behind `_get_write_connection`, mock the connection getter (e.g., `@patch('src.ui.cards.admin._get_write_connection')`) instead of mocking `execute_write` directly on the raw cursor. Ensure the mocked cursor explicitly supports context managers.
+**Assertion:** Use `@patch` to mock `_duckdb_available` and `_get_write_connection` and verify that the correct dictionary of sync queue statuses is returned for successful, disconnected, and fallback cases.
