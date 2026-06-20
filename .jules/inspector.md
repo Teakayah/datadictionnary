@@ -19,3 +19,7 @@
 ## 2026-06-18 - Mocking DuckDB cursors in notifications
 **Learning:** When mocking DuckDB cursors that use context managers (e.g. `with conn.cursor() as cur:`), the mock object must implement `__enter__` and `__exit__` properly alongside `execute` to prevent exceptions in the tests.
 **Action:** When mocking DuckDB connection APIs returning cursors or context managers, assign `.return_value.__enter__.return_value` to the mock cursor.
+## 2024-06-20 - Coverage Gap: FastAPI Dependency Edge Cases
+**Coverage Gap:** The `get_current_user` dependency in `src/api/deps.py` missed coverage for its `RuntimeError` and `ValueError` exception paths, meaning error handling for authentication misconfiguration and invalid tokens was completely untested.
+**Learning:** Testing exception handling in FastAPI dependencies requires patching the underlying functions that raise the exception (`validate_token`) and asserting the specific `HTTPException` properties (status code, detail, and headers).
+**Action:** Created `tests/test_api_deps.py` to mock `validate_token` side-effects and use `pytest.raises(HTTPException)` to verify the correct HTTP status codes and details are returned for invalid tokens and server misconfigurations.
