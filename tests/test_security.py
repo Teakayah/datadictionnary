@@ -87,7 +87,7 @@ class TestAuthEnforcement:
         assert resp.status_code in (401, 403)
 
     def test_health_is_public(self, client_no_auth):
-        resp = client_no_auth.get("/health")
+        resp = client_no_auth.get("/health/live")
         assert resp.status_code == 200
 
 
@@ -284,7 +284,7 @@ class TestSecurityHeaders:
             assert resp.headers.get(header) == value, f"Missing/wrong header on 401: {header}"
 
     def test_security_headers_on_health(self, client_no_auth):
-        resp = client_no_auth.get("/health")
+        resp = client_no_auth.get("/health/live")
         assert resp.status_code == 200
         for header, value in self.REQUIRED_HEADERS.items():
             assert resp.headers.get(header) == value, f"Missing/wrong header on health: {header}"

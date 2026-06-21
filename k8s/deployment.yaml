@@ -89,7 +89,7 @@ spec:
 
           livenessProbe:
             httpGet:
-              path: /_stcore/health
+              path: /_stcore/health?probe=liveness
               port: 8501
             initialDelaySeconds: 15
             periodSeconds: 10
@@ -98,7 +98,7 @@ spec:
 
           readinessProbe:
             httpGet:
-              path: /_stcore/health
+              path: /_stcore/health?probe=readiness
               port: 8501
             initialDelaySeconds: 10
             periodSeconds: 5

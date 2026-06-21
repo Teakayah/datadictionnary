@@ -46,3 +46,7 @@
 **Cluster Quirk:** The `dd-redis` deployment was using a low UID/GID (999) and missing ephemeral storage limits.
 **Learning:** Using a UID/GID below 10000 can conflict with host users. Missing ephemeral storage limits can lead to node disk exhaustion (resource DDOS).
 **Resilience:** Always configure `runAsUser` and `runAsGroup` to a value > 10000, and explicitly define `ephemeral-storage` requests and limits to ensure node stability.
+## 2026-06-21 - Hardened Deployment Probes
+**Cluster Quirk:** The deployments were using identical HTTP or exec probes for liveness and readiness, triggering kube-score warnings.
+**Learning:** Using the exact same probe for liveness and readiness is dangerous. Under load, a slow response might fail readiness (which should just gracefully halt incoming traffic) but will also fail the identical liveness check (which brutally kills and restarts the pod), causing a cascading failure loop.
+**Resilience:** Differentiate liveness and readiness probes by using dedicated paths (like `/health/live` and `/health/ready`) or adding query parameters to allow application-aware liveness checks without downgrading to basic `tcpSocket` checks.
