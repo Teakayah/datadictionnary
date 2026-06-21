@@ -245,3 +245,58 @@ def test_lineage_accepts_depth_5(client):
          _no_cache():
         resp = client.get("/api/v1/lineage/cat/schema/orders?depth=5")
     assert resp.status_code == 200
+
+
+# ── Coverage gaps ─────────────────────────────────────────────────────────────
+
+def test_mcp_auth_no_token(client):
+    resp = client.post("/mcp")
+    assert resp.status_code == 401
+    assert resp.json() == {"detail": "Authentication required"}
+
+def test_mcp_auth_value_error(client):
+    with patch("src.api.main.validate_token", AsyncMock(side_effect=ValueError("Invalid token"))):
+        resp = client.post("/mcp", headers={"Authorization": "Bearer bad-token"})
+    assert resp.status_code == 401
+    assert resp.json() == {"detail": "Invalid token"}
+
+def test_mcp_auth_runtime_error(client):
+    with patch("src.api.main.validate_token", AsyncMock(side_effect=RuntimeError("Misconfig"))):
+        resp = client.post("/mcp", headers={"Authorization": "Bearer some-token"})
+    assert resp.status_code == 500
+    assert resp.json() == {"detail": "Authentication service misconfigured"}
+
+def test_mcp_auth_success(client):
+    with patch("src.api.main.validate_token", AsyncMock(return_value={"sub": "user123"})):
+        resp = client.post("/mcp", headers={"Authorization": "Bearer good-token"}, json={})
+    # Since MCP sub-app handler is mounted, it returns a 404 because
+    # the streamable_http_app() has no route for basic POST /, only standard MCP.
+    # We assert it's NOT a 401.
+    assert resp.status_code != 401
+
+@pytest.mark.anyio
+async def test_mcp_auth_middleware_lifespan():
+    from src.api.main import _MCPAuthMiddleware
+    app_mock = AsyncMock()
+    middleware = _MCPAuthMiddleware(app_mock)
+
+    send_mock = AsyncMock()
+    await middleware({"type": "lifespan"}, None, send_mock)
+    app_mock.assert_called_once()
+
+@pytest.mark.anyio
+async def test_security_headers_middleware_lifespan():
+    from src.api.main import _SecurityHeadersMiddleware
+    app_mock = AsyncMock()
+    middleware = _SecurityHeadersMiddleware(app_mock)
+    send_mock = AsyncMock()
+    await middleware({"type": "lifespan"}, None, send_mock)
+    app_mock.assert_called_once()
+
+@pytest.mark.anyio
+async def test_lifespan():
+    from src.api.main import lifespan, app
+    with patch("src.api.main._validate_auth_config") as mock_validate:
+        async with lifespan(app):
+            pass
+        mock_validate.assert_called_once()
