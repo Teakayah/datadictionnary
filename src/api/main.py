@@ -6,7 +6,8 @@ Start with:
 
 Endpoints
 ---------
-GET  /health                             liveness probe (no auth)
+GET  /health/live                        liveness probe (no auth)
+GET  /health/ready                       readiness probe (no auth)
 GET  /api/v1/tables                      list authorized tables
 GET  /api/v1/tables/{cat}/{schema}/{tbl} table columns + descriptions
 GET  /api/v1/search?q=...               hybrid keyword search

@@ -114,13 +114,13 @@ def _no_cache():
 # ── Health ────────────────────────────────────────────────────────────────────
 
 def test_health_returns_200(client):
-    resp = client.get("/health")
+    resp = client.get("/health/live")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
 
 
 def test_health_no_auth_required(client_no_auth):
-    resp = client_no_auth.get("/health")
+    resp = client_no_auth.get("/health/live")
     assert resp.status_code == 200
 
 
