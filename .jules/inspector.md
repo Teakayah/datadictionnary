@@ -19,3 +19,6 @@
 ## 2026-06-18 - Mocking DuckDB cursors in notifications
 **Learning:** When mocking DuckDB cursors that use context managers (e.g. `with conn.cursor() as cur:`), the mock object must implement `__enter__` and `__exit__` properly alongside `execute` to prevent exceptions in the tests.
 **Action:** When mocking DuckDB connection APIs returning cursors or context managers, assign `.return_value.__enter__.return_value` to the mock cursor.
+## 2024-06-16 - Exception paths in storage fallback
+**Learning:** The application routes per-entity storage operations (like user preferences and site settings) directly to DuckDB via `src.personalization`. These database calls are wrapped in generic `try/except Exception` blocks to prevent missing tables from crashing the UI. However, the exception paths inside `_get_site_setting`, `_set_site_setting`, `_pref_upsert`, and `_pref_delete` were entirely untested, leaving us blind to how the app handles critical database failures.
+**Action:** Backfilled unit tests targeting the `side_effect=Exception` paths for these database operations. Next time, always ensure try/except handlers interacting with the DB are explicitly tested to verify silent fallbacks.

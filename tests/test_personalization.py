@@ -18,6 +18,8 @@ import pytest
 import streamlit as st
 
 from src.personalization import (
+    _get_site_setting,
+    _set_site_setting,
     _pref_delete,
     _pref_load,
     _pref_upsert,
@@ -251,3 +253,65 @@ class TestPowerUser:
         st.session_state["user_groups"] = []
         with patch("os.getenv", return_value="admin,editor"):
             assert is_power_user() is False
+
+class TestSiteSetting:
+    def test_get_site_setting_success(self):
+        st.session_state.clear()
+        conn = MagicMock()
+        cur = conn.cursor.return_value.__enter__.return_value
+        cur.fetchall.return_value = [("value1",)]
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization.get_db_connection", return_value=conn):
+            result = _get_site_setting("key1")
+        assert result == "value1"
+        cur.execute.assert_called_once_with(
+            "SELECT value FROM user_data.site_settings WHERE key = ?", ["key1"]
+        )
+
+    def test_get_site_setting_empty(self):
+        st.session_state.clear()
+        conn = MagicMock()
+        cur = conn.cursor.return_value.__enter__.return_value
+        cur.fetchall.return_value = []
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization.get_db_connection", return_value=conn):
+            result = _get_site_setting("key1")
+        assert result is None
+
+    def test_get_site_setting_exception(self):
+        st.session_state.clear()
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization.get_db_connection", side_effect=Exception("DB fail")):
+            result = _get_site_setting("key1")
+        assert result is None
+
+    def test_set_site_setting_success(self):
+        st.session_state.clear()
+        conn = MagicMock()
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization._get_write_connection", return_value=conn):
+            _set_site_setting("key1", "value1", "user@test.com")
+        sql, params = conn.execute.call_args[0]
+        assert "INSERT INTO user_data.site_settings" in sql
+        assert params == ["key1", "value1", "user@test.com"]
+
+    def test_set_site_setting_exception(self):
+        st.session_state.clear()
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization._get_write_connection", side_effect=Exception("DB fail")):
+            # Should swallow exception
+            _set_site_setting("key1", "value1", "user@test.com")
+
+    def test_pref_upsert_exception(self):
+        st.session_state.clear()
+        st.session_state["user_oid"] = "u1"
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization.get_db_connection", side_effect=Exception("DB fail")):
+            _pref_upsert("cat.sch.tbl", "bookmark")
+
+    def test_pref_delete_exception(self):
+        st.session_state.clear()
+        st.session_state["user_oid"] = "u1"
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization.get_db_connection", side_effect=Exception("DB fail")):
+            _pref_delete("cat.sch.tbl", "bookmark")
