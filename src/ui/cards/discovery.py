@@ -149,7 +149,8 @@ def render_notification_strip() -> None:
 
         st.markdown("<div style='margin-top:8px'></div>", unsafe_allow_html=True)
         if st.button(t("notifications.mark_all_read"), key="notif_mark_all"):
-            mark_all_read(user_oid)
+            with st.spinner(t("common.loading")):
+                mark_all_read(user_oid)
             st.rerun()
 
 
@@ -200,7 +201,8 @@ def render_cms_banner() -> None:
                     "✕", key=f"cms_del_{post['post_id']}",
                     help=t("cms.delete_post"), use_container_width=True,
                 ):
-                    delete_post(post["post_id"])
+                    with st.spinner(t("common.deleting")):
+                        delete_post(post["post_id"])
                     st.rerun()
         else:
             st.markdown(card_html, unsafe_allow_html=True)
