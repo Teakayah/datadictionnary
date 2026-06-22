@@ -71,13 +71,13 @@ def render_business_name_editor(table_full_name: str, column_name: str, current_
     new_name = st.text_input(
         t("table.business_name"),
         value=current_val,
-        placeholder="e.g., Customer Loyalty ID",
+        placeholder=t("table.business_name_placeholder"),
         key="edit_biz_name",
     )
     new_def = st.text_area(
         t("table.description"),
         value=current_def,
-        placeholder="Explain what this column represents in business terms.",
+        placeholder=t("table.description_placeholder"),
         height=150,
         key="edit_biz_def",
     )

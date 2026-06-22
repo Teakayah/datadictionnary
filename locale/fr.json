@@ -67,7 +67,9 @@
     "business_name": "Nom métier",
     "description": "Description",
     "type": "Type",
-    "open_in_databricks": "Ouvrir dans Databricks"
+    "open_in_databricks": "Ouvrir dans Databricks",
+    "business_name_placeholder": "ex: ID de fidélité client",
+    "description_placeholder": "Expliquez ce que cette colonne représente en termes métier."
   },
   "detail": {
     "section_columns": "§ Colonnes",
