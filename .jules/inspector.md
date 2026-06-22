@@ -19,3 +19,6 @@
 ## 2026-06-18 - Mocking DuckDB cursors in notifications
 **Learning:** When mocking DuckDB cursors that use context managers (e.g. `with conn.cursor() as cur:`), the mock object must implement `__enter__` and `__exit__` properly alongside `execute` to prevent exceptions in the tests.
 **Action:** When mocking DuckDB connection APIs returning cursors or context managers, assign `.return_value.__enter__.return_value` to the mock cursor.
+## 2026-06-22 - Improve DaemonConn coverage
+**Learning:** Simple wrapper classes often lack line coverage, and patching dependencies directly inside test functions ensures these gaps are covered.
+**Action:** When testing wrapper classes around database connections, ensure methods like `cursor()`, `execute()`, and context managers (`__enter__`) are covered using mocked connections to prevent regressions in connection management logic.
