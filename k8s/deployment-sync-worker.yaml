@@ -90,7 +90,7 @@ spec:
           # returns 503 if the heartbeat is older than 60s.
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /healthz?probe=liveness
               port: 8765
             initialDelaySeconds: 30
             periodSeconds: 30
@@ -99,7 +99,7 @@ spec:
 
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /healthz?probe=readiness
               port: 8765
             initialDelaySeconds: 15
             periodSeconds: 10
