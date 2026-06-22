@@ -26,3 +26,7 @@
 **Coverage Gap:** The `ValueError` and `RuntimeError` exception handlers in the MCP authentication middleware (`_MCPAuthMiddleware.__call__` in `src.api.main`) lacked test coverage, potentially allowing unhandled misconfiguration exceptions to leak.
 **Learning:** Testing ASGI middleware exception paths requires patching the imported external async functions (like `validate_token`) directly within the middleware's module space and validating the raw HTTP response payloads and status codes that the middleware returns upon catching those exceptions.
 **Assertion:** Use FastAPI's `TestClient` combined with `unittest.mock.patch` returning an `AsyncMock(side_effect=...)` to inject the target exceptions during the middleware execution, and assert on `resp.status_code` and `resp.json()`.
+## 2026-06-22 - Cover DB Exceptions in personalization.py
+**Coverage Gap:** DuckDB database exception fallback paths in user preference and site setting upserts/deletions were missing coverage.
+**Learning:** Testing functions that rely on duckdb connections and catch generic `Exception` blocks requires patching `get_db_connection` or `_get_write_connection` with a `side_effect=Exception(...)` to ensure the fallback paths gracefully degrade without crashing the UI.
+**Assertion:** Always explicitly test the `except Exception:` block by forcing a simulated database failure to verify it is caught and handled (e.g. logging) correctly.

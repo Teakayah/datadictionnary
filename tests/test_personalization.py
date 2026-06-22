@@ -18,6 +18,8 @@ import pytest
 import streamlit as st
 
 from src.personalization import (
+    _get_site_setting,
+    _set_site_setting,
     _pref_delete,
     _pref_load,
     _pref_upsert,
@@ -120,6 +122,54 @@ class TestPrefDuckDBPath:
              patch("src.personalization.get_db_connection",
                    side_effect=Exception("DB down")):
             assert _pref_load("bookmark") == []
+
+    def test_upsert_swallows_db_error(self):
+        st.session_state.clear()
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization.get_db_connection",
+                   side_effect=Exception("DB down")):
+            _pref_upsert("cat.sch.tbl", "bookmark")
+
+    def test_delete_swallows_db_error(self):
+        st.session_state.clear()
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization.get_db_connection",
+                   side_effect=Exception("DB down")):
+            _pref_delete("cat.sch.tbl", "bookmark")
+
+
+class TestSiteSettingDuckDBPath:
+    def test_get_site_setting_reads_value(self):
+        conn = MagicMock()
+        cur = conn.cursor.return_value.__enter__.return_value
+        cur.fetchall.return_value = [("1",)]
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization.get_db_connection", return_value=conn):
+            result = _get_site_setting("editing_enabled")
+        assert result == "1"
+        _, params = cur.execute.call_args[0]
+        assert params == ["editing_enabled"]
+
+    def test_get_site_setting_swallows_db_error(self):
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization.get_db_connection",
+                   side_effect=Exception("DB down")):
+            assert _get_site_setting("editing_enabled") is None
+
+    def test_set_site_setting_writes_row(self):
+        conn = MagicMock()
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization._get_write_connection", return_value=conn):
+            _set_site_setting("editing_enabled", "1", "admin@example.com")
+        sql, params = conn.execute.call_args[0]
+        assert "INSERT INTO user_data.site_settings" in sql
+        assert params == ["editing_enabled", "1", "admin@example.com"]
+
+    def test_set_site_setting_swallows_db_error(self):
+        with patch("src.personalization.is_demo_mode", return_value=False), \
+             patch("src.personalization._get_write_connection",
+                   side_effect=Exception("DB down")):
+            _set_site_setting("editing_enabled", "1", "admin@example.com")
 
 
 class TestSyncPrefsToSession:
