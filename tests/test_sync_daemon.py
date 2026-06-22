@@ -547,5 +547,65 @@ class TestDaemonRunExceptions:
 
         with patch("src.sync.daemon_db.DaemonConn", return_value=MagicMock()), \
              patch("src.sync.daemon._stop_event.wait", side_effect=fake_wait):
-
             run(once=False)
+
+# ── DaemonConn Wrapper Coverage ──────────────────────────────────────────────
+
+@pytest.fixture
+def test_conn(monkeypatch):
+    monkeypatch.setenv("DUCKDB_PATH", "dummy")
+    with patch("src.sync.daemon_db.DUCKDB_PATH", "dummy"), \
+         patch("src.sync.daemon_db.USER_DATA_PATH", "dummy_user"), \
+         patch("src.sync.daemon_db.CATALOG_CACHE", "dummy_cat"), \
+         patch("src.sync.daemon_db.Path.exists", return_value=True), \
+         patch("duckdb.connect"), \
+         patch("src.sync.daemon_db._initialize_schema"):
+
+        from src.sync.daemon_db import DaemonConn
+        conn = DaemonConn()
+        return conn
+
+def test_daemon_conn_raises_if_user_data_path_empty():
+    with patch("src.sync.daemon_db.USER_DATA_PATH", ""):
+        from src.sync.daemon_db import DaemonConn
+        with pytest.raises(RuntimeError):
+            DaemonConn()
+
+def test_daemon_conn_close_catches_exception(test_conn):
+    with patch.object(test_conn._con, "close", side_effect=Exception("Test Error")):
+        test_conn.close() # Should not raise
+
+def test_daemon_conn_context_manager(test_conn):
+    with test_conn as conn:
+        assert conn.open is True
+
+def test_daemon_conn_open_property(test_conn):
+    assert test_conn.open is True
+
+def test_daemon_conn_missing_catalog_logs_info():
+    with patch("src.sync.daemon_db.DUCKDB_PATH", "dummy_missing"), \
+         patch("src.sync.daemon_db.USER_DATA_PATH", "dummy_user"), \
+         patch("src.sync.daemon_db.Path.exists", return_value=False), \
+         patch("src.sync.daemon_db.log.info") as mock_log_info, \
+         patch("duckdb.connect"), \
+         patch("src.sync.daemon_db._initialize_schema"):
+
+         from src.sync.daemon_db import DaemonConn
+         DaemonConn()
+         mock_log_info.assert_called_with(
+             "Catalog file %s missing — daemon will run without DR resync from cache.",
+             "dummy_missing"
+         )
+
+def test_daemon_conn_cursor(test_conn):
+    with patch("src.sync.daemon_db._DuckDBCursor") as mock_cursor:
+        cur = test_conn.cursor()
+        mock_cursor.assert_called_with(test_conn._con)
+        assert cur == mock_cursor.return_value
+
+def test_daemon_conn_execute(test_conn):
+    with patch("src.sync.daemon_db._DuckDBCursor") as mock_cursor:
+        cur = test_conn.execute("SELECT 1", {"a": 1})
+        mock_cursor.assert_called_with(test_conn._con)
+        mock_cursor.return_value.execute.assert_called_with("SELECT 1", {"a": 1})
+        assert cur == mock_cursor.return_value
