@@ -198,6 +198,12 @@ class TestNotificationsAPI:
         assert "n1" not in ids
         assert "n3" in ids
 
+    def test_mark_read_unknown_id(self):
+        from src.notifications import mark_read
+        self._make()
+        # Should return silently from demo mode branch without raising
+        mark_read("unknown-id")
+
     def test_mark_all_read_empties_list(self):
         from src.notifications import get_unread_notifications, mark_all_read
         self._make()
@@ -213,3 +219,260 @@ class TestNotificationsAPI:
     def test_empty_when_no_notifications(self):
         from src.notifications import get_unread_notifications
         assert get_unread_notifications("unknown-user") == []
+
+# ── Database Path API (src.notifications, non-demo path) ─────────────────────
+
+class TestNotificationsDatabaseAPI:
+    """Exercise the database (non-demo) path of the public API."""
+
+    @patch("src.notifications.is_demo_mode", return_value=False)
+    @patch("src.db.queries.get_db_connection")
+    def test_get_unread_notifications_success(self, mock_get_conn, mock_is_demo):
+        from src.notifications import get_unread_notifications
+
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+
+        # Setup context manager for cursor
+        mock_cursor.__enter__.return_value = mock_cursor
+        mock_cursor.__exit__.return_value = False
+
+        # Mock database rows returned
+        now = datetime.now()
+        mock_cursor.fetchall.return_value = [
+            ("n1", "cat.s.t", "TABLE_DESC", "editor@x.com", "Summary", now)
+        ]
+
+        mock_conn.cursor.return_value = mock_cursor
+        mock_get_conn.return_value = mock_conn
+
+        items = get_unread_notifications("user-a")
+
+        assert mock_get_conn.called
+        assert mock_conn.cursor.called
+        assert mock_cursor.execute.call_count == 1
+
+        # Check query arguments
+        query, params = mock_cursor.execute.call_args[0]
+        assert "SELECT" in query
+        assert params == ["user-a", 20]
+
+        # Check returned data
+        assert len(items) == 1
+        assert items[0] == {
+            "notification_id": "n1",
+            "table_full_name": "cat.s.t",
+            "change_type": "TABLE_DESC",
+            "changed_by": "editor@x.com",
+            "summary": "Summary",
+            "created_at": now,
+        }
+
+    @patch("src.notifications.log")
+    @patch("src.notifications.is_demo_mode", return_value=False)
+    @patch("src.db.queries.get_db_connection")
+    def test_get_unread_notifications_exception(self, mock_get_conn, mock_is_demo, mock_log):
+        from src.notifications import get_unread_notifications
+
+        # Make the connection throw an exception to trigger the try/except block
+        mock_get_conn.side_effect = Exception("DB error")
+
+        items = get_unread_notifications("user-a")
+
+        # Function should catch error and return empty list
+        assert items == []
+        mock_log.warning.assert_called_once_with("Could not list notifications for %s: %s", "user-a", mock_get_conn.side_effect)
+
+    @patch("src.notifications.is_demo_mode", return_value=False)
+    @patch("src.db.queries._get_write_connection")
+    @patch("src.db.duckdb_adapter._db_write_lock")
+    @patch("src.notifications._now")
+    def test_mark_read_success(self, mock_now, mock_lock, mock_get_write_conn, mock_is_demo):
+        from src.notifications import mark_read
+
+        mock_conn = MagicMock()
+        mock_get_write_conn.return_value = mock_conn
+
+        now = datetime.now()
+        mock_now.return_value = now
+
+        mark_read("n1")
+
+        # Verify db write connection was called
+        assert mock_get_write_conn.called
+        assert mock_lock.__enter__.called  # verify context manager lock
+
+        # Verify execute
+        assert mock_conn.execute.call_count == 1
+        query, params = mock_conn.execute.call_args[0]
+        assert "UPDATE user_data.notifications SET read_at = ?" in query
+        assert params == [now, "n1"]
+
+    @patch("src.notifications.log")
+    @patch("src.notifications.is_demo_mode", return_value=False)
+    @patch("src.db.queries._get_write_connection")
+    def test_mark_read_exception(self, mock_get_write_conn, mock_is_demo, mock_log):
+        from src.notifications import mark_read
+
+        # Trigger exception
+        mock_get_write_conn.side_effect = Exception("DB error")
+
+        mark_read("n1")
+
+        # Verify error handled
+        mock_log.warning.assert_called_once_with("Could not mark notification %s read: %s", "n1", mock_get_write_conn.side_effect)
+
+    @patch("src.notifications.is_demo_mode", return_value=False)
+    @patch("src.db.queries._get_write_connection")
+    @patch("src.db.duckdb_adapter._db_write_lock")
+    @patch("src.notifications._now")
+    def test_mark_all_read_success(self, mock_now, mock_lock, mock_get_write_conn, mock_is_demo):
+        from src.notifications import mark_all_read
+
+        mock_conn = MagicMock()
+        mock_get_write_conn.return_value = mock_conn
+
+        now = datetime.now()
+        mock_now.return_value = now
+
+        mark_all_read("user-a")
+
+        # Verify db write connection was called
+        assert mock_get_write_conn.called
+        assert mock_lock.__enter__.called  # verify context manager lock
+
+        # Verify execute
+        assert mock_conn.execute.call_count == 1
+        query, params = mock_conn.execute.call_args[0]
+        assert "UPDATE user_data.notifications SET read_at = ?" in query
+        assert params == [now, "user-a"]
+
+    @patch("src.notifications.log")
+    @patch("src.notifications.is_demo_mode", return_value=False)
+    @patch("src.db.queries._get_write_connection")
+    def test_mark_all_read_exception(self, mock_get_write_conn, mock_is_demo, mock_log):
+        from src.notifications import mark_all_read
+
+        # Trigger exception
+        mock_get_write_conn.side_effect = Exception("DB error")
+
+        mark_all_read("user-a")
+
+        # Verify error handled
+        mock_log.warning.assert_called_once_with("Could not mark all notifications read for %s: %s", "user-a", mock_get_write_conn.side_effect)
+
+    @patch("src.notifications.is_demo_mode", return_value=True)
+    def test_mark_read_demo_mode_not_found(self, mock_is_demo):
+        from src.notifications import mark_read
+        import streamlit as st
+        # Create an empty demo store
+        st.session_state["_demo_notifications"] = []
+        mark_read("n1")
+        # Ensure it safely returns early
+        assert st.session_state["_demo_notifications"] == []
+
+
+class TestNotificationsAPIDuckDB:
+    """Exercise the DuckDB (persistent) path of the public API."""
+
+    @pytest.fixture(autouse=True)
+    def _mock_demo_mode(self):
+        with patch("src.notifications.is_demo_mode", return_value=False):
+            yield
+
+    @patch("src.db.queries.get_db_connection")
+    def test_get_unread_notifications_success(self, mock_get_conn):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_get_conn.return_value = mock_conn
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        now = datetime.now()
+        mock_cursor.fetchall.return_value = [
+            ("n1", "cat.s.t", "TABLE_DESC", "admin", "summary", now)
+        ]
+
+        from src.notifications import get_unread_notifications
+        items = get_unread_notifications("user-a", limit=5)
+
+        assert len(items) == 1
+        assert items[0]["notification_id"] == "n1"
+
+        mock_cursor.execute.assert_called_once()
+        query = mock_cursor.execute.call_args[0][0]
+        args = mock_cursor.execute.call_args[0][1]
+        assert "SELECT notification_id" in query
+        assert args == ["user-a", 5]
+
+    @patch("src.db.queries.get_db_connection")
+    @patch("src.notifications.log")
+    def test_get_unread_notifications_error(self, mock_log, mock_get_conn):
+        mock_get_conn.side_effect = Exception("DB error")
+
+        from src.notifications import get_unread_notifications
+        items = get_unread_notifications("user-a")
+
+        assert items == []
+        mock_log.warning.assert_called_once()
+        assert mock_log.warning.call_args[0][0] == "Could not list notifications for %s: %s"
+        assert mock_log.warning.call_args[0][1] == "user-a"
+
+    @patch("src.db.duckdb_adapter._db_write_lock")
+    @patch("src.db.queries._get_write_connection")
+    def test_mark_read_success(self, mock_get_write, mock_lock):
+        mock_conn = MagicMock()
+        mock_get_write.return_value = mock_conn
+        mock_lock.__enter__ = MagicMock(return_value=None)
+        mock_lock.__exit__ = MagicMock(return_value=None)
+
+        from src.notifications import mark_read
+        mark_read("n1")
+
+        mock_conn.execute.assert_called_once()
+        query = mock_conn.execute.call_args[0][0]
+        args = mock_conn.execute.call_args[0][1]
+        assert "UPDATE user_data.notifications SET read_at = ?" in query
+        assert args[1] == "n1"
+
+    @patch("src.db.duckdb_adapter._db_write_lock")
+    @patch("src.db.queries._get_write_connection")
+    @patch("src.notifications.log")
+    def test_mark_read_error(self, mock_log, mock_get_write, mock_lock):
+        mock_get_write.side_effect = Exception("DB error")
+
+        from src.notifications import mark_read
+        mark_read("n1")
+
+        mock_log.warning.assert_called_once()
+        assert mock_log.warning.call_args[0][0] == "Could not mark notification %s read: %s"
+        assert mock_log.warning.call_args[0][1] == "n1"
+
+    @patch("src.db.duckdb_adapter._db_write_lock")
+    @patch("src.db.queries._get_write_connection")
+    def test_mark_all_read_success(self, mock_get_write, mock_lock):
+        mock_conn = MagicMock()
+        mock_get_write.return_value = mock_conn
+        mock_lock.__enter__ = MagicMock(return_value=None)
+        mock_lock.__exit__ = MagicMock(return_value=None)
+
+        from src.notifications import mark_all_read
+        mark_all_read("user-a")
+
+        mock_conn.execute.assert_called_once()
+        query = mock_conn.execute.call_args[0][0]
+        args = mock_conn.execute.call_args[0][1]
+        assert "UPDATE user_data.notifications SET read_at = ?" in query
+        assert args[1] == "user-a"
+
+    @patch("src.db.duckdb_adapter._db_write_lock")
+    @patch("src.db.queries._get_write_connection")
+    @patch("src.notifications.log")
+    def test_mark_all_read_error(self, mock_log, mock_get_write, mock_lock):
+        mock_get_write.side_effect = Exception("DB error")
+
+        from src.notifications import mark_all_read
+        mark_all_read("user-a")
+
+        mock_log.warning.assert_called_once()
+        assert mock_log.warning.call_args[0][0] == "Could not mark all notifications read for %s: %s"
+        assert mock_log.warning.call_args[0][1] == "user-a"

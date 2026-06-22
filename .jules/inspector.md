@@ -16,3 +16,6 @@
 ## 2026-06-14 - NotificationStorage Coverage
 **Learning:** The application mocks dependencies deeply at the module level in tests. Exceptions from DB disconnections needed to be validated using pytest's mock framework. When mocking functions like `_get_write_connection` imported within another module's method scope, we must correctly target the import location in Pytest mock.
 **Action:** Created test_storage_notifications.py and test_storage_audit.py to instantiate local instances of DuckDBNotificationStorage, DemoNotificationStorage, DuckDBBusinessNameOverrideStorage, FakeBusinessNameOverrideStorage, DemoAuditStorage, and DuckDBAuditStorage to execute assertions for list limits, mark read, and simulate broken DB connections.
+## 2026-06-18 - Mocking DuckDB cursors in notifications
+**Learning:** When mocking DuckDB cursors that use context managers (e.g. `with conn.cursor() as cur:`), the mock object must implement `__enter__` and `__exit__` properly alongside `execute` to prevent exceptions in the tests.
+**Action:** When mocking DuckDB connection APIs returning cursors or context managers, assign `.return_value.__enter__.return_value` to the mock cursor.
