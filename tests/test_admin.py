@@ -346,3 +346,36 @@ def test_get_admin_stats_exception(mock_duckdb, mock_demo, mock_run_query):
     stats = get_admin_stats()
 
     assert stats == {"tables": 0, "columns": 0, "comments": 0, "overrides": 0}
+
+from src.ui.cards.admin import get_sync_queue_stats
+
+@patch("src.ui.cards.admin._duckdb_available", return_value=False)
+def test_get_sync_queue_stats_duckdb_unavailable(mock_duckdb):
+    """get_sync_queue_stats should return empty dict when DuckDB is not available."""
+    assert get_sync_queue_stats() == {}
+
+
+@patch("src.ui.cards.admin._duckdb_available", return_value=True)
+@patch("src.ui.cards.admin._get_write_connection")
+def test_get_sync_queue_stats_success(mock_conn, mock_duckdb):
+    """get_sync_queue_stats should return correct counts and default zero for missing statuses."""
+    mock_cursor = mock_conn.return_value.cursor.return_value.__enter__.return_value
+    mock_cursor.fetchall.return_value = [("pending", 2), ("done", 5)]
+
+    stats = get_sync_queue_stats()
+
+    assert stats == {"pending": 2, "done": 5, "processing": 0, "failed": 0}
+    mock_cursor.execute.assert_called_once_with(
+        "SELECT status, COUNT(*) FROM user_data.pending_sync GROUP BY status"
+    )
+
+
+@patch("src.ui.cards.admin._duckdb_available", return_value=True)
+@patch("src.ui.cards.admin._get_write_connection")
+def test_get_sync_queue_stats_exception(mock_conn, mock_duckdb):
+    """get_sync_queue_stats should return all zeros if database query fails."""
+    mock_conn.return_value.cursor.side_effect = Exception("DB Connection Error")
+
+    stats = get_sync_queue_stats()
+
+    assert stats == {"pending": 0, "processing": 0, "done": 0, "failed": 0}
