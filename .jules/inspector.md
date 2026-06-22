@@ -22,3 +22,7 @@
 ## 2026-06-22 - Improve DaemonConn coverage
 **Learning:** Simple wrapper classes often lack line coverage, and patching dependencies directly inside test functions ensures these gaps are covered.
 **Action:** When testing wrapper classes around database connections, ensure methods like `cursor()`, `execute()`, and context managers (`__enter__`) are covered using mocked connections to prevent regressions in connection management logic.
+## 2024-06-20 - Coverage Gap: FastAPI Dependency Edge Cases
+**Coverage Gap:** The `get_current_user` dependency in `src/api/deps.py` missed coverage for its `RuntimeError` and `ValueError` exception paths, meaning error handling for authentication misconfiguration and invalid tokens was completely untested.
+**Learning:** Testing exception handling in FastAPI dependencies requires patching the underlying functions that raise the exception (`validate_token`) and asserting the specific `HTTPException` properties (status code, detail, and headers).
+**Action:** Created `tests/test_api_deps.py` to mock `validate_token` side-effects and use `pytest.raises(HTTPException)` to verify the correct HTTP status codes and details are returned for invalid tokens and server misconfigurations.
