@@ -21,3 +21,7 @@
 ## 2024-06-10 - Locale-aware strftime Date Formatting
 **Learning:** Standard library `strftime` uses the system's locale, which doesn't dynamically map to application `st.session_state` locales without thread-unsafe `locale.setlocale` calls. This causes components to render English month strings (e.g. `%b` -> `Jan`) in French views on Unix servers.
 **Action:** Always extract hardcoded `strftime` components and resolve them dynamically via the `t()` dictionary keys (e.g., adding `date.months.1`, etc. and replacing `%b` with the looked-up string) to ensure thread-safe, native translation formatting.
+
+## 2026-06-18 - Extract Hardcoded Input Placeholders
+**Learning:** Hardcoded strings embedded directly as `placeholder` values inside input UI components (e.g., `st.text_input(..., placeholder="e.g., Customer Loyalty ID")`) are not naturally extracted by external i18n scanners and require manual refactoring into translation dictionaries.
+**Action:** When creating or modifying form components, always use translation keys `t("namespace.key")` for placeholder and helper text rather than hardcoded English strings.
