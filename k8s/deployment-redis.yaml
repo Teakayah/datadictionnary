@@ -35,7 +35,7 @@ spec:
 
       containers:
         - name: redis
-          image: redis:7-alpine
+          image: redis:7.2.4-alpine
           args:
             - redis-server
             - --appendonly
