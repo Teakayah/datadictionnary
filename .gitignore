@@ -63,6 +63,7 @@ reports/
 # Generated HTML galleries and PowerPoint outputs
 *.pptx
 *.html.bak
+*-analysis.html
 
 # --- Kubernetes ---
 # Never commit real secrets — keep only the placeholder template in source control
