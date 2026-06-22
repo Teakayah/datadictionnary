@@ -65,6 +65,11 @@ def _to_duckdb_sql(sql: str, params: dict) -> tuple:
         else:
             converted[name] = value
     # Remaining %(name)s → $name
+    # Regex breakdown for pyformat replacement:
+    # %\(        - Matches the literal string '%('
+    # (\w+)      - Capturing group for the parameter name (alphanumeric and underscores)
+    # \)s        - Matches the literal string ')s'
+    # Replacement string '$\1' uses the captured group to format as '$name'
     result = re.sub(r"%\((\w+)\)s", r"$\1", result)
     # DuckDB compatibility: current_timestamp() → current_localtimestamp()
     result = result.replace("current_timestamp()", "current_localtimestamp()")
