@@ -17,3 +17,7 @@
 ## 2026-06-14 - Refactoring Ternary Pluralization
 **Learning:** Hardcoding English-centric ternary pluralization logic (e.g. `t(...) if count == 1 else t(...)`) directly in UI components prevents correct grammar tokenization for languages with different plural rules.
 **Action:** Replace manual ternary pluralization logic with native `count`-based tokens that resolve the appropriate suffix (e.g. `_one`, `_other`) directly through the i18n library.
+
+## $(date +%Y-%m-%d) - Extract Hardcoded Input Placeholders
+**Learning:** Hardcoded strings embedded directly as `placeholder` values inside input UI components (e.g., `st.text_input(..., placeholder="e.g., Customer Loyalty ID")`) are not naturally extracted by external i18n scanners and require manual refactoring into translation dictionaries.
+**Action:** When creating or modifying form components, always use translation keys `t("namespace.key")` for placeholder and helper text rather than hardcoded English strings.
