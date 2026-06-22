@@ -17,3 +17,7 @@
 ## 2026-06-14 - Refactoring Ternary Pluralization
 **Learning:** Hardcoding English-centric ternary pluralization logic (e.g. `t(...) if count == 1 else t(...)`) directly in UI components prevents correct grammar tokenization for languages with different plural rules.
 **Action:** Replace manual ternary pluralization logic with native `count`-based tokens that resolve the appropriate suffix (e.g. `_one`, `_other`) directly through the i18n library.
+
+## 2024-06-10 - Locale-aware strftime Date Formatting
+**Learning:** Standard library `strftime` uses the system's locale, which doesn't dynamically map to application `st.session_state` locales without thread-unsafe `locale.setlocale` calls. This causes components to render English month strings (e.g. `%b` -> `Jan`) in French views on Unix servers.
+**Action:** Always extract hardcoded `strftime` components and resolve them dynamically via the `t()` dictionary keys (e.g., adding `date.months.1`, etc. and replacing `%b` with the looked-up string) to ensure thread-safe, native translation formatting.

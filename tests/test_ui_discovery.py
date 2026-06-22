@@ -60,7 +60,6 @@ class TestDiscoveryTabs:
         mock_seg_ctrl.return_value = "bookmarks"
         at = AppTest.from_function(render_discovery_page_app).run()
 
-
         at.session_state["bookmarks"] = {"main.sales.orders"}
         at.run()
         html = [m.value for m in at.markdown]
@@ -74,7 +73,6 @@ class TestDiscoveryTabs:
         mock_seg_ctrl.return_value = "recent"
         at = AppTest.from_function(render_discovery_page_app).run()
 
-
         at.session_state["recent_views"] = ["main.finance.ledger"]
         at.run()
         html = [m.value for m in at.markdown]
@@ -87,8 +85,6 @@ class TestDiscoveryTabs:
         mock_get_posts.return_value = []
         mock_seg_ctrl.return_value = "recommended"
         at = AppTest.from_function(render_discovery_page_app).run()
-
-
 
         with patch("src.ui.cards.discovery._get_recommended_tables", return_value=["main.sales.orders"]):
             at.run()
@@ -169,7 +165,6 @@ class TestDiscoveryTabs:
         mock_seg_ctrl.return_value = "bookmarks"
         at = AppTest.from_function(render_discovery_page_app).run()
 
-
         at.session_state["bookmarks"] = set()
         at.session_state["col_bookmarks"] = {"main.sales.orders::amount"}
         at.run()
@@ -190,7 +185,6 @@ class TestDiscoveryTabs:
         mock_get_posts.return_value = []
         mock_seg_ctrl.return_value = "bookmarks"
         at = AppTest.from_function(render_discovery_page_app).run()
-
 
         at.session_state["bookmarks"] = set()
         at.session_state["col_bookmarks"] = {"main.sales.orders::amount"}
@@ -294,8 +288,6 @@ class TestDiscoveryTabs:
         mock_seg_ctrl.return_value = "recommended"
         at = AppTest.from_function(render_discovery_page_app).run()
 
-
-
         with patch("src.ui.cards.discovery._get_recommended_tables", return_value=[]):
             at.run()
 
@@ -310,7 +302,6 @@ class TestDiscoveryTabs:
         mock_seg_ctrl.return_value = "recommended"
         at = AppTest.from_function(render_discovery_page_app_empty).run()
 
-
         at.run()
 
         assert any(en_locale["personalization"]["recommended_empty"] in m.value for m in at.info)
@@ -321,7 +312,6 @@ class TestDiscoveryTabs:
         mock_get_posts.return_value = []
         mock_seg_ctrl.return_value = "recent"
         at = AppTest.from_function(render_discovery_page_app_empty).run()
-
 
         at.session_state["recent_views"] = ["main.finance.ledger"]
         at.run()
@@ -335,7 +325,6 @@ class TestDiscoveryTabs:
         mock_seg_ctrl.return_value = "bookmarks"
         at = AppTest.from_function(render_discovery_page_app_empty).run()
 
-
         at.session_state["bookmarks"] = {"main.finance.ledger"}
         at.run()
 
@@ -348,14 +337,10 @@ class TestDiscoveryTabs:
         mock_seg_ctrl.return_value = "notable"
         at = AppTest.from_function(render_discovery_page_app_empty).run()
 
-
         at.session_state["group_filter"] = "finance"
         at.run()
 
         assert any(en_locale["discovery"]["no_updates"] in m.value for m in at.info)
-
-
-
 
 
 @patch("src.ui.cards.discovery.get_unread_notifications")
@@ -420,6 +405,7 @@ def test_discovery_notifications_strip(mock_get_posts, mock_mark_all, mock_mark_
     if btn:
         btn.click().run()
         mock_mark_all.assert_called_once_with("test_user")
+
 @patch("src.ui.cards.discovery.get_unread_notifications")
 @patch("src.ui.cards.discovery.get_active_posts")
 def test_discovery_notifications_empty(mock_get_posts, mock_get_unread):
