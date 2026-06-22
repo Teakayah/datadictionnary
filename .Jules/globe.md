@@ -1,3 +1,0 @@
-## 2024-06-10 - Locale-aware strftime Date Formatting
-**Learning:** Standard library `strftime` uses the system's locale, which doesn't dynamically map to application `st.session_state` locales without thread-unsafe `locale.setlocale` calls. This causes components to render English month strings (e.g. `%b` -> `Jan`) in French views on Unix servers.
-**Action:** Always extract hardcoded `strftime` components and resolve them dynamically via the `t()` dictionary keys (e.g., adding `date.months.1`, etc. and replacing `%b` with the looked-up string) to ensure thread-safe, native translation formatting.

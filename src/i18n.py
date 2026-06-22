@@ -86,7 +86,6 @@ def format_date(dt, format_type="long") -> str:
         return str(dt or "")
 
     _ensure_locale()
-    lang = st.session_state.get("locale", "en")
 
     # 🌍 Globe: Extract hardcoded strftime which breaks localization
     month_key = str(dt.month)
