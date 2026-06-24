@@ -166,7 +166,6 @@ class TestJWTClaimsValidation:
         import asyncio
         from cryptography.hazmat.primitives.asymmetric import rsa
         from cryptography.hazmat.backends import default_backend
-        from jose import jwk as jose_jwk
 
         key = rsa.generate_private_key(65537, 2048, default_backend())
         public_numbers = key.public_key().public_numbers()
