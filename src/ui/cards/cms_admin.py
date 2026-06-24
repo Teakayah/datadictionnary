@@ -134,14 +134,8 @@ def _render_admin_cms_section():
         from src.i18n import format_date
         created  = post["created_at"]
         expires  = post["expires_at"]
-        date_str = (
-            format_date(created) if hasattr(created, "strftime")
-            else str(created)[:10]
-        )
-        exp_str  = (
-            format_date(expires) if hasattr(expires, "strftime")
-            else str(expires)[:10] if expires else t("cms.no_expiry")
-        )
+        date_str = format_date(created)
+        exp_str  = format_date(expires) if expires else t("cms.no_expiry")
         from datetime import datetime, timezone; UTC = timezone.utc
         if expires is None:
             is_expired = False

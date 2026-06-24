@@ -9,7 +9,6 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 import httpx
 from jose import JWTError, jwt
