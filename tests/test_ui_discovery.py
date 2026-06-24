@@ -9,7 +9,6 @@ with open("locale/en.json", "r") as f:
 def render_discovery_page_app():
     from unittest.mock import patch
     import pandas as pd
-    from unittest.mock import patch
     from src.ui.cards.discovery import render_discovery
 
     # Mock groups and authorized tables for the app run
@@ -26,16 +25,13 @@ def render_discovery_page_app():
             "dq_status": ["pass", "pass", "fail"]
         })
 
-    from unittest.mock import patch
     with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=mock_get_auth_tables):
         render_discovery(["finance", "sales"])
 
 def render_discovery_page_app_empty():
     from unittest.mock import patch
     import pandas as pd
-    from unittest.mock import patch
     from src.ui.cards.discovery import render_discovery
-    from unittest.mock import patch
 
     def mock_get_auth_tables(groups):
         return pd.DataFrame()
@@ -208,7 +204,7 @@ class TestDiscoveryTabs:
 
     @patch("src.ui.cards.discovery.get_active_posts")
     @patch("src.ui.cards.discovery.is_admin", return_value=True)
-    @patch("src.ui.cards.discovery.delete_post")
+    @patch("src.ui.cards.discovery._show_delete_cms_dialog")
     def test_discovery_render_cms_banner(self, mock_delete, mock_is_admin, mock_get_posts):
         mock_get_posts.return_value = [
             {
