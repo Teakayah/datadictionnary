@@ -185,9 +185,9 @@ class TestRenderTableBusinessNameEditor:
         assert len(at.error) > 0
         assert at.error[0].value == "An error occurred."
 
-    @patch("src.ui.cards.detail.get_table_business_name_override_storage")
+    @patch("src.ui.cards.detail.get_table_business_name_override")
     def test_render_table_business_name_editor_fetch_defaults(self, mock_storage):
-        mock_storage.return_value.get_for_table.return_value = {
+        mock_storage.return_value = {
             "business_name_en": "fetched_en",
             "business_name_fr": "fetched_fr",
             "business_definition_en": "fetched_def_en",
@@ -196,19 +196,19 @@ class TestRenderTableBusinessNameEditor:
 
         at = AppTest.from_function(table_business_name_editor_app, args=("cat.sch.tbl", "", "", "", "")).run()
 
-        mock_storage.return_value.get_for_table.assert_called_once_with("cat.sch.tbl")
+        mock_storage.assert_called_once_with("cat.sch.tbl")
         assert at.text_input[0].value == "fetched_en"
         assert at.text_input[1].value == "fetched_fr"
         assert at.text_area[0].value == "fetched_def_en"
         assert at.text_area[1].value == "fetched_def_fr"
 
-    @patch("src.ui.cards.detail.get_table_business_name_override_storage")
+    @patch("src.ui.cards.detail.get_table_business_name_override")
     def test_render_table_business_name_editor_fetch_defaults_exception(self, mock_storage):
-        mock_storage.return_value.get_for_table.side_effect = Exception("Storage error")
+        mock_storage.side_effect = Exception("Storage error")
 
         at = AppTest.from_function(table_business_name_editor_app, args=("cat.sch.tbl", "", "", "", "")).run()
 
-        mock_storage.return_value.get_for_table.assert_called_once_with("cat.sch.tbl")
+        mock_storage.assert_called_once_with("cat.sch.tbl")
         # Should catch the error and log it, then render with empty fields
         assert at.text_input[0].value == ""
         assert at.text_input[1].value == ""
