@@ -141,8 +141,7 @@ def test_lookup_return_not_string():
     assert _lookup({"a": {"b": 123}}, ["a", "b"]) is None
 
 from datetime import datetime
-from src.i18n import format_number, format_date, t
-from unittest.mock import patch
+from src.i18n import format_number, format_date
 
 def test_format_number_en():
     with patch("src.i18n.st") as mock_st:

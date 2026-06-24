@@ -535,7 +535,7 @@ def _render_pending_reviews_section():
         defn = str(item.get("definition", "") or "")
         by   = str(item.get("edited_by", ""))
         _raw_at = item.get("edited_at")
-        at   = format_date(_raw_at) if hasattr(_raw_at, "strftime") else str(_raw_at or "")
+        at   = format_date(_raw_at)
         st.markdown(
             f'<div style="background:var(--paper);border:1px solid var(--ink-10);'
             f'border-radius:4px;padding:12px 16px;margin-bottom:8px;">'
@@ -636,7 +636,7 @@ def _render_pending_table_friendly_names_section():
         def_fr  = str(item.get("business_definition_fr", "") or "")
         by      = str(item.get("edited_by", ""))
         _raw_at = item.get("edited_at")
-        at      = format_date(_raw_at) if hasattr(_raw_at, "strftime") else str(_raw_at or "")
+        at      = format_date(_raw_at)
         st.markdown(
             f'<div style="background:var(--paper);border:1px solid var(--ink-10);'
             f'border-radius:4px;padding:12px 16px;margin-bottom:8px;">'
