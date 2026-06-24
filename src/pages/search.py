@@ -203,9 +203,11 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                 if _is_bk:
                     st.session_state.get("bookmarks", set()).discard(full_name)
                     _pref_delete(full_name, "bookmark")
+                    st.toast(t("personalization.bookmark_removed"))
                 else:
                     st.session_state.get("bookmarks", set()).add(full_name)
                     _pref_upsert(full_name, "bookmark")
+                    st.toast(t("personalization.bookmark_added"))
                 st.rerun()
 
         # Record recently viewed

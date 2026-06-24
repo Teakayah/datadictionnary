@@ -382,7 +382,9 @@
     "no_bookmarks": "Aucun favori pour le moment.",
     "no_recent": "Aucun historique de consultation.",
     "bookmarked_columns": "Colonnes favorites",
-    "no_col_bookmarks": "Aucune colonne favorite pour le moment."
+    "no_col_bookmarks": "Aucune colonne favorite pour le moment.",
+    "bookmark_added": "Favori ajouté",
+    "bookmark_removed": "Favori retiré"
   },
   "help": {
     "search_expander": "Utilisation de la page",

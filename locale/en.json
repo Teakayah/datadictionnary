@@ -382,7 +382,9 @@
     "no_bookmarks": "No bookmarks yet.",
     "no_recent": "No recent views.",
     "bookmarked_columns": "Bookmarked columns",
-    "no_col_bookmarks": "No bookmarked columns yet."
+    "no_col_bookmarks": "No bookmarked columns yet.",
+    "bookmark_added": "Bookmark added",
+    "bookmark_removed": "Bookmark removed"
   },
   "help": {
     "search_expander": "How to use this page",
