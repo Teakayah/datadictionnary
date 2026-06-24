@@ -67,6 +67,9 @@ def fetch_member_groups(access_token: str, user_oid: str) -> list[str]:
     Args:
         access_token (str): bearer token with User.Read scope
         user_oid (str): Entra ID user OID, used as the cache key
+
+    Returns:
+        list[str]: Transitive security-group object IDs for the current user.
     """
     if not user_oid:
         log.warning("fetch_member_groups called without user_oid; skipping cache.")
@@ -151,7 +154,11 @@ def clear_groups_cache(user_oid: Optional[str] = None) -> int:
     an OID flushes every user's entry — useful from an admin
     "refresh all permissions" tool.
 
-    Returns the number of cache entries dropped.
+    Args:
+        user_oid (Optional[str], optional): The Object ID of the user whose cache should be cleared. Defaults to None.
+
+    Returns:
+        int: The number of cache entries dropped.
     """
     with _CACHE_LOCK:
         if user_oid is None:
