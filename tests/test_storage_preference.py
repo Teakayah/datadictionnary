@@ -121,6 +121,155 @@ def test_duckdb_site_setting_get_success():
 def test_duckdb_site_setting_get_empty():
     storage = DuckDBSiteSettingStorage()
     mock_conn = MagicMock()
+from src.storage.preference_storage import (
+    DuckDBPreferenceStorage,
+    DemoPreferenceStorage,
+    FakePreferenceStorage,
+    DuckDBSiteSettingStorage,
+    DemoSiteSettingStorage,
+    FakeSiteSettingStorage,
+)
+
+# DemoPreferenceStorage Tests
+def test_demo_preference_storage_upsert():
+    storage = DemoPreferenceStorage()
+    assert storage.upsert("user1", "table_a", "bookmark") is None
+
+def test_demo_preference_storage_delete():
+    storage = DemoPreferenceStorage()
+    assert storage.delete("user1", "table_a", "bookmark") is None
+
+def test_demo_preference_storage_list_by_type():
+    storage = DemoPreferenceStorage()
+    assert storage.list_by_type("user1", "bookmark") == []
+
+# DuckDBPreferenceStorage Tests
+@patch('src.storage.preference_storage.get_db_connection')
+def test_duckdb_preference_storage_upsert_success(mock_get_conn):
+    storage = DuckDBPreferenceStorage()
+    mock_conn = MagicMock()
+    mock_get_conn.return_value = mock_conn
+    storage.upsert("user1", "table_a", "bookmark")
+    mock_conn.execute.assert_called_once()
+
+@patch('src.storage.preference_storage.get_db_connection')
+@patch('src.storage.preference_storage.log.warning')
+def test_duckdb_preference_storage_upsert_exception(mock_log, mock_get_conn):
+    storage = DuckDBPreferenceStorage()
+    mock_get_conn.side_effect = Exception("DB error")
+    storage.upsert("user1", "table_a", "bookmark")
+    mock_log.assert_called_once()
+
+@patch('src.storage.preference_storage.get_db_connection')
+def test_duckdb_preference_storage_delete_success(mock_get_conn):
+    storage = DuckDBPreferenceStorage()
+    mock_conn = MagicMock()
+    mock_get_conn.return_value = mock_conn
+    storage.delete("user1", "table_a", "bookmark")
+    mock_conn.execute.assert_called_once()
+
+@patch('src.storage.preference_storage.get_db_connection')
+@patch('src.storage.preference_storage.log.warning')
+def test_duckdb_preference_storage_delete_exception(mock_log, mock_get_conn):
+    storage = DuckDBPreferenceStorage()
+    mock_get_conn.side_effect = Exception("DB error")
+    storage.delete("user1", "table_a", "bookmark")
+    mock_log.assert_called_once()
+
+@patch('src.storage.preference_storage.get_db_connection')
+def test_duckdb_preference_storage_list_by_type_success(mock_get_conn):
+    storage = DuckDBPreferenceStorage()
+    mock_conn = MagicMock()
+    mock_get_conn.return_value = mock_conn
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+    df = pd.DataFrame({"table_full_name": ["table_a", "table_b"]})
+    mock_cursor.fetchall_as_pandas.return_value = df
+
+    result = storage.list_by_type("user1", "bookmark")
+    assert result == ["table_a", "table_b"]
+    mock_cursor.execute.assert_called_once()
+
+@patch('src.storage.preference_storage.get_db_connection')
+def test_duckdb_preference_storage_list_by_type_empty(mock_get_conn):
+    storage = DuckDBPreferenceStorage()
+    mock_conn = MagicMock()
+    mock_get_conn.return_value = mock_conn
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+    df = pd.DataFrame()
+    mock_cursor.fetchall_as_pandas.return_value = df
+
+    result = storage.list_by_type("user1", "bookmark")
+    assert result == []
+
+@patch('src.storage.preference_storage.get_db_connection')
+@patch('src.storage.preference_storage.log.warning')
+def test_duckdb_preference_storage_list_by_type_exception(mock_log, mock_get_conn):
+    storage = DuckDBPreferenceStorage()
+    mock_get_conn.side_effect = Exception("DB error")
+    result = storage.list_by_type("user1", "bookmark")
+    assert result == []
+    mock_log.assert_called_once()
+
+# FakePreferenceStorage Tests
+def test_fake_preference_storage_upsert_and_list():
+    storage = FakePreferenceStorage()
+    storage.upsert("user1", "table_a", "bookmark")
+    storage.upsert("user1", "table_b", "bookmark")
+    storage.upsert("user1", "table_a", "bookmark") # Update
+
+    result = storage.list_by_type("user1", "bookmark")
+    assert result == ["table_a", "table_b"] # Newest first, update puts table_a at the end
+
+def test_fake_preference_storage_delete():
+    storage = FakePreferenceStorage()
+    storage.upsert("user1", "table_a", "bookmark")
+    storage.upsert("user1", "table_b", "bookmark")
+    storage.delete("user1", "table_a", "bookmark")
+
+    result = storage.list_by_type("user1", "bookmark")
+    assert result == ["table_b"]
+
+def test_fake_preference_storage_list_limit():
+    storage = FakePreferenceStorage()
+    for i in range(5):
+        storage.upsert("user1", f"table_{i}", "bookmark")
+
+    result = storage.list_by_type("user1", "bookmark", limit=2)
+    assert result == ["table_4", "table_3"]
+
+# DemoSiteSettingStorage Tests
+def test_demo_site_setting_storage_get():
+    storage = DemoSiteSettingStorage()
+    assert storage.get("key1") is None
+
+def test_demo_site_setting_storage_set():
+    storage = DemoSiteSettingStorage()
+    assert storage.set("key1", "val1", "actor@ex.com") is None
+
+# DuckDBSiteSettingStorage Tests
+@patch('src.storage.preference_storage.get_db_connection')
+def test_duckdb_site_setting_storage_get_success(mock_get_conn):
+    storage = DuckDBSiteSettingStorage()
+    mock_conn = MagicMock()
+    mock_get_conn.return_value = mock_conn
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+    mock_cursor.fetchall.return_value = [("value1",)]
+
+    result = storage.get("key1")
+    assert result == "value1"
+    mock_cursor.execute.assert_called_once()
+
+@patch('src.storage.preference_storage.get_db_connection')
+def test_duckdb_site_setting_storage_get_empty(mock_get_conn):
+    storage = DuckDBSiteSettingStorage()
+    mock_conn = MagicMock()
+    mock_get_conn.return_value = mock_conn
     mock_cursor = MagicMock()
     mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
@@ -327,3 +476,41 @@ class TestDuckDBSiteSettingStorage:
         mock_get_conn.side_effect = Exception("DB error")
         storage = DuckDBSiteSettingStorage()
         assert storage.get("k1") is None
+    result = storage.get("key1")
+    assert result is None
+
+@patch('src.storage.preference_storage.get_db_connection')
+@patch('src.storage.preference_storage.log.warning')
+def test_duckdb_site_setting_storage_get_exception(mock_log, mock_get_conn):
+    storage = DuckDBSiteSettingStorage()
+    mock_get_conn.side_effect = Exception("DB error")
+    result = storage.get("key1")
+    assert result is None
+    mock_log.assert_called_once()
+
+@patch('src.storage.preference_storage._get_write_connection')
+def test_duckdb_site_setting_storage_set_success(mock_get_write_conn):
+    storage = DuckDBSiteSettingStorage()
+    mock_conn = MagicMock()
+    mock_get_write_conn.return_value = mock_conn
+    storage.set("key1", "val1", "actor@ex.com")
+    mock_conn.execute.assert_called_once()
+
+@patch('src.storage.preference_storage._get_write_connection')
+@patch('src.storage.preference_storage.log.warning')
+def test_duckdb_site_setting_storage_set_exception(mock_log, mock_get_write_conn):
+    storage = DuckDBSiteSettingStorage()
+    mock_get_write_conn.side_effect = Exception("DB error")
+    storage.set("key1", "val1", "actor@ex.com")
+    mock_log.assert_called_once()
+
+# FakeSiteSettingStorage Tests
+def test_fake_site_setting_storage_get():
+    storage = FakeSiteSettingStorage({"key1": "val1"})
+    assert storage.get("key1") == "val1"
+    assert storage.get("key2") is None
+
+def test_fake_site_setting_storage_set():
+    storage = FakeSiteSettingStorage()
+    storage.set("key1", "val1", "actor@ex.com")
+    assert storage.get("key1") == "val1"
