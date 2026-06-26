@@ -36,3 +36,7 @@
 **Coverage Gap:** The classes `DemoCMSStorage`, `DuckDBCMSStorage`, and `FakeCMSStorage` in `src/storage/cms_storage.py` had no direct unit test coverage, leaving the actual backend persistence untested.
 **Learning:** Adding test coverage for storage protocols requires testing both the demo/in-memory classes and mocking database connections for the persistent DuckDB classes to prevent exception-path regressions.
 **Assertion:** Created `tests/test_storage_cms.py` with mock db tests covering DB interactions and fallbacks for `DuckDBCMSStorage` and basic functionality tests for `DemoCMSStorage` and `FakeCMSStorage`.
+## 2026-06-26 - Added test coverage for audit missing paths
+**Coverage Gap:** src/audit.py had significant missing coverage for `_append_audit_event`, `_upsert_column_override`, and others in demo/production paths.
+**Learning:** Testing demo vs production branching requires careful patching of `st.session_state` dict-like structures (e.g. `_DEMO_BN_KEY`) vs `_get_write_connection()`.
+**Assertion:** Wrote comprehensive edge cases covering these gaps and improving overall src.audit coverage from 47% to 64%.

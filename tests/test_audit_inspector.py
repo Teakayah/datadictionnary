@@ -1,4 +1,5 @@
 import pytest
+import pandas as pd
 from unittest.mock import patch, MagicMock
 
 from src.audit import save_table_metadata, _validate_business_name_inputs, save_business_name
@@ -117,7 +118,6 @@ def test_get_table_steward_empty_result():
 
 def test_get_table_steward_with_result():
     """Verify get_table_steward returns the steward email from the DB."""
-    import pandas as pd
     with patch("src.audit.is_demo_mode", return_value=False), \
          patch("src.audit.get_db_connection") as mock_get_conn:
 
@@ -243,7 +243,7 @@ def test_approve_business_name_success():
     with patch("src.audit.is_admin", return_value=True), \
          patch("src.audit.list_pending_business_names") as mock_pending, \
          patch("src.audit._approve_column_override") as mock_approve, \
-         patch("src.audit._reject_column_override") as mock_reject, \
+         patch("src.audit._reject_column_override"), \
          patch("src.audit._duckdb_available", return_value=True), \
          patch("src.audit._get_shared_duckdb_connection") as mock_get_shared, \
          patch("src.audit.enqueue_column_sync") as mock_enqueue, \
@@ -276,7 +276,7 @@ def test_approve_business_name_missing_item():
     with patch("src.audit.is_admin", return_value=True), \
          patch("src.audit.list_pending_business_names") as mock_pending, \
          patch("src.audit._approve_column_override") as mock_approve, \
-         patch("src.audit._reject_column_override") as mock_reject, \
+         patch("src.audit._reject_column_override"), \
          patch("src.audit._duckdb_available", return_value=True), \
          patch("src.audit._get_shared_duckdb_connection"), \
          patch("src.audit.enqueue_column_sync") as mock_enqueue, \
@@ -303,8 +303,8 @@ def test_approve_business_name_db_exception():
     from src.audit import approve_business_name
     with patch("src.audit.is_admin", return_value=True), \
          patch("src.audit.list_pending_business_names") as mock_pending, \
-         patch("src.audit._approve_column_override") as mock_approve, \
-         patch("src.audit._reject_column_override") as mock_reject, \
+         patch("src.audit._approve_column_override"), \
+         patch("src.audit._reject_column_override"), \
          patch("src.audit._duckdb_available", return_value=True), \
          patch("src.audit._get_shared_duckdb_connection") as mock_get_shared, \
          patch("src.audit.enqueue_column_sync"), \
@@ -329,8 +329,8 @@ def test_reject_business_name_success():
     """Verify reject_business_name calls reject and clears cache."""
     from src.audit import reject_business_name
     with patch("src.audit.is_admin", return_value=True), \
-         patch("src.audit.list_pending_business_names") as mock_pending, \
-         patch("src.audit._approve_column_override") as mock_approve, \
+         patch("src.audit.list_pending_business_names"), \
+         patch("src.audit._approve_column_override"), \
          patch("src.audit._reject_column_override") as mock_reject, \
          patch("src.audit.search_all_metadata") as mock_search_all:
 
@@ -348,7 +348,6 @@ def test_reject_business_name_permission_error():
 
 def test_get_table_steward_local_override():
     """Verify get_table_steward prefers local overrides over catalog."""
-    import pandas as pd
     from src.audit import get_table_steward
     with patch("src.audit.is_demo_mode", return_value=False), \
          patch("src.audit.get_db_connection") as mock_get_conn, \
@@ -367,3 +366,204 @@ def test_get_table_steward_local_override():
         # Ensure it didn't fall through to catalog
         assert mock_cursor.execute.call_count == 1
         assert "user_data.table_metadata_overrides" in mock_cursor.execute.call_args_list[0][0][0]
+
+def test__append_audit_event_demo_mode():
+    from src.audit import _DEMO_AUDIT_KEY, _append_audit_event
+    with patch("src.audit.is_demo_mode", return_value=True), \
+         patch("src.audit.st") as mock_st, \
+         patch("src.audit.pd.Timestamp.now", return_value="now"):
+        mock_st.session_state = {}
+        _append_audit_event({"event_id": "123"})
+        mock_list = mock_st.session_state[_DEMO_AUDIT_KEY]
+        assert len(mock_list) == 1
+        assert mock_list[0]["event_id"] == "123"
+        assert mock_list[0]["created_at"] == "now"
+
+def test__append_audit_event_production():
+    from src.audit import _append_audit_event
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit._get_write_connection") as mock_get_write:
+        mock_cursor = MagicMock()
+        mock_get_write.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+        _append_audit_event({"event_id": "123"})
+        mock_cursor.execute_write.assert_called_once()
+        assert mock_cursor.execute_write.call_args[0][1] == {"event_id": "123"}
+
+def test__append_audit_event_exception():
+    from src.audit import _append_audit_event
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit._get_write_connection", side_effect=Exception("DB err")), \
+         patch("src.audit.log") as mock_log:
+        _append_audit_event({"event_id": "123"})
+        mock_log.warning.assert_called_once()
+        assert "Audit logging failed" in mock_log.warning.call_args[0][0]
+
+def test__upsert_column_override_demo_mode_pending():
+    from src.audit import _upsert_column_override, ColumnOverride, _DEMO_BN_KEY, _DEMO_BN_PENDING_KEY
+    with patch("src.audit.is_demo_mode", return_value=True), \
+         patch("src.audit.st") as mock_st:
+        mock_st.session_state = {}
+        override = ColumnOverride(
+            table_full_name="catalog.schema.table",
+            column_name="col1",
+            business_name="Name1",
+            definition="Def1",
+            edited_by="user1",
+            status="pending_approval"
+        )
+
+        _upsert_column_override(override)
+
+        mock_table_store = mock_st.session_state[_DEMO_BN_KEY]["catalog.schema.table"]
+        mock_pending_store = mock_st.session_state[_DEMO_BN_PENDING_KEY]
+
+        assert "col1" in mock_table_store
+        assert mock_table_store["col1"]["business_name"] == "Name1"
+        assert ("catalog.schema.table", "col1") in mock_pending_store
+
+def test__upsert_column_override_demo_mode_published():
+    from src.audit import _upsert_column_override, ColumnOverride, _DEMO_BN_KEY, _DEMO_BN_PENDING_KEY
+    with patch("src.audit.is_demo_mode", return_value=True), \
+         patch("src.audit.st") as mock_st:
+        mock_st.session_state = {
+            _DEMO_BN_PENDING_KEY: {("catalog.schema.table", "col1"): "pending_info"}
+        }
+
+        override = ColumnOverride(
+            table_full_name="catalog.schema.table",
+            column_name="col1",
+            business_name="Name1",
+            definition="Def1",
+            edited_by="user1",
+            status="published"
+        )
+
+        _upsert_column_override(override)
+
+        mock_table_store = mock_st.session_state[_DEMO_BN_KEY]["catalog.schema.table"]
+        mock_pending_store = mock_st.session_state[_DEMO_BN_PENDING_KEY]
+
+        assert "col1" in mock_table_store
+        assert mock_table_store["col1"]["status"] == "published"
+        assert ("catalog.schema.table", "col1") not in mock_pending_store
+
+def test__upsert_column_override_production():
+    from src.audit import _upsert_column_override, ColumnOverride
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit._get_write_connection") as mock_get_write:
+        mock_cursor = MagicMock()
+        mock_get_write.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+        override = ColumnOverride(
+            table_full_name="catalog.schema.table",
+            column_name="col1",
+            business_name="Name1",
+            definition="Def1",
+            edited_by="user1",
+            status="published"
+        )
+        _upsert_column_override(override)
+        mock_cursor.execute_write.assert_called_once()
+        args = mock_cursor.execute_write.call_args[0]
+        assert "INSERT INTO user_data.business_name_overrides" in args[0]
+        assert args[1]["table_full_name"] == "catalog.schema.table"
+        assert args[1]["column_name"] == "col1"
+
+@patch("src.audit.run_query")
+def test_get_table_columns(mock_run_query):
+    from src.audit import get_table_columns
+    mock_run_query.return_value = pd.DataFrame([{"column_name": "col1"}])
+    res = get_table_columns("catalog.schema.table")
+    assert not res.empty
+    mock_run_query.assert_called_once()
+    args, kwargs = mock_run_query.call_args
+    assert args[1]["table_full_name"] == "catalog.schema.table"
+
+def test_get_column_overrides_demo_mode():
+    from src.audit import get_column_overrides
+    with patch("src.audit.is_demo_mode", return_value=True), \
+         patch("src.audit.st") as mock_st:
+        mock_st.session_state.get.return_value.get.return_value = {
+            "col1": {"business_name": "Name1", "status": "published"},
+            "col2": {"business_name": "Name2", "status": "pending"}
+        }
+        res = get_column_overrides("catalog.schema.table")
+        assert "col1" in res
+        assert "col2" not in res
+        assert res["col1"]["business_name"] == "Name1"
+
+def test_get_column_overrides_production():
+    from src.audit import get_column_overrides
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit.get_db_connection") as mock_get_db:
+        mock_cursor = MagicMock()
+        mock_get_db.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_cursor.fetchall_as_pandas.return_value = pd.DataFrame([
+            {"column_name": "col1", "business_name": "Name1", "definition": "Def1", "edited_by": "user1", "edited_at": "time1"}
+        ])
+        res = get_column_overrides("catalog.schema.table")
+        assert "col1" in res
+        assert res["col1"]["business_name"] == "Name1"
+        assert res["col1"]["definition"] == "Def1"
+
+def test_get_column_overrides_exception():
+    from src.audit import get_column_overrides
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit.get_db_connection", side_effect=Exception("DB Error")), \
+         patch("src.audit.log") as mock_log:
+        res = get_column_overrides("catalog.schema.table")
+        assert res == {}
+        mock_log.warning.assert_called_once()
+
+def test_list_pending_business_names_demo_mode():
+    from src.audit import list_pending_business_names
+    with patch("src.audit.is_demo_mode", return_value=True), \
+         patch("src.audit.st") as mock_st:
+        mock_st.session_state.get.return_value.values.return_value = [{"col1": "pending"}]
+        res = list_pending_business_names()
+        assert res == [{"col1": "pending"}]
+
+def test_list_pending_business_names_production():
+    from src.audit import list_pending_business_names
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit.get_db_connection") as mock_get_db:
+        mock_cursor = MagicMock()
+        mock_get_db.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_cursor.fetchall_as_pandas.return_value = pd.DataFrame([
+            {"table_full_name": "catalog.schema.table", "column_name": "col1"}
+        ])
+        res = list_pending_business_names()
+        assert len(res) == 1
+        assert res[0]["column_name"] == "col1"
+
+def test_list_pending_business_names_exception():
+    from src.audit import list_pending_business_names
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit.get_db_connection", side_effect=Exception("DB Error")), \
+         patch("src.audit.log") as mock_log:
+        res = list_pending_business_names()
+        assert res == []
+        mock_log.warning.assert_called_once()
+
+def test__reject_column_override_demo_mode():
+    from src.audit import _reject_column_override
+    with patch("src.audit.is_demo_mode", return_value=True), \
+         patch("src.audit.st") as mock_st:
+        mock_store = MagicMock()
+        mock_pending_store = MagicMock()
+        mock_st.session_state.get.side_effect = [mock_store, mock_pending_store]
+        mock_table_store = MagicMock()
+        mock_store.get.return_value = mock_table_store
+
+        _reject_column_override("catalog.schema.table", "col1")
+        mock_table_store.pop.assert_called_once_with("col1", None)
+        mock_pending_store.pop.assert_called_once_with(("catalog.schema.table", "col1"), None)
+
+def test__reject_column_override_production():
+    from src.audit import _reject_column_override
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit._get_write_connection") as mock_get_write:
+        mock_cursor = MagicMock()
+        mock_get_write.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+
+        _reject_column_override("catalog.schema.table", "col1")
+        mock_cursor.execute_write.assert_called_once()
