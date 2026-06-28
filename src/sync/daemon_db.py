@@ -13,7 +13,6 @@ import logging
 from pathlib import Path
 
 import duckdb
-import secrets
 
 from src.config import CATALOG_CACHE, DUCKDB_PATH, USER_DATA_PATH
 from src.db.duckdb_adapter import _DuckDBCursor, _initialize_schema
