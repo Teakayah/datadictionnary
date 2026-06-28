@@ -40,3 +40,6 @@
 **Coverage Gap:** src/audit.py had significant missing coverage for `_append_audit_event`, `_upsert_column_override`, and others in demo/production paths.
 **Learning:** Testing demo vs production branching requires careful patching of `st.session_state` dict-like structures (e.g. `_DEMO_BN_KEY`) vs `_get_write_connection()`.
 **Assertion:** Wrote comprehensive edge cases covering these gaps and improving overall src.audit coverage from 47% to 64%.
+## 2024-06-28 - Missing coverage for table friendly name approvals
+**Learning:** The UI logic for approving/rejecting table friendly name reviews lacked automated UI test coverage in the admin module, which is a critical workflow for data stewards.
+**Action:** Implemented AppTest integration tests for `list_pending_table_business_names`, `approve_table_business_name`, and `reject_table_business_name` and simulated button clicks to improve admin module reliability.
