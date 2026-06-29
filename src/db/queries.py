@@ -302,9 +302,8 @@ def search_all_metadata(query: str, groups: tuple):
             return results
         rank = {fn: i for i, fn in enumerate(semantic_fns)}
         results = results.copy()
-        results["_hybrid_score"] = results["full_name"].map(
-            lambda fn: -rank.get(fn, len(semantic_fns))
-        )
+        rank_mapping = {fn: -i for fn, i in rank.items()}
+        results["_hybrid_score"] = results["full_name"].map(rank_mapping).fillna(-len(semantic_fns))
         return _drop_score_cols(
             results.sort_values("_hybrid_score", ascending=False, kind="stable")
         )
@@ -329,9 +328,8 @@ def search_all_metadata(query: str, groups: tuple):
         kw_score = 0.0
     n = len(semantic_fns)
     sem_rank = {fn: i for i, fn in enumerate(semantic_fns)}
-    sem_score = combined["full_name"].map(
-        lambda fn: (n - sem_rank[fn]) / n if fn in sem_rank else 0.0
-    )
+    sem_score_mapping = {fn: (n - i) / n for fn, i in sem_rank.items()}
+    sem_score = combined["full_name"].map(sem_score_mapping).fillna(0.0)
     combined["_hybrid_score"] = (
         _HYBRID_KEYWORD_WEIGHT * kw_score + _HYBRID_SEMANTIC_WEIGHT * sem_score
     )
