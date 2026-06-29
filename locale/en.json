@@ -378,6 +378,8 @@
     "recommended_subtitle": "Popular tables in your groups.",
     "recommended_empty": "No recommendations yet.",
     "add_bookmark": "Bookmark",
+    "bookmark_added": "Bookmark added",
+    "bookmark_removed": "Bookmark removed",
     "remove_bookmark": "Bookmarked",
     "no_bookmarks": "No bookmarks yet.",
     "no_recent": "No recent views.",

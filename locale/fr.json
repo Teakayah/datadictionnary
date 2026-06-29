@@ -378,6 +378,8 @@
     "recommended_subtitle": "Tables populaires dans vos groupes.",
     "recommended_empty": "Aucune recommandation pour le moment.",
     "add_bookmark": "Favori",
+    "bookmark_added": "Favori ajouté",
+    "bookmark_removed": "Favori supprimé",
     "remove_bookmark": "En favori",
     "no_bookmarks": "Aucun favori pour le moment.",
     "no_recent": "Aucun historique de consultation.",
