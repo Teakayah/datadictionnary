@@ -300,11 +300,10 @@ def search_all_metadata(query: str, groups: tuple):
         results = _fetch_metadata_for_fns(semantic_fns, groups)
         if results is None or results.empty:
             return results
-        rank = {fn: i for i, fn in enumerate(semantic_fns)}
+        # ⚡ Bolt: Replace .map(lambda) with dictionary mapping for faster execution
+        rank = {fn: -i for i, fn in enumerate(semantic_fns)}
         results = results.copy()
-        results["_hybrid_score"] = results["full_name"].map(
-            lambda fn: -rank.get(fn, len(semantic_fns))
-        )
+        results["_hybrid_score"] = results["full_name"].map(rank).fillna(-len(semantic_fns)).astype(int)
         return _drop_score_cols(
             results.sort_values("_hybrid_score", ascending=False, kind="stable")
         )
@@ -328,10 +327,9 @@ def search_all_metadata(query: str, groups: tuple):
     else:
         kw_score = 0.0
     n = len(semantic_fns)
-    sem_rank = {fn: i for i, fn in enumerate(semantic_fns)}
-    sem_score = combined["full_name"].map(
-        lambda fn: (n - sem_rank[fn]) / n if fn in sem_rank else 0.0
-    )
+    # ⚡ Bolt: Replace .map(lambda) with dictionary mapping for faster execution
+    sem_rank = {fn: (n - i) / n for i, fn in enumerate(semantic_fns)}
+    sem_score = combined["full_name"].map(sem_rank).fillna(0.0)
     combined["_hybrid_score"] = (
         _HYBRID_KEYWORD_WEIGHT * kw_score + _HYBRID_SEMANTIC_WEIGHT * sem_score
     )
