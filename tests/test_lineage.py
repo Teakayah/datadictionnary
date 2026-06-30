@@ -1,7 +1,6 @@
 import pandas as pd
-import streamlit as st
 from unittest.mock import MagicMock, patch
-from src.ui.lineage import _build_lineage_graph, _lineage_vis_html, render_lineage_fullscreen, _viewport_height
+from src.ui.lineage import _build_lineage_graph, _lineage_vis_html, _viewport_height
 from streamlit.testing.v1 import AppTest
 
 def test_viewport_height():
