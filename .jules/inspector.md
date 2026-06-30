@@ -46,3 +46,6 @@
 ## 2026-06-29 - [Coverage Gap: src/storage/preference_storage.py]
 **Learning:** `DuckDBPreferenceStorage`, `DuckDBSiteSettingStorage`, `FakePreferenceStorage`, `FakeSiteSettingStorage`, `DemoPreferenceStorage` and `DemoSiteSettingStorage` lacked unit tests, leaving persistent tracking of preferences untested.
 **Action:** Backfilled unit tests in `tests/test_storage_preference.py` for all storage adapters inside `src/storage/preference_storage.py` and validated database interaction and exception fallback scenarios.
+## 2026-06-30 - Streamlit AppTest Authentication and Component Execution
+**Learning:** Testing interactive components (like buttons) inside Streamlit `AppTest.from_function()` requires the `streamlit` module and the tested components to be imported *inside* the function scope because it runs in an isolated ScriptRunner context. Additionally, full UI tests on components utilizing MSAL authentication require `MOCK_LOGIN="true"` and appropriate group environment variables to bypass actual AAD token requests, which would otherwise crash tests.
+**Action:** Always import `streamlit` and target modules inside the `app()` function when using `AppTest.from_function()`. Ensure `MOCK_LOGIN="true"` and relevant groups (e.g., `ADMIN_GROUPS="Data_Admin"`) are set via `monkeypatch` before initializing full-app integration tests that touch UI auth barriers.

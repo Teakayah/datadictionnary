@@ -36,7 +36,6 @@ class DaemonConn:
             )
         self._con = duckdb.connect(":memory:")
 
-        import secrets
         # Sanitize paths to prevent SQL injection when using f-strings for ATTACH
         safe_duckdb_path = DUCKDB_PATH.replace("\x00", "") if DUCKDB_PATH else ""
         safe_user_data_path = USER_DATA_PATH.replace("\x00", "") if USER_DATA_PATH else ""
