@@ -304,6 +304,11 @@ def search_all_metadata(query: str, groups: tuple):
         rank = {fn: -i for i, fn in enumerate(semantic_fns)}
         results = results.copy()
         results["_hybrid_score"] = results["full_name"].map(rank).fillna(-len(semantic_fns)).astype(int)
+        rank = {fn: i for i, fn in enumerate(semantic_fns)}
+        rank_mapping = {fn: -i for fn, i in rank.items()}
+        results = results.copy()
+        # ⚡ Bolt: Replace .map(lambda) with vectorized dictionary mapping
+        results["_hybrid_score"] = results["full_name"].map(rank_mapping).fillna(-len(semantic_fns))
         return _drop_score_cols(
             results.sort_values("_hybrid_score", ascending=False, kind="stable")
         )
@@ -330,6 +335,10 @@ def search_all_metadata(query: str, groups: tuple):
     # ⚡ Bolt: Replace .map(lambda) with dictionary mapping for faster execution
     sem_rank = {fn: (n - i) / n for i, fn in enumerate(semantic_fns)}
     sem_score = combined["full_name"].map(sem_rank).fillna(0.0)
+    sem_rank = {fn: i for i, fn in enumerate(semantic_fns)}
+    sem_rank_mapping = {fn: (n - i) / n for fn, i in sem_rank.items()}
+    # ⚡ Bolt: Replace .map(lambda) with vectorized dictionary mapping
+    sem_score = combined["full_name"].map(sem_rank_mapping).fillna(0.0)
     combined["_hybrid_score"] = (
         _HYBRID_KEYWORD_WEIGHT * kw_score + _HYBRID_SEMANTIC_WEIGHT * sem_score
     )

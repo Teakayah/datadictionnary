@@ -56,3 +56,6 @@
 ## 2024-06-28 - Optimize Pandas .map() execution
 **Learning:** Using Python `lambda` functions inside pandas `.map()` (e.g. `.map(lambda fn: ...)`) iteration is significantly slower than preparing a pre-computed dictionary and passing it to `.map(dict).fillna()`.
 **Action:** Always replace `.map(lambda)` operations over DataFrames with pre-computed dictionary mappings and `.fillna()` to prevent slow, row-by-row Python iteration over Pandas Series.
+## 2025-06-30 - Import Placement Rule
+**Learning:** When appending or adding new imports to a Python file, placing them between `__future__` imports and the module docstring turns the docstring into a regular string literal, breaking the `__doc__` attribute and triggering E402 errors for all subsequent imports.
+**Action:** Always ensure new imports are added strictly after the module docstring to preserve structural integrity and pass linting.
