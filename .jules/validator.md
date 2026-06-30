@@ -54,3 +54,11 @@
 **Coverage Gap:** `src/storage/pipeline_storage.py` had no test coverage for persistent Pipeline configuration (DuckDBPipelineDefStorage and DuckDBPipelineRunStorage).
 **Learning:** Testing DB exception fallbacks for objects created via `with conn.cursor() as cur:` requires explicit mocking of `conn.cursor.side_effect = Exception(...)` instead of mocking `_get_db_connection` directly if the underlying DuckDB cursor initialization fails.
 **Assertion:** Wrote `test_storage_pipelines.py` with `@patch` replacing imported `get_db_connection` in the `src.storage.pipeline_storage` module namespace, validating data persistence logic and error fallback handlers.
+## 2026-06-30 - Cover PipelineStorage Coverage Gap
+**Coverage Gap:** The `PipelineDefStorage` and `PipelineRunStorage` components in `src/storage/pipeline_storage.py` were missing unit tests.
+**Learning:** Testing these classes requires mocking DuckDB connection exceptions, as well as thoroughly exercising demo/fake mock classes for isolated testing.
+**Assertion:** Add `test_storage_pipeline.py` to cover all execution branches including error catching for duckdb operations.
+## 2026-06-30 - Cover PreferenceStorage Coverage Gap
+**Coverage Gap:** The `PreferenceStorage` and `SiteSettingStorage` components in `src/storage/preference_storage.py` were missing unit tests.
+**Learning:** Mocking DB connection returns combined with testing dummy objects (like fake dicts) is an effective testing strategy for storage backends without actual DB dependencies.
+**Assertion:** Add `test_storage_preference.py` to cover all execution branches including error catching for duckdb operations.
