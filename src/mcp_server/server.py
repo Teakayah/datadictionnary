@@ -49,10 +49,10 @@ async def search_tables(query: str) -> str:
     """Search for tables, columns, and business glossary terms.
 
     Args:
-        query: Free-text search (e.g. "customer orders", "revenue by region").
+        query (str): Free-text search (e.g. "customer orders", "revenue by region").
 
     Returns:
-        JSON array of matches — each has full_name, name, match_type
+        str: JSON array of matches — each has full_name, name, match_type
         (Table|Column|Glossary), description, catalog, schema, and dq_score.
     """
     user = _require_user()
@@ -72,11 +72,11 @@ async def get_table_details(table_full_name: str) -> str:
     """Get all columns for a table, including data types and business descriptions.
 
     Args:
-        table_full_name: Unity Catalog identifier in catalog.schema.table form
+        table_full_name (str): Unity Catalog identifier in catalog.schema.table form
                          (e.g. "main.sales.orders").
 
     Returns:
-        JSON object with full_name and a columns array (column_name, data_type,
+        str: JSON object with full_name and a columns array (column_name, data_type,
         description). Returns {"error": "..."} if not found or access is denied.
     """
     user = _require_user()
@@ -107,11 +107,11 @@ async def list_tables(
     """List all tables you are authorized to access, optionally filtered.
 
     Args:
-        catalog: Filter to a specific catalog (e.g. "main"). Optional.
-        schema:  Filter to a specific schema (e.g. "sales"). Requires catalog.
+        catalog (Optional[str], optional): Filter to a specific catalog (e.g. "main"). Optional.
+        schema (Optional[str], optional): Filter to a specific schema (e.g. "sales"). Requires catalog.
 
     Returns:
-        JSON array of table summaries — each has full_name, catalog_name,
+        str: JSON array of table summaries — each has full_name, catalog_name,
         schema_name, table_name, table_description, table_type, dq_score.
     """
     user = _require_user()
@@ -139,11 +139,11 @@ async def get_lineage(table_full_name: str, depth: int = 1) -> str:
     """Get data lineage for a table — upstream sources and downstream consumers.
 
     Args:
-        table_full_name: Unity Catalog identifier (catalog.schema.table).
-        depth: How many hops to traverse (1–5). Default 1.
+        table_full_name (str): Unity Catalog identifier (catalog.schema.table).
+        depth (int, optional): How many hops to traverse (1–5). Default 1.
 
     Returns:
-        JSON array of lineage edges with direction (upstream|downstream),
+        str: JSON array of lineage edges with direction (upstream|downstream),
         entity_full_name, entity_type, and depth.
     """
     depth = max(1, min(depth, 5))
