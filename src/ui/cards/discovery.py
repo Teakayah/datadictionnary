@@ -25,9 +25,10 @@ from src.db.queries import run_query, get_authorized_tables
 from src.i18n import t
 from src.notifications import get_unread_notifications, mark_all_read, mark_read
 from src.ui.cards._shared import _POST_COLOR, _dq_grade
+from src.personalization import _pref_delete, _pref_upsert
 
 
-def _render_table_card(row, key_prefix: str, _pref_delete_fn=None, _pref_upsert_fn=None) -> None:
+def _render_table_card(row, key_prefix: str) -> None:
     """Discovery card: table name is clickable, star toggles bookmark."""
     from src.i18n import format_date
     _ts = getattr(row, "updated_at", None)
@@ -89,12 +90,10 @@ def _render_table_card(row, key_prefix: str, _pref_delete_fn=None, _pref_upsert_
         if st.button(label, key=f"{key_prefix}_bk_{_full}", help=help_text, use_container_width=True):
             if _is_bk:
                 st.session_state.get("bookmarks", set()).discard(_full)
-                if _pref_delete_fn:
-                    _pref_delete_fn(_full, "bookmark")
+                _pref_delete(_full, "bookmark")
             else:
                 st.session_state.get("bookmarks", set()).add(_full)
-                if _pref_upsert_fn:
-                    _pref_upsert_fn(_full, "bookmark")
+                _pref_upsert(_full, "bookmark")
             st.rerun()
     st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
 
@@ -218,7 +217,7 @@ def render_cms_banner() -> None:
     st.markdown("<div style='margin-bottom:16px'></div>", unsafe_allow_html=True)
 
 
-def render_discovery(groups, pref_delete_fn=None, pref_upsert_fn=None):
+def render_discovery(groups):
     st.markdown(f'''
     <div class="dd-search-hero">
       <div class="dd-eyebrow">{t("discovery.title")}</div>
@@ -256,16 +255,16 @@ def render_discovery(groups, pref_delete_fn=None, pref_upsert_fn=None):
         _disc_active = "notable"
 
     if _disc_active == "notable":
-        _render_notable_tab(groups, pref_delete_fn, pref_upsert_fn)
+        _render_notable_tab(groups)
     elif _disc_active == "bookmarks":
-        _render_bookmarks_tab(groups, pref_delete_fn, pref_upsert_fn)
+        _render_bookmarks_tab(groups)
     elif _disc_active == "recent":
-        _render_recent_tab(groups, pref_delete_fn, pref_upsert_fn)
+        _render_recent_tab(groups)
     elif _disc_active == "recommended":
-        _render_recommended_tab(groups, pref_delete_fn, pref_upsert_fn)
+        _render_recommended_tab(groups)
 
 
-def _render_notable_tab(groups, pref_delete_fn=None, pref_upsert_fn=None):
+def _render_notable_tab(groups):
     st.markdown(
         f'<div class="dd-section-header"><span class="dd-eyebrow" '
         f'style="margin-bottom:0;color:#14110C">{t("personalization.tab_notable")}</span></div>',
@@ -287,7 +286,7 @@ def _render_notable_tab(groups, pref_delete_fn=None, pref_upsert_fn=None):
             if not all_authorized.empty and "updated_at" in all_authorized.columns:
                 recent_tables = all_authorized.sort_values(by="updated_at", ascending=False).head(10)
                 for row in recent_tables.itertuples(index=False):
-                    _render_table_card(row, "notable", pref_delete_fn, pref_upsert_fn)
+                    _render_table_card(row, "notable")
             else:
                 st.info(t("discovery.no_updates"))
         except Exception as e:
@@ -297,7 +296,7 @@ def _render_notable_tab(groups, pref_delete_fn=None, pref_upsert_fn=None):
         st.warning(t("discovery.sign_in_prompt"))
 
 
-def _render_bookmarks_tab(groups, pref_delete_fn=None, pref_upsert_fn=None):
+def _render_bookmarks_tab(groups):
     st.markdown(
         f'<div class="dd-section-header"><span class="dd-eyebrow" '
         f'style="margin-bottom:0;color:#14110C">{t("personalization.tab_bookmarks")}</span></div>',
@@ -317,7 +316,7 @@ def _render_bookmarks_tab(groups, pref_delete_fn=None, pref_upsert_fn=None):
                     st.info(t("personalization.no_bookmarks"))
                 else:
                     for row in bk_df.itertuples(index=False):
-                        _render_table_card(row, "bk", pref_delete_fn, pref_upsert_fn)
+                        _render_table_card(row, "bk")
         except Exception as e:
             logging.error("Error loading bookmarks: %s", e)
             st.error(t("discovery.load_error"))
@@ -374,8 +373,7 @@ def _render_bookmarks_tab(groups, pref_delete_fn=None, pref_upsert_fn=None):
                     use_container_width=True,
                 ):
                     st.session_state.col_bookmarks.discard(_bk_id)
-                    if pref_delete_fn:
-                        pref_delete_fn(_bk_id, "col_bookmark")
+                    _pref_delete(_bk_id, "col_bookmark")
                     st.rerun()
 
 
@@ -407,7 +405,7 @@ def _get_recommended_tables(groups: tuple, authorized_full_names: set, top_n: in
         return []
 
 
-def _render_recommended_tab(groups, pref_delete_fn=None, pref_upsert_fn=None):
+def _render_recommended_tab(groups):
     st.markdown(
         f'<div class="dd-section-header"><span class="dd-eyebrow" '
         f'style="margin-bottom:0;color:#14110C">{t("personalization.recommended_title")}</span></div>',
@@ -433,13 +431,13 @@ def _render_recommended_tab(groups, pref_delete_fn=None, pref_upsert_fn=None):
         rec_df["full_name"] = pd.Categorical(rec_df["full_name"], categories=recommended_fns, ordered=True)
         rec_df = rec_df.sort_values("full_name")
         for row in rec_df.itertuples(index=False):
-            _render_table_card(row, "rec", pref_delete_fn, pref_upsert_fn)
+            _render_table_card(row, "rec")
     except Exception as e:
         logging.error("Error loading recommendations: %s", e)
         st.error(t("discovery.load_error"))
 
 
-def _render_recent_tab(groups, pref_delete_fn=None, pref_upsert_fn=None):
+def _render_recent_tab(groups):
     st.markdown(
         f'<div class="dd-section-header"><span class="dd-eyebrow" '
         f'style="margin-bottom:0;color:#14110C">{t("personalization.tab_recent")}</span></div>',
@@ -462,7 +460,7 @@ def _render_recent_tab(groups, pref_delete_fn=None, pref_upsert_fn=None):
                 st.info(t("personalization.no_recent"))
             else:
                 for row in rv_df.itertuples(index=False):
-                    _render_table_card(row, "rv", pref_delete_fn, pref_upsert_fn)
+                    _render_table_card(row, "rv")
         except Exception as e:
             logging.error("Error loading recent views: %s", e)
             st.error(t("discovery.load_error"))

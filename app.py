@@ -46,7 +46,7 @@ from src.ui.css import render_css  # noqa: E402
 render_css()  # inject design-system CSS on every render
 
 from src.personalization import (  # noqa: E402
-    _pref_upsert, _pref_delete, _sync_prefs_to_session
+    _sync_prefs_to_session
 )
 
 # render_header, render_footer imported from src.ui.header
@@ -169,7 +169,7 @@ elif current_tab == "catalog":
 elif current_tab == "glossary":
     render_glossary(query_groups)
 elif current_tab == "discovery":
-    render_discovery(query_groups, _pref_delete, _pref_upsert)
+    render_discovery(query_groups)
 elif current_tab == "health":
     render_health(query_groups)
 elif current_tab == "pipelines":
