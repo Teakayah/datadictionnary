@@ -427,3 +427,114 @@ def test_get_sync_queue_stats_exception(mock_conn, mock_duckdb):
     stats = get_sync_queue_stats()
 
     assert stats == {"pending": 0, "processing": 0, "done": 0, "failed": 0}
+
+class TestPendingReviews:
+    """Tests the approve/reject buttons for pending business names and table friendly names."""
+
+    def test_approve_reject_column_override_buttons(self, monkeypatch):
+        """Test approving and rejecting column-level business names."""
+        monkeypatch.setenv("MOCK_LOGIN", "true")
+        monkeypatch.setenv("ADMIN_GROUPS", ADMIN_GROUP)
+        monkeypatch.setenv("DEMO_DATA", "false")
+
+        with patch("src.ui.cards.admin.list_pending_business_names") as mock_list, \
+             patch("src.ui.cards.admin.approve_business_name") as mock_approve, \
+             patch("src.ui.cards.admin.reject_business_name") as mock_reject, \
+             patch("src.ui.cards.admin.get_admin_stats") as mock_stats, \
+             patch("src.ui.cards.admin.get_high_impact_gaps") as mock_gaps, \
+             patch("src.ui.cards.admin.get_business_name_change_log") as mock_biz_log, \
+             patch("src.ui.cards.admin.get_comment_log") as mock_com_log, \
+             patch("src.ui.cards.admin.get_sync_queue_stats") as mock_sync:
+
+            mock_stats.return_value = {"tables": 1, "columns": 1, "comments": 1, "overrides": 1}
+            mock_gaps.return_value = pd.DataFrame(columns=["issue"])
+            mock_biz_log.return_value = pd.DataFrame()
+            mock_com_log.return_value = pd.DataFrame()
+            mock_sync.return_value = {"pending": 0, "processing": 0, "done": 0, "failed": 0}
+
+            mock_list.return_value = [
+                {
+                    "table_full_name": "main.sales.orders",
+                    "column_name": "order_id",
+                    "business_name": "Order ID",
+                    "definition": "The unique identifier.",
+                    "edited_by": "test@example.com",
+                    "edited_at": pd.Timestamp("2026-04-24 08:00")
+                }
+            ]
+
+            at = _admin_app(demo=False)
+            at.query_params["tab"] = "admin"
+            at.session_state["mock_login"] = True
+            at.session_state["authenticated"] = True
+            at.session_state["user_groups"] = [STANDARD_GROUP, ADMIN_GROUP]
+
+            at.run()
+            assert not at.exception, f"Exception: {at.exception}"
+
+            at.session_state["admin_active_tab"] = "Data Operations"
+            at.session_state["_admin_tab_idx"] = 0
+            at.run()
+
+            # Click approve
+            at.button(key="rev_approve_main.sales.orders_order_id").click().run()
+            mock_approve.assert_called_with("main.sales.orders", "order_id")
+
+            # Click reject
+            at.button(key="rev_reject_main.sales.orders_order_id").click().run()
+            mock_reject.assert_called_with("main.sales.orders", "order_id")
+
+    def test_approve_reject_table_friendly_name_buttons(self, monkeypatch):
+        """Test approving and rejecting table-level friendly names."""
+        monkeypatch.setenv("MOCK_LOGIN", "true")
+        monkeypatch.setenv("ADMIN_GROUPS", ADMIN_GROUP)
+        monkeypatch.setenv("DEMO_DATA", "false")
+
+        with patch("src.ui.cards.admin.list_pending_table_business_names") as mock_list, \
+             patch("src.ui.cards.admin.approve_table_business_name") as mock_approve, \
+             patch("src.ui.cards.admin.reject_table_business_name") as mock_reject, \
+             patch("src.ui.cards.admin.get_admin_stats") as mock_stats, \
+             patch("src.ui.cards.admin.get_high_impact_gaps") as mock_gaps, \
+             patch("src.ui.cards.admin.get_business_name_change_log") as mock_biz_log, \
+             patch("src.ui.cards.admin.get_comment_log") as mock_com_log, \
+             patch("src.ui.cards.admin.get_sync_queue_stats") as mock_sync:
+
+            mock_stats.return_value = {"tables": 1, "columns": 1, "comments": 1, "overrides": 1}
+            mock_gaps.return_value = pd.DataFrame(columns=["issue"])
+            mock_biz_log.return_value = pd.DataFrame()
+            mock_com_log.return_value = pd.DataFrame()
+            mock_sync.return_value = {"pending": 0, "processing": 0, "done": 0, "failed": 0}
+
+            mock_list.return_value = [
+                {
+                    "table_full_name": "main.sales.orders",
+                    "business_name_en": "Orders",
+                    "business_name_fr": "Commandes",
+                    "business_definition_en": "Sales orders.",
+                    "business_definition_fr": "Commandes de vente.",
+                    "edited_by": "test@example.com",
+                    "edited_at": pd.Timestamp("2026-04-24 08:00")
+                }
+            ]
+
+            at = _admin_app(demo=False)
+            at.query_params["tab"] = "admin"
+            at.session_state["mock_login"] = True
+            at.session_state["authenticated"] = True
+            at.session_state["user_groups"] = [STANDARD_GROUP, ADMIN_GROUP]
+
+            at.run()
+            assert not at.exception, f"Exception: {at.exception}"
+
+            # Switch to Data Operations
+            at.session_state["admin_active_tab"] = "Data Operations"
+            at.session_state["_admin_tab_idx"] = 0
+            at.run()
+
+            # Click approve
+            at.button(key="tfn_approve_main.sales.orders").click().run()
+            mock_approve.assert_called_with("main.sales.orders")
+
+            # Click reject
+            at.button(key="tfn_reject_main.sales.orders").click().run()
+            mock_reject.assert_called_with("main.sales.orders")

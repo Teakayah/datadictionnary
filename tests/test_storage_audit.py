@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch, MagicMock
 import streamlit as st
 import pandas as pd
