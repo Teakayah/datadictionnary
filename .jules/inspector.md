@@ -43,3 +43,6 @@
 ## 2024-06-28 - Missing coverage for table friendly name approvals
 **Learning:** The UI logic for approving/rejecting table friendly name reviews lacked automated UI test coverage in the admin module, which is a critical workflow for data stewards.
 **Action:** Implemented AppTest integration tests for `list_pending_table_business_names`, `approve_table_business_name`, and `reject_table_business_name` and simulated button clicks to improve admin module reliability.
+## 2026-06-29 - [Coverage Gap: src/storage/preference_storage.py]
+**Learning:** `DuckDBPreferenceStorage`, `DuckDBSiteSettingStorage`, `FakePreferenceStorage`, `FakeSiteSettingStorage`, `DemoPreferenceStorage` and `DemoSiteSettingStorage` lacked unit tests, leaving persistent tracking of preferences untested.
+**Action:** Backfilled unit tests in `tests/test_storage_preference.py` for all storage adapters inside `src/storage/preference_storage.py` and validated database interaction and exception fallback scenarios.
