@@ -85,9 +85,11 @@ def render_glossary(query_groups) -> None:
                         if _gloss_bk:
                             st.session_state.get("bookmarks", set()).discard(table_fn)
                             _pref_delete(table_fn, "bookmark")
+                            st.toast(t("personalization.bookmark_removed"))
                         else:
                             st.session_state.get("bookmarks", set()).add(table_fn)
                             _pref_upsert(table_fn, "bookmark")
+                            st.toast(t("personalization.bookmark_added"))
                         st.rerun()
 
         with col_side:
