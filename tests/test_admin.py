@@ -221,6 +221,55 @@ class TestAdminPage:
         assert "admin_biz_log_expand" in button_keys
         assert "admin_comment_log_expand" in button_keys
 
+    @patch("src.ui.cards.admin.list_pending_table_business_names")
+    def test_table_friendly_names_pending_render(self, mock_list, monkeypatch):
+        """Pending table friendly names show approve/reject buttons."""
+        mock_list.return_value = [
+            {
+                "table_full_name": "main.sales.orders",
+                "business_name_en": "Orders",
+                "business_name_fr": "Commandes",
+                "business_definition_en": "Def EN",
+                "business_definition_fr": "Def FR",
+                "edited_by": "test@example.com",
+                "edited_at": pd.Timestamp.now(),
+            }
+        ]
+        at = self._run_admin(monkeypatch)
+        assert not at.exception, f"Exception: {at.exception}"
+
+        button_keys = [b.key for b in at.button]
+        assert "tfn_approve_main.sales.orders" in button_keys
+        assert "tfn_reject_main.sales.orders" in button_keys
+
+    @patch("src.ui.cards.admin.approve_table_business_name")
+    @patch("src.ui.cards.admin.list_pending_table_business_names")
+    def test_table_friendly_names_approve(self, mock_list, mock_approve, monkeypatch):
+        """Clicking approve for a table friendly name calls the approve logic."""
+        mock_list.return_value = [{"table_full_name": "main.sales.orders"}]
+        at = self._run_admin(monkeypatch)
+        assert not at.exception, f"Exception: {at.exception}"
+
+        # Click the approve button
+        approve_btn = next((b for b in at.button if b.key == "tfn_approve_main.sales.orders"), None)
+        assert approve_btn is not None
+        approve_btn.set_value(True).run()
+        mock_approve.assert_called_once_with("main.sales.orders")
+
+    @patch("src.ui.cards.admin.reject_table_business_name")
+    @patch("src.ui.cards.admin.list_pending_table_business_names")
+    def test_table_friendly_names_reject(self, mock_list, mock_reject, monkeypatch):
+        """Clicking reject for a table friendly name calls the reject logic."""
+        mock_list.return_value = [{"table_full_name": "main.sales.orders"}]
+        at = self._run_admin(monkeypatch)
+        assert not at.exception, f"Exception: {at.exception}"
+
+        # Click the reject button
+        reject_btn = next((b for b in at.button if b.key == "tfn_reject_main.sales.orders"), None)
+        assert reject_btn is not None
+        reject_btn.set_value(True).run()
+        mock_reject.assert_called_once_with("main.sales.orders")
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Demo mode behavior
@@ -334,7 +383,7 @@ class TestAdminDemo:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 from unittest.mock import patch  # noqa: E402
-from src.ui.cards.admin import get_admin_stats  # noqa: E402
+from src.ui.cards.admin import get_admin_stats, get_sync_queue_stats  # noqa: E402
 
 @patch("src.ui.cards.admin.run_query")
 @patch("src.ui.cards.admin.is_demo_mode", return_value=False)
@@ -347,7 +396,6 @@ def test_get_admin_stats_exception(mock_duckdb, mock_demo, mock_run_query):
 
     assert stats == {"tables": 0, "columns": 0, "comments": 0, "overrides": 0}
 
-from src.ui.cards.admin import get_sync_queue_stats
 
 @patch("src.ui.cards.admin._duckdb_available", return_value=False)
 def test_get_sync_queue_stats_duckdb_unavailable(mock_duckdb):
