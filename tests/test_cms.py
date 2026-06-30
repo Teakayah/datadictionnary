@@ -183,6 +183,88 @@ class TestDeletePost:
         assert "Could not delete CMS post: Storage offline" in caplog.text
 
 
+# ── Unit tests against DuckDB backend paths ──────────────────────────────────
+
+class TestDuckDBBackend:
+    @patch("src.cms.is_demo_mode", return_value=False)
+    @patch("src.cms.get_db_connection")
+    def test_get_active_posts(self, mock_conn, mock_is_demo):
+        """get_active_posts constructs expected query and unpacks DuckDB rows."""
+        from src.cms import get_active_posts
+
+        mock_cur = mock_conn.return_value.cursor.return_value.__enter__.return_value
+        mock_cur.fetchall.return_value = [
+            ("1", "guide", "Active", "Body", "Ref", "a@b.com", "time", "time")
+        ]
+
+        res = get_active_posts()
+        assert len(res) == 1
+        assert res[0]["post_id"] == "1"
+        assert res[0]["title"] == "Active"
+
+        # Verify the query executed
+        mock_cur.execute.assert_called_once()
+        query = mock_cur.execute.call_args[0][0]
+        assert "SELECT post_id, post_type, title" in query
+        assert "WHERE expires_at IS NULL OR expires_at > current_localtimestamp()" in query
+
+    @patch("src.cms.is_demo_mode", return_value=False)
+    @patch("src.cms.get_db_connection")
+    def test_get_all_posts(self, mock_conn, mock_is_demo):
+        """get_all_posts executes query without expiry filter and unpacks rows."""
+        from src.cms import get_all_posts
+
+        mock_cur = mock_conn.return_value.cursor.return_value.__enter__.return_value
+        mock_cur.fetchall.return_value = [
+            ("2", "announcement", "All", "Body", "Ref", "a@b.com", "time", "time")
+        ]
+
+        res = get_all_posts()
+        assert len(res) == 1
+        assert res[0]["post_id"] == "2"
+        assert res[0]["title"] == "All"
+
+        # Verify the query executed
+        mock_cur.execute.assert_called_once()
+        query = mock_cur.execute.call_args[0][0]
+        assert "SELECT post_id, post_type, title" in query
+        assert "WHERE expires_at" not in query # No filter applied
+
+    @patch("src.cms._get_write_connection")
+    @patch("src.cms.is_demo_mode", return_value=False)
+    def test_create_post(self, mock_is_demo, mock_write_conn, admin_context):
+        """create_post executes INSERT with correctly extracted params."""
+        from src.cms import PostParams, create_post
+
+        create_post(PostParams("guide", "Title", "Body", "table.ref", "admin@test.com", None))
+
+        mock_write_conn.return_value.execute.assert_called_once()
+        query = mock_write_conn.return_value.execute.call_args[0][0]
+        params = mock_write_conn.return_value.execute.call_args[0][1]
+
+        assert "INSERT INTO user_data.cms_posts" in query
+        assert len(params) == 8
+        assert params[1] == "guide"
+        assert params[2] == "Title"
+        assert params[4] == "table.ref"
+        assert params[5] == "admin@test.com"
+
+    @patch("src.cms._get_write_connection")
+    @patch("src.cms.is_demo_mode", return_value=False)
+    def test_delete_post(self, mock_is_demo, mock_write_conn, admin_context):
+        """delete_post executes DELETE query for matching post_id."""
+        from src.cms import delete_post
+
+        delete_post("xyz-123")
+
+        mock_write_conn.return_value.execute.assert_called_once()
+        query = mock_write_conn.return_value.execute.call_args[0][0]
+        params = mock_write_conn.return_value.execute.call_args[0][1]
+
+        assert "DELETE FROM user_data.cms_posts WHERE post_id = ?" in query
+        assert params == ["xyz-123"]
+
+
 # ── AppTest: discovery tab banner rendering ──────────────────────────────────
 # These tests exercise the full app via DEMO_DATA=true, which routes through
 # the demo (session-state) path. They're integration tests, not unit tests —
