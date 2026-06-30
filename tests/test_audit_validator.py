@@ -231,7 +231,7 @@ def test_approve_business_name_success():
     with patch("src.audit.is_admin", return_value=True), \
          patch("src.audit.list_pending_business_names") as mock_pending, \
          patch("src.audit._approve_column_override") as mock_approve, \
-         patch("src.audit._reject_column_override") as mock_reject, \
+         patch("src.audit._reject_column_override"), \
          patch("src.audit.st") as mock_st, \
          patch("src.audit._duckdb_available", return_value=True), \
          patch("src.audit.enqueue_column_sync") as mock_enqueue, \
@@ -265,8 +265,8 @@ def test_approve_business_name_not_found():
 
 def test_reject_business_name_success():
     with patch("src.audit.is_admin", return_value=True), \
-         patch("src.audit.list_pending_business_names") as mock_pending, \
-         patch("src.audit._approve_column_override") as mock_approve, \
+         patch("src.audit.list_pending_business_names"), \
+         patch("src.audit._approve_column_override"), \
          patch("src.audit._reject_column_override") as mock_reject, \
          patch("src.audit.search_all_metadata") as mock_search_clear:
 
@@ -297,8 +297,8 @@ def test_get_table_steward_local_override_found():
 def test_approve_business_name_exception():
     with patch("src.audit.is_admin", return_value=True), \
          patch("src.audit.list_pending_business_names") as mock_pending, \
-         patch("src.audit._approve_column_override") as mock_approve, \
-         patch("src.audit._reject_column_override") as mock_reject, \
+         patch("src.audit._approve_column_override"), \
+         patch("src.audit._reject_column_override"), \
          patch("src.audit.st") as mock_st, \
          patch("src.audit._duckdb_available", return_value=True), \
          patch("src.audit.enqueue_column_sync"), \

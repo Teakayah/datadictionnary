@@ -200,10 +200,7 @@ class TestSearchBilingualWhere:
 
         with patch.object(queries, "_current_locale", return_value="en"), \
              patch.object(queries, "_duckdb_available", return_value=False):
-            groups = ("g1",)
             group_placeholders = "%(group_0)s"
-            overrides_tbl = f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
-            table_overrides_tbl = f"{CATALOG_CACHE}.{SCHEMA_CACHE}.table_metadata_overrides"
             bn_expr = queries.business_name_expr("m")
             bdf_expr = queries.business_definition_expr("m")
 
