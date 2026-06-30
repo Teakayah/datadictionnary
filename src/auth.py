@@ -106,6 +106,9 @@ def _resolve_user_groups(claims: dict, access_token: str) -> list[str]:
 def _try_silent_refresh() -> bool:
     """Attempt a silent token refresh using MSAL's cached account.
 
+    Args:
+        None
+
     Returns:
         bool: True if a fresh token was successfully retrieved and stored, False otherwise.
     """
@@ -244,6 +247,9 @@ def check_auth(sync_prefs_callback: Optional[callable] = None):
     Args:
         sync_prefs_callback (Optional[callable]): Optional callable to seed personalisation data on
                              first login (usually _sync_prefs_to_session).
+
+    Returns:
+        None
 
     Flow:
         1. If a valid, non-expired token is in session → return immediately.

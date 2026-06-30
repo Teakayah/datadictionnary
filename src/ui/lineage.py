@@ -18,7 +18,18 @@ def _viewport_height(fallback: int = 800) -> int:
 
 
 def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, run_query, max_depth: int = 2):
-    """BFS multi-hop lineage using WITH RECURSIVE. Returns (graph_nodes, graph_links)."""
+    """BFS multi-hop lineage using WITH RECURSIVE.
+
+    Args:
+        start_fn (str): The full name of the starting table entity.
+        start_label (str): The label for the starting node.
+        query_groups (list): A list of groups the user belongs to for permission filtering.
+        run_query (Callable): A function to execute the SQL query.
+        max_depth (int, optional): The maximum depth to traverse. Defaults to 2.
+
+    Returns:
+        tuple[list, list]: A tuple containing the list of graph nodes and the list of graph links.
+    """
     graph_nodes = [{"id": start_fn, "label": start_label, "current": True, "relationship": "Current"}]
     graph_links: list = []
 
@@ -110,6 +121,16 @@ def _lineage_vis_html(graph_nodes: list, graph_links: list, height: int = 350, c
 
 @st.dialog(t("detail.lineage_graph"), width="large")
 def render_lineage_fullscreen(graph_nodes: list, graph_links: list, full_name: str):
+    """Renders the lineage graph in a fullscreen dialog.
+
+    Args:
+        graph_nodes (list): The list of nodes in the graph.
+        graph_links (list): The list of links/edges in the graph.
+        full_name (str): The full name of the table being viewed.
+
+    Returns:
+        None
+    """
     st.markdown(VIS_WIDE_CSS, unsafe_allow_html=True)
     st.markdown(f"**{full_name}** — {t('detail.lineage_graph_subtitle').format(table=full_name.split('.')[-1])}")
     _graph_h = 1800
