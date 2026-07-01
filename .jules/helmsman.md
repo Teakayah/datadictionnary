@@ -50,3 +50,8 @@
 **Cluster Quirk:** The deployments were using identical HTTP or exec probes for liveness and readiness, triggering kube-score warnings.
 **Learning:** Using the exact same probe for liveness and readiness is dangerous. Under load, a slow response might fail readiness (which should just gracefully halt incoming traffic) but will also fail the identical liveness check (which brutally kills and restarts the pod), causing a cascading failure loop.
 **Resilience:** Differentiate liveness and readiness probes by using dedicated paths (like `/health/live` and `/health/ready`) or adding query parameters to allow application-aware liveness checks without downgrading to basic `tcpSocket` checks.
+
+## 2026-07-01 - Redis emptyDir mount for exec probes
+**Cluster Quirk:** The redis deployment uses readOnlyRootFilesystem but lacks an emptyDir mount at /tmp for its exec probes.
+**Learning:** When securing Kubernetes containers with readOnlyRootFilesystem: true, shell-based exec probes (e.g., sh -c) often fail due to utilities requiring temporary write access.
+**Resilience:** Ensure these probes function properly by explicitly mounting an emptyDir volume at /tmp.
