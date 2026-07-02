@@ -121,14 +121,6 @@ def test_duckdb_site_setting_get_success():
 def test_duckdb_site_setting_get_empty():
     storage = DuckDBSiteSettingStorage()
     mock_conn = MagicMock()
-from src.storage.preference_storage import (
-    DuckDBPreferenceStorage,
-    DemoPreferenceStorage,
-    FakePreferenceStorage,
-    DuckDBSiteSettingStorage,
-    DemoSiteSettingStorage,
-    FakeSiteSettingStorage,
-)
 
 # DemoPreferenceStorage Tests
 def test_demo_preference_storage_upsert():
@@ -271,7 +263,6 @@ def test_duckdb_site_setting_storage_get_empty(mock_get_conn):
     mock_conn = MagicMock()
     mock_get_conn.return_value = mock_conn
     mock_cursor = MagicMock()
-from src.storage.preference_storage import DuckDBPreferenceStorage, DuckDBSiteSettingStorage, FakePreferenceStorage, DemoPreferenceStorage, DemoSiteSettingStorage, FakeSiteSettingStorage
 
 @patch("src.storage.preference_storage.get_db_connection")
 def test_duckdb_pref_upsert(mock_get_conn):
@@ -381,6 +372,7 @@ def test_duckdb_site_get_empty(mock_get_db):
     mock_cursor.fetchall.return_value = []
 
     with patch("src.storage.preference_storage.get_db_connection", return_value=mock_conn):
+        storage = DuckDBSiteSettingStorage()
         result = storage.get("key1")
 
     assert result is None
@@ -451,18 +443,8 @@ def test_demo_site_setting_storage():
     assert storage.get("k1") is None
     storage.set("k1", "v1", "actor")  # no-op
     assert storage.get("k1") is None
-import pytest
-import pandas as pd
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-from src.storage.preference_storage import (
-    DemoPreferenceStorage,
-    DuckDBPreferenceStorage,
-    FakePreferenceStorage,
-    DemoSiteSettingStorage,
-    DuckDBSiteSettingStorage,
-    FakeSiteSettingStorage,
-)
 
 class TestDemoPreferenceStorage:
     def test_upsert_delete_list(self):
@@ -581,8 +563,6 @@ class TestDuckDBSiteSettingStorage:
         mock_get_conn.side_effect = Exception("DB error")
         storage = DuckDBSiteSettingStorage()
         assert storage.get("k1") is None
-    result = storage.get("key1")
-    assert result is None
 
 @patch('src.storage.preference_storage.get_db_connection')
 @patch('src.storage.preference_storage.log.warning')
@@ -619,10 +599,6 @@ def test_fake_site_setting_storage_set():
     storage = FakeSiteSettingStorage()
     storage.set("key1", "val1", "actor@ex.com")
     assert storage.get("key1") == "val1"
-    storage = DuckDBSiteSettingStorage()
-    res = storage.get("k")
-
-    assert res is None
 
 @patch("src.storage.preference_storage.log")
 @patch("src.storage.preference_storage.get_db_connection")
