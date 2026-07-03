@@ -75,6 +75,8 @@ spec:
           volumeMounts:
             - name: redis-data
               mountPath: /data
+            - name: tmp
+              mountPath: /tmp
 
           livenessProbe:
             exec:
@@ -94,3 +96,5 @@ spec:
         - name: redis-data
           persistentVolumeClaim:
             claimName: dd-redis-data
+        - name: tmp
+          emptyDir: {}
