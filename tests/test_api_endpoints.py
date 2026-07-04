@@ -300,3 +300,32 @@ async def test_lifespan():
         async with lifespan(app):
             pass
         mock_validate.assert_called_once()
+def test_health_ready_returns_200(client):
+    resp = client.get("/health/ready")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+
+def test_get_table_returns_cache_hit(client):
+    expected_cache = {"full_name": "cat.schema.orders", "columns": []}
+    with patch("src.api.routers.tables.redis_cache.get", AsyncMock(return_value=expected_cache)), \
+         patch("src.api.routers.tables.queries.get_table_details") as no_db:
+        resp = client.get("/api/v1/tables/cat/schema/orders")
+    assert resp.status_code == 200
+    assert resp.json() == expected_cache
+    no_db.assert_not_called()
+
+def test_search_returns_cache_hit(client):
+    with patch("src.api.routers.search.redis_cache.get", AsyncMock(return_value=FAKE_SEARCH_RESULTS)), \
+         patch("src.api.routers.search.queries.search_metadata") as no_db:
+        resp = client.get("/api/v1/search?q=orders")
+    assert resp.status_code == 200
+    assert resp.json() == FAKE_SEARCH_RESULTS
+    no_db.assert_not_called()
+
+def test_lineage_returns_cache_hit(client):
+    with patch("src.api.routers.lineage.redis_cache.get", AsyncMock(return_value=FAKE_LINEAGE)), \
+         patch("src.api.routers.lineage.queries.get_lineage") as no_db:
+        resp = client.get("/api/v1/lineage/cat/schema/orders")
+    assert resp.status_code == 200
+    assert resp.json() == FAKE_LINEAGE
+    no_db.assert_not_called()
