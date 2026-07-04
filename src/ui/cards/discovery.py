@@ -92,9 +92,11 @@ def _render_table_card(row, key_prefix: str) -> None:
             if _is_bk:
                 st.session_state.get("bookmarks", set()).discard(_full)
                 _pref_delete(_full, "bookmark")
+                st.toast(t("personalization.bookmark_removed"))
             else:
                 st.session_state.get("bookmarks", set()).add(_full)
                 _pref_upsert(_full, "bookmark")
+                st.toast(t("personalization.bookmark_added"))
             st.rerun()
     st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
 
@@ -373,6 +375,7 @@ def _render_bookmarks_tab(groups):
                 ):
                     st.session_state.col_bookmarks.discard(_bk_id)
                     _pref_delete(_bk_id, "col_bookmark")
+                    st.toast(t("personalization.bookmark_removed"))
                     st.rerun()
 
 
