@@ -462,6 +462,7 @@ def _render_admin_editing_section():
     if new_val != enabled:
         actor = st.session_state.get("user_email", "admin")
         set_editing_enabled(new_val, actor)
+        st.toast(t("common.saved"))
         st.rerun()
 
     status_color = "var(--accent)" if enabled else "var(--ink-40)"
