@@ -50,8 +50,12 @@
 **Cluster Quirk:** The deployments were using identical HTTP or exec probes for liveness and readiness, triggering kube-score warnings.
 **Learning:** Using the exact same probe for liveness and readiness is dangerous. Under load, a slow response might fail readiness (which should just gracefully halt incoming traffic) but will also fail the identical liveness check (which brutally kills and restarts the pod), causing a cascading failure loop.
 **Resilience:** Differentiate liveness and readiness probes by using dedicated paths (like `/health/live` and `/health/ready`) or adding query parameters to allow application-aware liveness checks without downgrading to basic `tcpSocket` checks.
-
 ## 2024-06-25 - Shell Probes in Read-Only Filesystems
 **Cluster Quirk:** Shell-based `exec` probes fail when the container is run with `readOnlyRootFilesystem: true`.
 **Learning:** Utilities used in shell-based `exec` probes (like `sh -c`) often require temporary write access. When the root filesystem is read-only, these utilities cannot execute, causing health checks to fail.
 **Resilience:** Explicitly mount an `emptyDir` volume at `/tmp` to ensure these shell probes function properly in secured containers.
+
+## 2024-05-15 - Redis ReadOnlyRootFilesystem
+**Cluster Quirk:** The standard `redis:alpine` container images default to mounting the root filesystem as writable, even though Redis only needs write access to specific data and tmp volumes.
+**Learning:** Running containers with a writable root filesystem significantly increases the blast radius if an attacker achieves remote code execution.
+**Resilience:** Always set `securityContext.readOnlyRootFilesystem: true` in the pod spec. For Redis, ensure that the persistence directory (e.g., `/data`) and `/tmp` are mounted as volumes to satisfy runtime write requirements without exposing the entire OS.
