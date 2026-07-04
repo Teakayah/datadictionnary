@@ -371,6 +371,7 @@ def test_duckdb_site_get_empty(mock_get_db):
 
     mock_cursor.fetchall.return_value = []
 
+    storage = DuckDBSiteSettingStorage()
     with patch("src.storage.preference_storage.get_db_connection", return_value=mock_conn):
         storage = DuckDBSiteSettingStorage()
         result = storage.get("key1")
