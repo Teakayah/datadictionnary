@@ -82,8 +82,19 @@ def format_number(val: int | float) -> str:
 
 def format_date(dt, format_type="long") -> str:
     """Format a datetime object according to the active locale."""
-    if not dt or not hasattr(dt, "strftime"):
-        return str(dt or "")
+    if not dt:
+        return ""
+
+    if isinstance(dt, str):
+        from datetime import datetime
+        try:
+            # Try to parse ISO string
+            dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
+        except ValueError:
+            return dt
+
+    if not hasattr(dt, "strftime"):
+        return str(dt)
 
     _ensure_locale()
 
