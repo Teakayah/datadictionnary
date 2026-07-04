@@ -381,6 +381,7 @@ def test_duckdb_site_get_empty(mock_get_db):
     mock_cursor.fetchall.return_value = []
 
     with patch("src.storage.preference_storage.get_db_connection", return_value=mock_conn):
+        storage = DuckDBSiteSettingStorage()
         result = storage.get("key1")
 
     assert result is None
@@ -581,8 +582,6 @@ class TestDuckDBSiteSettingStorage:
         mock_get_conn.side_effect = Exception("DB error")
         storage = DuckDBSiteSettingStorage()
         assert storage.get("k1") is None
-    result = storage.get("key1")
-    assert result is None
 
 @patch('src.storage.preference_storage.get_db_connection')
 @patch('src.storage.preference_storage.log.warning')
@@ -619,10 +618,6 @@ def test_fake_site_setting_storage_set():
     storage = FakeSiteSettingStorage()
     storage.set("key1", "val1", "actor@ex.com")
     assert storage.get("key1") == "val1"
-    storage = DuckDBSiteSettingStorage()
-    res = storage.get("k")
-
-    assert res is None
 
 @patch("src.storage.preference_storage.log")
 @patch("src.storage.preference_storage.get_db_connection")

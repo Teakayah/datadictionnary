@@ -538,3 +538,188 @@ class TestPendingReviews:
             # Click reject
             at.button(key="tfn_reject_main.sales.orders").click().run()
             mock_reject.assert_called_with("main.sales.orders")
+
+
+class TestAdminDataFetchers:
+    """Verifies standalone data fetchers for the Admin dashboard."""
+
+    @classmethod
+    def setup_class(cls):
+        import importlib
+        import sys
+        if "src.ui.cards.admin" in sys.modules:
+            importlib.reload(sys.modules["src.ui.cards.admin"])
+
+    @patch("src.ui.cards.admin.get_zero_result_searches")
+    def test_get_search_analytics(self, mock_get):
+        from src.ui.cards.admin import get_search_analytics
+        import pandas as pd
+        mock_get.return_value = [{"query": "foo", "user_email": "bar", "timestamp": pd.Timestamp("2024-01-01")}]
+        df = get_search_analytics()
+        assert len(df) == 1
+
+        mock_get.return_value = []
+        df = get_search_analytics()
+        assert len(df) == 0
+
+    @patch("src.ui.cards.admin.st")
+    @patch("src.ui.cards.admin.is_demo_mode", return_value=True)
+    def test_get_admin_stats_demo(self, mock_demo, mock_st):
+        from src.ui.cards.admin import get_admin_stats
+
+        def mock_get(key, default=None):
+            if key == "demo_comments":
+                return {"t1": ["c1", "c2"], "t2": ["c3"]}
+            if key == "demo_business_names":
+                return {"t1": ["b1"]}
+            return default
+
+        mock_st.session_state.get.side_effect = mock_get
+        stats = get_admin_stats()
+        assert stats == {"tables": 0, "columns": 0, "comments": 3, "overrides": 1}
+
+    @patch("src.ui.cards.admin.is_demo_mode", return_value=False)
+    @patch("src.ui.cards.admin._duckdb_available", return_value=True)
+    @patch("src.ui.cards.admin.run_query")
+    def test_get_admin_stats_db(self, mock_run, mock_duckdb, mock_demo):
+        from src.ui.cards.admin import get_admin_stats
+        import pandas as pd
+        mock_run.return_value = pd.DataFrame({"tables": [10], "columns": [50], "comments": [5], "overrides": [2]})
+        stats = get_admin_stats()
+        assert stats == {"tables": 10, "columns": 50, "comments": 5, "overrides": 2}
+
+    @patch("src.ui.cards.admin.st")
+    @patch("src.ui.cards.admin.is_demo_mode", return_value=True)
+    def test_get_business_name_change_log_demo(self, mock_demo, mock_st):
+        from src.ui.cards.admin import get_business_name_change_log
+        import pandas as pd
+        mock_st.session_state.get.return_value = [
+            {"event_type": "business_name_change", "created_at": pd.Timestamp("2024-01-01"), "event_id": "1"},
+            {"event_type": "other", "created_at": pd.Timestamp("2024-01-02"), "event_id": "2"},
+        ]
+        df = get_business_name_change_log()
+        assert len(df) == 1
+        assert df.iloc[0]["event_id"] == "1"
+
+        mock_st.session_state.get.return_value = []
+        df = get_business_name_change_log()
+        assert list(df.columns) == ["event_id", "object_name", "old_value", "new_value", "actor_email", "created_at"]
+        assert len(df) == 0
+
+    @patch("src.ui.cards.admin.is_demo_mode", return_value=False)
+    @patch("src.ui.cards.admin._duckdb_available", return_value=True)
+    @patch("src.ui.cards.admin.run_query")
+    def test_get_business_name_change_log_db(self, mock_run, mock_duckdb, mock_demo):
+        from src.ui.cards.admin import get_business_name_change_log
+        import pandas as pd
+        mock_run.return_value = pd.DataFrame([{"event_id": "1"}])
+        df = get_business_name_change_log()
+        assert len(df) == 1
+        assert "user_data.audit_log" in mock_run.call_args[0][0]
+
+    @patch("src.ui.cards.admin.st")
+    @patch("src.ui.cards.admin.is_demo_mode", return_value=True)
+    def test_get_comment_log_demo(self, mock_demo, mock_st):
+        from src.ui.cards.admin import get_comment_log
+        import pandas as pd
+        mock_st.session_state.get.return_value = [
+            {"event_type": "comment_added", "created_at": pd.Timestamp("2024-01-01"), "new_value": "msg", "event_id": "1"},
+            {"event_type": "comment_reply", "created_at": pd.Timestamp("2024-01-02"), "new_value": "rep", "event_id": "2"},
+            {"event_type": "other", "created_at": pd.Timestamp("2024-01-03"), "new_value": "x", "event_id": "3"},
+        ]
+        df = get_comment_log()
+        assert len(df) == 2
+        assert "comment_preview" in df.columns
+        assert df.iloc[0]["comment_preview"] == "rep" # sorted descending
+        assert df.iloc[1]["comment_preview"] == "msg"
+
+        mock_st.session_state.get.return_value = []
+        df = get_comment_log()
+        assert list(df.columns) == ["event_id", "object_name", "comment_preview", "actor_email", "created_at"]
+        assert len(df) == 0
+
+    @patch("src.ui.cards.admin.is_demo_mode", return_value=False)
+    @patch("src.ui.cards.admin._duckdb_available", return_value=True)
+    @patch("src.ui.cards.admin.run_query")
+    def test_get_comment_log_db(self, mock_run, mock_duckdb, mock_demo):
+        from src.ui.cards.admin import get_comment_log
+        import pandas as pd
+        mock_run.return_value = pd.DataFrame([{"event_id": "1"}])
+        df = get_comment_log()
+        assert len(df) == 1
+        assert "user_data.audit_log" in mock_run.call_args[0][0]
+
+    @patch("src.ui.cards.admin._duckdb_available", return_value=False)
+    def test_get_sync_queue_stats_no_db(self, mock_duckdb):
+        from src.ui.cards.admin import get_sync_queue_stats
+        assert get_sync_queue_stats() == {}
+
+    @patch("src.ui.cards.admin._duckdb_available", return_value=True)
+    @patch("src.ui.cards.admin._get_write_connection")
+    def test_get_sync_queue_stats_db(self, mock_get_conn, mock_duckdb):
+        from src.ui.cards.admin import get_sync_queue_stats
+        from unittest.mock import MagicMock
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall.return_value = [("pending", 2), ("failed", 1)]
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_get_conn.return_value = mock_conn
+
+        stats = get_sync_queue_stats()
+        assert stats == {"pending": 2, "processing": 0, "done": 0, "failed": 1}
+
+    @patch("src.ui.cards.admin._duckdb_available", return_value=True)
+    @patch("src.ui.cards.admin._get_write_connection")
+    def test_get_sync_queue_stats_exception(self, mock_get_conn, mock_duckdb):
+        from src.ui.cards.admin import get_sync_queue_stats
+        mock_get_conn.side_effect = Exception("DB error")
+        stats = get_sync_queue_stats()
+        assert stats == {"pending": 0, "processing": 0, "done": 0, "failed": 0}
+
+    @patch("src.ui.cards.admin.is_demo_mode", return_value=True)
+    def test_get_high_impact_gaps_demo(self, mock_demo):
+        from src.ui.cards.admin import get_high_impact_gaps
+        df = get_high_impact_gaps()
+        assert df.empty
+
+    @patch("src.ui.cards.admin.is_demo_mode", return_value=False)
+    @patch("src.ui.cards.admin._duckdb_available", return_value=True)
+    @patch("src.ui.cards.admin.run_query")
+    def test_get_high_impact_gaps_db(self, mock_run, mock_duckdb, mock_demo):
+        from src.ui.cards.admin import get_high_impact_gaps
+        import pandas as pd
+        mock_run.return_value = pd.DataFrame([{"full_name": "t1", "interactions": 10, "issue": "Missing steward"}])
+        df = get_high_impact_gaps()
+        assert len(df) == 1
+
+    @patch("src.ui.cards.admin.is_demo_mode", return_value=True)
+    def test_get_stewardship_gaps_demo(self, mock_demo):
+        from src.ui.cards.admin import get_stewardship_gaps
+        df = get_stewardship_gaps()
+        assert df.empty
+
+    @patch("src.ui.cards.admin.is_demo_mode", return_value=False)
+    @patch("src.ui.cards.admin._duckdb_available", return_value=True)
+    @patch("src.ui.cards.admin.run_query")
+    def test_get_stewardship_gaps_db(self, mock_run, mock_duckdb, mock_demo):
+        from src.ui.cards.admin import get_stewardship_gaps
+        import pandas as pd
+        mock_run.return_value = pd.DataFrame([{"full_name": "t1"}])
+        df = get_stewardship_gaps()
+        assert len(df) == 1
+
+    @patch("src.ui.cards.admin.is_demo_mode", return_value=True)
+    def test_get_dq_alerts_demo(self, mock_demo):
+        from src.ui.cards.admin import get_dq_alerts
+        df = get_dq_alerts()
+        assert df.empty
+
+    @patch("src.ui.cards.admin.is_demo_mode", return_value=False)
+    @patch("src.ui.cards.admin._duckdb_available", return_value=True)
+    @patch("src.ui.cards.admin.run_query")
+    def test_get_dq_alerts_db(self, mock_run, mock_duckdb, mock_demo):
+        from src.ui.cards.admin import get_dq_alerts
+        import pandas as pd
+        mock_run.return_value = pd.DataFrame([{"full_name": "t1"}])
+        df = get_dq_alerts()
+        assert len(df) == 1

@@ -12,6 +12,7 @@ can be called with either.
 import logging
 from pathlib import Path
 
+import secrets
 import duckdb
 
 from src.config import CATALOG_CACHE, DUCKDB_PATH, USER_DATA_PATH
