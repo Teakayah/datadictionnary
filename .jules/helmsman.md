@@ -59,3 +59,8 @@
 **Cluster Quirk:** The standard `redis:alpine` container images default to mounting the root filesystem as writable, even though Redis only needs write access to specific data and tmp volumes.
 **Learning:** Running containers with a writable root filesystem significantly increases the blast radius if an attacker achieves remote code execution.
 **Resilience:** Always set `securityContext.readOnlyRootFilesystem: true` in the pod spec. For Redis, ensure that the persistence directory (e.g., `/data`) and `/tmp` are mounted as volumes to satisfy runtime write requirements without exposing the entire OS.
+
+## 2026-07-01 - Redis emptyDir mount for exec probes
+**Cluster Quirk:** The redis deployment uses readOnlyRootFilesystem but lacks an emptyDir mount at /tmp for its exec probes.
+**Learning:** When securing Kubernetes containers with readOnlyRootFilesystem: true, shell-based exec probes (e.g., sh -c) often fail due to utilities requiring temporary write access.
+**Resilience:** Ensure these probes function properly by explicitly mounting an emptyDir volume at /tmp.
