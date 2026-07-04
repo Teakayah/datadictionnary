@@ -8,6 +8,7 @@ mirrors enough of _DuckDBConn that src.sync.push and src.sync.dr_resync
 can be called with either.
 """
 
+import secrets
 
 import logging
 from pathlib import Path
