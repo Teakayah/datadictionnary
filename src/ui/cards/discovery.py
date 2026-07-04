@@ -33,11 +33,7 @@ def _render_table_card(row, key_prefix: str) -> None:
     """Discovery card: table name is clickable, star toggles bookmark."""
     from src.i18n import format_date
     _ts = getattr(row, "updated_at", None)
-    _time_str = (
-        format_date(_ts)
-        if isinstance(_ts, pd.Timestamp)
-        else (str(_ts) if _ts else "")
-    )
+    _time_str = format_date(_ts)
     _full  = str(getattr(row, "full_name", ""))
     _tname = str(getattr(row, "table_name", ""))
     _is_bk = _full in st.session_state.get("bookmarks", set())
@@ -168,10 +164,7 @@ def render_cms_banner() -> None:
         from src.i18n import format_date
         lbl        = t(type_key)
         created    = post["created_at"]
-        date_str   = (
-            format_date(created, format_type="short") if hasattr(created, "strftime")
-            else str(created)[:10]
-        )
+        date_str   = format_date(created, format_type="short")
         body_safe  = _html.escape(post["body"] or "")
         title_safe = _html.escape(post["title"])
         body_html = (

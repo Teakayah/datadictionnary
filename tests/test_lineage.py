@@ -71,8 +71,6 @@ def test_lineage_vis_html():
 
 def test_render_lineage_fullscreen_apptest():
     def app():
-        import streamlit as st
-        from src.ui.lineage import render_lineage_fullscreen
         if st.button("Show"):
             render_lineage_fullscreen([{"id": "n1", "label": "n1", "current": True, "relationship": "Current"}], [], "db.schema.tbl1")
 

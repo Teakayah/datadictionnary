@@ -59,7 +59,9 @@ def render_header(user_name: Optional[str] = None, active_tab: str = "search", s
     fr_active  = "dd-lang-active" if locale == "fr" else ""
     title_en = t("language.switch_to_en")
     title_fr = t("language.switch_to_fr")
-    lang_toggle = f'<span class="dd-nav-sep"></span><span class="dd-lang-toggle" aria-label="Language selector"><a href="#" data-lang="en" class="dd-lang-opt {en_active}" title="{title_en}">EN</a><span class="dd-lang-sep">/</span><a href="#" data-lang="fr" class="dd-lang-opt {fr_active}" title="{title_fr}">FR</a></span>'
+    aria_language = t("nav.aria_language_selector")
+    aria_nav = t("nav.aria_main_navigation")
+    lang_toggle = f'<span class="dd-nav-sep"></span><span class="dd-lang-toggle" aria-label="{aria_language}"><a href="#" data-lang="en" class="dd-lang-opt {en_active}" title="{title_en}">EN</a><span class="dd-lang-sep">/</span><a href="#" data-lang="fr" class="dd-lang-opt {fr_active}" title="{title_fr}">FR</a></span>'
 
     st.html(f'''
 <div class="dd-header" lang="{locale}">
@@ -69,7 +71,7 @@ def render_header(user_name: Optional[str] = None, active_tab: str = "search", s
       <span class="dd-logo-text">{t("common.app_title")}</span>
       <span class="dd-pill">{t("common.beta")}</span>
     </a>
-    <nav class="dd-nav" role="navigation" aria-label="Main navigation">
+    <nav class="dd-nav" role="navigation" aria-label="{aria_nav}">
       {link(t("nav.search"), "search")}
       {link(t("nav.catalog"), "catalog")}
       {link(t("nav.glossary"), "glossary")}

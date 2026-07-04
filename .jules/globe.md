@@ -24,4 +24,6 @@
 
 ## 2026-06-18 - Extract Hardcoded Input Placeholders
 **Learning:** Hardcoded strings embedded directly as `placeholder` values inside input UI components (e.g., `st.text_input(..., placeholder="e.g., Customer Loyalty ID")`) are not naturally extracted by external i18n scanners and require manual refactoring into translation dictionaries.
-**Action:** When creating or modifying form components, always use translation keys `t("namespace.key")` for placeholder and helper text rather than hardcoded English strings.
+## 2026-06-24 - Date Formatting & ARIA Labels
+**Learning:** Python `strftime` defaults to system locales and hardcodes English strings (e.g. month names), which bypasses localization. Furthermore, raw strings passed to UI components often need to be parsed to ISO datetimes first to enable proper i18n formatting without relying on manual string slicing.
+**Action:** When working on UI components that render dates, do not use `.strftime()` directly. Instead, leverage the central `src.i18n.format_date()` function and update it to accept raw ISO strings if necessary to prevent format string fragmentation.

@@ -1,5 +1,7 @@
 {
   "nav": {
+    "aria_language_selector": "Language selector",
+    "aria_main_navigation": "Main navigation",
     "search": "Search",
     "catalog": "Catalog",
     "discovery": "Discovery",

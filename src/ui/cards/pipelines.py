@@ -242,11 +242,7 @@ def render_pipelines_page():
                 _stat_col, _stop_col = st.columns([8, 2], gap="small")
                 with _stat_col:
                     from src.i18n import format_date
-                    triggered_str = (
-                        format_date(run["triggered_at"])
-                        if hasattr(run.get("triggered_at"), "strftime")
-                        else str(run.get("triggered_at", ""))[:16]
-                    )
+                    triggered_str = format_date(run["triggered_at"])
                     _msg_html = (
                         f'<div style="color:var(--ink-60);margin-top:2px;">{_html.escape(message)}</div>'
                     ) if message else ""
