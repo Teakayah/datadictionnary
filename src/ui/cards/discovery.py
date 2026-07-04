@@ -18,7 +18,8 @@ import pandas as pd
 import streamlit as st
 
 from src.auth import is_admin
-from src.cms import delete_post, get_active_posts
+from src.cms import get_active_posts
+from src.ui.cards.cms_admin import _show_delete_cms_dialog
 from src.config import is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import run_query, get_authorized_tables
@@ -200,9 +201,7 @@ def render_cms_banner() -> None:
                     "✕", key=f"cms_del_{post['post_id']}",
                     help=t("cms.delete_post"), use_container_width=True,
                 ):
-                    with st.spinner(t("common.deleting")):
-                        delete_post(post["post_id"])
-                    st.rerun()
+                    _show_delete_cms_dialog(post["post_id"])
         else:
             st.markdown(card_html, unsafe_allow_html=True)
 

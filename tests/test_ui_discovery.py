@@ -198,7 +198,7 @@ class TestDiscoveryTabs:
 
     @patch("src.ui.cards.discovery.get_active_posts")
     @patch("src.ui.cards.discovery.is_admin", return_value=True)
-    @patch("src.ui.cards.discovery.delete_post")
+    @patch("src.ui.cards.discovery._show_delete_cms_dialog")
     def test_discovery_render_cms_banner(self, mock_delete, mock_is_admin, mock_get_posts):
         mock_get_posts.return_value = [
             {
