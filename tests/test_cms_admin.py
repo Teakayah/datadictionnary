@@ -160,3 +160,26 @@ class TestCmsCreateDialogCancel:
         assert any(en_locale["cms"]["no_expiry"] in val for val in html_contents)
         # Should not be rendered with opacity 0.5 (not expired)
         assert not any("opacity:0.5" in val for val in html_contents)
+
+def delete_dialog_app():
+    from src.ui.cards.cms_admin import _show_delete_cms_dialog
+    _show_delete_cms_dialog("test_post_id")
+
+class TestCmsDeleteDialog:
+    @patch("src.ui.cards.cms_admin.delete_post")
+    def test_delete_post_confirm(self, mock_delete):
+        at = AppTest.from_function(delete_dialog_app).run()
+
+        # Click the delete confirmation button
+        at.button[0].click().run()
+
+        mock_delete.assert_called_once_with("test_post_id")
+
+    @patch("src.ui.cards.cms_admin.delete_post")
+    def test_delete_post_cancel(self, mock_delete):
+        at = AppTest.from_function(delete_dialog_app).run()
+
+        # Click the cancel button
+        at.button[1].click().run()
+
+        mock_delete.assert_not_called()
