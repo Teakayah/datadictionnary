@@ -123,6 +123,10 @@ def test_health_no_auth_required(client_no_auth):
     resp = client_no_auth.get("/health/live")
     assert resp.status_code == 200
 
+def test_health_ready_returns_200(client):
+    resp = client.get("/health/ready")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
 
 # ── Table list ────────────────────────────────────────────────────────────────
 
