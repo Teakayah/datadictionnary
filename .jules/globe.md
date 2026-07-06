@@ -27,3 +27,7 @@
 ## 2026-06-24 - Date Formatting & ARIA Labels
 **Learning:** Python `strftime` defaults to system locales and hardcodes English strings (e.g. month names), which bypasses localization. Furthermore, raw strings passed to UI components often need to be parsed to ISO datetimes first to enable proper i18n formatting without relying on manual string slicing.
 **Action:** When working on UI components that render dates, do not use `.strftime()` directly. Instead, leverage the central `src.i18n.format_date()` function and update it to accept raw ISO strings if necessary to prevent format string fragmentation.
+
+## 2026-07-06 - Extracting Hardcoded DataFrame Column Configs
+**Learning:** Streamlit `st.dataframe` column configurations and section headers often contain hardcoded strings (e.g. `"Schema"`, `"Tables"`, `"§ Coverage by Schema"`) which breaks translation across locales.
+**Action:** Extract these strings into the i18n translation dictionary, passing them via the `t()` function when configuring columns or writing section headers in UI files.

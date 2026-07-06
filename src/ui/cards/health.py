@@ -137,7 +137,7 @@ def _render_health_hero_metrics(metrics: HealthMetrics):
 def _render_schema_coverage(schema_stats: pd.DataFrame):
     st.markdown(
         '<div class="dd-section-header"><span class="dd-eyebrow" '
-        'style="margin-bottom:0">§ Coverage by Schema</span></div>',
+        f'style="margin-bottom:0">{t("health.section_schema_coverage")}</span></div>',
         unsafe_allow_html=True,
     )
     
@@ -151,11 +151,11 @@ def _render_schema_coverage(schema_stats: pd.DataFrame):
     st.dataframe(
         stats.sort_values(by='coverage', ascending=False),
         column_config={
-            "schema_name": "Schema",
-            "total": "Tables",
-            "described": "With Desc",
+            "schema_name": t("health.col_schema"),
+            "total": t("health.col_tables"),
+            "described": t("health.col_with_desc"),
             "coverage": st.column_config.ProgressColumn(
-                "Coverage", format="%d%%", min_value=0, max_value=100,
+                t("health.col_coverage"), format="%d%%", min_value=0, max_value=100,
             )
         },
         use_container_width=True,
@@ -166,7 +166,7 @@ def _render_schema_coverage(schema_stats: pd.DataFrame):
 def _render_priority_actions(undocumented: pd.DataFrame):
     st.markdown(
         '<div class="dd-section-header"><span class="dd-eyebrow" '
-        'style="margin-bottom:0">§ Priority Actions</span></div>',
+        f'style="margin-bottom:0">{t("health.section_priority_actions")}</span></div>',
         unsafe_allow_html=True,
     )
 
