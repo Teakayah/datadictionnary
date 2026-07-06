@@ -79,8 +79,8 @@ spec:
               mountPath: /tmp
 
           livenessProbe:
-            exec:
-              command: ["sh", "-c", "redis-cli ping | grep PONG && echo live"]
+            tcpSocket:
+              port: 6379
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5
