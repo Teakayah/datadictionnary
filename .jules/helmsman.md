@@ -64,3 +64,7 @@
 **Cluster Quirk:** The redis deployment uses readOnlyRootFilesystem but lacks an emptyDir mount at /tmp for its exec probes.
 **Learning:** When securing Kubernetes containers with readOnlyRootFilesystem: true, shell-based exec probes (e.g., sh -c) often fail due to utilities requiring temporary write access.
 **Resilience:** Ensure these probes function properly by explicitly mounting an emptyDir volume at /tmp.
+## 2026-07-07 - Redis Probes
+**Cluster Quirk:** Identical resource-intensive exec checks configured for both liveness and readiness on Redis.
+**Learning:** Under heavy load, having both liveness and readiness probes execute heavy shell commands can cause simultaneous failures, resulting in a hard pod restart rather than a graceful traffic halt.
+**Resilience:** Differentiated the probes by using a lightweight tcpSocket check for liveness on port 6379, while preserving the exec check for readiness.
