@@ -199,7 +199,9 @@ class TestAdminPage:
         )
         at.session_state["admin_active_tab"] = "Quality Insights"
         at.session_state["_admin_tab_idx"] = 1
-        at.run()
+        with patch('src.ui.cards.admin.st.segmented_control') as mock_sc:
+            mock_sc.return_value = "Quality Insights"
+            at.run()
         assert not at.exception, f"Exception: {at.exception}"
         metrics = {m.label: m.value for m in at.metric}
         assert "Total tables" in metrics
@@ -215,7 +217,9 @@ class TestAdminPage:
         sql_returns(pd.DataFrame(), pd.DataFrame())  # biz log, comment log
         at.session_state["admin_active_tab"] = "Audit Logs"
         at.session_state["_admin_tab_idx"] = 2
-        at.run()
+        with patch('src.ui.cards.admin.st.segmented_control') as mock_sc:
+            mock_sc.return_value = "Audit Logs"
+            at.run()
         assert not at.exception, f"Exception: {at.exception}"
         button_keys = [b.key for b in at.button]
         assert "admin_biz_log_expand" in button_keys
@@ -315,7 +319,9 @@ class TestAdminDemo:
         # Stat cards are on tab 1 (Quality Insights); navigate there
         at.session_state["admin_active_tab"] = "Quality Insights"
         at.session_state["_admin_tab_idx"] = 1
-        at.run()
+        with patch('src.ui.cards.admin.st.segmented_control') as mock_sc:
+            mock_sc.return_value = "Quality Insights"
+            at.run()
         assert not at.exception, f"Exception: {at.exception}"
         metrics = {m.label: m.value for m in at.metric}
         assert "Total tables" in metrics
@@ -349,7 +355,9 @@ class TestAdminDemo:
         # Expand buttons are on tab 2 (Audit Logs); navigate there
         at.session_state["admin_active_tab"] = "Audit Logs"
         at.session_state["_admin_tab_idx"] = 2
-        at.run()
+        with patch('src.ui.cards.admin.st.segmented_control') as mock_sc:
+            mock_sc.return_value = "Audit Logs"
+            at.run()
         assert not at.exception, f"Exception: {at.exception}"
         button_keys = [b.key for b in at.button]
         assert "admin_comment_log_expand" in button_keys

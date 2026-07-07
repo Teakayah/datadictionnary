@@ -57,3 +57,7 @@
 ## 2026-07-02 - Mock Test Context Leakage & Missing Standard Library Imports
 **Learning:** When patching global connection methods in pytest, locally instantiated test objects (like DuckDBSiteSettingStorage) must be explicitly initialized within the mock's context block, otherwise tests can leak state or throw NameErrors when variables are accessed outside the mock context. Additionally, production components using standard library utilities like 'secrets' must import them locally rather than relying on global namespaces that may hide module absence during certain test initializations.
 **Action:** Ensure all explicitly asserted mock result objects are defined within the patched 'with' context, and verify standard library imports explicitly in DB driver/connection wrapper modules.
+
+## 2024-07-07 - Mocking segmented_control navigation in tests
+**Learning:** Testing component rendering inside Streamlit's `st.segmented_control` blocks with AppTest often fails because updating `at.session_state` or `at.segmented_control(...).set_value()` does not correctly trigger the internal Streamlit rerender mapping the new active value.
+**Action:** When asserting the presence of components that render conditionally on `st.segmented_control` values, bypass the widget behavior by explicitly mocking the output using `with patch('src.ui.cards.admin.st.segmented_control') as mock_sc: mock_sc.return_value = "TabName"`.
