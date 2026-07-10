@@ -1,6 +1,5 @@
-import pytest
 import pandas as pd
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from streamlit.testing.v1 import AppTest
 
 # We must wrap the function to be tested and import inside the function scope
@@ -8,11 +7,6 @@ from streamlit.testing.v1 import AppTest
 # that does not inherit the global namespace.
 def _render_catalog_wrapper(*args, **kwargs):
     # Ensure streamlit is imported in the isolated context
-    import streamlit as st
-    import html as _html
-    from src.i18n import t
-    from src.ui.cards._shared import _dq_grade
-    from src.db.queries import get_authorized_tables
     from src.pages.catalog import render_catalog_browser
 
     render_catalog_browser(*args, **kwargs)
