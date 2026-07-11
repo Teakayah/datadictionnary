@@ -236,11 +236,11 @@ def _show_biz_log_dialog():
     st.dataframe(
         biz_log,
         column_config={
-            "object_name": st.column_config.TextColumn("Object"),
-            "old_value":   st.column_config.TextColumn("Old name"),
-            "new_value":   st.column_config.TextColumn("New name"),
-            "actor_email": st.column_config.TextColumn("Changed by"),
-            "created_at":  st.column_config.TextColumn("Changed at"),
+            "object_name": st.column_config.TextColumn(t("admin.col_object")),
+            "old_value":   st.column_config.TextColumn(t("admin.col_old_name")),
+            "new_value":   st.column_config.TextColumn(t("admin.col_new_name")),
+            "actor_email": st.column_config.TextColumn(t("admin.col_changed_by")),
+            "created_at":  st.column_config.TextColumn(t("admin.col_changed_at")),
         },
         hide_index=True,
         use_container_width=True,
@@ -254,10 +254,10 @@ def _show_comment_log_dialog():
     st.dataframe(
         comment_log,
         column_config={
-            "object_name":     st.column_config.TextColumn("Object"),
-            "comment_preview": st.column_config.TextColumn("Comment preview"),
-            "actor_email":     st.column_config.TextColumn("Author"),
-            "created_at":      st.column_config.TextColumn("Posted at"),
+            "object_name":     st.column_config.TextColumn(t("admin.col_object")),
+            "comment_preview": st.column_config.TextColumn(t("admin.col_comment_preview")),
+            "actor_email":     st.column_config.TextColumn(t("admin.col_author")),
+            "created_at":      st.column_config.TextColumn(t("admin.col_posted_at")),
         },
         hide_index=True,
         use_container_width=True,
@@ -327,8 +327,8 @@ def _render_admin_integrity_report():
                 alerts,
                 column_config={
                     "full_name": t("admin.integrity_table"),
-                    "dq_score": st.column_config.ProgressColumn("Score", format="%.0f%%", min_value=0, max_value=100),
-                    "last_run_status": "Status",
+                    "dq_score": st.column_config.ProgressColumn(t("admin.col_score"), format="%.0f%%", min_value=0, max_value=100),
+                    "last_run_status": t("admin.col_status"),
                 },
                 hide_index=True,
                 use_container_width=True,

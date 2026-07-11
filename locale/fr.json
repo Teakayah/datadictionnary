@@ -194,7 +194,17 @@
     "tab_ops": "Opérations",
     "tab_insights": "Indicateurs de Qualité",
     "tab_audit": "Journal d'Audit",
-    "groups_cache_flushing": "Vidage du cache..."
+    "groups_cache_flushing": "Vidage du cache...",
+    "col_object": "Objet",
+    "col_old_name": "Ancien nom",
+    "col_new_name": "Nouveau nom",
+    "col_changed_by": "Modifié par",
+    "col_changed_at": "Modifié le",
+    "col_comment_preview": "Aperçu du commentaire",
+    "col_author": "Auteur",
+    "col_posted_at": "Publié le",
+    "col_score": "Score",
+    "col_status": "Statut"
   },
   "health": {
     "title": "§ Santé du catalogue",

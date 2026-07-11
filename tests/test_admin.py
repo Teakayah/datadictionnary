@@ -197,9 +197,11 @@ class TestAdminPage:
         sql_returns(
             pd.DataFrame({"tables": [42], "columns": [300], "comments": [5], "overrides": [2]}),
         )
-        at.session_state["admin_active_tab"] = "Quality Insights"
-        at.session_state["_admin_tab_idx"] = 1
-        at.run()
+
+        with patch("src.ui.cards.admin.st.segmented_control") as mock_sc:
+            mock_sc.return_value = "Quality Insights"
+            at.run()
+
         assert not at.exception, f"Exception: {at.exception}"
         metrics = {m.label: m.value for m in at.metric}
         assert "Total tables" in metrics
@@ -213,9 +215,11 @@ class TestAdminPage:
         assert not at.exception, f"Exception: {at.exception}"
         # Expand buttons are on tab 2 (Audit Logs); navigate there
         sql_returns(pd.DataFrame(), pd.DataFrame())  # biz log, comment log
-        at.session_state["admin_active_tab"] = "Audit Logs"
-        at.session_state["_admin_tab_idx"] = 2
-        at.run()
+
+        with patch("src.ui.cards.admin.st.segmented_control") as mock_sc:
+            mock_sc.return_value = "Audit Logs"
+            at.run()
+
         assert not at.exception, f"Exception: {at.exception}"
         button_keys = [b.key for b in at.button]
         assert "admin_biz_log_expand" in button_keys
@@ -313,9 +317,11 @@ class TestAdminDemo:
         at = self._run_demo_admin(monkeypatch, pre_state={"demo_audit_log": pre_audit})
         assert not at.exception, f"Exception: {at.exception}"
         # Stat cards are on tab 1 (Quality Insights); navigate there
-        at.session_state["admin_active_tab"] = "Quality Insights"
-        at.session_state["_admin_tab_idx"] = 1
-        at.run()
+
+        with patch("src.ui.cards.admin.st.segmented_control") as mock_sc:
+            mock_sc.return_value = "Quality Insights"
+            at.run()
+
         assert not at.exception, f"Exception: {at.exception}"
         metrics = {m.label: m.value for m in at.metric}
         assert "Total tables" in metrics
@@ -347,9 +353,11 @@ class TestAdminDemo:
         at = self._run_demo_admin(monkeypatch, pre_state={"demo_audit_log": pre_audit})
         assert not at.exception, f"Exception: {at.exception}"
         # Expand buttons are on tab 2 (Audit Logs); navigate there
-        at.session_state["admin_active_tab"] = "Audit Logs"
-        at.session_state["_admin_tab_idx"] = 2
-        at.run()
+
+        with patch("src.ui.cards.admin.st.segmented_control") as mock_sc:
+            mock_sc.return_value = "Audit Logs"
+            at.run()
+
         assert not at.exception, f"Exception: {at.exception}"
         button_keys = [b.key for b in at.button]
         assert "admin_comment_log_expand" in button_keys
@@ -472,7 +480,7 @@ class TestPendingReviews:
             at.run()
             assert not at.exception, f"Exception: {at.exception}"
 
-            at.session_state["admin_active_tab"] = "Data Operations"
+            at.session_state["admin_active_tab"] = "Operations"
             at.session_state["_admin_tab_idx"] = 0
             at.run()
 
@@ -527,7 +535,7 @@ class TestPendingReviews:
             assert not at.exception, f"Exception: {at.exception}"
 
             # Switch to Data Operations
-            at.session_state["admin_active_tab"] = "Data Operations"
+            at.session_state["admin_active_tab"] = "Operations"
             at.session_state["_admin_tab_idx"] = 0
             at.run()
 
