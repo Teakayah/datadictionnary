@@ -11,3 +11,7 @@
 ## 2026-06-24 - Removed orphaned src/storage directory
 **Learning:** The `src/storage` abstraction layers for DuckDB vs Session State were decoupled from caller files and completely removed since they were mostly refactored away and only a single usage in the codebase remained (OE-1). This removes 7 completely unused files, 3 test files, and reduces codebase complexity.
 **Action:** Removed orphaned `src/storage/` files along with related storage-specific test files `tests/test_storage_*.py`. Refactored the remaining usage in `src/ui/cards/detail.py`.
+
+## 2026-07-11 - Removed unused streamlit-js-eval dependency
+**Learning:** The `streamlit_js_eval` component was used in `app.py` to capture the viewport height and store it in session state, but the resulting `_viewport_height` function in `src/ui/lineage.py` was unused. The lineage graph uses a hardcoded height.
+**Action:** Deleted the unused `_viewport_height` function, removed the `streamlit_js_eval` component invocation from `app.py`, and uninstalled the `streamlit-js-eval` dependency, removing an unnecessary JavaScript execution roundtrip and a 3rd party dependency.

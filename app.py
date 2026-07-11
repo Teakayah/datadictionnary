@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import streamlit as st
-from streamlit_js_eval import streamlit_js_eval
 import os
 from dotenv import load_dotenv
 load_dotenv()  # must run before any src.* import so os.getenv() reads .env values
@@ -77,13 +76,6 @@ from src.pages.search import render_search_page  # noqa: E402
 # The sync worker runs as a sidecar process (k8s/deployment-sync-worker.yaml,
 # `python -m src.sync.daemon`). The Streamlit app only enqueues into
 # user_data.pending_sync; draining + DR resync are no longer in-process.
-
-# Capture viewport height once per session via JS. The first render returns
-# None (component round-trip), so keep calling until we have a value, then stop.
-if "viewport_height" not in st.session_state:
-    _vh = streamlit_js_eval(js_expressions="window.innerHeight", key="_dd_vh")
-    if _vh:
-        st.session_state["viewport_height"] = int(_vh)
 
 if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
     if "authenticated" not in st.session_state:
