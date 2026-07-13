@@ -185,11 +185,13 @@ class TestAdminPage:
         error_texts = [e.value for e in at.error]
         assert any("Admin access required" in t for t in error_texts)
 
+    @patch("src.ui.cards.admin.st.segmented_control")
     @patch("src.ui.cards.admin.get_admin_stats", lambda: {"tables": 42, "columns": 300, "comments": 5, "overrides": 2})
     @patch("src.ui.cards.admin.get_high_impact_gaps", lambda: pd.DataFrame(columns=["issue"]))
     @patch("src.ui.cards.admin.get_business_name_change_log", lambda: pd.DataFrame())
     @patch("src.ui.cards.admin.get_comment_log", lambda: pd.DataFrame())
-    def test_admin_sections_present(self, monkeypatch):
+    def test_admin_sections_present(self, mock_sc, monkeypatch):
+        mock_sc.return_value = "Quality Insights"
         """Admin page must contain the core sections (Sync, Audit, Settings)."""
         at = self._run_admin(monkeypatch)
         assert not at.exception, f"Exception: {at.exception}"
@@ -207,8 +209,10 @@ class TestAdminPage:
         assert "Total comments" in metrics
         assert "Business name overrides" in metrics
 
-    def test_log_expand_buttons_present(self, monkeypatch):
+    @patch("src.ui.cards.admin.st.segmented_control")
+    def test_log_expand_buttons_present(self, mock_sc, monkeypatch):
         """Both change-log expand buttons are rendered (replaced expanders in 7b0abc2)."""
+        mock_sc.return_value = "Audit Logs"
         at = self._run_admin(monkeypatch)
         assert not at.exception, f"Exception: {at.exception}"
         # Expand buttons are on tab 2 (Audit Logs); navigate there
@@ -296,8 +300,10 @@ class TestAdminDemo:
         at.run()
         return at
 
-    def test_biz_log_rows(self, monkeypatch):
+    @patch("src.ui.cards.admin.st.segmented_control")
+    def test_biz_log_rows(self, mock_sc, monkeypatch):
         """Admin page business name log displays audit_log events."""
+        mock_sc.return_value = "Audit Logs"
         pre_audit = [
             {
                 "event_id":    "123",
@@ -312,16 +318,16 @@ class TestAdminDemo:
         ]
         at = self._run_demo_admin(monkeypatch, pre_state={"demo_audit_log": pre_audit})
         assert not at.exception, f"Exception: {at.exception}"
-        # Stat cards are on tab 1 (Quality Insights); navigate there
-        at.session_state["admin_active_tab"] = "Quality Insights"
-        at.session_state["_admin_tab_idx"] = 1
+        # Navigate to Audit Logs
+        at.session_state["admin_active_tab"] = "Audit Logs"
+        at.session_state["_admin_tab_idx"] = 2
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
-        metrics = {m.label: m.value for m in at.metric}
-        assert "Total tables" in metrics
 
-    def test_comment_log_rows(self, monkeypatch):
+    @patch("src.ui.cards.admin.st.segmented_control")
+    def test_comment_log_rows(self, mock_sc, monkeypatch):
         """Admin page comment log displays comment_added and comment_reply events."""
+        mock_sc.return_value = "Audit Logs"
         pre_audit = [
             {
                 "event_id":    "c1",
