@@ -189,16 +189,17 @@ class TestAdminPage:
     @patch("src.ui.cards.admin.get_high_impact_gaps", lambda: pd.DataFrame(columns=["issue"]))
     @patch("src.ui.cards.admin.get_business_name_change_log", lambda: pd.DataFrame())
     @patch("src.ui.cards.admin.get_comment_log", lambda: pd.DataFrame())
-    def test_admin_sections_present(self, monkeypatch):
+    @patch("src.ui.cards.admin.st.segmented_control")
+    def test_admin_sections_present(self, mock_sc, monkeypatch):
         """Admin page must contain the core sections (Sync, Audit, Settings)."""
+        from src.i18n import t
+        mock_sc.return_value = t("admin.tab_insights")
         at = self._run_admin(monkeypatch)
         assert not at.exception, f"Exception: {at.exception}"
         # Stats are on tab 1 (Quality Insights); navigate there
         sql_returns(
             pd.DataFrame({"tables": [42], "columns": [300], "comments": [5], "overrides": [2]}),
         )
-        at.session_state["admin_active_tab"] = "Quality Insights"
-        at.session_state["_admin_tab_idx"] = 1
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
         metrics = {m.label: m.value for m in at.metric}
@@ -207,14 +208,15 @@ class TestAdminPage:
         assert "Total comments" in metrics
         assert "Business name overrides" in metrics
 
-    def test_log_expand_buttons_present(self, monkeypatch):
+    @patch("src.ui.cards.admin.st.segmented_control")
+    def test_log_expand_buttons_present(self, mock_sc, monkeypatch):
         """Both change-log expand buttons are rendered (replaced expanders in 7b0abc2)."""
+        from src.i18n import t
+        mock_sc.return_value = t("admin.tab_audit")
         at = self._run_admin(monkeypatch)
         assert not at.exception, f"Exception: {at.exception}"
         # Expand buttons are on tab 2 (Audit Logs); navigate there
         sql_returns(pd.DataFrame(), pd.DataFrame())  # biz log, comment log
-        at.session_state["admin_active_tab"] = "Audit Logs"
-        at.session_state["_admin_tab_idx"] = 2
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
         button_keys = [b.key for b in at.button]
@@ -296,8 +298,11 @@ class TestAdminDemo:
         at.run()
         return at
 
-    def test_biz_log_rows(self, monkeypatch):
+    @patch("src.ui.cards.admin.st.segmented_control")
+    def test_biz_log_rows(self, mock_sc, monkeypatch):
         """Admin page business name log displays audit_log events."""
+        from src.i18n import t
+        mock_sc.return_value = t("admin.tab_audit")
         pre_audit = [
             {
                 "event_id":    "123",
@@ -312,16 +317,15 @@ class TestAdminDemo:
         ]
         at = self._run_demo_admin(monkeypatch, pre_state={"demo_audit_log": pre_audit})
         assert not at.exception, f"Exception: {at.exception}"
-        # Stat cards are on tab 1 (Quality Insights); navigate there
-        at.session_state["admin_active_tab"] = "Quality Insights"
-        at.session_state["_admin_tab_idx"] = 1
-        at.run()
-        assert not at.exception, f"Exception: {at.exception}"
-        metrics = {m.label: m.value for m in at.metric}
-        assert "Total tables" in metrics
+        # Audit Logs are on tab 2
+        button_keys = [b.key for b in at.button]
+        assert "admin_biz_log_expand" in button_keys
 
-    def test_comment_log_rows(self, monkeypatch):
+    @patch("src.ui.cards.admin.st.segmented_control")
+    def test_comment_log_rows(self, mock_sc, monkeypatch):
         """Admin page comment log displays comment_added and comment_reply events."""
+        from src.i18n import t
+        mock_sc.return_value = t("admin.tab_audit")
         pre_audit = [
             {
                 "event_id":    "c1",
@@ -347,8 +351,6 @@ class TestAdminDemo:
         at = self._run_demo_admin(monkeypatch, pre_state={"demo_audit_log": pre_audit})
         assert not at.exception, f"Exception: {at.exception}"
         # Expand buttons are on tab 2 (Audit Logs); navigate there
-        at.session_state["admin_active_tab"] = "Audit Logs"
-        at.session_state["_admin_tab_idx"] = 2
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
         button_keys = [b.key for b in at.button]
