@@ -17,29 +17,42 @@ _SYNC_MAX_ATTEMPTS = 3
 # Mid-range batch size — daemon runs in its own process so there's no UI
 # latency budget to protect.
 _SYNC_BATCH_SIZE = 25
-# Unity Catalog identifier validator. Matches exactly one or more alphanumeric
-# characters, underscores, or hyphens (^[A-Za-z0-9_-]+$).
-# UC permits only these characters, so anything outside this set in a column
-# or table-name part is either a metadata bug or a SQL injection attempt. We
-# refuse these outright rather than attempting to backtick-escape them.
-# Regex breakdown:
-# ^                - Start of string
-# [A-Za-z0-9_-]+   - One or more alphanumeric characters, underscores, or hyphens
-# \Z               - End of string (strictly end, ignores trailing newlines unlike $)
+# Unity Catalog identifier validator.
+#
+# WHY IT EXISTS:
+# We dynamically build SQL strings (e.g., ALTER TABLE, COMMENT ON) using identifiers
+# fetched from user input or external databases. Databricks Unity Catalog limits
+# valid identifiers strictly to alphanumeric characters, underscores, and hyphens.
+# Rather than attempting complex and error-prone backtick-escaping for arbitrary
+# strings, we defensively reject any identifier containing disallowed characters.
+# This acts as an absolute safeguard against SQL injection vectors embedded within
+# table or column names (e.g., "my_table`; DROP TABLE foo;").
+#
+# REGEX BREAKDOWN:
+# ^                - Enforces matching strictly from the start of the string.
+# [A-Za-z0-9_-]+   - Matches one or more allowed characters: letters, digits, _, -.
+# \Z               - Enforces matching strictly to the absolute end of the string
+#                    (ignoring trailing newlines, unlike $ which can be bypassed).
 _IDENT_RE = re.compile(r"^[A-Za-z0-9_-]+\Z")
 
-# Lightweight email syntax check matching standard local-part@domain format.
-# This explicitly enforces the expected structure and blocks malicious quote-escape
-# payloads (e.g., "a'@example.com") from breaking out of the f-string when
-# writing the steward tag value in Databricks.
-# Regex breakdown:
-# ^                    - Start of string
-# [A-Za-z0-9._%+\-]+   - Local part: letters, numbers, and allowed symbols
-# @                    - Literal @
-# [A-Za-z0-9.\-]+      - Domain name: letters, numbers, dots, and dashes
-# \.                   - Literal dot
-# [A-Za-z]{2,}         - TLD: at least 2 letters
-# \Z                   - End of string
+# Lightweight email syntax validator for the steward tag.
+#
+# WHY IT EXISTS:
+# The "steward" metadata field in Databricks is stored as a Unity Catalog tag,
+# which requires f-string interpolation when executing the SET TAGS command.
+# If a malicious user supplies an email like "admin'@example.com", the single quote
+# could break the SQL string boundary, enabling command injection. By rigorously
+# enforcing the structure of a standard email address, we block any string
+# containing dangerous payload characters (quotes, semicolons, etc.).
+#
+# REGEX BREAKDOWN:
+# ^                    - Enforces matching strictly from the start of the string.
+# [A-Za-z0-9._%+\-]+   - Local part: standard email characters (letters, digits, symbols).
+# @                    - Literal @ symbol separating local and domain parts.
+# [A-Za-z0-9.\-]+      - Domain part: letters, digits, dots, and hyphens.
+# \.                   - Literal dot separating the domain name and TLD.
+# [A-Za-z]{2,}         - Top-Level Domain (TLD): at least 2 alphabetic characters.
+# \Z                   - Enforces matching strictly to the absolute end of the string.
 _EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\Z")
 
 
