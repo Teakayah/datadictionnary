@@ -57,3 +57,6 @@
 ## 2026-07-02 - Mock Test Context Leakage & Missing Standard Library Imports
 **Learning:** When patching global connection methods in pytest, locally instantiated test objects (like DuckDBSiteSettingStorage) must be explicitly initialized within the mock's context block, otherwise tests can leak state or throw NameErrors when variables are accessed outside the mock context. Additionally, production components using standard library utilities like 'secrets' must import them locally rather than relying on global namespaces that may hide module absence during certain test initializations.
 **Action:** Ensure all explicitly asserted mock result objects are defined within the patched 'with' context, and verify standard library imports explicitly in DB driver/connection wrapper modules.
+## 2026-07-15 - DuckDB Connection Singleton and Cursor Edge Cases
+**Learning:** Testing lock-protected singleton initializations requires careful mocking of initialization steps inside a patched lock to prevent race conditions in tests. `_DuckDBCursor` mock execution tests must simulate context manager operations returning instances of `self` for accurate fetch execution tracking.
+**Action:** Backfilled unit tests targeting the `side_effect=Exception` and connection instantiation paths for the DuckDB shared connection logic to reach 100% test coverage on `duckdb_adapter.py`.
