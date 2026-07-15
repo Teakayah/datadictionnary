@@ -59,3 +59,6 @@
 ## 2025-06-30 - Import Placement Rule
 **Learning:** When appending or adding new imports to a Python file, placing them between `__future__` imports and the module docstring turns the docstring into a regular string literal, breaking the `__doc__` attribute and triggering E402 errors for all subsequent imports.
 **Action:** Always ensure new imports are added strictly after the module docstring to preserve structural integrity and pass linting.
+## 2026-07-15 - Redundant Pandas Dictionary Mappings
+**Learning:** In Pandas, declaring multiple redundant dictionaries and iterating over the same column multiple times with `.map()` and `.copy()` is significantly slower than calculating the single final dictionary mapping required to achieve the desired value assignments in one pass.
+**Action:** Always collapse consecutive, redundant `.map()` logic over Pandas Series into a single optimized mapping operation to drastically decrease overhead execution time and limit memory re-allocations.

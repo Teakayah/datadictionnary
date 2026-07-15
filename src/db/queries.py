@@ -1,4 +1,3 @@
-from __future__ import annotations
 """DB connection router and base query executor.
 
 Provides the write-connection helper and a backend-agnostic run_query()
@@ -7,6 +6,8 @@ interception (returning _DEMO_* fixtures) lives directly within the
 run_query() function to ensure this module handles the 3-tier routing
 architecture (Demo -> DuckDB -> Databricks) transparently for callers.
 """
+from __future__ import annotations
+from typing import List
 
 
 import csv
@@ -300,15 +301,11 @@ def search_all_metadata(query: str, groups: tuple):
         results = _fetch_metadata_for_fns(semantic_fns, groups)
         if results is None or results.empty:
             return results
-        # ⚡ Bolt: Replace .map(lambda) with dictionary mapping for faster execution
-        rank = {fn: -i for i, fn in enumerate(semantic_fns)}
+        # ⚡ Bolt: Use optimized dictionary mapping without redundant assignments
+        n = len(semantic_fns)
+        rank_mapping = {fn: -i for i, fn in enumerate(semantic_fns)}
         results = results.copy()
-        results["_hybrid_score"] = results["full_name"].map(rank).fillna(-len(semantic_fns)).astype(int)
-        rank = {fn: i for i, fn in enumerate(semantic_fns)}
-        rank_mapping = {fn: -i for fn, i in rank.items()}
-        results = results.copy()
-        # ⚡ Bolt: Replace .map(lambda) with vectorized dictionary mapping
-        results["_hybrid_score"] = results["full_name"].map(rank_mapping).fillna(-len(semantic_fns))
+        results["_hybrid_score"] = results["full_name"].map(rank_mapping).fillna(-n).astype(int)
         return _drop_score_cols(
             results.sort_values("_hybrid_score", ascending=False, kind="stable")
         )
@@ -332,12 +329,8 @@ def search_all_metadata(query: str, groups: tuple):
     else:
         kw_score = 0.0
     n = len(semantic_fns)
-    # ⚡ Bolt: Replace .map(lambda) with dictionary mapping for faster execution
-    sem_rank = {fn: (n - i) / n for i, fn in enumerate(semantic_fns)}
-    sem_score = combined["full_name"].map(sem_rank).fillna(0.0)
-    sem_rank = {fn: i for i, fn in enumerate(semantic_fns)}
-    sem_rank_mapping = {fn: (n - i) / n for fn, i in sem_rank.items()}
-    # ⚡ Bolt: Replace .map(lambda) with vectorized dictionary mapping
+    # ⚡ Bolt: Use optimized dictionary mapping without redundant assignments
+    sem_rank_mapping = {fn: (n - i) / n for i, fn in enumerate(semantic_fns)}
     sem_score = combined["full_name"].map(sem_rank_mapping).fillna(0.0)
     combined["_hybrid_score"] = (
         _HYBRID_KEYWORD_WEIGHT * kw_score + _HYBRID_SEMANTIC_WEIGHT * sem_score
