@@ -64,6 +64,7 @@ def _render_comment_form(
                             "TABLE", full_name, _inp.strip(), steward,
                             parent_comment_id=parent_comment_id,
                         )
+                        st.toast(t("common.saved"))
                         st.session_state.pop(_open_key, None)
                         st.rerun()
                     else:
@@ -327,6 +328,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                             with st.spinner(t("common.saving")):
                                 try:
                                     save_business_name(full_name, _cname, _inp_name.strip(), _inp_def.strip())
+                                    st.toast(t("common.saved"))
                                     st.session_state.pop("dd_col_edit_mode", None)
                                     st.session_state.pop(f"_live_completeness_{full_name}", None)
                                     st.rerun()
