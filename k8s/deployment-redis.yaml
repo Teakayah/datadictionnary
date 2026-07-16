@@ -80,7 +80,7 @@ spec:
 
           livenessProbe:
             exec:
-              command: ["sh", "-c", "redis-cli ping | grep PONG && echo live"]
+              command: ["redis-cli", "ping"]
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5
