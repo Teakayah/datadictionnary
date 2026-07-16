@@ -189,7 +189,8 @@ class TestAdminPage:
     @patch("src.ui.cards.admin.get_high_impact_gaps", lambda: pd.DataFrame(columns=["issue"]))
     @patch("src.ui.cards.admin.get_business_name_change_log", lambda: pd.DataFrame())
     @patch("src.ui.cards.admin.get_comment_log", lambda: pd.DataFrame())
-    def test_admin_sections_present(self, monkeypatch):
+    @patch("src.ui.cards.admin.t", side_effect=lambda k, **kw: k)
+    def test_admin_sections_present(self, mock_t, monkeypatch):
         """Admin page must contain the core sections (Sync, Audit, Settings)."""
         at = self._run_admin(monkeypatch)
         assert not at.exception, f"Exception: {at.exception}"
@@ -197,25 +198,26 @@ class TestAdminPage:
         sql_returns(
             pd.DataFrame({"tables": [42], "columns": [300], "comments": [5], "overrides": [2]}),
         )
-        at.session_state["admin_active_tab"] = "Quality Insights"
-        at.session_state["_admin_tab_idx"] = 1
-        at.run()
+        with patch("src.ui.cards.admin.st.segmented_control") as mock_sc:
+            mock_sc.return_value = "admin.tab_insights"
+            at.run()
         assert not at.exception, f"Exception: {at.exception}"
         metrics = {m.label: m.value for m in at.metric}
-        assert "Total tables" in metrics
-        assert "Total columns" in metrics
-        assert "Total comments" in metrics
-        assert "Business name overrides" in metrics
+        assert "admin.stats_tables" in metrics
+        assert "admin.stats_columns" in metrics
+        assert "admin.stats_comments" in metrics
+        assert "admin.stats_overrides" in metrics
 
-    def test_log_expand_buttons_present(self, monkeypatch):
+    @patch("src.ui.cards.admin.t", side_effect=lambda k, **kw: k)
+    def test_log_expand_buttons_present(self, mock_t, monkeypatch):
         """Both change-log expand buttons are rendered (replaced expanders in 7b0abc2)."""
         at = self._run_admin(monkeypatch)
         assert not at.exception, f"Exception: {at.exception}"
         # Expand buttons are on tab 2 (Audit Logs); navigate there
         sql_returns(pd.DataFrame(), pd.DataFrame())  # biz log, comment log
-        at.session_state["admin_active_tab"] = "Audit Logs"
-        at.session_state["_admin_tab_idx"] = 2
-        at.run()
+        with patch("src.ui.cards.admin.st.segmented_control") as mock_sc:
+            mock_sc.return_value = "admin.tab_audit"
+            at.run()
         assert not at.exception, f"Exception: {at.exception}"
         button_keys = [b.key for b in at.button]
         assert "admin_biz_log_expand" in button_keys
@@ -296,7 +298,8 @@ class TestAdminDemo:
         at.run()
         return at
 
-    def test_biz_log_rows(self, monkeypatch):
+    @patch("src.ui.cards.admin.t", side_effect=lambda k, **kw: k)
+    def test_biz_log_rows(self, mock_t, monkeypatch):
         """Admin page business name log displays audit_log events."""
         pre_audit = [
             {
@@ -313,14 +316,15 @@ class TestAdminDemo:
         at = self._run_demo_admin(monkeypatch, pre_state={"demo_audit_log": pre_audit})
         assert not at.exception, f"Exception: {at.exception}"
         # Stat cards are on tab 1 (Quality Insights); navigate there
-        at.session_state["admin_active_tab"] = "Quality Insights"
-        at.session_state["_admin_tab_idx"] = 1
-        at.run()
+        with patch("src.ui.cards.admin.st.segmented_control") as mock_sc:
+            mock_sc.return_value = "admin.tab_insights"
+            at.run()
         assert not at.exception, f"Exception: {at.exception}"
         metrics = {m.label: m.value for m in at.metric}
-        assert "Total tables" in metrics
+        assert "admin.stats_tables" in metrics
 
-    def test_comment_log_rows(self, monkeypatch):
+    @patch("src.ui.cards.admin.t", side_effect=lambda k, **kw: k)
+    def test_comment_log_rows(self, mock_t, monkeypatch):
         """Admin page comment log displays comment_added and comment_reply events."""
         pre_audit = [
             {
@@ -347,9 +351,9 @@ class TestAdminDemo:
         at = self._run_demo_admin(monkeypatch, pre_state={"demo_audit_log": pre_audit})
         assert not at.exception, f"Exception: {at.exception}"
         # Expand buttons are on tab 2 (Audit Logs); navigate there
-        at.session_state["admin_active_tab"] = "Audit Logs"
-        at.session_state["_admin_tab_idx"] = 2
-        at.run()
+        with patch("src.ui.cards.admin.st.segmented_control") as mock_sc:
+            mock_sc.return_value = "admin.tab_audit"
+            at.run()
         assert not at.exception, f"Exception: {at.exception}"
         button_keys = [b.key for b in at.button]
         assert "admin_comment_log_expand" in button_keys
@@ -431,7 +435,8 @@ def test_get_sync_queue_stats_exception(mock_conn, mock_duckdb):
 class TestPendingReviews:
     """Tests the approve/reject buttons for pending business names and table friendly names."""
 
-    def test_approve_reject_column_override_buttons(self, monkeypatch):
+    @patch("src.ui.cards.admin.t", side_effect=lambda k, **kw: k)
+    def test_approve_reject_column_override_buttons(self, mock_t, monkeypatch):
         """Test approving and rejecting column-level business names."""
         monkeypatch.setenv("MOCK_LOGIN", "true")
         monkeypatch.setenv("ADMIN_GROUPS", ADMIN_GROUP)
@@ -472,9 +477,9 @@ class TestPendingReviews:
             at.run()
             assert not at.exception, f"Exception: {at.exception}"
 
-            at.session_state["admin_active_tab"] = "Data Operations"
-            at.session_state["_admin_tab_idx"] = 0
-            at.run()
+            with patch("src.ui.cards.admin.st.segmented_control") as mock_sc:
+                mock_sc.return_value = "admin.tab_ops"
+                at.run()
 
             # Click approve
             at.button(key="rev_approve_main.sales.orders_order_id").click().run()
@@ -484,7 +489,8 @@ class TestPendingReviews:
             at.button(key="rev_reject_main.sales.orders_order_id").click().run()
             mock_reject.assert_called_with("main.sales.orders", "order_id")
 
-    def test_approve_reject_table_friendly_name_buttons(self, monkeypatch):
+    @patch("src.ui.cards.admin.t", side_effect=lambda k, **kw: k)
+    def test_approve_reject_table_friendly_name_buttons(self, mock_t, monkeypatch):
         """Test approving and rejecting table-level friendly names."""
         monkeypatch.setenv("MOCK_LOGIN", "true")
         monkeypatch.setenv("ADMIN_GROUPS", ADMIN_GROUP)
@@ -527,9 +533,9 @@ class TestPendingReviews:
             assert not at.exception, f"Exception: {at.exception}"
 
             # Switch to Data Operations
-            at.session_state["admin_active_tab"] = "Data Operations"
-            at.session_state["_admin_tab_idx"] = 0
-            at.run()
+            with patch("src.ui.cards.admin.st.segmented_control") as mock_sc:
+                mock_sc.return_value = "admin.tab_ops"
+                at.run()
 
             # Click approve
             at.button(key="tfn_approve_main.sales.orders").click().run()
@@ -723,3 +729,33 @@ class TestAdminDataFetchers:
         mock_run.return_value = pd.DataFrame([{"full_name": "t1"}])
         df = get_dq_alerts()
         assert len(df) == 1
+
+
+class TestAdminDialogs:
+    """Tests isolated @st.dialog components that fail to render when manually called during a rerender in Streamlit."""
+
+    @patch("src.ui.cards.admin.get_business_name_change_log", return_value=pd.DataFrame())
+    def test_biz_log_dialog(self, mock_get):
+        def _wrapper_biz():
+            import streamlit as st
+            from src.ui.cards.admin import _show_biz_log_dialog
+            if st.button("open"):
+                _show_biz_log_dialog()
+
+        at = AppTest.from_function(_wrapper_biz)
+        at.run()
+        at.button[0].click().run()
+        assert not at.exception
+
+    @patch("src.ui.cards.admin.get_comment_log", return_value=pd.DataFrame())
+    def test_comment_log_dialog(self, mock_get):
+        def _wrapper_comment():
+            import streamlit as st
+            from src.ui.cards.admin import _show_comment_log_dialog
+            if st.button("open"):
+                _show_comment_log_dialog()
+
+        at = AppTest.from_function(_wrapper_comment)
+        at.run()
+        at.button[0].click().run()
+        assert not at.exception
