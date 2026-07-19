@@ -91,6 +91,7 @@ def _show_cms_create_dialog():
                     author_email=actor,
                     expiry_days=expiry_days,
                 ))
+                st.toast(t("common.saved"))
                 st.rerun()
     with _cancel:
         if st.button(t("common.cancel"), help=t("help.btn_common_cancel"), use_container_width=True, key="cms_cancel_btn"):

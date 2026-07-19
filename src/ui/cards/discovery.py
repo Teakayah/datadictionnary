@@ -142,7 +142,8 @@ def render_notification_strip() -> None:
                     help=t("notifications.dismiss"),
                     use_container_width=True,
                 ):
-                    mark_read(n["notification_id"])
+                    with st.spinner(t("common.loading")):
+                        mark_read(n["notification_id"])
                     st.rerun()
 
         st.markdown("<div style='margin-top:8px'></div>", unsafe_allow_html=True)
