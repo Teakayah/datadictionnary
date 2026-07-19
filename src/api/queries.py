@@ -1,9 +1,10 @@
-from __future__ import annotations
 """DB queries for the API/MCP layer.
 
 These call _base_run_query directly, bypassing @st.cache_data.
 Caching is handled by Redis at the endpoint/tool level instead.
 """
+
+from __future__ import annotations
 
 import pandas as pd
 
@@ -32,6 +33,17 @@ def _overrides_tables() -> tuple[str, str]:
 
 
 def get_authorized_tables(groups: tuple[str, ...]) -> pd.DataFrame:
+    """Fetch all tables the user is authorized to view.
+
+    Implements row-level access control by joining the tables metadata with
+    the permissions cache, filtering by the provided Entra ID groups.
+
+    Args:
+        groups (tuple[str, ...]): A tuple of Entra ID group object IDs for the user.
+
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing authorized table metadata.
+    """
     ph, params = _group_clause(groups)
     tbl_ovr, _ = _overrides_tables()
     sql = f"""
@@ -80,6 +92,18 @@ def get_table_details(full_name: str, groups: tuple[str, ...]) -> pd.DataFrame |
 
 
 def search_metadata(query: str, groups: tuple[str, ...]) -> pd.DataFrame:
+    """Search across tables and columns for a given query string.
+
+    Performs a full-text search against table names, column names, comments,
+    and business overrides, returning matches that the user's groups permit viewing.
+
+    Args:
+        query (str): The search string to match against metadata.
+        groups (tuple[str, ...]): A tuple of Entra ID group object IDs for the user.
+
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing search results with match details.
+    """
     ph, params = _group_clause(groups)
     params["q"] = f"%{query}%"
     tbl_ovr, col_ovr = _overrides_tables()
@@ -120,6 +144,18 @@ def search_metadata(query: str, groups: tuple[str, ...]) -> pd.DataFrame:
 
 
 def get_lineage(table_full_name: str, depth: int = 1) -> pd.DataFrame:
+    """Fetch multi-hop lineage edges up to a given depth.
+
+    Uses a recursive CTE to traverse upstream and downstream lineage edges
+    starting from the specified table.
+
+    Args:
+        table_full_name (str): The Unity Catalog full name of the table to trace.
+        depth (int, optional): The maximum number of hops to traverse. Defaults to 1.
+
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing lineage edges.
+    """
     sql = f"""
         WITH RECURSIVE lineage_cte AS (
             SELECT table_full_name, direction, entity_full_name, entity_type, 1 AS depth
