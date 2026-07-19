@@ -194,7 +194,17 @@
     "tab_ops": "Operations",
     "tab_insights": "Quality Insights",
     "tab_audit": "Audit Logs",
-    "groups_cache_flushing": "Flushing cache..."
+    "groups_cache_flushing": "Flushing cache...",
+    "col_object": "Object",
+    "col_old_name": "Old name",
+    "col_new_name": "New name",
+    "col_changed_by": "Changed by",
+    "col_changed_at": "Changed at",
+    "col_comment_preview": "Comment preview",
+    "col_author": "Author",
+    "col_posted_at": "Posted at",
+    "col_score": "Score",
+    "col_status": "Status"
   },
   "health": {
     "title": "§ Catalog health",
