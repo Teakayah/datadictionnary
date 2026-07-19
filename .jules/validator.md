@@ -69,3 +69,7 @@
 **Coverage Gap:** Tests asserting presence of components inside conditional `st.segmented_control` blocks were failing (e.g., test_admin_sections_present).
 **Learning:** Updating `at.session_state` to change tabs does not correctly trigger Streamlit's internal rerender mapping for `st.segmented_control` in AppTest, causing false negative failures.
 **Assertion:** Bypass the widget behavior by explicitly mocking the output. Prefer Pytest's built-in `monkeypatch` fixture: `monkeypatch.setattr('module.st.segmented_control', lambda *args, **kwargs: "TabName")` to avoid missing imports.
+## 2024-07-04 - Cover FastAPI Health Readiness Path Gap
+**Coverage Gap:** The `/health/ready` endpoint in `src/api/routers/health.py` was missing test coverage, resulting in 88% coverage on the file.
+**Learning:** Testing simple API endpoint routing doesn't require mocking when no external dependencies exist, but simple paths like `readiness` are often overlooked when `liveness` tests already exist.
+**Assertion:** Use FastAPI's `TestClient` to make a GET request to `/health/ready` and assert on `resp.status_code == 200` and `resp.json() == {"status": "ok"}`.
