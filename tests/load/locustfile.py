@@ -77,7 +77,7 @@ else:
 import atexit
 def _cleanup():
     try: os.unlink(_WORKING_DB)
-    except: pass
+    except Exception: pass
 atexit.register(_cleanup)
 
 # Department group IDs used by mock auth (mirrors generate_test_data.py)
@@ -270,7 +270,7 @@ class DuckDBQueryUser(User):
     # Pick a random department so users have realistic permission scopes
     _dept: str = "finance"
     _groups: list[str] = []
-    _con: Optional[duckdb.DuckDBPyConnection] = None
+    _con: duckdb.DuckDBPyConnection | None = None
 
     def on_start(self):
         self._dept = random.choice(list(_DEPT_GROUPS.keys()))
