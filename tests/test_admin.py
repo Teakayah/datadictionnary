@@ -468,7 +468,7 @@ class TestPendingReviews:
             at.run()
             assert not at.exception, f"Exception: {at.exception}"
 
-            at.session_state["admin_active_tab"] = "Data Operations"
+            at.session_state["admin_active_tab"] = "Operations"
             at.session_state["_admin_tab_idx"] = 0
             at.run()
 
@@ -523,7 +523,7 @@ class TestPendingReviews:
             assert not at.exception, f"Exception: {at.exception}"
 
             # Switch to Data Operations
-            at.session_state["admin_active_tab"] = "Data Operations"
+            at.session_state["admin_active_tab"] = "Operations"
             at.session_state["_admin_tab_idx"] = 0
             at.run()
 
