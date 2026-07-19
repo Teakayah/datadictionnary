@@ -12,11 +12,6 @@ from src.i18n import t
 from src.ui.css import VIS_WIDE_CSS
 
 
-def _viewport_height(fallback: int = 800) -> int:
-    """Return the user's viewport height in px, falling back if not yet captured."""
-    return int(st.session_state.get("viewport_height", fallback))
-
-
 def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, run_query, max_depth: int = 2):
     """BFS multi-hop lineage using WITH RECURSIVE.
 
