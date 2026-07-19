@@ -107,6 +107,7 @@ def _show_pipeline_create_dialog():
                     db_job_id, adf_sub, adf_rg, adf_fact, adf_pipe,
                     ado_org, ado_proj, ado_pid, actor,
                 )
+                st.toast(t("common.saved"))
                 st.rerun()
     with _c:
         if st.button(t("common.cancel"), help=t("help.btn_common_cancel"), use_container_width=True, key="pl_cancel"):
