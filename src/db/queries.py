@@ -347,7 +347,7 @@ def search_all_metadata(query: str, groups: tuple):
     )
 
 
-def _fetch_metadata_for_fns(full_names: List[str], groups: tuple) -> pd.DataFrame:
+def _fetch_metadata_for_fns(full_names: list[str], groups: tuple) -> pd.DataFrame:
     """Fetch basic table metadata for a list of full names."""
     if not full_names:
         return pd.DataFrame()
