@@ -9,3 +9,6 @@
 ## 2024-05-27 - Streamlit state toggle feedback
 **Learning:** Bookmarking tables and columns lacked visual feedback, making the interaction feel unresponsive until the page reloaded.
 **Action:** Use `st.toast()` immediately before `st.rerun()` when users perform instant state-toggles like adding or removing bookmarks to provide immediate, non-blocking visual feedback.
+## 2026-07-04 - Notification dismiss missing feedback
+**Learning:** Users lack immediate visual feedback when dismissing notifications, making the UI feel unresponsive until the page reloads.
+**Action:** Use `st.spinner()` or `st.toast()` before `st.rerun()` for instant actions like dismissing notifications.
