@@ -64,3 +64,7 @@
 ## 2026-07-18 - Fix failing Streamlit Segmented Control Test Asserts
 **Learning:** Testing component rendering inside Streamlit's `st.segmented_control` blocks with AppTest fails because updating `at.session_state` or `at.segmented_control(...).set_value()` does not correctly trigger the internal Streamlit rerender mapping the new active value, especially when the options are tied to dynamic keys like translated strings.
 **Action:** When asserting the presence of components that render conditionally on `st.segmented_control` values, bypass the widget behavior by explicitly mocking the output using `with patch('src.ui.cards.admin.st.segmented_control') as mock_sc: mock_sc.return_value = "Quality Insights"` and ensuring the patched value exactly matches the generated option values during runtime rendering.
+
+## 2026-07-15 - DuckDB Connection Singleton and Cursor Edge Cases
+**Learning:** Testing lock-protected singleton initializations requires careful mocking of initialization steps inside a patched lock to prevent race conditions in tests. `_DuckDBCursor` mock execution tests must simulate context manager operations returning instances of `self` for accurate fetch execution tracking.
+**Action:** Backfilled unit tests targeting the `side_effect=Exception` and connection instantiation paths for the DuckDB shared connection logic to reach 100% test coverage on `duckdb_adapter.py`.

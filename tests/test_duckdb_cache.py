@@ -234,6 +234,115 @@ class TestDuckDBAdapter:
             assert hasattr(cur, "execute")
             assert hasattr(cur, "fetchall_as_pandas")
 
+    def test_shared_connection_exception_logging(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        _adapter._clear_shared_duckdb_connection()
+        db = str(tmp_path / "cache.duckdb")
+        duckdb.connect(db).close()
+
+        with patch.object(_adapter, "DUCKDB_PATH", db):
+            with patch("duckdb.connect", side_effect=Exception("mocked initialization error")):
+                with patch("logging.error") as mock_logging:
+                    assert _adapter._get_shared_duckdb_connection() is None
+                    mock_logging.assert_called_once()
+                    assert "mocked initialization error" in str(mock_logging.call_args)
+        _adapter._clear_shared_duckdb_connection()
+    def test_shared_connection_reuses_instance(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        _adapter._clear_shared_duckdb_connection()
+        # Mock DUCKDB_PATH temporarily so _duckdb_available is True
+        db = str(tmp_path / "cache.duckdb")
+        duckdb.connect(db).close()
+        with patch.object(_adapter, "DUCKDB_PATH", db):
+            con1 = _adapter._get_shared_duckdb_connection()
+            assert con1 is not None
+            con2 = _adapter._get_shared_duckdb_connection()
+            assert con1 is con2
+            _adapter._clear_shared_duckdb_connection()
+
+    def test_shared_connection_double_check_locking(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        _adapter._clear_shared_duckdb_connection()
+        db = str(tmp_path / "cache.duckdb")
+        duckdb.connect(db).close()
+
+        with patch.object(_adapter, "DUCKDB_PATH", db):
+            class MockLock:
+                def __enter__(self):
+                    _adapter._shared_connection = "mocked_lock_connection"
+                    return self
+                def __exit__(self, *args):
+                    pass
+            with patch.object(_adapter, "_db_write_lock", MockLock()):
+                assert _adapter._get_shared_duckdb_connection() == "mocked_lock_connection"
+
+        _adapter._clear_shared_duckdb_connection()
+    def test_cursor_execute_none_con(self):
+        import src.db.duckdb_adapter as _adapter
+        cur = _adapter._DuckDBCursor(None)
+        cur.execute("SELECT 1")
+        assert cur._rel is None
+        assert cur.fetchall() == []
+        df = cur.fetchall_as_pandas()
+        assert df.empty
+
+    def test_cursor_execute_list_params(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        con = duckdb.connect(str(tmp_path / "cache.duckdb"))
+        cur = _adapter._DuckDBCursor(con)
+        cur.execute("CREATE TABLE test (a INTEGER)")
+        cur.execute("INSERT INTO test VALUES (?)", [2])
+        cur.execute("SELECT * FROM test")
+        assert cur.fetchall() == [(2,)]
+        cur.execute("SELECT * FROM test") # re-execute because fetchall consumes the relation
+        df = cur.fetchall_as_pandas()
+        assert len(df) == 1
+        assert df.iloc[0]["a"] == 2
+
+    def test_cursor_execute_write(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        con = duckdb.connect(str(tmp_path / "cache.duckdb"))
+        cur = _adapter._DuckDBCursor(con)
+        cur.execute("CREATE TABLE test (a INTEGER)")
+        cur.execute_write("INSERT INTO test VALUES (3)")
+        cur.execute("SELECT * FROM test")
+        df = cur.fetchall_as_pandas()
+        assert len(df) == 1
+        assert df.iloc[0]["a"] == 3
+    def test_duckconn_execute(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        db_path = str(tmp_path / "cache.duckdb")
+        con = duckdb.connect(db_path)
+        con.execute("CREATE TABLE test (a INTEGER)")
+        con.execute("INSERT INTO test VALUES (1)")
+        with patch.object(_adapter, "_get_shared_duckdb_connection", return_value=con):
+            conn = _adapter._DuckDBConn(db_path)
+            cur = conn.execute("SELECT * FROM test")
+            assert isinstance(cur, _adapter._DuckDBCursor)
+            df = cur.fetchall_as_pandas()
+            assert len(df) == 1
+            assert df.iloc[0]["a"] == 1
+
+    def test_duckconn_context_manager(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        db_path = str(tmp_path / "cache.duckdb")
+        con = duckdb.connect(db_path)
+        with patch.object(_adapter, "_get_shared_duckdb_connection", return_value=con):
+            conn = _adapter._DuckDBConn(db_path)
+            with conn as ctx_conn:
+                assert ctx_conn is conn
+
+    def test_run_duckdb_query(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        db_path = str(tmp_path / "cache.duckdb")
+        con = duckdb.connect(db_path)
+        con.execute("CREATE TABLE query_test (msg VARCHAR)")
+        con.execute("INSERT INTO query_test VALUES ('hello')")
+        with patch.object(_adapter, "_get_shared_duckdb_connection", return_value=con):
+            with patch("src.db.duckdb_adapter.DUCKDB_PATH", db_path):
+                df = _adapter._run_duckdb_query("SELECT * FROM query_test")
+                assert len(df) == 1
+                assert df.iloc[0]["msg"] == 'hello'
     def test_duckconn_open_property(self, tmp_path):
         db = str(tmp_path / "t.duckdb")
         user_db = str(tmp_path / "user.duckdb")
