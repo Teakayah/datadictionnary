@@ -1,13 +1,7 @@
 import pandas as pd
-from unittest.mock import MagicMock, patch
-from src.ui.lineage import _build_lineage_graph, _lineage_vis_html, _viewport_height
+from unittest.mock import MagicMock
+from src.ui.lineage import _build_lineage_graph, _lineage_vis_html
 from streamlit.testing.v1 import AppTest
-
-def test_viewport_height():
-    with patch("src.ui.lineage.st.session_state", {"viewport_height": 900}):
-        assert _viewport_height() == 900
-    with patch("src.ui.lineage.st.session_state", {}):
-        assert _viewport_height(800) == 800
 
 def test_build_lineage_graph_empty_result():
     mock_run_query = MagicMock(return_value=pd.DataFrame())
