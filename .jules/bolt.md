@@ -62,3 +62,6 @@
 ## 2026-07-15 - Redundant Pandas Dictionary Mappings
 **Learning:** In Pandas, declaring multiple redundant dictionaries and iterating over the same column multiple times with `.map()` and `.copy()` is significantly slower than calculating the single final dictionary mapping required to achieve the desired value assignments in one pass.
 **Action:** Always collapse consecutive, redundant `.map()` logic over Pandas Series into a single optimized mapping operation to drastically decrease overhead execution time and limit memory re-allocations.
+## 2025-05-18 - Avoid Dictionary .map() for Ranking Series
+**Learning:** Pandas dictionary-based `.map()` operations for assigning dynamic numeric ranks or sorting arbitrary string lists is significantly slower than utilizing built-in `pd.Categorical`.
+**Action:** When sorting or scoring rows based on a specific arbitrary list of strings (e.g., semantic search rankings), always use `pd.Categorical(series, categories=target_list, ordered=True)`. For scoring, leverage `cats.codes` rather than computing a dictionary mapping and using `.map()`.
