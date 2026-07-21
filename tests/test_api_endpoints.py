@@ -184,6 +184,17 @@ def test_get_table_returns_columns(client):
     assert data["columns"][0]["data_type"] == "BIGINT"
 
 
+def test_get_table_returns_cache_hit(client):
+    """When Redis returns a cached value, the DB layer is not called."""
+    cached_data = {"full_name": "cat.schema.orders", "columns": [{"column_name": "id", "data_type": "BIGINT", "description": None}]}
+    with patch("src.api.routers.tables.redis_cache.get", AsyncMock(return_value=cached_data)), \
+         patch("src.api.routers.tables.queries.get_table_details") as no_db:
+        resp = client.get("/api/v1/tables/cat/schema/orders")
+    assert resp.status_code == 200
+    no_db.assert_not_called()
+    assert resp.json() == cached_data
+
+
 # ── Search ────────────────────────────────────────────────────────────────────
 
 def test_search_requires_auth(client_no_auth):
@@ -207,6 +218,16 @@ def test_search_returns_results(client):
     assert data[0]["match_type"] == "Table"
 
 
+def test_search_returns_cache_hit(client):
+    """When Redis returns a cached value, the DB layer is not called."""
+    with patch("src.api.routers.search.redis_cache.get", AsyncMock(return_value=FAKE_SEARCH_RESULTS)), \
+         patch("src.api.routers.search.queries.search_metadata") as no_db:
+        resp = client.get("/api/v1/search?q=orders")
+    assert resp.status_code == 200
+    no_db.assert_not_called()
+    assert resp.json() == FAKE_SEARCH_RESULTS
+
+
 def test_search_passes_query_to_db(client):
     with patch("src.api.routers.search.queries.search_metadata", return_value=pd.DataFrame()) as mock_q, \
          _no_cache():
@@ -227,6 +248,16 @@ def test_lineage_returns_edges(client):
     data = resp.json()
     assert len(data) == 1
     assert data[0]["direction"] == "upstream"
+
+
+def test_lineage_returns_cache_hit(client):
+    """When Redis returns a cached value, the DB layer is not called."""
+    with patch("src.api.routers.lineage.redis_cache.get", AsyncMock(return_value=FAKE_LINEAGE)), \
+         patch("src.api.routers.lineage.queries.get_lineage") as no_db:
+        resp = client.get("/api/v1/lineage/cat/schema/orders")
+    assert resp.status_code == 200
+    no_db.assert_not_called()
+    assert resp.json() == FAKE_LINEAGE
 
 
 def test_lineage_default_depth_is_1(client):

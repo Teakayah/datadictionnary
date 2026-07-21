@@ -68,3 +68,6 @@
 ## 2026-07-15 - DuckDB Connection Singleton and Cursor Edge Cases
 **Learning:** Testing lock-protected singleton initializations requires careful mocking of initialization steps inside a patched lock to prevent race conditions in tests. `_DuckDBCursor` mock execution tests must simulate context manager operations returning instances of `self` for accurate fetch execution tracking.
 **Action:** Backfilled unit tests targeting the `side_effect=Exception` and connection instantiation paths for the DuckDB shared connection logic to reach 100% test coverage on `duckdb_adapter.py`.
+## 2026-07-20 - API Endpoint Cache Hit Coverage Gap
+**Learning:** API endpoints utilizing cache checks (e.g. `redis_cache.get()`) need dedicated tests simulating cache hits. Without these, the `return cached` lines remain uncovered, and there's no verification that the application correctly bypasses database queries when data is already cached.
+**Action:** When adding or auditing API endpoints with caching logic, write tests using `unittest.mock.patch` to return mock data from the cache and assert that the underlying query functions are explicitly `not_called()`.
