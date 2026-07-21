@@ -7,7 +7,6 @@ run_query() function to ensure this module handles the 3-tier routing
 architecture (Demo -> DuckDB -> Databricks) transparently for callers.
 """
 from __future__ import annotations
-from typing import List
 
 
 import csv
