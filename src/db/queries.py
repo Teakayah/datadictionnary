@@ -300,11 +300,11 @@ def search_all_metadata(query: str, groups: tuple):
         results = _fetch_metadata_for_fns(semantic_fns, groups)
         if results is None or results.empty:
             return results
-        # ⚡ Bolt: Use optimized dictionary mapping without redundant assignments
         n = len(semantic_fns)
-        rank_mapping = {fn: -i for i, fn in enumerate(semantic_fns)}
         results = results.copy()
-        results["_hybrid_score"] = results["full_name"].map(rank_mapping).fillna(-n).astype(int)
+        # ⚡ Bolt: Use pd.Categorical for faster vectorization without .map() allocations
+        cat = pd.Categorical(results["full_name"], categories=semantic_fns)
+        results["_hybrid_score"] = np.where(cat.codes >= 0, -cat.codes, -n)
         return _drop_score_cols(
             results.sort_values("_hybrid_score", ascending=False, kind="stable")
         )
@@ -328,9 +328,9 @@ def search_all_metadata(query: str, groups: tuple):
     else:
         kw_score = 0.0
     n = len(semantic_fns)
-    # ⚡ Bolt: Use optimized dictionary mapping without redundant assignments
-    sem_rank_mapping = {fn: (n - i) / n for i, fn in enumerate(semantic_fns)}
-    sem_score = combined["full_name"].map(sem_rank_mapping).fillna(0.0)
+    # ⚡ Bolt: Use pd.Categorical for faster vectorization without .map() allocations
+    cat = pd.Categorical(combined["full_name"], categories=semantic_fns)
+    sem_score = np.where(cat.codes >= 0, (n - cat.codes) / max(n, 1), 0.0)
     combined["_hybrid_score"] = (
         _HYBRID_KEYWORD_WEIGHT * kw_score + _HYBRID_SEMANTIC_WEIGHT * sem_score
     )
