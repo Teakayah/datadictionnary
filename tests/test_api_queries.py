@@ -17,6 +17,7 @@ from unittest.mock import patch
 import pandas as pd
 
 from src.api.queries import (
+    _overrides_tables,
     _group_clause,
     get_authorized_tables,
     get_lineage,
@@ -160,3 +161,21 @@ class TestGetLineage:
             get_lineage("c.s.t")
         _, params = mock_q.call_args[0]
         assert params["depth"] == 1
+
+# ── _overrides_tables ─────────────────────────────────────────────────────────
+
+
+class TestOverridesTables:
+    def test_overrides_tables_duckdb_available(self):
+        with patch("src.api.queries._duckdb_available", return_value=True):
+            tbl, col = _overrides_tables()
+            assert tbl == "user_data.table_metadata_overrides"
+            assert col == "user_data.business_name_overrides"
+
+    def test_overrides_tables_duckdb_not_available(self):
+        with patch("src.api.queries._duckdb_available", return_value=False):
+            with patch("src.api.queries.CATALOG_CACHE", "test_catalog"):
+                with patch("src.api.queries.SCHEMA_CACHE", "test_schema"):
+                    tbl, col = _overrides_tables()
+                    assert tbl == "test_catalog.test_schema.table_metadata_overrides"
+                    assert col == "test_catalog.test_schema.business_name_overrides"
