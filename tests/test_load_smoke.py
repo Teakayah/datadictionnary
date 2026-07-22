@@ -21,7 +21,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-import requests
 
 APP_URL    = os.getenv("LOAD_TEST_HOST", "http://localhost:8501")
 LOCUST_F   = Path(__file__).parent / "load" / "locustfile.py"
@@ -34,16 +33,6 @@ DURATION = "60s"
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
-
-@pytest.fixture(scope="module", autouse=False)
-def require_server():
-    """Skip entire module if the Streamlit app is not reachable."""
-    try:
-        r = requests.get(f"{APP_URL}/healthz", timeout=3)
-        if r.status_code != 200:
-            pytest.skip(f"App not healthy at {APP_URL} (status {r.status_code})")
-    except requests.ConnectionError:
-        pytest.skip(f"App not reachable at {APP_URL}")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
