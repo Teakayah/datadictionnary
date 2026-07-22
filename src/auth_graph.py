@@ -1,5 +1,3 @@
-from __future__ import annotations
-from typing import Optional
 """Microsoft Graph helpers for Entra ID groups overage.
 
 When a user is a member of more than ~150 security groups, Entra ID omits
@@ -24,6 +22,8 @@ warning. We deliberately fail closed — returning the empty list makes the
 user see no tables, which is the right default. We do NOT silently grant
 access by returning a wider set.
 """
+from __future__ import annotations
+from typing import Optional
 
 
 import logging

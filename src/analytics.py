@@ -1,5 +1,3 @@
-from __future__ import annotations
-from typing import List, Optional
 """Search analytics — tracks query events and surfaces zero-result gaps.
 
 Demo mode (or no DuckDB) keeps events in
@@ -8,6 +6,8 @@ Demo mode (or no DuckDB) keeps events in
 ``USER_DATA_PATH`` (analytics writes shouldn't contend with the shared
 read connection).
 """
+from __future__ import annotations
+from typing import List, Optional
 
 from datetime import datetime, timedelta, timezone
 

@@ -1,4 +1,3 @@
-from __future__ import annotations
 """Health dashboard — catalog-wide metadata coverage metrics.
 
 Renders the "/health" tab. Pure read-only views: documentation coverage,
@@ -8,6 +7,7 @@ undocumented tables.
 Implements SQL push-down for all metrics (ADR 002) to ensure scalability
 while maintaining row-level access control.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass
 import logging

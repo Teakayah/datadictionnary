@@ -1,9 +1,9 @@
-from __future__ import annotations
 """Table detail cards and sections.
 
 Includes the schema/columns viewer, business name editor, comments
 section, and data preview (local-only for prototype).
 """
+from __future__ import annotations
 
 
 import logging

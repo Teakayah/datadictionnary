@@ -1,4 +1,3 @@
-from __future__ import annotations
 """Helpers shared across cards/ submodules.
 
 Contents:
@@ -9,6 +8,7 @@ Contents:
 - ``_POST_COLOR``                  — CMS post-type → accent colour.
   Used by ``render_cms_banner`` (discovery) and the admin CMS section.
 """
+from __future__ import annotations
 
 
 from src.config import CATALOG_CACHE, SCHEMA_CACHE

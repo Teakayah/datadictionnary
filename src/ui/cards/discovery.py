@@ -1,4 +1,3 @@
-from __future__ import annotations
 """Discovery tab — read-only views over authorized tables.
 
 Three sub-tabs (notable / bookmarks / recent) plus a CMS-banner that pins
@@ -9,6 +8,7 @@ The banner is read-only for non-admin users; admins also see a delete
 button next to each post (the actual create dialog lives in
 ``cards/admin.py``).
 """
+from __future__ import annotations
 
 
 import html as _html

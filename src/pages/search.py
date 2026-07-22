@@ -1,5 +1,5 @@
-from __future__ import annotations
 """Search tab — result cards and table detail panel."""
+from __future__ import annotations
 
 
 import html as _html

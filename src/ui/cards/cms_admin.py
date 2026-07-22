@@ -1,4 +1,3 @@
-from __future__ import annotations
 """CMS admin section — list / create / delete posts.
 
 Used only from ``cards/admin.py``'s ``render_admin_page``. Kept as its own
@@ -8,6 +7,7 @@ write surface (create_post, delete_post) lives next to its renderer.
 The read-only banner that surfaces these posts on the discovery tab lives
 in ``cards/discovery.py::render_cms_banner``.
 """
+from __future__ import annotations
 
 
 import html as _html

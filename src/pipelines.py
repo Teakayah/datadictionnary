@@ -1,5 +1,3 @@
-from __future__ import annotations
-from typing import Any, Optional
 """Pipeline definitions, run tracking, and execution for Databricks / ADF / ADO.
 
 Storage branches on ``is_demo_mode()``: demo keeps definitions in
@@ -8,6 +6,8 @@ keys; otherwise rows persist to ``user_data.pipeline_definitions`` /
 ``user_data.pipeline_runs`` (DuckDB). Execution (HTTP calls to
 Databricks/ADF/ADO management APIs) lives below the storage section.
 """
+from __future__ import annotations
+from typing import Any, Optional
 
 
 import logging

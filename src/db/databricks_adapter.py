@@ -1,4 +1,3 @@
-from __future__ import annotations
 """Databricks SQL Warehouse adapter — read path only.
 
 Writes from Streamlit pods are no longer made directly to Databricks. Per
@@ -9,6 +8,7 @@ helper was a per-call ``sql.connect()`` and is now removed — its only
 callers were the dead ``Databricks*`` storage fallbacks, which were
 deleted alongside it.
 """
+from __future__ import annotations
 
 
 import os

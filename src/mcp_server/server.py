@@ -1,9 +1,9 @@
-from __future__ import annotations
 """FastMCP server exposing the data dictionary to AI assistants (Copilot, Claude, etc.).
 
 User identity is injected by MCPAuthMiddleware (in src/api/main.py) via the
 _current_user ContextVar before each request reaches these tools.
 """
+from __future__ import annotations
 
 import asyncio
 import json

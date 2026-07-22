@@ -1,5 +1,5 @@
-from __future__ import annotations
 """Lineage graph building and rendering components."""
+from __future__ import annotations
 
 
 import json

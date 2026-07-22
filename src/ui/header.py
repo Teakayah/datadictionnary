@@ -1,5 +1,3 @@
-from __future__ import annotations
-from typing import Optional
 """UI header and footer components.
 
 Contains the SVG brand constants and the render functions for the
@@ -11,6 +9,8 @@ Public API:
     render_header() — full navigation header with lang toggle
     render_footer() — standard application footer
 """
+from __future__ import annotations
+from typing import Optional
 
 
 import html as _html

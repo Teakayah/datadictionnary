@@ -1,4 +1,3 @@
-from __future__ import annotations
 """Pipelines tab UI — list, run, monitor, cancel pipeline runs.
 
 Three render points:
@@ -10,6 +9,7 @@ Three render points:
 Backend logic (start / poll / cancel) lives in src/pipelines.py — this
 module is rendering only.
 """
+from __future__ import annotations
 
 
 import html as _html

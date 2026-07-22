@@ -1,4 +1,3 @@
-from __future__ import annotations
 """Process-local DuckDB connection for the sidecar sync daemon.
 
 The Streamlit app uses a Streamlit-cached singleton (src.db.duckdb_adapter
@@ -7,6 +6,7 @@ needs its own connection. This module provides a thin wrapper that
 mirrors enough of _DuckDBConn that src.sync.push and src.sync.dr_resync
 can be called with either.
 """
+from __future__ import annotations
 
 import secrets
 

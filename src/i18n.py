@@ -1,4 +1,3 @@
-from __future__ import annotations
 """Internationalisation (i18n) for the Data Dictionary.
 
 Public API:
@@ -9,6 +8,7 @@ Public API:
 
 Dependencies: os, json, streamlit (no databricks/msal imports — safe in tests).
 """
+from __future__ import annotations
 
 
 import json as _json
