@@ -441,7 +441,9 @@
     "strip_label_one": "1 update on a bookmarked table",
     "strip_label_other": "{count} updates on bookmarked tables",
     "dismiss": "Dismiss",
-    "mark_all_read": "Mark all as read"
+    "mark_all_read": "Mark all as read",
+    "dismissed_toast": "Notification dismissed.",
+    "all_read_toast": "All notifications marked as read."
   },
   "date": {
     "months": {

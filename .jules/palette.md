@@ -12,3 +12,6 @@
 ## 2026-07-04 - Notification dismiss missing feedback
 **Learning:** Users lack immediate visual feedback when dismissing notifications, making the UI feel unresponsive until the page reloads.
 **Action:** Use `st.spinner()` or `st.toast()` before `st.rerun()` for instant actions like dismissing notifications.
+## 2024-07-23 - Visual feedback for notification dismissal
+**Learning:** Users lack immediate visual feedback when dismissing individual notifications or marking all as read, making the UI feel unresponsive until the page reloads.
+**Action:** Use `st.toast()` immediately before `st.rerun()` when users perform state toggles like dismissing notifications to provide immediate, non-blocking visual feedback.
