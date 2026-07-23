@@ -18,6 +18,7 @@ import pandas as pd
 
 from src.api.queries import (
     _group_clause,
+    _overrides_tables,
     get_authorized_tables,
     get_lineage,
     get_table_details,
@@ -160,3 +161,20 @@ class TestGetLineage:
             get_lineage("c.s.t")
         _, params = mock_q.call_args[0]
         assert params["depth"] == 1
+
+
+# ── _overrides_tables ─────────────────────────────────────────────────────────
+
+class TestOverridesTables:
+    @patch("src.api.queries._duckdb_available", return_value=True)
+    def test_overrides_tables_duckdb(self, mock_duckdb):
+        t1, t2 = _overrides_tables()
+        assert t1 == "user_data.table_metadata_overrides"
+        assert t2 == "user_data.business_name_overrides"
+
+    @patch("src.api.queries._duckdb_available", return_value=False)
+    def test_overrides_tables_databricks(self, mock_duckdb):
+        t1, t2 = _overrides_tables()
+        assert "table_metadata_overrides" in t1
+        assert "business_name_overrides" in t2
+        assert "user_data" not in t1
