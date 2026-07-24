@@ -33,6 +33,18 @@ def _fresh_module():
     rc._client = None
 
 
+class TestGetClient:
+    def setup_method(self):
+        _fresh_module()
+
+    def test_returns_existing_client_if_already_initialized(self, monkeypatch):
+        monkeypatch.setenv("REDIS_URL", "redis://localhost:6379")
+        mock_client = AsyncMock()
+        with patch("redis.asyncio.from_url", return_value=mock_client):
+            client1 = rc._get_client()
+            client2 = rc._get_client()
+        assert client1 is client2
+
 # ── cache_key ─────────────────────────────────────────────────────────────────
 
 class TestCacheKey:
@@ -120,6 +132,14 @@ class TestSet:
 class TestFlushPrefix:
     def setup_method(self):
         _fresh_module()
+
+    def test_swallows_redis_error(self, monkeypatch):
+        monkeypatch.setenv("REDIS_URL", "redis://localhost:6379")
+        mock_client = AsyncMock()
+        mock_client.keys = AsyncMock(side_effect=Exception("timeout"))
+        with patch("redis.asyncio.from_url", return_value=mock_client):
+            count = _run(rc.flush_prefix("ddic:"))
+        assert count == 0
 
     def test_returns_zero_without_redis(self, monkeypatch):
         monkeypatch.delenv("REDIS_URL", raising=False)
