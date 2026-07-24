@@ -71,3 +71,7 @@
 ## 2026-07-20 - API Endpoint Cache Hit Coverage Gap
 **Learning:** API endpoints utilizing cache checks (e.g. `redis_cache.get()`) need dedicated tests simulating cache hits. Without these, the `return cached` lines remain uncovered, and there's no verification that the application correctly bypasses database queries when data is already cached.
 **Action:** When adding or auditing API endpoints with caching logic, write tests using `unittest.mock.patch` to return mock data from the cache and assert that the underlying query functions are explicitly `not_called()`.
+
+## 2026-07-22 - Comprehensive testing of table business name audit flows
+**Learning:** The audit component uses complex dictionary mutations on Streamlit's `session_state` during demo mode, coupled with Database operations (`_get_write_connection`, `get_db_connection`) during production. The `test_audit.py` coverage for these logic branches was inadequate. The structure in `src/audit.py` specifically uses a complex dictionary of dictionaries (`table_full_name` as top-level keys mapped to properties) along with a `setdefault` pattern for demo mode.
+**Action:** Added extensive unit testing covering both `demo_mode` and production paths for fetching, upserting, approving, rejecting, and validating the table-level bilingual business name overrides within `tests/test_audit_table_business_name.py`.
