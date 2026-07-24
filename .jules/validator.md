@@ -73,3 +73,7 @@
 **Coverage Gap:** The `/health/ready` endpoint in `src/api/routers/health.py` was missing test coverage, resulting in 88% coverage on the file.
 **Learning:** Testing simple API endpoint routing doesn't require mocking when no external dependencies exist, but simple paths like `readiness` are often overlooked when `liveness` tests already exist.
 **Assertion:** Use FastAPI's `TestClient` to make a GET request to `/health/ready` and assert on `resp.status_code == 200` and `resp.json() == {"status": "ok"}`.
+## 2024-07-22 - Missing Test Coverage for Query Overrides Resolution
+**Coverage Gap:** `src/api/queries._overrides_tables()` lacked tests to cover branches validating metadata table fallback resolutions when `_duckdb_available()` returned true or false.
+**Learning:** Adding test coverage involving multiple conditional branches where `patch` context managers handle different states is effective at rapidly pushing unverified conditional paths to 100% coverage.
+**Assertion:** I used `unittest.mock.patch` for `_duckdb_available` to test both true and false paths, validating output variables cleanly in `TestOverridesTables`. Ensure imports for new tests are placed at the top of the file to prevent Ruff `E402` linting errors.
