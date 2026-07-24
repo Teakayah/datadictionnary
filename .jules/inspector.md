@@ -71,3 +71,6 @@
 ## 2026-07-20 - API Endpoint Cache Hit Coverage Gap
 **Learning:** API endpoints utilizing cache checks (e.g. `redis_cache.get()`) need dedicated tests simulating cache hits. Without these, the `return cached` lines remain uncovered, and there's no verification that the application correctly bypasses database queries when data is already cached.
 **Action:** When adding or auditing API endpoints with caching logic, write tests using `unittest.mock.patch` to return mock data from the cache and assert that the underlying query functions are explicitly `not_called()`.
+## 2026-07-23 - Coverage Gap: _render_comment_form missing assertions
+**Learning:** `_render_comment_form` in `src/pages/search.py` completely lacked unit test coverage. Testing interactive components that trigger Streamlit reruns and rely on session state requires using `AppTest.from_function()` to properly simulate user interactions and assertions.
+**Action:** Always create isolated Streamlit function wrappers for rendering interactive components to ensure complex interaction trees like comment submission, form cancellations, valid comment saving, reply functionality, and the missing steward warning message can be asserted on successfully.
