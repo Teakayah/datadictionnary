@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import sys
 import pandas as pd
+import requests
+import os
 import pytest
 import streamlit as st
 from unittest.mock import MagicMock
@@ -134,3 +136,18 @@ def sql_returns(*dataframes: pd.DataFrame, side_effect=None) -> None:
         default_side_effect.index = 0
         cursor.fetchall_as_pandas.side_effect = default_side_effect
     cursor.fetchall_as_pandas.return_value = None
+
+
+APP_URL = os.getenv("LOAD_TEST_HOST", "http://localhost:8501")
+
+def _server_is_up() -> bool:
+    try:
+        return requests.get(f"{APP_URL}/healthz", timeout=3).status_code == 200
+    except requests.ConnectionError:
+        return False
+
+@pytest.fixture(scope="session")
+def require_server():
+    """Skip tests if the Streamlit app is not reachable."""
+    if not _server_is_up():
+        pytest.skip(f"Streamlit app not reachable at {APP_URL}")
