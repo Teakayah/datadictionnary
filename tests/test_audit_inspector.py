@@ -1,9 +1,15 @@
-import pytest
-import pandas as pd
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from src.audit import save_table_metadata, _validate_business_name_inputs, save_business_name
+import pandas as pd
+import pytest
+
+from src.audit import (
+    _validate_business_name_inputs,
+    save_business_name,
+    save_table_metadata,
+)
 from src.config import MAX_BUSINESS_NAME_LEN, MAX_DEFINITION_LEN
+
 
 def test_save_table_metadata_duckdb_exception():
     """Verify that if DuckDB CHECKPOINT raises an Exception during metadata save, it is handled gracefully."""
@@ -399,7 +405,12 @@ def test__append_audit_event_exception():
         assert "Audit logging failed" in mock_log.warning.call_args[0][0]
 
 def test__upsert_column_override_demo_mode_pending():
-    from src.audit import _upsert_column_override, ColumnOverride, _DEMO_BN_KEY, _DEMO_BN_PENDING_KEY
+    from src.audit import (
+        _DEMO_BN_KEY,
+        _DEMO_BN_PENDING_KEY,
+        ColumnOverride,
+        _upsert_column_override,
+    )
     with patch("src.audit.is_demo_mode", return_value=True), \
          patch("src.audit.st") as mock_st:
         mock_st.session_state = {}
@@ -422,7 +433,12 @@ def test__upsert_column_override_demo_mode_pending():
         assert ("catalog.schema.table", "col1") in mock_pending_store
 
 def test__upsert_column_override_demo_mode_published():
-    from src.audit import _upsert_column_override, ColumnOverride, _DEMO_BN_KEY, _DEMO_BN_PENDING_KEY
+    from src.audit import (
+        _DEMO_BN_KEY,
+        _DEMO_BN_PENDING_KEY,
+        ColumnOverride,
+        _upsert_column_override,
+    )
     with patch("src.audit.is_demo_mode", return_value=True), \
          patch("src.audit.st") as mock_st:
         mock_st.session_state = {
@@ -448,7 +464,7 @@ def test__upsert_column_override_demo_mode_published():
         assert ("catalog.schema.table", "col1") not in mock_pending_store
 
 def test__upsert_column_override_production():
-    from src.audit import _upsert_column_override, ColumnOverride
+    from src.audit import ColumnOverride, _upsert_column_override
     with patch("src.audit.is_demo_mode", return_value=False), \
          patch("src.audit._get_write_connection") as mock_get_write:
         mock_cursor = MagicMock()
@@ -567,3 +583,366 @@ def test__reject_column_override_production():
 
         _reject_column_override("catalog.schema.table", "col1")
         mock_cursor.execute_write.assert_called_once()
+
+def test_list_pending_table_business_names_demo_mode():
+    from src.audit import list_pending_table_business_names
+    with patch("src.audit.is_demo_mode", return_value=True), \
+         patch("src.audit.st") as mock_st:
+        mock_st.session_state.get.return_value.values.return_value = [{"table_full_name": "t1"}]
+        res = list_pending_table_business_names()
+        assert res == [{"table_full_name": "t1"}]
+
+def test_list_pending_table_business_names_production():
+    from src.audit import list_pending_table_business_names
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit.get_db_connection") as mock_get_db:
+        mock_cursor = MagicMock()
+        mock_get_db.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_cursor.fetchall_as_pandas.return_value = pd.DataFrame([
+            {"table_full_name": "t1"}
+        ])
+        res = list_pending_table_business_names()
+        assert len(res) == 1
+        assert res[0]["table_full_name"] == "t1"
+
+def test_list_pending_table_business_names_exception():
+    from src.audit import list_pending_table_business_names
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit.get_db_connection", side_effect=Exception("DB Error")), \
+         patch("src.audit.log") as mock_log:
+        res = list_pending_table_business_names()
+        assert res == []
+        mock_log.warning.assert_called_once()
+
+def test__upsert_table_business_name_override_production():
+    from src.audit import (
+        TableBusinessNameOverride,
+        _upsert_table_business_name_override,
+    )
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit._get_write_connection") as mock_get_write:
+        mock_cursor = MagicMock()
+        mock_get_write.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+
+        override = TableBusinessNameOverride(
+            table_full_name="catalog.schema.table",
+            business_name_en="EN Name",
+            business_name_fr="FR Name",
+            business_definition_en="EN Def",
+            business_definition_fr="FR Def",
+            edited_by="user1",
+            status="published"
+        )
+
+        _upsert_table_business_name_override(override)
+
+        mock_cursor.execute_write.assert_called_once()
+        args = mock_cursor.execute_write.call_args[0]
+        assert "INSERT INTO user_data.table_business_name_overrides" in args[0]
+        assert args[1]["fn"] == "catalog.schema.table"
+        assert args[1]["name_en"] == "EN Name"
+        assert args[1]["status"] == "published"
+
+@patch("src.audit._duckdb_available", return_value=True)
+@patch("src.audit._get_shared_duckdb_connection")
+@patch("src.audit.enqueue_table_business_name_sync")
+@patch("src.audit.log_audit_event")
+@patch("src.audit.search_all_metadata")
+@patch("src.audit.is_admin", return_value=True)
+@patch("src.audit.is_power_user", return_value=True)
+def test_save_table_business_name_duckdb_admin(mock_power, mock_admin, mock_search, mock_log, mock_enqueue, mock_get_conn, mock_duck_avail):
+    from src.audit import save_table_business_name
+    with patch("src.audit.st") as mock_st, \
+         patch("src.audit.get_table_business_name_override", return_value={"business_name_en": "Old EN", "business_name_fr": "Old FR"}), \
+         patch("src.audit._validate_table_business_name_inputs"), \
+         patch("src.audit._upsert_table_business_name_override"):
+
+        mock_st.session_state.get.return_value = "admin_user"
+
+        save_table_business_name(
+            "catalog.schema.table", "New EN", "New FR", "Def EN", "Def FR"
+        )
+
+        mock_get_conn.return_value.execute.assert_called_once_with("CHECKPOINT user_data")
+        mock_enqueue.assert_called_once_with(
+            "catalog.schema.table", "New EN", "New FR", "Def EN", "Def FR", "admin_user"
+        )
+
+def test__approve_column_override_demo_mode():
+    from src.audit import _DEMO_BN_KEY, _approve_column_override
+    with patch("src.audit.is_demo_mode", return_value=True), \
+         patch("src.audit.st") as mock_st:
+        mock_table_store = {"col1": {"status": "pending"}}
+        mock_store = {"catalog.schema.table": mock_table_store}
+        mock_pending_store = {("catalog.schema.table", "col1"): "some_info"}
+
+        mock_st.session_state.get.side_effect = lambda k, d={}: mock_store if k == _DEMO_BN_KEY else mock_pending_store
+
+        _approve_column_override("catalog.schema.table", "col1")
+
+        assert mock_table_store["col1"]["status"] == "published"
+        assert ("catalog.schema.table", "col1") not in mock_pending_store
+
+def test__approve_column_override_production():
+    from src.audit import _approve_column_override
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit._get_write_connection") as mock_get_write:
+        mock_cursor = MagicMock()
+        mock_get_write.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+
+        _approve_column_override("catalog.schema.table", "col1")
+
+        mock_cursor.execute_write.assert_called_once()
+        args = mock_cursor.execute_write.call_args[0]
+        assert "UPDATE user_data.business_name_overrides SET status = 'published'" in args[0]
+        assert args[1] == {"fn": "catalog.schema.table", "col": "col1"}
+
+def test_get_table_business_name_override_demo_mode():
+    from src.audit import get_table_business_name_override
+    with patch("src.audit.is_demo_mode", return_value=True), \
+         patch("src.audit.st") as mock_st:
+        mock_st.session_state.get.return_value.get.return_value = {
+            "business_name_en": "Name EN",
+            "business_name_fr": "Name FR",
+            "business_definition_en": "Def EN",
+            "business_definition_fr": "Def FR",
+            "edited_by": "user1",
+            "edited_at": "time1"
+        }
+
+        res = get_table_business_name_override("catalog.schema.table")
+        assert res["business_name_en"] == "Name EN"
+        assert res["business_name_fr"] == "Name FR"
+        assert res["business_definition_en"] == "Def EN"
+        assert res["business_definition_fr"] == "Def FR"
+        assert res["edited_by"] == "user1"
+        assert res["edited_at"] == "time1"
+
+def test_get_table_business_name_override_production_success():
+    from src.audit import get_table_business_name_override
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit.get_db_connection") as mock_get_db:
+        mock_cursor = MagicMock()
+        mock_get_db.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_cursor.fetchall_as_pandas.return_value = pd.DataFrame([
+            {
+                "business_name_en": "Name EN DB",
+                "business_name_fr": "Name FR DB",
+                "business_definition_en": "Def EN DB",
+                "business_definition_fr": "Def FR DB",
+                "edited_by": "user DB",
+                "edited_at": "time DB"
+            }
+        ])
+
+        res = get_table_business_name_override("catalog.schema.table")
+
+        assert res["business_name_en"] == "Name EN DB"
+        assert res["business_name_fr"] == "Name FR DB"
+        assert res["business_definition_en"] == "Def EN DB"
+        assert res["business_definition_fr"] == "Def FR DB"
+        assert res["edited_by"] == "user DB"
+        assert res["edited_at"] == "time DB"
+
+def test_get_table_business_name_override_production_empty():
+    from src.audit import get_table_business_name_override
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit.get_db_connection") as mock_get_db:
+        mock_cursor = MagicMock()
+        mock_get_db.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_cursor.fetchall_as_pandas.return_value = pd.DataFrame()
+
+        res = get_table_business_name_override("catalog.schema.table")
+        assert res == {}
+
+def test_get_table_business_name_override_production_exception():
+    from src.audit import get_table_business_name_override
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit.get_db_connection", side_effect=Exception("DB Error")), \
+         patch("src.audit.log") as mock_log:
+        res = get_table_business_name_override("catalog.schema.table")
+        assert res == {}
+        mock_log.warning.assert_called_once()
+        assert "Could not fetch table friendly name" in mock_log.warning.call_args[0][0]
+
+def test__approve_table_business_name_override_demo_mode_found():
+    from src.audit import (
+        _DEMO_TBN_KEY,
+        _approve_table_business_name_override,
+    )
+    with patch("src.audit.is_demo_mode", return_value=True), \
+         patch("src.audit.st") as mock_st:
+        mock_tbn_store = {"catalog.schema.table": {"status": "pending", "name_en": "Table EN"}}
+        mock_pending_store = {"catalog.schema.table": "pending_info"}
+
+        mock_st.session_state.get.side_effect = lambda k, d={}: mock_tbn_store if k == _DEMO_TBN_KEY else mock_pending_store
+
+        res = _approve_table_business_name_override("catalog.schema.table")
+
+        assert mock_tbn_store["catalog.schema.table"]["status"] == "published"
+        assert "catalog.schema.table" not in mock_pending_store
+        assert res == {"name_en": "Table EN"}
+
+def test__approve_table_business_name_override_demo_mode_not_found():
+    from src.audit import _approve_table_business_name_override
+    with patch("src.audit.is_demo_mode", return_value=True), \
+         patch("src.audit.st") as mock_st:
+        mock_st.session_state.get.return_value.get.return_value = None
+        res = _approve_table_business_name_override("catalog.schema.table")
+        assert res == {}
+
+@patch("src.audit.get_table_business_name_override")
+def test__approve_table_business_name_override_production(mock_get_override):
+    from src.audit import _approve_table_business_name_override
+    mock_get_override.return_value = {"name_en": "Published EN"}
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit._get_write_connection") as mock_get_write:
+        mock_cursor = MagicMock()
+        mock_get_write.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+
+        res = _approve_table_business_name_override("catalog.schema.table")
+
+        mock_cursor.execute_write.assert_called_once()
+        args = mock_cursor.execute_write.call_args[0]
+        assert "UPDATE user_data.table_business_name_overrides SET status = 'published'" in args[0]
+        assert args[1] == {"fn": "catalog.schema.table"}
+        mock_get_override.assert_called_once_with("catalog.schema.table")
+        assert res == {"name_en": "Published EN"}
+
+def test__reject_table_business_name_override_demo_mode():
+    from src.audit import (
+        _reject_table_business_name_override,
+    )
+    with patch("src.audit.is_demo_mode", return_value=True), \
+         patch("src.audit.st") as mock_st:
+        mock_tbn_store = MagicMock()
+        mock_pending_store = MagicMock()
+        mock_st.session_state.get.side_effect = [mock_tbn_store, mock_pending_store]
+
+        _reject_table_business_name_override("catalog.schema.table")
+        mock_tbn_store.pop.assert_called_once_with("catalog.schema.table", None)
+        mock_pending_store.pop.assert_called_once_with("catalog.schema.table", None)
+
+def test__reject_table_business_name_override_production():
+    from src.audit import _reject_table_business_name_override
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit._get_write_connection") as mock_get_write:
+        mock_cursor = MagicMock()
+        mock_get_write.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+
+        _reject_table_business_name_override("catalog.schema.table")
+
+        mock_cursor.execute_write.assert_called_once()
+        args = mock_cursor.execute_write.call_args[0]
+        assert "DELETE FROM user_data.table_business_name_overrides" in args[0]
+        assert args[1] == {"fn": "catalog.schema.table"}
+
+def test__validate_table_business_name_inputs_success():
+    from src.audit import _validate_table_business_name_inputs
+    _validate_table_business_name_inputs("Valid Name EN", "Valid Name FR", "Valid Def EN", "Valid Def FR")
+
+def test__validate_table_business_name_inputs_name_exceeds():
+    from src.audit import MAX_BUSINESS_NAME_LEN, _validate_table_business_name_inputs
+    with pytest.raises(ValueError) as exc:
+        _validate_table_business_name_inputs("A" * (MAX_BUSINESS_NAME_LEN + 1), "", "", "")
+    assert f"name_en exceeds the {MAX_BUSINESS_NAME_LEN}-char limit" in str(exc.value)
+
+    with pytest.raises(ValueError) as exc:
+        _validate_table_business_name_inputs("", "B" * (MAX_BUSINESS_NAME_LEN + 1), "", "")
+    assert f"name_fr exceeds the {MAX_BUSINESS_NAME_LEN}-char limit" in str(exc.value)
+
+def test__validate_table_business_name_inputs_def_exceeds():
+    from src.audit import MAX_DEFINITION_LEN, _validate_table_business_name_inputs
+    with pytest.raises(ValueError) as exc:
+        _validate_table_business_name_inputs("", "", "C" * (MAX_DEFINITION_LEN + 1), "")
+    assert f"definition_en exceeds the {MAX_DEFINITION_LEN}-char limit" in str(exc.value)
+
+    with pytest.raises(ValueError) as exc:
+        _validate_table_business_name_inputs("", "", "", "D" * (MAX_DEFINITION_LEN + 1))
+    assert f"definition_fr exceeds the {MAX_DEFINITION_LEN}-char limit" in str(exc.value)
+
+def test_approve_table_business_name_not_admin():
+    from src.audit import approve_table_business_name
+    with patch("src.audit.is_admin", return_value=False):
+        with pytest.raises(PermissionError) as exc:
+            approve_table_business_name("catalog.schema.table")
+        assert "Only admins can approve metadata changes." in str(exc.value)
+
+@patch("src.audit.list_pending_table_business_names")
+def test_approve_table_business_name_not_pending(mock_list):
+    from src.audit import approve_table_business_name
+    mock_list.return_value = []
+    with patch("src.audit.is_admin", return_value=True):
+        assert approve_table_business_name("catalog.schema.table") is None
+
+@patch("src.audit.list_pending_table_business_names")
+@patch("src.audit._approve_table_business_name_override")
+@patch("src.audit.enqueue_table_business_name_sync")
+@patch("src.audit._duckdb_available", return_value=True)
+@patch("src.audit.search_all_metadata")
+def test_approve_table_business_name_success(mock_search_cache, mock_duckdb, mock_enqueue, mock_approve, mock_list):
+    from src.audit import approve_table_business_name
+    mock_list.return_value = [{"table_full_name": "catalog.schema.table"}]
+    mock_approve.return_value = {
+        "business_name_en": "EN", "business_name_fr": "FR",
+        "business_definition_en": "Def EN", "business_definition_fr": "Def FR"
+    }
+    with patch("src.audit.is_admin", return_value=True), \
+         patch("src.audit.st") as mock_st, \
+         patch("src.audit._get_shared_duckdb_connection"):
+        mock_st.session_state.get.return_value = "admin_user"
+        approve_table_business_name("catalog.schema.table")
+
+        mock_approve.assert_called_once_with("catalog.schema.table")
+        mock_enqueue.assert_called_once_with("catalog.schema.table", "EN", "FR", "Def EN", "Def FR", "admin_user")
+        mock_search_cache.clear.assert_called_once()
+
+@patch("src.audit.list_pending_table_business_names")
+@patch("src.audit._approve_table_business_name_override")
+@patch("src.audit._duckdb_available", return_value=True)
+def test_approve_table_business_name_checkpoint_exception(mock_duckdb, mock_approve, mock_list):
+    from src.audit import approve_table_business_name
+    mock_list.return_value = [{"table_full_name": "catalog.schema.table"}]
+    mock_approve.return_value = {}
+    with patch("src.audit.is_admin", return_value=True), \
+         patch("src.audit.st"), \
+         patch("src.audit.enqueue_table_business_name_sync"), \
+         patch("src.audit._get_shared_duckdb_connection", side_effect=Exception("DB err")):
+        approve_table_business_name("catalog.schema.table")
+
+def test_reject_table_business_name_not_admin():
+    from src.audit import reject_table_business_name
+    with patch("src.audit.is_admin", return_value=False):
+        with pytest.raises(PermissionError) as exc:
+            reject_table_business_name("catalog.schema.table")
+        assert "Only admins can reject metadata changes." in str(exc.value)
+
+@patch("src.audit._reject_table_business_name_override")
+@patch("src.audit.search_all_metadata")
+def test_reject_table_business_name_success(mock_search_cache, mock_reject):
+    from src.audit import reject_table_business_name
+    with patch("src.audit.is_admin", return_value=True):
+        reject_table_business_name("catalog.schema.table")
+        mock_reject.assert_called_once_with("catalog.schema.table")
+
+@patch("src.audit._duckdb_available", return_value=True)
+@patch("src.audit._get_shared_duckdb_connection", side_effect=Exception("Checkpoint Error"))
+@patch("src.audit.enqueue_table_business_name_sync")
+@patch("src.audit.log_audit_event")
+@patch("src.audit.search_all_metadata")
+@patch("src.audit.is_admin", return_value=True)
+@patch("src.audit.is_power_user", return_value=True)
+def test_save_table_business_name_duckdb_admin_checkpoint_exception(mock_power, mock_admin, mock_search, mock_log, mock_enqueue, mock_get_conn, mock_duck_avail):
+    from src.audit import save_table_business_name
+    with patch("src.audit.st") as mock_st, \
+         patch("src.audit.get_table_business_name_override", return_value={"business_name_en": "Old EN", "business_name_fr": "Old FR"}), \
+         patch("src.audit._validate_table_business_name_inputs"), \
+         patch("src.audit._upsert_table_business_name_override"):
+
+        mock_st.session_state.get.return_value = "admin_user"
+
+        save_table_business_name(
+            "catalog.schema.table", "New EN", "New FR", "Def EN", "Def FR"
+        )
+        # Should catch exception and proceed to enqueue
+        mock_enqueue.assert_called_once()
