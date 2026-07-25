@@ -1,5 +1,3 @@
-from __future__ import annotations
-from typing import List, Optional
 """Search analytics — tracks query events and surfaces zero-result gaps.
 
 Demo mode (or no DuckDB) keeps events in
@@ -9,7 +7,11 @@ Demo mode (or no DuckDB) keeps events in
 read connection).
 """
 
+from __future__ import annotations
+from typing import List, Optional
 from datetime import datetime, timedelta, timezone
+import threading
+import logging
 
 
 class SearchEvent:
@@ -62,14 +64,24 @@ def track_search(event: SearchEvent) -> None:
             "timestamp": event.timestamp
         })
         return
-    with _analytics_conn() as conn:
-        _ensure_table(conn)
-        with conn.cursor() as cur:
-            cur.execute_write(
-                "INSERT INTO user_data.search_analytics (query, results_count, user_email, timestamp) "
-                "VALUES (?, ?, ?, ?)",
-                (event.query, event.results_count, event.user_email, event.timestamp)
-            )
+    # ⚡ Bolt: Offload DuckDB analytics insert to a background thread to prevent disk I/O from blocking the main Streamlit render thread.
+    def _write_db():
+        try:
+            with _analytics_conn() as conn:
+                _ensure_table(conn)
+                with conn.cursor() as cur:
+                    cur.execute_write(
+                        "INSERT INTO user_data.search_analytics (query, results_count, user_email, timestamp) "
+                        "VALUES (?, ?, ?, ?)",
+                        (event.query, event.results_count, event.user_email, event.timestamp)
+                    )
+        except Exception as e:
+            logging.warning("Background analytics tracking failed: %s", e)
+
+    from streamlit.runtime.scriptrunner import add_script_run_ctx
+    t = threading.Thread(target=_write_db, daemon=True)
+    add_script_run_ctx(t)
+    t.start()
 
 
 def get_zero_result_searches(limit: int = 50) -> List[dict]:

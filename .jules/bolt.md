@@ -65,3 +65,9 @@
 ## 2026-07-22 - Optimize pandas list scoring logic
 **Learning:** Pandas `.map(dictionary).fillna()` dictionary lookups create temporary Series and allocate large amounts of memory, especially in search loops. Vectorization using `pd.Categorical` avoids this overhead.
 **Action:** Replace `.map()` lookups for list scoring with vectorized `pd.Categorical(..., categories=list).codes` arrays.
+## 2024-07-26 - Optimize analytics tracking I/O
+**Learning:** Synchronous DuckDB disk I/O operations (like `track_search`) placed inside the main Streamlit rendering loop block the main thread, causing noticeable UI freezing during frequent user actions (like typing in a search bar).
+**Action:** Offload non-critical I/O operations (like analytics tracking) to background threads using `threading.Thread(target=..., daemon=True).start()` to allow the UI to remain responsive.
+## 2024-07-26 - Streamlit Threading Context
+**Learning:** Streamlit heavily relies on a thread-local `ScriptRunContext` for its core features (like caching, connection state, etc.). Spawning a raw `threading.Thread` without attaching this context will cause Streamlit functions to throw a `RuntimeError`, which, if caught in a broad `try...except`, results in silent failure.
+**Action:** Always inject the Streamlit context into newly spawned background threads using `from streamlit.runtime.scriptrunner import add_script_run_ctx; add_script_run_ctx(thread)`.
