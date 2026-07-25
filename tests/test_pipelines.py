@@ -774,3 +774,184 @@ class TestCancellationFunctions:
 
         mock_cancel.assert_called_once_with(pipeline, "r1")
         mock_clear.assert_called_once_with("p1")
+
+# --- Inspector Coverage Addition ---
+from unittest.mock import patch, MagicMock
+
+class MockCursor:
+    def __init__(self, fetch_result=None):
+        self.fetch_result = fetch_result
+
+    def execute(self, *args, **kwargs):
+        pass
+
+    def fetchall(self):
+        return self.fetch_result
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+class MockConnection:
+    def __init__(self, cursor_result=None):
+        self.cursor_result = cursor_result
+
+    def cursor(self):
+        return MockCursor(self.cursor_result)
+
+    def execute(self, *args, **kwargs):
+        pass
+
+def test_pipeline_def_db_paths():
+    """Coverage for save_pipeline_def and delete_pipeline_def via DuckDB."""
+    with patch("src.pipelines.is_demo_mode", return_value=False), \
+         patch("src.pipelines._get_write_connection") as mock_conn, \
+         patch("src.pipelines._db_write_lock", MagicMock()), \
+         patch("src.pipelines._check_admin"):
+
+        mock_conn_inst = MockConnection()
+        mock_conn.return_value = mock_conn_inst
+
+        from src.pipelines import create_pipeline_def, delete_pipeline_def
+
+        create_pipeline_def(
+            title="My DB Pipe",
+            description="desc",
+            backend="databricks",
+            created_by="me",
+            databricks_job_id="123",
+            adf_subscription_id=None,
+            adf_resource_group=None,
+            adf_factory_name=None,
+            adf_pipeline_name=None,
+            ado_organization=None,
+            ado_project=None,
+            ado_pipeline_id=None
+        )
+
+        delete_pipeline_def("test_id")
+
+def test_pipeline_run_db_paths():
+    """Coverage for get_active_run, _save_run, _update_run, and _clear_run via DuckDB."""
+    with patch("src.pipelines.is_demo_mode", return_value=False), \
+         patch("src.pipelines.get_db_connection") as mock_conn, \
+         patch("src.pipelines._get_write_connection") as mock_wconn, \
+         patch("src.pipelines._db_write_lock", MagicMock()):
+
+        mock_conn_inst = MockConnection(cursor_result=[("run_123", "me", "time", "started", "time")])
+        mock_conn.return_value = mock_conn_inst
+
+        mock_wconn_inst = MockConnection()
+        mock_wconn.return_value = mock_wconn_inst
+
+        from src.pipelines import get_active_run, _save_run, _update_run, _clear_run
+
+        run = get_active_run("test_id")
+        assert run is not None
+        assert run["backend_run_id"] == "run_123"
+
+        _save_run("test_id", "run_123", "me")
+        _update_run("test_id", "completed")
+        _clear_run("test_id")
+
+def test_get_active_run_exception_path():
+    """Coverage for Exception fallback in get_active_run."""
+    with patch("src.pipelines.is_demo_mode", return_value=False), \
+         patch("src.pipelines.get_db_connection") as mock_conn:
+        mock_conn.side_effect = Exception("DB failed")
+        from src.pipelines import get_active_run
+        assert get_active_run("test_id") is None
+
+def test_trigger_bad_backend():
+    """Coverage for unknown backend branch in trigger_pipeline."""
+    from src.pipelines import trigger_pipeline
+    with patch("src.pipelines._check_pipeline_user_or_admin"):
+        with pytest.raises(ValueError, match="Unknown backend"):
+            trigger_pipeline({"backend": "unknown"}, "user1")
+
+def test_pipeline_poll_databricks():
+    """Coverage for Databricks branch in poll_run_status."""
+    with patch("src.pipelines._status_databricks", return_value={"status": "pending", "is_terminal": False, "progress": 0, "message": ""}), \
+         patch("src.pipelines._update_run"):
+        from src.pipelines import poll_run_status
+        pipeline = {"backend": "databricks", "pipeline_id": "test_id"}
+        run = {"backend_run_id": "123"}
+        res = poll_run_status(pipeline, run)
+        assert res["status"] == "pending"
+
+def test_pipeline_poll_adf():
+    """Coverage for ADF branch in poll_run_status."""
+    with patch("src.pipelines._status_adf", return_value={"status": "completed", "is_terminal": True, "progress": 100, "message": ""}), \
+         patch("src.pipelines._update_run"), \
+         patch("src.pipelines._clear_run"):
+        from src.pipelines import poll_run_status
+        pipeline = {"backend": "adf", "pipeline_id": "test_id"}
+        run = {"backend_run_id": "123"}
+        res = poll_run_status(pipeline, run)
+        assert res["status"] == "completed"
+
+def test_pipeline_poll_ado():
+    """Coverage for ADO branch in poll_run_status."""
+    with patch("src.pipelines._status_ado", return_value={"status": "running", "is_terminal": False, "progress": 50, "message": ""}), \
+         patch("src.pipelines._update_run"):
+        from src.pipelines import poll_run_status
+        pipeline = {"backend": "ado", "pipeline_id": "test_id"}
+        run = {"backend_run_id": "123"}
+        res = poll_run_status(pipeline, run)
+        assert res["status"] == "running"
+
+def test_pipeline_poll_unknown_backend():
+    """Coverage for unknown backend branch in poll_run_status."""
+    with patch("src.pipelines._update_run"):
+        from src.pipelines import poll_run_status
+        pipeline = {"backend": "unknown", "pipeline_id": "test_id"}
+        run = {"backend_run_id": "123"}
+        res = poll_run_status(pipeline, run)
+        assert res["status"] == "unknown"
+
+def test_pipeline_poll_exception_handled():
+    """Coverage for Exception fallback in poll_run_status."""
+    with patch("src.pipelines._status_databricks", side_effect=Exception("API limit")):
+        from src.pipelines import poll_run_status
+        pipeline = {"backend": "databricks", "pipeline_id": "test_id"}
+        run = {"backend_run_id": "123", "status": "started"}
+        res = poll_run_status(pipeline, run)
+
+        # Ensures exception branch runs
+        assert res["status"] == "started"
+        assert res["message"] == "API limit"
+        assert res["is_terminal"] is False
+
+def test_get_pipelines_db_paths():
+    """Coverage for get_pipelines duckdb flow and exception path."""
+    with patch("src.pipelines.is_demo_mode", return_value=False), \
+         patch("src.pipelines.get_db_connection") as mock_conn:
+
+        # Successful flow
+        mock_conn_inst = MockConnection(cursor_result=[
+            ("test_id", "title", "desc", "databricks", "123", None, None, None, None, None, None, None, "me", "time")
+        ])
+        mock_conn.return_value = mock_conn_inst
+        from src.pipelines import get_pipelines
+        res = get_pipelines()
+        assert len(res) == 1
+        assert res[0]["pipeline_id"] == "test_id"
+
+        # Exception flow
+        mock_conn.side_effect = Exception("DB failure")
+        res2 = get_pipelines()
+        assert res2 == []
+
+def test_get_active_run_empty_db_paths():
+    """Coverage for empty list response in get_active_run duckdb flow."""
+    with patch("src.pipelines.is_demo_mode", return_value=False), \
+         patch("src.pipelines.get_db_connection") as mock_conn:
+
+        mock_conn_inst = MockConnection(cursor_result=[])
+        mock_conn.return_value = mock_conn_inst
+
+        from src.pipelines import get_active_run
+        run = get_active_run("test_id")
+        assert run is None
