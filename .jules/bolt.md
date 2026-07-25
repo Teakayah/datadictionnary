@@ -62,3 +62,6 @@
 ## 2026-07-15 - Redundant Pandas Dictionary Mappings
 **Learning:** In Pandas, declaring multiple redundant dictionaries and iterating over the same column multiple times with `.map()` and `.copy()` is significantly slower than calculating the single final dictionary mapping required to achieve the desired value assignments in one pass.
 **Action:** Always collapse consecutive, redundant `.map()` logic over Pandas Series into a single optimized mapping operation to drastically decrease overhead execution time and limit memory re-allocations.
+## 2026-07-22 - Optimize pandas list scoring logic
+**Learning:** Pandas `.map(dictionary).fillna()` dictionary lookups create temporary Series and allocate large amounts of memory, especially in search loops. Vectorization using `pd.Categorical` avoids this overhead.
+**Action:** Replace `.map()` lookups for list scoring with vectorized `pd.Categorical(..., categories=list).codes` arrays.

@@ -18,7 +18,6 @@ import os
 from typing import Generator
 
 import pytest
-import requests
 from playwright.sync_api import Page, sync_playwright
 
 APP_URL = os.getenv("LOAD_TEST_HOST", "http://localhost:8501")
@@ -26,17 +25,6 @@ _SEARCH_URL = "/?tab=search&mock_login=true"
 _WAIT_MS = 2500
 
 
-def _server_is_up() -> bool:
-    try:
-        return requests.get(f"{APP_URL}/healthz", timeout=3).status_code == 200
-    except requests.ConnectionError:
-        return False
-
-
-@pytest.fixture(scope="module")
-def require_server():
-    if not _server_is_up():
-        pytest.skip(f"Streamlit app not reachable at {APP_URL}")
 
 
 @pytest.fixture(scope="module")

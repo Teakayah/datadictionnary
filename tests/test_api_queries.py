@@ -17,6 +17,7 @@ from unittest.mock import patch
 import pandas as pd
 
 from src.api.queries import (
+    _overrides_tables,
     _group_clause,
     _overrides_tables,
     get_authorized_tables,
