@@ -65,6 +65,7 @@ def _render_comment_form(
                             parent_comment_id=parent_comment_id,
                         )
                         st.session_state.pop(_open_key, None)
+                        st.toast(t("common.saved"))
                         st.rerun()
                     else:
                         st.warning(t("comment.empty_error"))
@@ -329,6 +330,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                                     save_business_name(full_name, _cname, _inp_name.strip(), _inp_def.strip())
                                     st.session_state.pop("dd_col_edit_mode", None)
                                     st.session_state.pop(f"_live_completeness_{full_name}", None)
+                                    st.toast(t("common.saved"))
                                     st.rerun()
                                 except PermissionError:
                                     st.error(t("editor.permission_error"))
