@@ -15,3 +15,6 @@
 ## 2024-07-23 - Visual feedback for notification dismissal
 **Learning:** Users lack immediate visual feedback when dismissing individual notifications or marking all as read, making the UI feel unresponsive until the page reloads.
 **Action:** Use `st.toast()` immediately before `st.rerun()` when users perform state toggles like dismissing notifications to provide immediate, non-blocking visual feedback.
+## 2024-07-26 - Empty state polish
+**Learning:** Generic Streamlit alert blocks like `st.info` do not provide a cohesive, branded empty state experience.
+**Action:** Replace `st.info` with custom styled `st.markdown` containers using design tokens for empty state screens. Ensure any corresponding `AppTest` test assertions are updated to check `at.markdown` instead of `at.info`.

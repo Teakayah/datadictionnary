@@ -312,7 +312,7 @@ class TestDiscoveryTabs:
         at.session_state["recent_views"] = ["main.finance.ledger"]
         at.run()
 
-        assert any(en_locale["personalization"]["no_recent"] in m.value for m in at.info)
+        assert any(en_locale["personalization"]["no_recent"] in m.value for m in at.markdown)
 
     @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
@@ -324,7 +324,7 @@ class TestDiscoveryTabs:
         at.session_state["bookmarks"] = {"main.finance.ledger"}
         at.run()
 
-        assert any(en_locale["personalization"]["no_bookmarks"] in m.value for m in at.info)
+        assert any(en_locale["personalization"]["no_bookmarks"] in m.value for m in at.markdown)
 
     @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
