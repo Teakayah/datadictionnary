@@ -776,7 +776,7 @@ class TestCancellationFunctions:
         mock_clear.assert_called_once_with("p1")
 
 # --- Inspector Coverage Addition ---
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 class MockCursor:
     def __init__(self, fetch_result=None):

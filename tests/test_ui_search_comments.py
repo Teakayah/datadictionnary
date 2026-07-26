@@ -9,7 +9,6 @@ def mock_t():
 
 def test_comment_form_open_and_cancel():
     def render_form():
-        import streamlit as st
         from src.pages.search import _render_comment_form
         _render_comment_form("table1", "steward1", "key1")
 
@@ -20,7 +19,7 @@ def test_comment_form_open_and_cancel():
     assert len(at.button) == 1
     assert at.button[0].label == "comment.leave_a_comment"
 
-    with patch("streamlit.rerun") as mock_rerun:
+    with patch("streamlit.rerun"):
         # Click to open the form
         at.button[0].click().run()
 
@@ -35,7 +34,7 @@ def test_comment_form_open_and_cancel():
     assert at.button[0].label == "comment.send"
     assert at.button[1].label == "comment.cancel"
 
-    with patch("streamlit.rerun") as mock_rerun:
+    with patch("streamlit.rerun"):
         # Click cancel
         at.button[1].click().run()
 
@@ -50,20 +49,19 @@ def test_comment_form_open_and_cancel():
 
 def test_comment_form_submit_valid():
     def render_form():
-        import streamlit as st
         from src.pages.search import _render_comment_form
         _render_comment_form("table1", "steward1", "key1")
 
     at = AppTest.from_function(render_form)
     at.run()
 
-    with patch("streamlit.rerun") as mock_rerun:
+    with patch("streamlit.rerun"):
         # Open form
         at.button[0].click().run()
     at.run()
 
     with patch("src.pages.search.save_comment") as mock_save, \
-         patch("streamlit.rerun") as mock_rerun:
+         patch("streamlit.rerun"):
         # Enter text and submit
         at.text_area[0].input("My comment").run()
         at.button[0].click().run()
@@ -79,14 +77,13 @@ def test_comment_form_submit_valid():
 
 def test_comment_form_submit_empty():
     def render_form():
-        import streamlit as st
         from src.pages.search import _render_comment_form
         _render_comment_form("table1", "steward1", "key1")
 
     at = AppTest.from_function(render_form)
     at.run()
 
-    with patch("streamlit.rerun") as mock_rerun:
+    with patch("streamlit.rerun"):
         # Open form
         at.button[0].click().run()
     at.run()
