@@ -317,3 +317,37 @@ class TestCmsBannerUI:
         assert not at.exception, f"Exception: {at.exception}"
         delete_btns = [b for b in at.button if b.label == "✕"]
         assert len(delete_btns) >= 1, "Admin should see ✕ delete button for CMS post"
+
+def test_get_active_posts_exception(caplog):
+    """get_active_posts catches exceptions, logs them, and returns an empty list."""
+    import logging
+    from unittest.mock import patch
+    with patch("src.cms.is_demo_mode", return_value=False), \
+         patch("src.cms.get_db_connection") as mock_conn:
+        mock_cur = mock_conn.return_value.cursor.return_value.__enter__.return_value
+        mock_cur.execute.side_effect = Exception("Storage offline")
+
+        from src.cms import get_active_posts
+
+        with caplog.at_level(logging.WARNING):
+            posts = get_active_posts()
+
+        assert posts == []
+        assert "Could not load CMS posts: Storage offline" in caplog.text
+
+def test_get_all_posts_exception(caplog):
+    """get_all_posts catches exceptions, logs them, and returns an empty list."""
+    import logging
+    from unittest.mock import patch
+    with patch("src.cms.is_demo_mode", return_value=False), \
+         patch("src.cms.get_db_connection") as mock_conn:
+        mock_cur = mock_conn.return_value.cursor.return_value.__enter__.return_value
+        mock_cur.execute.side_effect = Exception("Storage offline")
+
+        from src.cms import get_all_posts
+
+        with caplog.at_level(logging.WARNING):
+            posts = get_all_posts()
+
+        assert posts == []
+        assert "Could not load CMS posts (admin): Storage offline" in caplog.text
