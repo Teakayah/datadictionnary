@@ -77,3 +77,7 @@
 **Coverage Gap:** `src/api/queries._overrides_tables()` lacked tests to cover branches validating metadata table fallback resolutions when `_duckdb_available()` returned true or false.
 **Learning:** Adding test coverage involving multiple conditional branches where `patch` context managers handle different states is effective at rapidly pushing unverified conditional paths to 100% coverage.
 **Assertion:** I used `unittest.mock.patch` for `_duckdb_available` to test both true and false paths, validating output variables cleanly in `TestOverridesTables`. Ensure imports for new tests are placed at the top of the file to prevent Ruff `E402` linting errors.
+## 2024-07-27 - DuckDB Background Thread Testing
+Coverage Gap: The offloaded `track_search` logging mechanism running in a background thread was completely untested, masking potential silent catalog or write errors.
+Learning: Streamlit's `add_script_run_ctx` and raw `threading.Thread` usage make it hard to test asynchronous I/O natively without polling or race conditions. Also, mocking file databases like DuckDB requires ensuring schemas are explicitly initialized in the temp environment.
+Assertion: Mock `threading.Thread` and extract the target function via `mock_thread.call_args[1]["target"]` to run the threaded logic synchronously inside the main test frame. This guarantees predictable database state checks.

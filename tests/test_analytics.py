@@ -161,3 +161,86 @@ def test_duckdb_analytics_zero_result_searches():
         if os.path.exists(db_path):
             os.remove(db_path)
         os.rmdir(temp_dir)
+
+def test_track_search_duckdb_path():
+    temp_dir = tempfile.mkdtemp()
+    db_path = os.path.join(temp_dir, "test_analytics_track.duckdb")
+    try:
+        # Ensure the schema exists
+        with duckdb.connect(db_path) as conn:
+            conn.execute("CREATE SCHEMA IF NOT EXISTS user_data")
+
+        now = datetime.now(timezone.utc)
+        event = SearchEvent("new_term", 10, "u1@test.com", now)
+
+        with patch("src.analytics._use_demo_backend", return_value=False), \
+             patch("src.db.duckdb_adapter._DuckDBConn", side_effect=_make_test_conn_class(db_path)), \
+             patch("src.analytics._analytics_conn", side_effect=_make_test_conn_class(db_path)), \
+             patch("src.analytics.threading.Thread") as mock_thread, \
+             patch("streamlit.runtime.scriptrunner.add_script_run_ctx"):
+
+            track_search(event)
+
+            # Extract the background function and run it synchronously
+            assert mock_thread.call_count == 1
+            target_func = mock_thread.call_args[1]["target"]
+            target_func()
+
+        with duckdb.connect(db_path) as conn:
+            res = conn.execute("SELECT query, results_count, user_email FROM user_data.search_analytics").fetchall()
+            assert len(res) == 1
+            assert res[0] == ("new_term", 10, "u1@test.com")
+    finally:
+        if os.path.exists(db_path):
+            os.remove(db_path)
+        os.rmdir(temp_dir)
+
+def test_track_search_duckdb_path_error():
+    temp_dir = tempfile.mkdtemp()
+    db_path = os.path.join(temp_dir, "test_analytics_track.duckdb")
+    try:
+        now = datetime.now(timezone.utc)
+        event = SearchEvent("new_term", 10, "u1@test.com", now)
+
+        with patch("src.analytics._use_demo_backend", return_value=False), \
+             patch("src.db.duckdb_adapter._DuckDBConn", side_effect=Exception("DB connection error")), \
+             patch("src.analytics._analytics_conn", side_effect=Exception("DB connection error")), \
+             patch("src.analytics.threading.Thread") as mock_thread, \
+             patch("streamlit.runtime.scriptrunner.add_script_run_ctx"), \
+             patch("src.analytics.logging") as mock_logging:
+
+            track_search(event)
+
+            # Extract the background function and run it synchronously
+            assert mock_thread.call_count == 1
+            target_func = mock_thread.call_args[1]["target"]
+            target_func()
+
+            assert mock_logging.warning.call_count == 1
+    finally:
+        if os.path.exists(db_path):
+            os.remove(db_path)
+        os.rmdir(temp_dir)
+
+def test_demo_zero_result_searches():
+    st.session_state.demo_analytics = [
+        {"query": "term1", "results_count": 0, "user_email": "u@test.com", "timestamp": datetime.now(timezone.utc) - timedelta(days=1)},
+        {"query": "term2", "results_count": 5, "user_email": "u@test.com", "timestamp": datetime.now(timezone.utc)}
+    ]
+    with patch("src.analytics._use_demo_backend", return_value=True):
+        zeros = get_zero_result_searches(limit=10)
+        assert len(zeros) == 1
+        assert zeros[0]["query"] == "term1"
+    st.session_state.pop("demo_analytics", None)
+
+def test_demo_track_search():
+    st.session_state.pop("demo_analytics", None)
+    now = datetime.now(timezone.utc)
+    event = SearchEvent("new_term", 10, "u1@test.com", now)
+
+    with patch("src.analytics._use_demo_backend", return_value=True):
+        track_search(event)
+        assert len(st.session_state.demo_analytics) == 1
+        assert st.session_state.demo_analytics[0]["query"] == "new_term"
+
+    st.session_state.pop("demo_analytics", None)
