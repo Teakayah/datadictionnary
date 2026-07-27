@@ -171,6 +171,3 @@ def clear_groups_cache(user_oid: Optional[str] = None) -> int:
         return 0
 
 
-def _clear_cache() -> None:
-    """Test helper — alias for ``clear_groups_cache()`` that drops everything."""
-    clear_groups_cache()

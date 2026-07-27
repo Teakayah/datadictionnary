@@ -70,9 +70,9 @@ class TestHasGroupsOverage:
 def _clear_cache_between_tests():
     """Ensure each test starts with an empty cache."""
     import src.auth_graph as ag
-    ag._clear_cache()
+    ag.clear_groups_cache()
     yield
-    ag._clear_cache()
+    ag.clear_groups_cache()
 
 
 def _resp(status: int, payload: dict) -> MagicMock:
