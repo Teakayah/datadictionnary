@@ -719,3 +719,283 @@ class TestAdminDataFetchers:
         mock_run.return_value = pd.DataFrame([{"full_name": "t1"}])
         df = get_dq_alerts()
         assert len(df) == 1
+
+def test_show_biz_log_dialog():
+    def app():
+        import streamlit as st
+        from src.ui.cards.admin import _show_biz_log_dialog
+        _show_biz_log_dialog()
+
+    with patch("src.ui.cards.admin.get_business_name_change_log") as mock_get:
+        import pandas as pd
+        mock_get.return_value = pd.DataFrame([{
+            "object_name": "table1",
+            "old_value": "old",
+            "new_value": "new",
+            "actor_email": "user@example.com",
+            "created_at": "2024-01-01"
+        }])
+        at = AppTest.from_function(app)
+        at.run()
+        assert not at.exception
+        assert len(at.dataframe) > 0
+
+def test_show_comment_log_dialog():
+    def app():
+        import streamlit as st
+        from src.ui.cards.admin import _show_comment_log_dialog
+        _show_comment_log_dialog()
+
+    with patch("src.ui.cards.admin.get_comment_log") as mock_get:
+        import pandas as pd
+        mock_get.return_value = pd.DataFrame([{
+            "object_name": "table1",
+            "comment_preview": "test comment",
+            "actor_email": "user@example.com",
+            "created_at": "2024-01-01"
+        }])
+        at = AppTest.from_function(app)
+        at.run()
+        assert not at.exception
+        assert len(at.dataframe) > 0
+
+def test_render_admin_integrity_report_with_data():
+    def app():
+        import streamlit as st
+        from src.ui.cards.admin import _render_admin_integrity_report
+        _render_admin_integrity_report()
+
+    with patch("src.ui.cards.admin.get_high_impact_gaps") as mock_gaps, \
+         patch("src.ui.cards.admin.get_dq_alerts") as mock_alerts, \
+         patch("src.ui.cards.admin.get_stewardship_gaps") as mock_stewards:
+
+        import pandas as pd
+        mock_gaps.return_value = pd.DataFrame([{
+            "full_name": "db.schema.table",
+            "interactions": 100,
+            "issue": "Missing description"
+        }])
+        mock_alerts.return_value = pd.DataFrame([{
+            "full_name": "db.schema.table",
+            "dq_score": 50,
+            "last_run_status": "FAIL"
+        }])
+        mock_stewards.return_value = pd.DataFrame([{
+            "full_name": "db.schema.table",
+            "interactions": 50,
+            "steward": "None"
+        }])
+
+        at = AppTest.from_function(app)
+        at.run()
+        assert not at.exception
+        assert len(at.dataframe) == 3
+
+
+def test_render_admin_integrity_report_with_empty_data():
+    def app():
+        import streamlit as st
+        from src.ui.cards.admin import _render_admin_integrity_report
+        _render_admin_integrity_report()
+
+    with patch("src.ui.cards.admin.get_high_impact_gaps") as mock_gaps, \
+         patch("src.ui.cards.admin.get_dq_alerts") as mock_alerts, \
+         patch("src.ui.cards.admin.get_stewardship_gaps") as mock_stewards:
+
+        import pandas as pd
+        mock_gaps.return_value = pd.DataFrame()
+        mock_alerts.return_value = pd.DataFrame()
+        mock_stewards.return_value = pd.DataFrame()
+
+        at = AppTest.from_function(app)
+        at.run()
+        assert not at.exception
+        assert len(at.info) >= 1  # Verify at least one empty message
+
+
+def test_render_admin_editing_section():
+    def app():
+        import streamlit as st
+        from src.ui.cards.admin import _render_admin_editing_section
+        st.session_state.user_email = "test@example.com"
+        _render_admin_editing_section()
+
+    with patch("src.ui.cards.admin.is_editing_enabled", return_value=False), \
+         patch("src.ui.cards.admin.set_editing_enabled") as mock_set:
+
+        at = AppTest.from_function(app)
+        at.run()
+        assert not at.exception
+
+        # Toggle to True
+        with patch("streamlit.rerun"):
+            at.toggle("admin_editing_toggle").set_value(True).run()
+            mock_set.assert_called_with(True, "test@example.com")
+
+def test_render_admin_log_expands():
+    def app():
+        import streamlit as st
+        from src.ui.cards.admin import _render_admin_biz_log_section, _render_admin_comment_log_section
+        _render_admin_biz_log_section()
+        _render_admin_comment_log_section()
+
+    with patch("src.ui.cards.admin._show_biz_log_dialog") as mock_biz, \
+         patch("src.ui.cards.admin._show_comment_log_dialog") as mock_comment:
+
+        at = AppTest.from_function(app)
+        at.run()
+        assert not at.exception
+
+        at.button("admin_biz_log_expand").click().run()
+        mock_biz.assert_called_once()
+
+        at.button("admin_comment_log_expand").click().run()
+        mock_comment.assert_called_once()
+
+def test_render_admin_groups_cache_section():
+    def app():
+        import streamlit as st
+        from src.ui.cards.admin import _render_admin_groups_cache_section
+        _render_admin_groups_cache_section()
+
+    with patch("src.auth_graph.clear_groups_cache", return_value=5) as mock_clear:
+        at = AppTest.from_function(app)
+        at.run()
+        assert not at.exception
+
+        at.button("admin_groups_cache_flush").click().run()
+        mock_clear.assert_called_once()
+
+def test_render_pending_reviews_section_exception():
+    def app():
+        import streamlit as st
+        from src.ui.cards.admin import _render_pending_reviews_section
+        _render_pending_reviews_section()
+
+    with patch("src.ui.cards.admin.list_pending_business_names", side_effect=Exception("DB Error")):
+        at = AppTest.from_function(app)
+        at.run()
+        assert not at.exception
+
+def test_render_pending_reviews_section_truncate():
+    def app():
+        import streamlit as st
+        from src.ui.cards.admin import _render_pending_reviews_section
+        _render_pending_reviews_section()
+
+    with patch("src.ui.cards.admin.list_pending_business_names") as mock_list:
+        import datetime
+        mock_list.return_value = [{"table_full_name": f"t{i}", "column_name": f"c{i}", "business_name": "b", "definition": "d", "edited_by": "u", "edited_at": datetime.datetime.now()} for i in range(51)]
+        at = AppTest.from_function(app)
+        at.run()
+        assert not at.exception
+        assert len(at.info) > 0 # Should show info message
+
+
+def test_render_pending_reviews_section_approve_reject_exceptions():
+    def app():
+        import streamlit as st
+        from src.ui.cards.admin import _render_pending_reviews_section
+        _render_pending_reviews_section()
+
+    with patch("src.ui.cards.admin.list_pending_business_names") as mock_list, \
+         patch("src.ui.cards.admin.approve_business_name", side_effect=Exception("DB Error")), \
+         patch("src.ui.cards.admin.reject_business_name", side_effect=Exception("DB Error")):
+
+        import datetime
+        mock_list.return_value = [{"table_full_name": "t1", "column_name": "c1", "business_name": "b", "definition": "d", "edited_by": "u", "edited_at": datetime.datetime.now()},
+                                  {"table_full_name": "t2", "column_name": "c2", "business_name": "b", "definition": "d", "edited_by": "u", "edited_at": datetime.datetime.now()}]
+
+        at = AppTest.from_function(app)
+        at.run()
+        assert not at.exception
+
+        at.button("rev_approve_t1_c1").click().run()
+        assert "An error occurred" in at.error[0].value
+
+        at.button("rev_reject_t2_c2").click().run()
+        assert "An error occurred" in at.error[0].value
+
+def test_render_pending_table_friendly_names_section_exception():
+    def app():
+        import streamlit as st
+        from src.ui.cards.admin import _render_pending_table_friendly_names_section
+        _render_pending_table_friendly_names_section()
+
+    with patch("src.ui.cards.admin.list_pending_table_business_names", side_effect=Exception("DB Error")):
+        at = AppTest.from_function(app)
+        at.run()
+        assert not at.exception
+
+def test_render_pending_table_friendly_names_section_truncate():
+    def app():
+        import streamlit as st
+        from src.ui.cards.admin import _render_pending_table_friendly_names_section
+        _render_pending_table_friendly_names_section()
+
+    with patch("src.ui.cards.admin.list_pending_table_business_names") as mock_list:
+        import datetime
+        mock_list.return_value = [{"table_full_name": f"t{i}", "business_name_en": "b", "business_definition_en": "d", "edited_by": "u", "edited_at": datetime.datetime.now()} for i in range(51)]
+        at = AppTest.from_function(app)
+        at.run()
+        assert not at.exception
+        assert len(at.info) > 0 # Should show info message
+
+
+def test_render_pending_table_friendly_names_section_approve_reject_exceptions():
+    def app():
+        import streamlit as st
+        from src.ui.cards.admin import _render_pending_table_friendly_names_section
+        _render_pending_table_friendly_names_section()
+
+    with patch("src.ui.cards.admin.list_pending_table_business_names") as mock_list, \
+         patch("src.ui.cards.admin.approve_table_business_name", side_effect=Exception("DB Error")), \
+         patch("src.ui.cards.admin.reject_table_business_name", side_effect=Exception("DB Error")):
+
+        import datetime
+        mock_list.return_value = [{"table_full_name": "t1", "business_name_en": "b", "business_definition_en": "d", "edited_by": "u", "edited_at": datetime.datetime.now()},
+                                  {"table_full_name": "t2", "business_name_en": "b", "business_definition_en": "d", "edited_by": "u", "edited_at": datetime.datetime.now()}]
+
+        at = AppTest.from_function(app)
+        at.run()
+        assert not at.exception
+
+        at.button("tfn_approve_t1").click().run()
+        assert "An error occurred" in at.error[0].value
+
+        at.button("tfn_reject_t2").click().run()
+        assert "An error occurred" in at.error[0].value
+
+
+def test_render_admin_search_analytics_section_with_data():
+    def app():
+        import streamlit as st
+        from src.ui.cards.admin import _render_admin_search_analytics_section
+        _render_admin_search_analytics_section()
+
+    with patch("src.ui.cards.admin.get_search_analytics") as mock_get:
+        import pandas as pd
+        mock_get.return_value = pd.DataFrame([{
+            "query": "test query",
+            "user_email": "test@example.com",
+            "timestamp": "2024-01-01"
+        }])
+        at = AppTest.from_function(app)
+        at.run()
+        assert not at.exception
+        assert len(at.dataframe) == 1
+
+
+def test_render_admin_page_none_tab(monkeypatch):
+    def app():
+        import streamlit as st
+        from src.ui.cards.admin import render_admin_page
+        render_admin_page()
+
+    with patch("src.ui.cards.admin.is_admin", return_value=True), \
+         patch("src.ui.cards.admin.st.segmented_control", return_value=None):
+
+        at = AppTest.from_function(app)
+        at.session_state["_admin_tab_idx"] = 0
+        at.run()
+        assert not at.exception

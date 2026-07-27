@@ -455,3 +455,54 @@ class TestEnqueueSync:
         push_module._push_to_databricks("STEWARD", "cat.sch.tbl", {"steward_email": "alice@x.com"})
 
         assert any("Could not set steward tag on cat.sch.tbl" in record.message for record in caplog.records)
+
+from unittest.mock import patch
+
+def test_enqueue_table_business_name_sync():
+    with patch("src.sync.push.enqueue_sync") as mock_enqueue:
+        from src.sync.push import enqueue_table_business_name_sync
+        enqueue_table_business_name_sync("c.s.t", "en", "fr", "def_en", "def_fr", "user")
+        mock_enqueue.assert_called_once_with(
+            "TABLE_BUSINESS_NAME",
+            "c.s.t",
+            {
+                "business_name_en": "en",
+                "business_name_fr": "fr",
+                "business_definition_en": "def_en",
+                "business_definition_fr": "def_fr"
+            },
+            "user"
+        )
+
+
+def test_push_to_databricks_table_business_name(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "host")
+    monkeypatch.setenv("DATABRICKS_HTTP_PATH", "path")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "token")
+
+    class MockConn:
+        def __init__(self):
+            self.cursor_mock = type('obj', (object,), {'execute': lambda self, *args: None, '__enter__': lambda self: self, '__exit__': lambda *args: None})()
+            self.cursor_mock.execute = __import__('unittest').mock.MagicMock()
+        def cursor(self):
+            return self.cursor_mock
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+
+    mock_conn = MockConn()
+    monkeypatch.setattr("databricks.sql.connect", lambda **kwargs: mock_conn)
+
+    mock_cursor = mock_conn.cursor_mock
+    from src.sync.push import _push_to_databricks
+    _push_to_databricks("TABLE_BUSINESS_NAME", "c.s.t", {
+        "business_name_en": "en",
+        "business_name_fr": "fr",
+        "business_definition_en": "def_en",
+        "business_definition_fr": "def_fr"
+    })
+    mock_cursor.execute.assert_called_once()
+    args = mock_cursor.execute.call_args[0]
+    assert "MERGE INTO" in args[0]
+    assert args[1]["full_name"] == "c.s.t"
