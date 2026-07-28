@@ -112,16 +112,10 @@ spec:
         - name: tmp
           emptyDir: {}
 
-      # Prevent two replicas landing on the same node
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchExpressions:
-                    - key: app
-                      operator: In
-                      values:
-                        - dd-app
-                topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: dd-app
