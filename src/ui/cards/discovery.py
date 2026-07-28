@@ -29,6 +29,16 @@ from src.ui.cards._shared import _POST_COLOR, _dq_grade
 from src.personalization import _pref_delete, _pref_upsert
 
 
+def _render_empty_state(icon: str, text: str) -> None:
+    st.markdown(
+        f'<div style="padding: 24px; text-align: center; background: var(--paper-deep); border: 1px dashed var(--ink-20); border-radius: 4px;">'
+        f'<div style="font-size: 24px; color: var(--ink-40); margin-bottom: 8px;">{icon}</div>'
+        f'<div style="font-family: var(--font-sans); font-size: 14px; color: var(--ink-60);">{text}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def _render_table_card(row, key_prefix: str) -> None:
     """Discovery card: table name is clickable, star toggles bookmark."""
     from src.i18n import format_date
@@ -301,16 +311,16 @@ def _render_bookmarks_tab(groups):
     )
     bookmarks = st.session_state.get("bookmarks", set())
     if not bookmarks:
-        st.info(t("personalization.no_bookmarks"))
+        _render_empty_state("★", t("personalization.no_bookmarks"))
     else:
         try:
             all_tables = get_authorized_tables(groups)
             if all_tables is None or all_tables.empty:
-                st.info(t("personalization.no_bookmarks"))
+                _render_empty_state("★", t("personalization.no_bookmarks"))
             else:
                 bk_df = all_tables[all_tables["full_name"].isin(bookmarks)]
                 if bk_df.empty:
-                    st.info(t("personalization.no_bookmarks"))
+                    _render_empty_state("★", t("personalization.no_bookmarks"))
                 else:
                     for row in bk_df.itertuples(index=False):
                         _render_table_card(row, "bk")
@@ -443,19 +453,19 @@ def _render_recent_tab(groups):
     )
     recent_views = st.session_state.get("recent_views", [])
     if not recent_views:
-        st.info(t("personalization.no_recent"))
+        _render_empty_state("⏱", t("personalization.no_recent"))
     else:
         try:
             all_tables = get_authorized_tables(groups)
             if all_tables is None or all_tables.empty:
-                st.info(t("personalization.no_recent"))
+                _render_empty_state("⏱", t("personalization.no_recent"))
                 return
             rv_df = all_tables[all_tables["full_name"].isin(recent_views)].copy()
             # ⚡ Bolt: Replace .map() ordering with pd.Categorical for faster sorting and to avoid creating/dropping temp columns
             rv_df["full_name"] = pd.Categorical(rv_df["full_name"], categories=recent_views, ordered=True)
             rv_df = rv_df.sort_values("full_name")
             if rv_df.empty:
-                st.info(t("personalization.no_recent"))
+                _render_empty_state("⏱", t("personalization.no_recent"))
             else:
                 for row in rv_df.itertuples(index=False):
                     _render_table_card(row, "rv")
