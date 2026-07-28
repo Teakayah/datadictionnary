@@ -1,8 +1,6 @@
-import pytest
 from streamlit.testing.v1 import AppTest
 
 def run_comment_form():
-    import streamlit as st
     from src.pages.search import _render_comment_form
     _render_comment_form("main.sales.orders", "test@example.com", "main.sales.orders")
 
@@ -56,7 +54,6 @@ def test_comment_form_save(monkeypatch):
     assert any(b.label == "Leave a comment" for b in at.button)
 
 def run_reply_form():
-    import streamlit as st
     from src.pages.search import _render_comment_form
     _render_comment_form("main.sales.orders", "test@example.com", "main.sales.orders_123", "123")
 
@@ -84,7 +81,6 @@ def test_comment_form_reply(monkeypatch):
     assert any(b.label == "Reply" for b in at.button)
 
 def run_comment_form_no_steward():
-    import streamlit as st
     from src.pages.search import _render_comment_form
     _render_comment_form("main.sales.orders", "", "main.sales.orders")
 
