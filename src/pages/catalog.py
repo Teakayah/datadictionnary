@@ -21,7 +21,13 @@ def render_catalog_browser(groups):
     try:
         all_data = get_authorized_tables(groups)
         if all_data is None or all_data.empty or 'catalog_name' not in all_data.columns:
-            st.info(t("catalog.no_catalogs"))
+            st.markdown(
+                f'<div style="padding: 24px; text-align: center; background: var(--paper-deep); border: 1px dashed var(--ink-20); border-radius: 4px;">'
+                f'<div style="font-size: 24px; color: var(--ink-40); margin-bottom: 8px;">📁</div>'
+                f'<div style="font-family: var(--font-sans); font-size: 14px; color: var(--ink-60);">{t("catalog.no_catalogs")}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
             return
 
         catalogs = sorted(all_data['catalog_name'].unique().tolist())
