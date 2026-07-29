@@ -244,3 +244,54 @@ def test_demo_track_search():
         assert st.session_state.demo_analytics[0]["query"] == "new_term"
 
     st.session_state.pop("demo_analytics", None)
+
+from unittest.mock import MagicMock
+
+def test_duckdb_analytics_alerts_connection_closed():
+    mock_conn = MagicMock()
+    mock_conn.__enter__.return_value = mock_conn
+    mock_conn.open = False
+
+    with patch("src.analytics._use_demo_backend", return_value=False), \
+         patch("src.analytics._analytics_conn", return_value=mock_conn):
+        alerts = get_zero_result_alerts(7)
+        assert alerts == []
+
+def test_duckdb_analytics_zero_searches_connection_closed():
+    mock_conn = MagicMock()
+    mock_conn.__enter__.return_value = mock_conn
+    mock_conn.open = False
+
+    with patch("src.analytics._use_demo_backend", return_value=False), \
+         patch("src.analytics._analytics_conn", return_value=mock_conn):
+        zeros = get_zero_result_searches(10)
+        assert zeros == []
+
+def test_demo_analytics_alerts_date_parsing():
+    now_utc = datetime.now(timezone.utc)
+    st.session_state.demo_analytics = [
+        {"query": "term_str", "results_count": 0, "user_email": "u@test.com", "timestamp": (now_utc - timedelta(days=8)).isoformat()},
+        {"query": "term_naive", "results_count": 0, "user_email": "u@test.com", "timestamp": (now_utc - timedelta(days=8)).replace(tzinfo=None)},
+    ]
+    try:
+        with patch("src.analytics._use_demo_backend", return_value=True):
+            alerts = get_zero_result_alerts(7)
+            queries = [a["query"] for a in alerts]
+            assert "term_str" in queries
+            assert "term_naive" in queries
+    finally:
+        st.session_state.pop("demo_analytics", None)
+
+def test_use_demo_backend():
+    from src.analytics import _use_demo_backend
+    with patch("src.config.is_demo_mode", return_value=True), \
+         patch("src.db.duckdb_adapter._duckdb_available", return_value=True):
+        assert _use_demo_backend() == True
+
+    with patch("src.config.is_demo_mode", return_value=False), \
+         patch("src.db.duckdb_adapter._duckdb_available", return_value=False):
+        assert _use_demo_backend() == True
+
+    with patch("src.config.is_demo_mode", return_value=False), \
+         patch("src.db.duckdb_adapter._duckdb_available", return_value=True):
+        assert _use_demo_backend() == False
