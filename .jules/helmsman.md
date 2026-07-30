@@ -74,3 +74,8 @@
 **Cluster Quirk:** The `dd-redis` deployment was using a basic `tcpSocket` check on port 6379 for its liveness probe.
 **Learning:** A TCP connection check only verifies that the port is open and accepting network connections. It passes even if the underlying Redis event loop is deadlocked or entirely unresponsive to commands, meaning a failing pod won't be restarted automatically by Kubernetes.
 **Resilience:** Replaced the `tcpSocket` probe with an `exec` probe running `["redis-cli", "ping"]`. This ensures the application layer is actively processing commands, allowing the kubelet to detect actual deadlocks and restart the container when necessary.
+
+## 2024-05-25 - Strict podAntiAffinity for High Availability
+**Cluster Quirk:** The high-availability deployments (`dd-app` and `dd-api`) lacked strict rules to prevent all replicas from scheduling on the same node, relying only on soft topology spread constraints.
+**Learning:** If all replicas are scheduled onto a single node due to scheduling availability, a single node failure would cause a complete outage of the application despite the HPA minimum replica count.
+**Resilience:** Added `podAntiAffinity` with `requiredDuringSchedulingIgnoredDuringExecution` to both deployments to strictly enforce that replicas are scheduled across different nodes, ensuring true HA resilience.

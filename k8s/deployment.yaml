@@ -112,6 +112,14 @@ spec:
         - name: tmp
           emptyDir: {}
 
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: dd-app
+              topologyKey: kubernetes.io/hostname
+
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
