@@ -312,7 +312,8 @@ def search_all_metadata(query: str, groups: tuple):
     # 3. Weighted fusion. Keyword `_score` is normalized to [0, 1]; the
     # semantic contribution decays linearly with rank in `semantic_fns`.
     combined = keyword_results.copy()
-    known_fns = set(combined["full_name"])
+    # ⚡ Bolt: Replace set(df['col']) with set(df['col'].unique().tolist()) for faster C-level deduplication
+    known_fns = set(combined["full_name"].unique().tolist())
     missing_fns = [fn for fn in semantic_fns if fn not in known_fns]
     if missing_fns:
         extra = _fetch_metadata_for_fns(missing_fns, groups)
