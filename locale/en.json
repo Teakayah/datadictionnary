@@ -230,7 +230,14 @@
     "alert_count_col": "Search count",
     "alert_first_seen_col": "First zero result",
     "alert_last_seen_col": "Last attempt",
-    "alert_date_format": "%Y-%m-%d %H:%M"
+    "alert_date_format": "%Y-%m-%d %H:%M",
+    "coverage_by_schema": "§ Coverage by Schema",
+    "schema_col": "Schema",
+    "tables_col": "Tables",
+    "with_desc_col": "With Desc",
+    "coverage_col": "Coverage",
+    "priority_actions": "§ Priority Actions",
+    "showing_first_50": "Showing first {count} results."
   },
   "glossary": {
     "title": "§ Business glossary",

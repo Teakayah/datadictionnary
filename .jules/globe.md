@@ -30,3 +30,7 @@
 ## 2026-07-11 - Streamlit AppTest vs st.segmented_control mocking
 **Learning:** Testing component rendering inside Streamlit's `st.segmented_control` blocks with AppTest often fails because updating `at.session_state` or `at.segmented_control(...).set_value()` does not correctly trigger the internal Streamlit rerender mapping the new active value. When the segmented_control values use translated strings (`t()`), this can cause test failures.
 **Action:** When asserting the presence of components that render conditionally on `st.segmented_control` values, bypass the widget behavior by explicitly mocking the output using `with patch('module.st.segmented_control') as mock_sc: mock_sc.return_value = "TabName"`. Be aware this assumes the patch module is correctly imported in the target test file.
+
+## 2025-07-30 - Localizing Streamlit st.column_config
+**Learning:** When localizing Streamlit `st.dataframe`, do not forget that column headers inside `column_config` support translated strings directly, but any HTML headers inside `st.markdown()` blocks need f-string interpolation with the translation function.
+**Action:** Ensure both markdown and `st.dataframe` headers are translated together for a cohesive localized UI.

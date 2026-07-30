@@ -230,7 +230,14 @@
     "alert_count_col": "Nombre de recherches",
     "alert_first_seen_col": "Première recherche sans résultat",
     "alert_last_seen_col": "Dernière tentative",
-    "alert_date_format": "%d/%m/%Y %H:%M"
+    "alert_date_format": "%d/%m/%Y %H:%M",
+    "coverage_by_schema": "§ Couverture par Schéma",
+    "schema_col": "Schéma",
+    "tables_col": "Tables",
+    "with_desc_col": "Avec Desc",
+    "coverage_col": "Couverture",
+    "priority_actions": "§ Actions Prioritaires",
+    "showing_first_50": "Affichage des {count} premiers résultats."
   },
   "glossary": {
     "title": "§ Glossaire métier",
