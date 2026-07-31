@@ -25,18 +25,8 @@ from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import run_query, get_authorized_tables
 from src.i18n import t
 from src.notifications import get_unread_notifications, mark_all_read, mark_read
-from src.ui.cards._shared import _POST_COLOR, _dq_grade
+from src.ui.cards._shared import _POST_COLOR, _dq_grade, _render_empty_state
 from src.personalization import _pref_delete, _pref_upsert
-
-
-def _render_empty_state(icon: str, text: str) -> None:
-    st.markdown(
-        f'<div style="padding: 24px; text-align: center; background: var(--paper-deep); border: 1px dashed var(--ink-20); border-radius: 4px;">'
-        f'<div style="font-size: 24px; color: var(--ink-40); margin-bottom: 8px;">{icon}</div>'
-        f'<div style="font-family: var(--font-sans); font-size: 14px; color: var(--ink-60);">{text}</div>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
 
 
 def _render_table_card(row, key_prefix: str) -> None:

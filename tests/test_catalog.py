@@ -50,8 +50,8 @@ def test_catalog_browser_empty(mock_get_tables):
 
     # Assert
     assert not at.exception
-    assert len(at.info) > 0
-    assert at.info[0].value == "No catalogs accessible."
+    assert len(at.markdown) > 0
+    assert any("No catalogs accessible." in m.value for m in at.markdown)
 
 @patch("src.pages.catalog.get_authorized_tables")
 def test_catalog_browser_none(mock_get_tables):
@@ -64,8 +64,8 @@ def test_catalog_browser_none(mock_get_tables):
 
     # Assert
     assert not at.exception
-    assert len(at.info) > 0
-    assert at.info[0].value == "No catalogs accessible."
+    assert len(at.markdown) > 0
+    assert any("No catalogs accessible." in m.value for m in at.markdown)
 
 @patch("src.pages.catalog.get_authorized_tables")
 def test_catalog_browser_truncation(mock_get_tables):
