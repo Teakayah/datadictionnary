@@ -244,3 +244,61 @@ def test_demo_track_search():
         assert st.session_state.demo_analytics[0]["query"] == "new_term"
 
     st.session_state.pop("demo_analytics", None)
+
+def test_duckdb_analytics_not_open():
+    class DummyConn:
+        def __init__(self):
+            self.open = False
+        def __enter__(self):
+            return self
+        def __exit__(self, *_):
+            pass
+
+    with patch("src.analytics._use_demo_backend", return_value=False), \
+         patch("src.analytics._analytics_conn", return_value=DummyConn()):
+        assert get_zero_result_searches() == []
+        assert get_zero_result_alerts() == []
+
+def test_demo_analytics_alerts_string_date():
+    try:
+        st.session_state.demo_analytics = []
+
+        # create string date
+        now = datetime.now()
+        string_date = now.isoformat()
+
+        st.session_state.demo_analytics.append({
+            "query": "term_string",
+            "results_count": 0,
+            "user_email": "test@test.com",
+            "timestamp": string_date
+        })
+
+        with patch("src.analytics._use_demo_backend", return_value=True):
+            alerts = get_zero_result_alerts(7)
+            # Should execute successfully without throwing exceptions
+            assert isinstance(alerts, list)
+    finally:
+        st.session_state.pop("demo_analytics", None)
+
+def test_search_event_no_timestamp():
+    event = SearchEvent("term", 0, "test@test.com")
+    assert event.query == "term"
+    assert event.results_count == 0
+    assert event.user_email == "test@test.com"
+    assert isinstance(event.timestamp, datetime)
+
+def test_use_demo_backend_actual():
+    from src.analytics import _use_demo_backend
+
+    with patch("src.config.is_demo_mode", return_value=True), \
+         patch("src.db.duckdb_adapter._duckdb_available", return_value=True):
+        assert _use_demo_backend() == True
+
+    with patch("src.config.is_demo_mode", return_value=False), \
+         patch("src.db.duckdb_adapter._duckdb_available", return_value=False):
+        assert _use_demo_backend() == True
+
+    with patch("src.config.is_demo_mode", return_value=False), \
+         patch("src.db.duckdb_adapter._duckdb_available", return_value=True):
+        assert _use_demo_backend() == False
