@@ -235,3 +235,99 @@ def test_hybrid_fusion_appends_semantic_only_hits():
     # Exact keyword match (0.7) still beats semantic-only hit (0.3), but both present
     assert res["full_name"].tolist() == ["cat.sch.kw_only", "cat.sch.sem_only"]
 
+
+import pytest
+from unittest.mock import patch, MagicMock
+import sys
+import pandas as pd
+
+from src.semantic import DatabricksEmbeddingEngine, semantic_search
+
+def test_databricks_embedding_engine_client_property():
+    import sys
+    from unittest.mock import MagicMock
+    with patch.dict(sys.modules, {"databricks.sdk": MagicMock()}):
+        engine = DatabricksEmbeddingEngine()
+        client1 = engine.client
+        client2 = engine.client
+        assert client1 is client2
+
+def test_databricks_embedding_engine_embed_text():
+    with patch("src.semantic.DatabricksEmbeddingEngine.embed_batch") as mock_embed_batch:
+        mock_embed_batch.return_value = [[0.1, 0.2, 0.3]]
+        engine = DatabricksEmbeddingEngine()
+        res = engine.embed_text("test")
+        assert res == [0.1, 0.2, 0.3]
+        mock_embed_batch.assert_called_once_with(["test"])
+
+@patch("src.semantic.ENABLE_SEMANTIC_SEARCH", True)
+def test_semantic_search_vss_install_fails():
+    with patch("src.semantic.is_demo_mode", return_value=False):
+        with patch("src.semantic._duckdb_available", return_value=True):
+            with patch("src.semantic.run_query") as mock_run_query:
+                def side_effect(*args, **kwargs):
+                    import pandas as pd
+                    if "LOAD vss" in args[0] or "INSTALL vss" in args[0]:
+                        raise Exception("Failed")
+                    return pd.DataFrame()
+
+                mock_run_query.side_effect = side_effect
+
+                with patch("src.semantic.get_embedding_engine") as mock_engine:
+                    mock_engine.return_value.embed_text.return_value = [0.1, 0.2]
+
+                    with patch("src.semantic.logging.warning") as mock_warning:
+                        res = semantic_search("query")
+                        assert res == []
+                        mock_warning.assert_called_once()
+                        assert "Could not load vss extension" in mock_warning.call_args[0][0]
+
+@patch("src.semantic.ENABLE_SEMANTIC_SEARCH", True)
+def test_semantic_search_empty_vector():
+    with patch("src.semantic.is_demo_mode", return_value=False):
+        with patch("src.semantic._duckdb_available", return_value=True):
+            with patch("src.semantic.run_query"):
+                with patch("src.semantic.get_embedding_engine") as mock_engine:
+                    mock_engine.return_value.embed_text.return_value = []
+                    res = semantic_search("query")
+                    assert res == []
+
+@patch("src.semantic.ENABLE_SEMANTIC_SEARCH", True)
+def test_semantic_search_success():
+    with patch("src.semantic.is_demo_mode", return_value=False):
+        with patch("src.semantic._duckdb_available", return_value=True):
+            with patch("src.semantic.get_embedding_engine") as mock_engine:
+                mock_engine.return_value.embed_text.return_value = [0.1, 0.2]
+                with patch("src.semantic.run_query") as mock_run_query:
+                    def side_effect(*args, **kwargs):
+                        import pandas as pd
+                        if args and args[0].startswith("SELECT table_full_name"):
+                            return pd.DataFrame({"table_full_name": ["cat.sch.tab1", "cat.sch.tab2"]})
+                        return None
+                    mock_run_query.side_effect = side_effect
+
+                    res = semantic_search("query")
+                    assert res == ["cat.sch.tab1", "cat.sch.tab2"]
+
+@patch("src.semantic.ENABLE_SEMANTIC_SEARCH", True)
+def test_semantic_search_load_vss_fails_but_install_succeeds():
+    with patch("src.semantic.is_demo_mode", return_value=False):
+        with patch("src.semantic._duckdb_available", return_value=True):
+            with patch("src.semantic.run_query") as mock_run_query:
+                def side_effect(*args, **kwargs):
+                    import pandas as pd
+                    if args[0] == "LOAD vss" and mock_run_query.call_count == 1:
+                        raise Exception("Failed load 1")
+                    if args and args[0].startswith("SELECT table_full_name"):
+                        return pd.DataFrame({"table_full_name": ["cat.sch.tab1"]})
+                    return None
+
+                mock_run_query.side_effect = side_effect
+
+                with patch("src.semantic.get_embedding_engine") as mock_engine:
+                    mock_engine.return_value.embed_text.return_value = [0.1, 0.2]
+
+                    res = semantic_search("query")
+                    assert res == ["cat.sch.tab1"]
+                    # Called with LOAD vss (fails), INSTALL vss, LOAD vss, SELECT ...
+                    assert mock_run_query.call_count == 4
