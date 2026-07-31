@@ -223,3 +223,30 @@ class TestGetLineage:
             _run_with_user(get_lineage("c.s.t", depth=99))
         passed_depth = mock_q.call_args[0][1] if len(mock_q.call_args[0]) > 1 else 1
         assert passed_depth <= 5
+
+class TestGetTableDetailsCache:
+    def test_returns_cached_json_without_db_call(self):
+        cached = {"full_name": "cached.s.t", "columns": [{"column_name": "c1", "data_type": "STRING", "description": "desc"}]}
+        with patch("src.mcp_server.server.redis_cache.get", AsyncMock(return_value=cached)), \
+             patch("src.mcp_server.server.queries.get_table_details") as no_db:
+            result = _run_with_user(get_table_details("cached.s.t"))
+        no_db.assert_not_called()
+        assert json.loads(result) == cached
+
+class TestListTablesCache:
+    def test_returns_cached_json_without_db_call(self):
+        cached = [{"full_name": "cached.s.t", "catalog_name": "c", "schema_name": "s", "table_name": "t"}]
+        with patch("src.mcp_server.server.redis_cache.get", AsyncMock(return_value=cached)), \
+             patch("src.mcp_server.server.queries.get_authorized_tables") as no_db:
+            result = _run_with_user(list_tables())
+        no_db.assert_not_called()
+        assert json.loads(result) == cached
+
+class TestGetLineageCache:
+    def test_returns_cached_json_without_db_call(self):
+        cached = [{"direction": "upstream", "entity_full_name": "c.s.t", "entity_type": "TABLE", "depth": 1}]
+        with patch("src.mcp_server.server.redis_cache.get", AsyncMock(return_value=cached)), \
+             patch("src.mcp_server.server.queries.get_lineage") as no_db:
+            result = _run_with_user(get_lineage("cached.s.t"))
+        no_db.assert_not_called()
+        assert json.loads(result) == cached
