@@ -1,3 +1,7 @@
+"""Catalog Browser UI rendering logic.
+
+Provides the main explorer interface for navigating catalogs, schemas, and tables.
+"""
 from __future__ import annotations
 import streamlit as st
 import logging
@@ -6,7 +10,15 @@ from src.i18n import t
 from src.ui.cards._shared import _dq_grade, _render_empty_state
 from src.db.queries import get_authorized_tables
 
-def render_catalog_browser(groups):
+def render_catalog_browser(groups: list[str]) -> None:
+    """Renders the catalog browser UI.
+
+    Displays a searchable tree-like structure of catalogs and schemas containing tables
+    that the current user is authorized to view.
+
+    Args:
+        groups: A list of Entra ID group IDs the current user belongs to.
+    """
     st.html(f'''
     <div class="dd-search-hero">
       <div class="dd-eyebrow">{_html.escape(t("catalog.eyebrow"))}</div>
