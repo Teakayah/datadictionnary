@@ -3,7 +3,7 @@ import streamlit as st
 import logging
 import html as _html
 from src.i18n import t
-from src.ui.cards._shared import _dq_grade
+from src.ui.cards._shared import _dq_grade, _render_empty_state
 from src.db.queries import get_authorized_tables
 
 def render_catalog_browser(groups):
@@ -21,7 +21,7 @@ def render_catalog_browser(groups):
     try:
         all_data = get_authorized_tables(groups)
         if all_data is None or all_data.empty or 'catalog_name' not in all_data.columns:
-            st.info(t("catalog.no_catalogs"))
+            _render_empty_state("📁", t("catalog.no_catalogs"))
             return
 
         catalogs = sorted(all_data['catalog_name'].unique().tolist())

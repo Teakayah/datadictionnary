@@ -330,7 +330,7 @@ class TestCatalogBrowser:
         sql_returns(empty_tables_df())
         at = authenticated_app(tab="catalog")
         at.run()
-        assert any("No catalogs" in i.value for i in at.info)
+        assert any("No catalogs" in m.value for m in at.markdown)
 
     def test_catalog_shows_table_buttons(self, monkeypatch):
         """Each table in the catalog tree must have a clickable button."""
