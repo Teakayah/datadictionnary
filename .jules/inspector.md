@@ -85,3 +85,6 @@
 ## 2023-10-27 - Semantic Search Fallbacks Testing
 **Learning:** Edge cases around loading dynamic extensions in DuckDB (e.g. `LOAD vss` throwing an exception and falling back to `INSTALL vss`) are critical failure paths that require multi-stage patching (e.g. tracking `call_count` inside side_effects) to properly test without a real environment.
 **Action:** When testing dynamic SQL extension loading logic, always use isolated mock states with custom side_effect functions to simulate first-pass failures and second-pass successes in the same execution flow.
+## 2026-08-02 - Testing Multiple ElementTypes with AppTest in Streamlit
+**Learning:** Checking for error/warning/info outputs with Streamlit's `AppTest` element lists causes logical or operations to fail. Specifically `at.error or at.info` with Streamlit tests produces incorrect truthy matching.
+**Action:** Always wrap `at.error`, `at.info` and `at.warning` and `at.markdown` using `list(at.error)` when using them in `or` assertions inside a pytest suite to ensure it functions appropriately.
