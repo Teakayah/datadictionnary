@@ -81,3 +81,7 @@
 Coverage Gap: The offloaded `track_search` logging mechanism running in a background thread was completely untested, masking potential silent catalog or write errors.
 Learning: Streamlit's `add_script_run_ctx` and raw `threading.Thread` usage make it hard to test asynchronous I/O natively without polling or race conditions. Also, mocking file databases like DuckDB requires ensuring schemas are explicitly initialized in the temp environment.
 Assertion: Mock `threading.Thread` and extract the target function via `mock_thread.call_args[1]["target"]` to run the threaded logic synchronously inside the main test frame. This guarantees predictable database state checks.
+## 2026-08-02 - Ensure robust element list evaluation in Streamlit AppTest tests
+Coverage Gap: `test_discovery_recent_exception_fallback` fails when trying to verify if error, info, or warning messages were shown.
+Learning: Streamlit's `ElementList` objects cannot be reliably evaluated in logical OR expressions directly. `at.error or at.info` evaluates incorrectly.
+Assertion: When checking for multiple types of messages, convert `ElementList` objects to lists first (e.g. `assert list(at.error) or list(at.info) or list(at.warning)`).
