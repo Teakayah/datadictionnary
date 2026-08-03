@@ -420,51 +420,81 @@ def test_discovery_notifications_empty(mock_get_posts, mock_get_unread):
 @patch("src.ui.cards.discovery.st.segmented_control")
 @patch("src.ui.cards.discovery.get_active_posts")
 def test_discovery_recent_exception_fallback(m1, m2):
+    def wrapper():
+        import streamlit as st
+        from unittest.mock import patch
+        from src.ui.cards.discovery import render_discovery
+        with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=Exception("DB ERROR")):
+            render_discovery(["finance", "sales"])
+
     m1.return_value = []
     m2.return_value = "recent"
-    at = AppTest.from_function(render_discovery_page_app).run()
+    at = AppTest.from_function(wrapper).run()
     at.session_state["recent_views"] = ["test"]
-
-    with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=Exception("DB ERROR")):
-        at.run()
-        assert not at.exception
-        assert at.error or at.info or at.warning
+    at.run()
+    assert not at.exception
+    assert list(at.error) or list(at.info) or list(at.warning)
 
 @patch("src.ui.cards.discovery.st.segmented_control")
 @patch("src.ui.cards.discovery.get_active_posts")
 def test_discovery_bookmarks_exception_fallback(m1, m2):
+    def wrapper():
+        import streamlit as st
+        from unittest.mock import patch
+        from src.ui.cards.discovery import render_discovery
+        with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=Exception("DB ERROR")):
+            render_discovery(["finance", "sales"])
+
     m1.return_value = []
     m2.return_value = "bookmarks"
-    at = AppTest.from_function(render_discovery_page_app).run()
+    at = AppTest.from_function(wrapper).run()
     at.session_state["bookmarks"] = {"test"}
-
-    with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=Exception("DB ERROR")):
-        at.run()
-        assert not at.exception
-        assert at.error or at.info or at.warning
+    at.run()
+    assert not at.exception
+    assert list(at.error) or list(at.info) or list(at.warning)
 
 @patch("src.ui.cards.discovery.st.segmented_control")
 @patch("src.ui.cards.discovery.get_active_posts")
 def test_discovery_notable_exception_fallback(m1, m2):
+    def wrapper():
+        import streamlit as st
+        from unittest.mock import patch
+        from src.ui.cards.discovery import render_discovery
+        with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=Exception("DB ERROR")):
+            render_discovery(["finance", "sales"])
+
     m1.return_value = []
     m2.return_value = "notable"
-    at = AppTest.from_function(render_discovery_page_app).run()
+    at = AppTest.from_function(wrapper).run()
     at.session_state["group_filter"] = "finance"
-
-    with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=Exception("DB ERROR")):
-        at.run()
-        assert not at.exception
-        assert at.error or at.info or at.warning
+    at.run()
+    assert not at.exception
+    assert list(at.error) or list(at.info) or list(at.warning)
 
 @patch("src.ui.cards.discovery.st.segmented_control")
 @patch("src.ui.cards.discovery.get_active_posts")
 def test_discovery_recommended_exception_fallback(m1, m2):
+    def wrapper():
+        import streamlit as st
+        import pandas as pd
+        from unittest.mock import patch
+        from src.ui.cards.discovery import render_discovery
+        # We need get_authorized_tables to return something valid, but _get_recommended_tables to throw error
+        def mock_get_auth_tables(groups):
+            return pd.DataFrame({
+                "full_name": ["main.sales.orders"],
+                "table_name": ["orders"],
+                "catalog_name": ["main"],
+                "schema_name": ["sales"]
+            })
+        with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=mock_get_auth_tables):
+            with patch("src.ui.cards.discovery._get_recommended_tables", side_effect=Exception("DB ERROR")):
+                render_discovery(["finance", "sales"])
+
     m1.return_value = []
     m2.return_value = "recommended"
-    at = AppTest.from_function(render_discovery_page_app).run()
+    at = AppTest.from_function(wrapper).run()
     at.session_state["group_filter"] = "finance"
-
-    with patch("src.ui.cards.discovery._get_recommended_tables", side_effect=Exception("DB ERROR")):
-        at.run()
-        assert not at.exception
-        assert at.error or at.info or at.warning
+    at.run()
+    assert not at.exception
+    assert list(at.error) or list(at.info) or list(at.warning)
