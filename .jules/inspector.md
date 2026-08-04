@@ -85,3 +85,10 @@
 ## 2023-10-27 - Semantic Search Fallbacks Testing
 **Learning:** Edge cases around loading dynamic extensions in DuckDB (e.g. `LOAD vss` throwing an exception and falling back to `INSTALL vss`) are critical failure paths that require multi-stage patching (e.g. tracking `call_count` inside side_effects) to properly test without a real environment.
 **Action:** When testing dynamic SQL extension loading logic, always use isolated mock states with custom side_effect functions to simulate first-pass failures and second-pass successes in the same execution flow.
+## 2026-08-04 - Streamlit AppTest Patch Overrides
+**Learning:** When using `AppTest.from_function()` for Streamlit tests, `unittest.mock.patch` contexts defined inside the target app wrapper function will override any outer patches defined in the test file (e.g. over `at.run()`). This can cause fallback/exception tests to silently pass because the inner mock intercepts the call before the outer exception side_effect can trigger.
+**Action:** To correctly inject mock side effects (like Exceptions) into Streamlit AppTest tests, define a local wrapper app function specifically for the test that hardcodes the exception patch around the core render function, and pass this specific wrapper to `AppTest.from_function()`.
+
+## 2026-08-04 - Streamlit ElementList Truthiness
+**Learning:** Streamlit's `ElementList` objects (e.g., `at.error`, `at.info`) inherit from `Sequence` and evaluate their truthiness inaccurately in logical `or` statements (e.g., `assert at.error or at.info`), even when empty.
+**Action:** Always explicitly convert `ElementList` objects to Python lists before evaluating them in boolean logic, e.g., `assert list(at.error) or list(at.info)`.
