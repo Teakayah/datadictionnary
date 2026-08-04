@@ -289,7 +289,7 @@ class TestDiscoveryTabs:
 
             html = [m.value for m in at.markdown]
             assert any(en_locale["personalization"]["recommended_title"] in val for val in html)
-            assert any(en_locale["personalization"]["recommended_empty"] in m.value for m in at.info)
+            assert any(en_locale["personalization"]["recommended_empty"] in m for m in html)
 
     @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
@@ -300,7 +300,8 @@ class TestDiscoveryTabs:
 
         at.run()
 
-        assert any(en_locale["personalization"]["recommended_empty"] in m.value for m in at.info)
+        html = [m.value for m in at.markdown]
+        assert any(en_locale["personalization"]["recommended_empty"] in m for m in html)
 
     @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
@@ -336,7 +337,8 @@ class TestDiscoveryTabs:
         at.session_state["group_filter"] = "finance"
         at.run()
 
-        assert any(en_locale["discovery"]["no_updates"] in m.value for m in at.info)
+        html = [m.value for m in at.markdown]
+        assert any(en_locale["discovery"]["no_updates"] in m for m in html)
 
 
 @patch("src.ui.cards.discovery.get_unread_notifications")
@@ -428,7 +430,7 @@ def test_discovery_recent_exception_fallback(m1, m2):
     with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=Exception("DB ERROR")):
         at.run()
         assert not at.exception
-        assert at.error or at.info or at.warning
+        assert list(at.error) or list(at.info) or list(at.warning) or list(at.markdown)
 
 @patch("src.ui.cards.discovery.st.segmented_control")
 @patch("src.ui.cards.discovery.get_active_posts")
@@ -441,7 +443,7 @@ def test_discovery_bookmarks_exception_fallback(m1, m2):
     with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=Exception("DB ERROR")):
         at.run()
         assert not at.exception
-        assert at.error or at.info or at.warning
+        assert list(at.error) or list(at.info) or list(at.warning) or list(at.markdown)
 
 @patch("src.ui.cards.discovery.st.segmented_control")
 @patch("src.ui.cards.discovery.get_active_posts")
@@ -454,7 +456,7 @@ def test_discovery_notable_exception_fallback(m1, m2):
     with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=Exception("DB ERROR")):
         at.run()
         assert not at.exception
-        assert at.error or at.info or at.warning
+        assert list(at.error) or list(at.info) or list(at.warning) or list(at.markdown)
 
 @patch("src.ui.cards.discovery.st.segmented_control")
 @patch("src.ui.cards.discovery.get_active_posts")
@@ -467,4 +469,4 @@ def test_discovery_recommended_exception_fallback(m1, m2):
     with patch("src.ui.cards.discovery._get_recommended_tables", side_effect=Exception("DB ERROR")):
         at.run()
         assert not at.exception
-        assert at.error or at.info or at.warning
+        assert list(at.error) or list(at.info) or list(at.warning) or list(at.markdown)

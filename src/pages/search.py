@@ -638,7 +638,8 @@ def render_search_page(query_groups: tuple) -> None:
         st.error(t("search.load_error"))
         _table_options = []
     elif _all_tables.empty:
-        st.info(t("search.no_access"))
+        from src.ui.cards._shared import _render_empty_state
+        _render_empty_state("🔒", t("search.no_access"))
         _table_options = []
     else:
         _table_options = (
