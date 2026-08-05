@@ -1,4 +1,3 @@
-from __future__ import annotations
 """Discovery tab — read-only views over authorized tables.
 
 Three sub-tabs (notable / bookmarks / recent) plus a CMS-banner that pins
@@ -9,6 +8,7 @@ The banner is read-only for non-admin users; admins also see a delete
 button next to each post (the actual create dialog lives in
 ``cards/admin.py``).
 """
+from __future__ import annotations
 
 
 import html as _html
@@ -273,7 +273,7 @@ def _render_notable_tab(groups):
 
     # "none" is the sentinel app.py uses when user_groups is empty
     if not primary_group or primary_group == "none":
-        st.info(t("discovery.no_groups"))
+        _render_empty_state("👥", t("discovery.no_groups"))
         return
 
     if primary_group:
@@ -285,12 +285,12 @@ def _render_notable_tab(groups):
                 for row in recent_tables.itertuples(index=False):
                     _render_table_card(row, "notable")
             else:
-                st.info(t("discovery.no_updates"))
+                _render_empty_state("✨", t("discovery.no_updates"))
         except Exception as e:
             logging.error("Error in discovery tab: %s", e)
             st.error(t("discovery.load_error"))
     else:
-        st.warning(t("discovery.sign_in_prompt"))
+        _render_empty_state("🔒", t("discovery.sign_in_prompt"))
 
 
 def _render_bookmarks_tab(groups):
@@ -326,7 +326,7 @@ def _render_bookmarks_tab(groups):
         unsafe_allow_html=True,
     )
     if not col_bookmarks:
-        st.info(t("personalization.no_col_bookmarks"))
+        _render_empty_state("🔖", t("personalization.no_col_bookmarks"))
     else:
         _col_bk_auth_fns = (
             set(get_authorized_tables(groups)["full_name"].unique().tolist())
@@ -417,12 +417,12 @@ def _render_recommended_tab(groups):
     try:
         all_tables = get_authorized_tables(groups)
         if all_tables is None or all_tables.empty:
-            st.info(t("personalization.recommended_empty"))
+            _render_empty_state("💡", t("personalization.recommended_empty"))
             return
         authorized_fns = set(all_tables["full_name"].unique().tolist())
         recommended_fns = _get_recommended_tables(groups, authorized_fns)
         if not recommended_fns:
-            st.info(t("personalization.recommended_empty"))
+            _render_empty_state("💡", t("personalization.recommended_empty"))
             return
         rec_df = all_tables[all_tables["full_name"].isin(recommended_fns)].copy()
         # ⚡ Bolt: Replace .map() ordering with pd.Categorical for faster sorting and to avoid creating/dropping temp columns
