@@ -85,3 +85,10 @@
 ## 2023-10-27 - Semantic Search Fallbacks Testing
 **Learning:** Edge cases around loading dynamic extensions in DuckDB (e.g. `LOAD vss` throwing an exception and falling back to `INSTALL vss`) are critical failure paths that require multi-stage patching (e.g. tracking `call_count` inside side_effects) to properly test without a real environment.
 **Action:** When testing dynamic SQL extension loading logic, always use isolated mock states with custom side_effect functions to simulate first-pass failures and second-pass successes in the same execution flow.
+## $(date +%Y-%m-%d) - AppTest ElementList concatenation behavior
+**Learning:** `ElementList` objects in Streamlit testing (like `at.error`, `at.info`) override truthiness evaluating to False even when empty, and do not support the standard `+` concatenation operator, which can cause assertion failures. Furthermore, when exceptions occur within Streamlit testing, inner mock patches inside test app wrappers are crucial for properly capturing exceptions side effects, otherwise exceptions won't surface correctly in the tested components.
+**Action:** When testing exception rendering in `AppTest`, ensure the patch is applied around the executed components via an inner wrapper and use explicit conversion to Python lists or standard boolean logic (e.g., `assert bool(list(at.error))`) instead of combining `ElementList` objects or checking length if the elements aren't correctly materialized.
+
+## $(date +%Y-%m-%d) - Swallowed Errors with st.rerun
+**Learning:** In Streamlit applications, calling `st.rerun()` immediately after displaying an error with `st.error()` will cause the error message to be wiped from the UI instantly because the UI is re-rendered. This also affects `AppTest` as `at.error` will be empty.
+**Action:** To ensure errors are visible to users and `AppTest` assertions, do not execute `st.rerun()` in the exception handling block after rendering a transient message.

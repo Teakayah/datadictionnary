@@ -417,18 +417,70 @@ def test_discovery_notifications_empty(mock_get_posts, mock_get_unread):
     has_mark_all = any(b.key == "notif_mark_all" for b in at.button if b.key)
     assert not has_mark_all
 
+def render_app_with_error():
+    from unittest.mock import patch
+    from src.ui.cards.discovery import render_discovery
+    with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=Exception("DB ERROR")):
+        render_discovery(["finance", "sales"])
+
 @patch("src.ui.cards.discovery.st.segmented_control")
 @patch("src.ui.cards.discovery.get_active_posts")
 def test_discovery_recent_exception_fallback(m1, m2):
     m1.return_value = []
     m2.return_value = "recent"
-    at = AppTest.from_function(render_discovery_page_app).run()
+    at = AppTest.from_function(render_app_with_error).run()
     at.session_state["recent_views"] = ["test"]
+    at.run()
+    assert not at.exception
+    assert len(at.error) > 0 or len(at.info) > 0 or len(at.warning) > 0
 
-    with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=Exception("DB ERROR")):
-        at.run()
-        assert not at.exception
-        assert at.error or at.info or at.warning
+@patch("src.ui.cards.discovery.st.segmented_control")
+@patch("src.ui.cards.discovery.get_active_posts")
+def test_discovery_bookmarks_exception_fallback(m1, m2):
+    m1.return_value = []
+    m2.return_value = "bookmarks"
+    at = AppTest.from_function(render_app_with_error).run()
+    at.session_state["bookmarks"] = {"test"}
+    at.run()
+    assert not at.exception
+    assert len(at.error) > 0 or len(at.info) > 0 or len(at.warning) > 0
+
+@patch("src.ui.cards.discovery.st.segmented_control")
+@patch("src.ui.cards.discovery.get_active_posts")
+def test_discovery_notable_exception_fallback(m1, m2):
+    m1.return_value = []
+    m2.return_value = "notable"
+    at = AppTest.from_function(render_app_with_error).run()
+    at.session_state["group_filter"] = "finance"
+    at.run()
+    assert not at.exception
+    assert len(at.error) > 0 or len(at.info) > 0 or len(at.warning) > 0
+
+def render_app_with_rec_error():
+    from unittest.mock import patch
+    from src.ui.cards.discovery import render_discovery
+    import pandas as pd
+    def mock_get_auth_tables(groups):
+        return pd.DataFrame({
+            "full_name": ["main.sales.orders"], "table_name": ["orders"],
+            "catalog_name": ["main"], "schema_name": ["sales"],
+            "table_description": ["desc"], "updated_at": [pd.Timestamp("2023-01-01")],
+            "dq_grade": ["A"], "dq_score": [1.0], "dq_status": ["pass"]
+        })
+    with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=mock_get_auth_tables):
+        with patch("src.ui.cards.discovery._get_recommended_tables", side_effect=Exception("DB ERROR")):
+            render_discovery(["finance", "sales"])
+
+@patch("src.ui.cards.discovery.st.segmented_control")
+@patch("src.ui.cards.discovery.get_active_posts")
+def test_discovery_recommended_exception_fallback(m1, m2):
+    m1.return_value = []
+    m2.return_value = "recommended"
+    at = AppTest.from_function(render_app_with_rec_error).run()
+    at.session_state["group_filter"] = "finance"
+    at.run()
+    assert not at.exception
+    assert len(at.error) > 0 or len(at.info) > 0 or len(at.warning) > 0
 
 @patch("src.ui.cards.discovery.st.segmented_control")
 @patch("src.ui.cards.discovery.get_active_posts")
