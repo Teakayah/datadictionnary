@@ -81,3 +81,8 @@
 Coverage Gap: The offloaded `track_search` logging mechanism running in a background thread was completely untested, masking potential silent catalog or write errors.
 Learning: Streamlit's `add_script_run_ctx` and raw `threading.Thread` usage make it hard to test asynchronous I/O natively without polling or race conditions. Also, mocking file databases like DuckDB requires ensuring schemas are explicitly initialized in the temp environment.
 Assertion: Mock `threading.Thread` and extract the target function via `mock_thread.call_args[1]["target"]` to run the threaded logic synchronously inside the main test frame. This guarantees predictable database state checks.
+
+## 2026-08-06 - Fixing flaky st.rerun testing in Streamlit AppTest
+**Coverage Gap:** The `test_render_page_stop_pipeline_error` and `test_render_page_stop_pipeline` components in `tests/test_ui_pipelines.py` were failing, logging missing values from `at.error` when asserting that errors were shown after triggering UI actions.
+**Learning:** In Streamlit `AppTest`, calling a UI interaction event that triggers `st.rerun()` directly (like clicking a cancel pipeline button that performs an action and executes `st.rerun()`) will clear the internal state cache and prevent trailing assertions from verifying the component state reliably since the run effectively restarts the script runner execution context from scratch and drops transient elements like `st.error` that were rendered before `st.rerun()` was hit.
+**Assertion:** Mock `st.rerun` entirely around the UI event interaction to block the loop iteration and maintain the internal component render state, so tests can reliably assert the presence of transient state messages like `at.error` before they get cleared.

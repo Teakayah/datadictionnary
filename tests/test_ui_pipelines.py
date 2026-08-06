@@ -292,9 +292,12 @@ class TestRenderPipelinesPage:
         at.run()
 
         stop_btn = at.button(key="pl_stop_1")
-        stop_btn.click().run()
 
-        assert len(at.error) > 0
+        # Patch st.rerun to prevent it from clearing the test UI state
+        with patch("src.ui.cards.pipelines.st.rerun"):
+            stop_btn.click().run()
+
+        assert len(list(at.error)) > 0
         assert at.error[0].value == en_locale["pipelines"]["stop_error"]
 
     @patch("src.ui.cards.pipelines.is_admin", return_value=True)
