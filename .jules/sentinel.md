@@ -36,3 +36,8 @@
 **Vulnerability:** Raw Python exceptions were passed directly to `st.error(str(e))` in Streamlit applications.
 **Learning:** Exposing raw exception details (like `ValueError` messages which might contain user inputs, schema paths, or variable values) to the UI is a security vulnerability (information disclosure). Even "safe-looking" validation errors should be abstracted behind generic localized strings.
 **Prevention:** Always log exceptions internally using `logging.error(..., exc_info=True)` and present generic, translated error messages to the user like `st.error(t("common.error"))`.
+
+## 2026-08-07 - Fix SQL Injection in dr_resync
+**Vulnerability:** Second-order SQL injection in DuckDB due to unescaped column names returned from Databricks queries.
+**Learning:** Column names fetched from an external source (Databricks) and injected into an f-string or string joined DuckDB query without escaping could execute arbitrary SQL on the backend database running in the daemon.
+**Prevention:** Add a `_escape_id` function to properly escape column names (` '"' + str(val).replace('"', '""') + '"' `), and use positional parameter placeholders `?` in the fallback logic.
