@@ -73,22 +73,25 @@ def _merge_into_local(local_conn, table: str, df: pd.DataFrame) -> None:
     # Append-only tables (immutable IDs) → IGNORE; override tables → REPLACE.
     verb = "INSERT OR IGNORE" if table in ("comments", "audit_log") else "INSERT OR REPLACE"
 
+    def _escape_id(val: str) -> str:
+        return '"' + str(val).replace('"', '""') + '"'
+
     with local_conn.cursor() as cur:
         # Use DuckDB's native fast dataframe loading if available, else fallback to loop
-        cols = ", ".join(df.columns)
+        cols = ", ".join(_escape_id(c) for c in df.columns)
         if hasattr(cur, '_con') and hasattr(cur._con, 'register'):
             tmp_name = f"_dr_tmp_df_{uuid.uuid4().hex}"
-            sql = f"{verb} INTO user_data.{table} ({cols}) SELECT * FROM {tmp_name}"
+            sql = f"{verb} INTO user_data.{table} ({cols}) SELECT * FROM {_escape_id(tmp_name)}"
             cur._con.register(tmp_name, df)
             try:
                 cur.execute_write(sql)
             finally:
                 cur._con.unregister(tmp_name)
         else:
-            placeholders = ", ".join(f"%({c})s" for c in df.columns)
+            placeholders = ", ".join("?" for _ in df.columns)
             sql = f"{verb} INTO user_data.{table} ({cols}) VALUES ({placeholders})"
-            for row in df.to_dict("records"):
-                cur.execute_write(sql, row)
+            for row in df.itertuples(index=False, name=None):
+                cur.execute_write(sql, list(row))
 
 
 def run_dr_resync(
