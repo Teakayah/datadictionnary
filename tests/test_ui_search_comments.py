@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from streamlit.testing.v1 import AppTest
 import pandas as pd
 
@@ -104,7 +104,6 @@ def test_comment_form_submit_empty():
 def test_comment_form_no_steward_warning():
     """Verify that a warning is shown if no steward is provided."""
     def render_form():
-        import streamlit as st
         from src.pages.search import _render_comment_form
         _render_comment_form("table1", "", "key1")
 
@@ -122,7 +121,6 @@ def test_power_user_edit_buttons():
     """Verify that power users see edit buttons and clicking them works."""
     def render_detail_panel():
         import streamlit as st
-        import pandas as pd
         from unittest.mock import patch
         from src.pages.search import _render_detail_panel
         row = pd.Series({

@@ -99,7 +99,6 @@ def test_semantic_search_exception():
 
 def test_search_all_metadata_with_semantic_search():
     from src.db.queries import search_all_metadata
-    import pandas as pd
     
     # Clear Streamlit cache to ensure our patches are active
     search_all_metadata.clear()
@@ -165,7 +164,6 @@ def test_search_all_metadata_with_semantic_search():
 def test_hybrid_fusion_semantic_results_influence_ranking():
     """A strong semantic hit must outrank a keyword hit with a higher BM25 score."""
     from src.db.queries import search_all_metadata
-    import pandas as pd
 
     search_all_metadata.clear()
 
@@ -201,7 +199,6 @@ def test_hybrid_fusion_semantic_results_influence_ranking():
 def test_hybrid_fusion_appends_semantic_only_hits():
     """Semantic hits missing from keyword results are fetched and appended."""
     from src.db.queries import search_all_metadata
-    import pandas as pd
 
     search_all_metadata.clear()
 
@@ -236,15 +233,12 @@ def test_hybrid_fusion_appends_semantic_only_hits():
     assert res["full_name"].tolist() == ["cat.sch.kw_only", "cat.sch.sem_only"]
 
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import sys
 import pandas as pd
 
-from src.semantic import DatabricksEmbeddingEngine, semantic_search
 
 def test_databricks_embedding_engine_client_property():
-    import sys
     from unittest.mock import MagicMock
     with patch.dict(sys.modules, {"databricks.sdk": MagicMock()}):
         engine = DatabricksEmbeddingEngine()

@@ -722,7 +722,6 @@ class TestAdminDataFetchers:
 
 def test_show_biz_log_dialog():
     def app():
-        import streamlit as st
         from src.ui.cards.admin import _show_biz_log_dialog
         _show_biz_log_dialog()
 
@@ -742,7 +741,6 @@ def test_show_biz_log_dialog():
 
 def test_show_comment_log_dialog():
     def app():
-        import streamlit as st
         from src.ui.cards.admin import _show_comment_log_dialog
         _show_comment_log_dialog()
 
@@ -761,7 +759,6 @@ def test_show_comment_log_dialog():
 
 def test_render_admin_integrity_report_with_data():
     def app():
-        import streamlit as st
         from src.ui.cards.admin import _render_admin_integrity_report
         _render_admin_integrity_report()
 
@@ -794,7 +791,6 @@ def test_render_admin_integrity_report_with_data():
 
 def test_render_admin_integrity_report_with_empty_data():
     def app():
-        import streamlit as st
         from src.ui.cards.admin import _render_admin_integrity_report
         _render_admin_integrity_report()
 
@@ -834,7 +830,6 @@ def test_render_admin_editing_section():
 
 def test_render_admin_log_expands():
     def app():
-        import streamlit as st
         from src.ui.cards.admin import _render_admin_biz_log_section, _render_admin_comment_log_section
         _render_admin_biz_log_section()
         _render_admin_comment_log_section()
@@ -854,7 +849,6 @@ def test_render_admin_log_expands():
 
 def test_render_admin_groups_cache_section():
     def app():
-        import streamlit as st
         from src.ui.cards.admin import _render_admin_groups_cache_section
         _render_admin_groups_cache_section()
 
@@ -868,7 +862,6 @@ def test_render_admin_groups_cache_section():
 
 def test_render_pending_reviews_section_exception():
     def app():
-        import streamlit as st
         from src.ui.cards.admin import _render_pending_reviews_section
         _render_pending_reviews_section()
 
@@ -879,7 +872,6 @@ def test_render_pending_reviews_section_exception():
 
 def test_render_pending_reviews_section_truncate():
     def app():
-        import streamlit as st
         from src.ui.cards.admin import _render_pending_reviews_section
         _render_pending_reviews_section()
 
@@ -894,7 +886,6 @@ def test_render_pending_reviews_section_truncate():
 
 def test_render_pending_reviews_section_approve_reject_exceptions():
     def app():
-        import streamlit as st
         from src.ui.cards.admin import _render_pending_reviews_section
         _render_pending_reviews_section()
 
@@ -918,7 +909,6 @@ def test_render_pending_reviews_section_approve_reject_exceptions():
 
 def test_render_pending_table_friendly_names_section_exception():
     def app():
-        import streamlit as st
         from src.ui.cards.admin import _render_pending_table_friendly_names_section
         _render_pending_table_friendly_names_section()
 
@@ -929,7 +919,6 @@ def test_render_pending_table_friendly_names_section_exception():
 
 def test_render_pending_table_friendly_names_section_truncate():
     def app():
-        import streamlit as st
         from src.ui.cards.admin import _render_pending_table_friendly_names_section
         _render_pending_table_friendly_names_section()
 
@@ -944,7 +933,6 @@ def test_render_pending_table_friendly_names_section_truncate():
 
 def test_render_pending_table_friendly_names_section_approve_reject_exceptions():
     def app():
-        import streamlit as st
         from src.ui.cards.admin import _render_pending_table_friendly_names_section
         _render_pending_table_friendly_names_section()
 
@@ -969,7 +957,6 @@ def test_render_pending_table_friendly_names_section_approve_reject_exceptions()
 
 def test_render_admin_search_analytics_section_with_data():
     def app():
-        import streamlit as st
         from src.ui.cards.admin import _render_admin_search_analytics_section
         _render_admin_search_analytics_section()
 
@@ -988,7 +975,6 @@ def test_render_admin_search_analytics_section_with_data():
 
 def test_render_admin_page_none_tab(monkeypatch):
     def app():
-        import streamlit as st
         from src.ui.cards.admin import render_admin_page
         render_admin_page()
 

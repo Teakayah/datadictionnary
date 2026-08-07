@@ -266,11 +266,11 @@ def render_pipelines_page():
                             try:
                                 cancel_run(pl, run)
                                 st.toast(t("pipelines.stopped"))
+                                st.rerun()
                             except Exception as _e:
                                 logging.error("Pipeline action failed: %s", _e, exc_info=True)
                                 # Security: do not expose internal error details to UI
                                 st.error(t("pipelines.stop_error"))
-                        st.rerun()
 
             else:
                 if st.button(
