@@ -85,3 +85,8 @@
 ## 2023-10-27 - Semantic Search Fallbacks Testing
 **Learning:** Edge cases around loading dynamic extensions in DuckDB (e.g. `LOAD vss` throwing an exception and falling back to `INSTALL vss`) are critical failure paths that require multi-stage patching (e.g. tracking `call_count` inside side_effects) to properly test without a real environment.
 **Action:** When testing dynamic SQL extension loading logic, always use isolated mock states with custom side_effect functions to simulate first-pass failures and second-pass successes in the same execution flow.
+## 2024-05-15 - Fixed Streamlit ElementList Truthiness and Error Rerender Flakiness
+**Learning:**
+1. Streamlit `ElementList` (like `at.error`) evaluates to truthy values inconsistently when using boolean operations (e.g. `or`) unless explicitly converted to lists (e.g., `list(at.error)`).
+2. Calling `st.rerun()` directly after displaying transient error states (`st.error()`) clears the error from the UI immediately, causing tests to erroneously report `len(at.error) == 0`.
+**Action:** Always cast Streamlit component groups (`at.error`, `at.info`) to lists before asserting length or truthiness across multiple types. Never invoke `st.rerun()` in catch blocks if the UI needs to display error components, to ensure testability and visibility.
