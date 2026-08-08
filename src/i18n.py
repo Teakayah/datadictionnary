@@ -1,4 +1,3 @@
-from __future__ import annotations
 """Internationalisation (i18n) for the Data Dictionary.
 
 Public API:
@@ -9,6 +8,7 @@ Public API:
 
 Dependencies: os, json, streamlit (no databricks/msal imports — safe in tests).
 """
+from __future__ import annotations
 
 
 import json as _json
@@ -64,9 +64,7 @@ def format_number(val: int | float) -> str:
     _ensure_locale()
     lang = st.session_state.get("locale", "en")
 
-    lang = st.session_state.get("locale", "en")
     # Very basic locale-aware formatting using standard python string formatting
-    lang = st.session_state.get("locale", "en")
     if lang == "fr":
         # French uses non-breaking space as thousand separator and comma as decimal
         if isinstance(val, int):
@@ -118,7 +116,6 @@ def t(key: str, **kwargs) -> str:
     _ensure_locale()
     lang = st.session_state.get("locale", "en")
 
-    lang = st.session_state.get("locale", "en")
     # Pluralization support
     count_vars = ["count", "n"]
     count_val = None
@@ -126,8 +123,6 @@ def t(key: str, **kwargs) -> str:
         if cv in kwargs and isinstance(kwargs[cv], (int, float)):
             count_val = kwargs[cv]
             break
-
-    lang = st.session_state.get("locale", "en")
 
     if count_val is not None:
         suffix = "zero" if count_val == 0 else "one" if count_val == 1 else "other"
