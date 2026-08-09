@@ -71,3 +71,7 @@
 ## 2024-07-26 - Streamlit Threading Context
 **Learning:** Streamlit heavily relies on a thread-local `ScriptRunContext` for its core features (like caching, connection state, etc.). Spawning a raw `threading.Thread` without attaching this context will cause Streamlit functions to throw a `RuntimeError`, which, if caught in a broad `try...except`, results in silent failure.
 **Action:** Always inject the Streamlit context into newly spawned background threads using `from streamlit.runtime.scriptrunner import add_script_run_ctx; add_script_run_ctx(thread)`.
+
+## 2026-08-09 - Optimize unique mapping construction in Pandas DataFrames
+**Learning:** In pandas, when constructing unique mappings via `groupby()`, computing the lists inside the loop via `.drop_duplicates().groupby().apply(list)` is significantly slower than using a dictionary comprehension with `.groupby().unique()`.
+**Action:** Replaced `.drop_duplicates().groupby().apply(list).to_dict()` with a dictionary comprehension `{k: v.tolist() for k, v in df.groupby().unique().items()}` to improve execution speed.

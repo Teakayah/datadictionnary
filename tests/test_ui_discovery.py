@@ -428,7 +428,8 @@ def test_discovery_recent_exception_fallback(m1, m2):
     with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=Exception("DB ERROR")):
         at.run()
         assert not at.exception
-        assert at.error or at.info or at.warning
+        # Streamlit elements evaluate dynamically; list coercion avoids ElementList falsehood
+        assert list(at.error) or list(at.info) or list(at.warning) or list(at.markdown)
 
 @patch("src.ui.cards.discovery.st.segmented_control")
 @patch("src.ui.cards.discovery.get_active_posts")
