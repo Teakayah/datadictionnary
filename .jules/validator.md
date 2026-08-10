@@ -81,3 +81,7 @@
 Coverage Gap: The offloaded `track_search` logging mechanism running in a background thread was completely untested, masking potential silent catalog or write errors.
 Learning: Streamlit's `add_script_run_ctx` and raw `threading.Thread` usage make it hard to test asynchronous I/O natively without polling or race conditions. Also, mocking file databases like DuckDB requires ensuring schemas are explicitly initialized in the temp environment.
 Assertion: Mock `threading.Thread` and extract the target function via `mock_thread.call_args[1]["target"]` to run the threaded logic synchronously inside the main test frame. This guarantees predictable database state checks.
+## 2026-08-10 - [HIGH] Cover Streamlit UI Components Exception Fallbacks
+**Coverage Gap:** Tests for Pipeline stop UI errors and Discovery DB fallback states were failing/flaky because `st.rerun()` was clearing toasts prematurely or nested AppTest functions shadowed mock patches.
+**Learning:** When using `AppTest.from_function()` for Streamlit tests, `unittest.mock.patch` contexts defined inside the target app function will override any outer patches defined in the test file. To correctly inject mock side effects (like Exceptions), define a local wrapper function inside the test that applies the patch before calling the core component, and pass this wrapper to `AppTest.from_function()`.
+**Assertion:** Moved `st.rerun()` inside Pipeline's try block, and applied local wrapper functions in Discovery AppTest for mock exception bubbling. Evaluated ElementList arrays properly (`list(at.error)`).
