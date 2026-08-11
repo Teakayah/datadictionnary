@@ -85,3 +85,7 @@
 ## 2023-10-27 - Semantic Search Fallbacks Testing
 **Learning:** Edge cases around loading dynamic extensions in DuckDB (e.g. `LOAD vss` throwing an exception and falling back to `INSTALL vss`) are critical failure paths that require multi-stage patching (e.g. tracking `call_count` inside side_effects) to properly test without a real environment.
 **Action:** When testing dynamic SQL extension loading logic, always use isolated mock states with custom side_effect functions to simulate first-pass failures and second-pass successes in the same execution flow.
+
+## 2026-08-11 - Fixed Streamlit Error Erasing and Exception Patching
+**Learning:** Calling `st.rerun()` directly after an `st.error()` inside an exception handler causes the error message to be erased instantly before the user (or `AppTest`) can see it. Also, when using `AppTest.from_function()` with wrapper functions, inner `unittest.mock.patch` definitions in the wrapper will override any outer patches applied in the test body, rendering outer side effects (like Exceptions) ineffective.
+**Action:** When handling exceptions, only call `st.rerun()` inside the `try` block or conditionally upon success, leaving the error message visible if the `except` block is reached. To test exception fallback paths in Streamlit apps, ensure the target function passed to `AppTest.from_function()` explicitly applies the exception-raising mock internally rather than relying on an outer test-level mock.
