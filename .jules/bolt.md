@@ -71,3 +71,6 @@
 ## 2024-07-26 - Streamlit Threading Context
 **Learning:** Streamlit heavily relies on a thread-local `ScriptRunContext` for its core features (like caching, connection state, etc.). Spawning a raw `threading.Thread` without attaching this context will cause Streamlit functions to throw a `RuntimeError`, which, if caught in a broad `try...except`, results in silent failure.
 **Action:** Always inject the Streamlit context into newly spawned background threads using `from streamlit.runtime.scriptrunner import add_script_run_ctx; add_script_run_ctx(thread)`.
+## 2026-08-12 - Optimize DataFrame groupby apply(list)
+**Learning:** Using `groupby().apply(list)` in pandas is significantly slower than `groupby().agg(list)` because `apply` evaluates the function flexibly which incurs a heavy overhead, while `agg` leverages more optimized reduction pathways.
+**Action:** Always prefer `.agg(list)` over `.apply(list)` when aggregating grouped items into a list.
