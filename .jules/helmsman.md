@@ -79,3 +79,7 @@
 **Cluster Quirk:** The high-availability deployments (`dd-app` and `dd-api`) lacked strict rules to prevent all replicas from scheduling on the same node, relying only on soft topology spread constraints.
 **Learning:** If all replicas are scheduled onto a single node due to scheduling availability, a single node failure would cause a complete outage of the application despite the HPA minimum replica count.
 **Resilience:** Added `podAntiAffinity` with `requiredDuringSchedulingIgnoredDuringExecution` to both deployments to strictly enforce that replicas are scheduled across different nodes, ensuring true HA resilience.
+## 2024-05-24 - Soft Anti-Affinity with HPA
+**Cluster Quirk:** The cluster scales pods via HPA, but hard podAntiAffinity combined with topologySpreadConstraints causes pods to hang in Pending state if replicas exceed available nodes.
+**Learning:** Hard podAntiAffinity (`requiredDuringSchedulingIgnoredDuringExecution`) prevents scheduling on a node that already has a pod matching the label. When node count is limited, excess pods can't schedule anywhere.
+**Resilience:** Replaced hard anti-affinity with soft anti-affinity (`preferredDuringSchedulingIgnoredDuringExecution`) to prioritize spreading without completely blocking scheduling when nodes are exhausted.
