@@ -15,7 +15,7 @@ streamlit-autorefresh>=1.0,<2          # 1.0.1 — used in src/ui/cards/pipeline
 # ── REST API + MCP server ─────────────────────────────────────────────────────
 fastapi>=0.115,<1                      # REST API framework
 uvicorn[standard]>=0.30,<1             # ASGI server (start: uvicorn src.api.main:app)
-mcp>=1.9                               # MCP Python SDK (includes FastMCP + Streamable HTTP)
+mcp>=1.9,<2.0                          # MCP Python SDK 1.x (includes mcp.server.fastmcp)
 redis>=5.0,<6                          # includes redis.asyncio for async cache
 python-jose[cryptography]>=3.3,<4      # Entra ID JWT validation (RS256)
 httpx>=0.27,<1                         # async HTTP for JWKS fetch + Graph API
