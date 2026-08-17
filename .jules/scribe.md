@@ -7,3 +7,6 @@
 ## 2024-07-13 - Python Module Docstring and Future Imports
 **Learning:** In Python, the module-level docstring must always be the very first statement in a file. Placing `from __future__ import annotations` or other `__future__` imports before the docstring converts the intended docstring into a regular string expression. This causes all subsequent imports to fail Ruff's `E402` (Module level import not at top of file) check because Ruff considers the string expression as executable code preceding the imports.
 **Action:** Always ensure the precise order: 1) Module docstring, 2) `__future__` imports, 3) Standard imports. When adding docstrings to files, verify that `__future__` imports are correctly positioned below the new docstring.
+## 2024-08-17 - Module Docstring Position
+**Learning:** In Python files, module-level docstrings (`"""..."""`) must be placed as the absolute first statement in the file, preceding all imports (including `from __future__ import annotations`). Placing imports before the module docstring demotes it to a regular string expression and triggers Ruff `E402` (Module level import not at top of file) errors.
+**Action:** Ensure the module docstring is always the first statement in a file when creating or refactoring files.
