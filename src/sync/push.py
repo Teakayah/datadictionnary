@@ -1,6 +1,6 @@
+"""Queue and Push logic for Databricks write-back."""
 from __future__ import annotations
 from typing import Optional
-"""Queue and Push logic for Databricks write-back."""
 
 import json
 import logging
