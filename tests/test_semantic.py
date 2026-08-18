@@ -236,10 +236,7 @@ def test_hybrid_fusion_appends_semantic_only_hits():
     assert res["full_name"].tolist() == ["cat.sch.kw_only", "cat.sch.sem_only"]
 
 
-import pytest
 from unittest.mock import patch, MagicMock
-import sys
-import pandas as pd
 
 from src.semantic import DatabricksEmbeddingEngine, semantic_search
 

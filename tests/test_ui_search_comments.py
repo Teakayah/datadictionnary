@@ -1,7 +1,6 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from streamlit.testing.v1 import AppTest
-import pandas as pd
 
 @pytest.fixture(autouse=True)
 def mock_t():
@@ -104,7 +103,6 @@ def test_comment_form_submit_empty():
 def test_comment_form_no_steward_warning():
     """Verify that a warning is shown if no steward is provided."""
     def render_form():
-        import streamlit as st
         from src.pages.search import _render_comment_form
         _render_comment_form("table1", "", "key1")
 
