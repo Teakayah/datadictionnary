@@ -81,3 +81,8 @@
 Coverage Gap: The offloaded `track_search` logging mechanism running in a background thread was completely untested, masking potential silent catalog or write errors.
 Learning: Streamlit's `add_script_run_ctx` and raw `threading.Thread` usage make it hard to test asynchronous I/O natively without polling or race conditions. Also, mocking file databases like DuckDB requires ensuring schemas are explicitly initialized in the temp environment.
 Assertion: Mock `threading.Thread` and extract the target function via `mock_thread.call_args[1]["target"]` to run the threaded logic synchronously inside the main test frame. This guarantees predictable database state checks.
+## 2024-08-18 - Missing coverage in get_authorized_table_names
+
+**Coverage Gap:** The `get_authorized_table_names` function in `src/db/queries.py` completely lacks test coverage.
+**Learning:** This function is a cached helper that fetches the full authorized tables dataframe and extracts a set of table names, and must handle empty cases correctly.
+**Assertion:** We must mock `get_authorized_tables` to return both populated and empty DataFrames, and assert the function returns the correct `set` of `full_name` strings in both scenarios.

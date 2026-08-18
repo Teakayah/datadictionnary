@@ -24,6 +24,7 @@ from src.api.queries import (
     get_table_details,
     search_metadata,
 )
+from src.db.queries import get_authorized_table_names
 
 
 # ── _group_clause ─────────────────────────────────────────────────────────────
@@ -65,6 +66,42 @@ class TestGetAuthorizedTables:
         sql, params = mock_q.call_args[0]
         assert "__no_match__" in sql
         assert params == {}
+
+
+# ── get_authorized_table_names ────────────────────────────────────────────────
+
+class TestGetAuthorizedTableNames:
+    def test_returns_unique_full_names_as_set(self):
+        # Arrange
+        df = pd.DataFrame([
+            {"full_name": "cat.sch.table1"},
+            {"full_name": "cat.sch.table2"},
+            {"full_name": "cat.sch.table1"}
+        ])
+        with patch("src.db.queries.get_authorized_tables", return_value=df) as mock_gat:
+            # Act
+            result = get_authorized_table_names(("group1",))
+            # Assert
+            mock_gat.assert_called_once_with(("group1",))
+            assert result == {"cat.sch.table1", "cat.sch.table2"}
+
+    def test_returns_empty_set_when_no_tables_authorized(self):
+        # Arrange
+        with patch("src.db.queries.get_authorized_tables", return_value=pd.DataFrame()) as mock_gat:
+            # Act
+            result = get_authorized_table_names(("group1",))
+            # Assert
+            mock_gat.assert_called_once_with(("group1",))
+            assert result == set()
+
+    def test_returns_empty_set_when_none_returned(self):
+        # Arrange
+        with patch("src.db.queries.get_authorized_tables", return_value=None) as mock_gat:
+            # Act
+            result = get_authorized_table_names(("group1",))
+            # Assert
+            mock_gat.assert_called_once_with(("group1",))
+            assert result == set()
 
 
 # ── get_table_details ─────────────────────────────────────────────────────────
