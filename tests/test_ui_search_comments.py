@@ -163,3 +163,254 @@ def test_power_user_edit_buttons():
 
     edit_friendly_btn = next((b for b in at.button if "detail.edit_friendly_name" in b.label), None)
     assert edit_friendly_btn is not None
+
+def test_search_bookmark_actions():
+    """Verify that bookmark toggling works."""
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from unittest.mock import patch
+        from src.pages.search import _render_detail_panel
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "business_name_en": "Sales Orders",
+            "business_name_fr": "Commandes de vente",
+            "business_definition_en": "Sales order data.",
+            "business_definition_fr": "Données de commande de vente.",
+            "description": "Table containing sales orders.",
+            "dq_score": 95,
+            "steward_email": "test@example.com"
+        })
+        st.session_state["_live_completeness_main.sales.orders"] = 95
+        st.session_state["recent_views"] = []
+
+
+        with patch("src.pages.search.get_table_comments", return_value=[]), \
+             patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+             patch("src.pages.search.get_column_overrides", return_value={}), \
+             patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+             patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+             patch("src.pages.search._pref_upsert"), \
+             patch("src.pages.search._pref_delete"), \
+             patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+             _render_detail_panel(row, "main.sales.orders", tuple())
+
+    at = AppTest.from_function(render_detail_panel)
+    at.session_state["bookmarks"] = {"main.sales.orders"}
+    at.run()
+
+    bk_btn = next((b for b in at.button if b.key == "bk_main.sales.orders"), None)
+    with patch("streamlit.rerun"):
+        bk_btn.click().run()
+    assert "main.sales.orders" not in at.session_state["bookmarks"]
+
+def test_search_data_preview_and_export():
+    """Verify data preview and dictionary export buttons."""
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from unittest.mock import patch
+        from src.pages.search import _render_detail_panel
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "business_name_en": "Sales Orders",
+            "business_name_fr": "Commandes de vente",
+            "business_definition_en": "Sales order data.",
+            "business_definition_fr": "Données de commande de vente.",
+            "description": "Table containing sales orders.",
+            "dq_score": 95,
+            "steward_email": "test@example.com"
+        })
+        st.session_state["_live_completeness_main.sales.orders"] = 95
+        st.session_state["recent_views"] = []
+
+        with patch("src.pages.search.get_table_comments", return_value=[]), \
+             patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+             patch("src.pages.search.get_column_overrides", return_value={}), \
+             patch("src.pages.search.get_table_columns", return_value=pd.DataFrame([{"column_name": "id", "data_type": "integer", "comment": "ID"}])), \
+             patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+             patch("src.pages.search.render_data_sample"), \
+             patch("src.pages.search._pref_upsert"), \
+             patch("src.pages.search.export_schema_to_csv", return_value="id,integer"), \
+             patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+             _render_detail_panel(row, "main.sales.orders", tuple())
+
+    at = AppTest.from_function(render_detail_panel)
+    at.session_state["bookmarks"] = {"main.sales.orders"}
+    at.run()
+
+    preview_btn = next((b for b in at.button if b.key == "preview_main.sales.orders"), None)
+    assert preview_btn is not None
+    preview_btn.click().run()
+    assert not at.exception
+
+def test_search_business_name_editor_click():
+    """Verify that clicking the 'Edit Business Name' button executes successfully without errors."""
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from unittest.mock import patch
+        from src.pages.search import _render_detail_panel
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "business_name_en": "Sales Orders",
+            "business_name_fr": "Commandes de vente",
+            "business_definition_en": "Sales order data.",
+            "business_definition_fr": "Données de commande de vente.",
+            "description": "Table containing sales orders.",
+            "dq_score": 95,
+            "steward_email": "test@example.com"
+        })
+        st.session_state["_live_completeness_main.sales.orders"] = 95
+        st.session_state["recent_views"] = []
+
+        with patch("src.pages.search.get_table_comments", return_value=[]), \
+             patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+             patch("src.pages.search.get_column_overrides", return_value={}), \
+             patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+             patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+             patch("src.pages.search._pref_upsert"), \
+             patch("src.pages.search.render_table_business_name_editor"), \
+             patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+             _render_detail_panel(row, "main.sales.orders", tuple())
+
+    at = AppTest.from_function(render_detail_panel)
+    with patch("src.pages.search.is_power_user", return_value=True):
+        at.run()
+
+    edit_btn = next((b for b in at.button if "detail.edit_friendly_name" in b.label), None)
+    assert edit_btn is not None
+    with patch("src.pages.search.is_power_user", return_value=True):
+        edit_btn.click().run()
+    assert not at.exception
+
+def test_search_related_open_button_click():
+    """Verify that clicking the 'Open' button on a related table updates session state and reruns."""
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from unittest.mock import patch
+        from src.pages.search import _render_detail_panel
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "business_name_en": "Sales Orders",
+            "business_name_fr": "Commandes de vente",
+            "business_definition_en": "Sales order data.",
+            "business_definition_fr": "Données de commande de vente.",
+            "description": "Table containing sales orders.",
+            "dq_score": 95,
+            "steward_email": "test@example.com"
+        })
+        st.session_state["_live_completeness_main.sales.orders"] = 95
+        st.session_state["recent_views"] = []
+
+        with patch("src.pages.search.get_table_comments", return_value=[]), \
+             patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+             patch("src.pages.search.get_column_overrides", return_value={}), \
+             patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+             patch("src.pages.search.run_query", return_value=pd.DataFrame([
+                 {"full_name": "main.sales.customers", "table_name": "customers", "schema_name": "sales", "catalog_name": "main", "relationship": "Same schema", "dq_score": 88}
+             ])), \
+             patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+             _render_detail_panel(row, "main.sales.orders", tuple())
+
+    at = AppTest.from_function(render_detail_panel)
+    at.session_state["bookmarks"] = {"main.sales.orders"}
+    at.run()
+
+    rel_btn = next((b for b in at.button if b.key == "rel_main.sales.customers"), None)
+    assert rel_btn is not None
+    with patch("streamlit.rerun"):
+        rel_btn.click().run()
+    assert at.session_state["dd_search_override"] == "customers"
+
+def test_search_page_hero_and_load_error():
+    """Verify that the search page renders the hero, and handles get_authorized_tables exception."""
+    def app_wrapper():
+        import streamlit as st
+        from unittest.mock import patch
+        from src.pages.search import render_search_page
+        with patch("src.pages.search.get_authorized_tables", side_effect=Exception("DB connection error")), \
+             patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+            render_search_page(tuple())
+
+    at = AppTest.from_function(app_wrapper)
+    at.run()
+    assert len(at.error) > 0
+    assert at.error[0].value == "search.load_error"
+
+def test_search_page_no_access():
+    """Verify that the search page handles empty authorized tables."""
+    def app_wrapper():
+        import streamlit as st
+        import pandas as pd
+        from unittest.mock import patch
+        from src.pages.search import render_search_page
+        with patch("src.pages.search.get_authorized_tables", return_value=pd.DataFrame()), \
+             patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+            render_search_page(tuple())
+
+    at = AppTest.from_function(app_wrapper)
+    at.run()
+    assert len(at.info) > 0
+    assert at.info[0].value == "search.no_access"
+
+def test_search_page_active_group():
+    """Verify that the search page renders the correct info and handles group filters."""
+    def app_wrapper():
+        import streamlit as st
+        import pandas as pd
+        from unittest.mock import patch
+        from src.pages.search import render_search_page
+        with patch("src.pages.search.get_authorized_tables", return_value=pd.DataFrame({"full_name": ["main.sales.orders"], "table_name": ["orders"], "catalog_name": ["main"], "schema_name": ["sales"], "dq_score": [95]})), \
+             patch("src.pages.search.search_all_metadata", return_value=pd.DataFrame({"full_name": ["main.sales.orders"], "table_name": ["orders"], "catalog_name": ["main"], "schema_name": ["sales"], "dq_score": [95], "match_type": ["Table"]})), \
+             patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+            render_search_page(tuple())
+
+    at = AppTest.from_function(app_wrapper)
+    at.session_state["group_filter"] = "finance"
+    at.run()
+
+    back_btn = next((b for b in at.button if "common.back" in b.label), None)
+    assert back_btn is not None
+    with patch("streamlit.rerun"):
+        back_btn.click().run()
+    assert "group_filter" not in at.session_state
+
+def test_search_page_search_query_execution():
+    """Verify that search query executes and shows results."""
+    def app_wrapper():
+        import streamlit as st
+        import pandas as pd
+        from unittest.mock import patch
+        from src.pages.search import render_search_page
+        with patch("src.pages.search.get_authorized_tables", return_value=pd.DataFrame({"full_name": ["main.sales.orders"], "table_name": ["orders"], "catalog_name": ["main"], "schema_name": ["sales"], "dq_score": [95]})), \
+             patch("src.pages.search.search_all_metadata", return_value=pd.DataFrame({"full_name": ["main.sales.orders"], "table_name": ["orders"], "catalog_name": ["main"], "schema_name": ["sales"], "dq_score": [95], "match_type": ["Table"]})), \
+             patch("src.pages.search.track_search"), \
+             patch("src.pages.search._render_detail_panel"), \
+             patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+            render_search_page(tuple())
+
+    at = AppTest.from_function(app_wrapper)
+    at.session_state["_dd_current_search_query"] = "orders"
+    at.session_state["catalog_search"] = "orders"
+    at.run()
+
+    view_btn = next((b for b in at.button if "search.view_details" in b.label), None)
+    assert view_btn is not None
+    with patch("streamlit.rerun"):
+        view_btn.click().run()
+
+    assert at.session_state["_dd_sticky_nav"] == "main.sales.orders"
