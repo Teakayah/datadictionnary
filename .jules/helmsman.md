@@ -83,3 +83,8 @@
 **Cluster Quirk:** The cluster is configured with HPA capable of scaling up `dd-app` significantly, but nodes are limited.
 **Learning:** Combining HPA with `topologySpreadConstraints` and a hard `podAntiAffinity` (`requiredDuringSchedulingIgnoredDuringExecution`) creates a scheduling regression. If the HPA scales the deployment beyond the cluster's available node count, pods will hang in the `Pending` state.
 **Resilience:** Replaced the hard `podAntiAffinity` with a soft `preferredDuringSchedulingIgnoredDuringExecution` to allow pods to schedule even when nodes must run multiple replicas, ensuring availability during traffic spikes.
+
+## 2024-05-25 - Soft podAntiAffinity with HPA
+**Cluster Quirk:** The `dd-api` deployment uses an HPA but lacked a soft `podAntiAffinity` configuration.
+**Learning:** Using a hard `podAntiAffinity` (`requiredDuringSchedulingIgnoredDuringExecution`) with HPA can cause scheduling deadlocks when nodes are limited.
+**Resilience:** Apply `preferredDuringSchedulingIgnoredDuringExecution` to improve high availability without risking deadlocks.
