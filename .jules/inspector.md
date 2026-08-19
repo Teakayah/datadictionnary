@@ -92,3 +92,7 @@
 ## 2026-08-18 - AppTest Isolation for Streamlit Navigation/Search Complex UI
 **Learning:** Testing complex Streamlit components (like search result pages and related table expansion) requires explicitly isolating `AppTest.from_function()` by overriding session state immediately before or after `.run()`, and stubbing out all backend DB queries (`search_all_metadata`, `get_authorized_tables`, `run_query`). AppTest fails with attribute errors internally if patched components are leaked between test scopes.
 **Action:** When creating tests for heavy frontend search logic, define an inner wrapper function that patches necessary methods inside the context manager instead of the file-level scope, to avoid leaking or overwriting globally imported methods.
+
+## 2024-05-24 - Cover missing _fetch_metadata_for_fns in DB Queries
+**Learning:** The `_fetch_metadata_for_fns` utility, which is heavily relied upon by the semantic search fallback mechanism (Hybrid Fusion), was completely mocked out in all semantic tests (`test_semantic.py`). This left a critical SQL construction point and logic gap untested, which could silently break semantic search.
+**Action:** Added dedicated unit tests for DB layer utilities in `tests/test_db_queries.py` to ensure raw SQL construction for fetching metadata is validated without being obscured by higher-level mocks.
