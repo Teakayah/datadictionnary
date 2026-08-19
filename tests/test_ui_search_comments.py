@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import patch
 from streamlit.testing.v1 import AppTest
-import pandas as pd
 
 @pytest.fixture(autouse=True)
 def mock_t():
@@ -110,7 +109,7 @@ def test_comment_form_no_steward_warning():
     at = AppTest.from_function(render_form)
     at.run()
 
-    with patch("streamlit.rerun") as mock_rerun:
+    with patch("streamlit.rerun"):
         at.button[0].click().run()
     at.run()
 

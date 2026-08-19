@@ -1,6 +1,8 @@
 from unittest.mock import MagicMock, patch
 from src.semantic import DatabricksEmbeddingEngine, MockEmbeddingEngine, get_embedding_engine, generate_table_embeddings, semantic_search
 import os
+import sys
+import pandas as pd
 
 def test_mock_embedding_engine():
     engine = MockEmbeddingEngine()
@@ -231,12 +233,6 @@ def test_hybrid_fusion_appends_semantic_only_hits():
     mock_fetch.assert_called_once_with(["cat.sch.sem_only"], ("group1",))
     # Exact keyword match (0.7) still beats semantic-only hit (0.3), but both present
     assert res["full_name"].tolist() == ["cat.sch.kw_only", "cat.sch.sem_only"]
-
-
-from unittest.mock import patch
-import sys
-import pandas as pd
-from src.semantic import DatabricksEmbeddingEngine, semantic_search
 
 
 def test_databricks_embedding_engine_client_property():
