@@ -695,7 +695,7 @@ def render_search_page(query_groups: tuple) -> None:
             with _gb:
                 if st.button(f"{t('search.view_details')} →", key=f"gview_{_fn}_{_i}", help=t("search.view_details_help"), use_container_width=True):
                     if _fn in _auth_full_names:
-                        st.session_state["dd_search_override"] = str(_row.get("name") or _row.get("table_name", ""))
+                        st.session_state["dd_search_override"] = str(getattr(_row, "name", "") or getattr(_row, "table_name", ""))
                         st.session_state["dd_nav_select"] = _fn
                         st.rerun()
                     else:

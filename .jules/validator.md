@@ -86,3 +86,8 @@ Assertion: Mock `threading.Thread` and extract the target function via `mock_thr
 **Coverage Gap:** The `get_authorized_table_names` function in `src/db/queries.py` completely lacks test coverage.
 **Learning:** This function is a cached helper that fetches the full authorized tables dataframe and extracts a set of table names, and must handle empty cases correctly.
 **Assertion:** We must mock `get_authorized_tables` to return both populated and empty DataFrames, and assert the function returns the correct `set` of `full_name` strings in both scenarios.
+
+## 2026-08-19 - Mocking Streamlit Selectboxes in AppTest
+**Coverage Gap:** The search group filtering and analytics exception paths in `src/pages/search.py` were untested because they depended on Streamlit `selectbox` widgets populated by dynamic dataframes.
+**Learning:** When testing Streamlit `AppTest` selectboxes with dynamic options populated by a pandas dataframe query (like `get_authorized_tables`), you must ensure the mock DataFrame provides a value that exactly matches what `at.selectbox.set_value()` attempts to set. If the value isn't in the mock's `table_name` column, `AppTest` raises a `ValueError` because the UI widget cannot select an invalid option. Furthermore, to test the "unauthorized table" edge case, you must set the selectbox to a valid authorized table name, but mock the subsequent search query (`search_all_metadata`) to return the unauthorized table.
+**Assertion:** Ensure `mock_authorized` DataFrames contain the exact strings you intend to pass to `at.selectbox(...).set_value(...)`, and decouple the `selectbox` valid options from the secondary search results by mocking `search_all_metadata` independently.
