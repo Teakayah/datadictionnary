@@ -337,7 +337,6 @@ def test_search_related_open_button_click():
 def test_search_page_hero_and_load_error():
     """Verify that the search page renders the hero, and handles get_authorized_tables exception."""
     def app_wrapper():
-        import streamlit as st
         from unittest.mock import patch
         from src.pages.search import render_search_page
         with patch("src.pages.search.get_authorized_tables", side_effect=Exception("DB connection error")), \
@@ -352,7 +351,6 @@ def test_search_page_hero_and_load_error():
 def test_search_page_no_access():
     """Verify that the search page handles empty authorized tables."""
     def app_wrapper():
-        import streamlit as st
         import pandas as pd
         from unittest.mock import patch
         from src.pages.search import render_search_page
@@ -368,7 +366,6 @@ def test_search_page_no_access():
 def test_search_page_active_group():
     """Verify that the search page renders the correct info and handles group filters."""
     def app_wrapper():
-        import streamlit as st
         import pandas as pd
         from unittest.mock import patch
         from src.pages.search import render_search_page
@@ -390,7 +387,6 @@ def test_search_page_active_group():
 def test_search_page_search_query_execution():
     """Verify that search query executes and shows results."""
     def app_wrapper():
-        import streamlit as st
         import pandas as pd
         from unittest.mock import patch
         from src.pages.search import render_search_page
