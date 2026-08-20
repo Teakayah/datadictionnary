@@ -103,7 +103,7 @@ def format_date(dt, format_type="long") -> str:
     if format_type == "short":
         return t("date.short", day=f"{dt.day:02d}", month=month_name)
     else:
-        time_str = dt.strftime("%H:%M")
+        time_str = dt.strftime(t("date.time_format"))
         return t("date.long", day=f"{dt.day:02d}", month=month_name, year=dt.year, time=time_str)
 
 
