@@ -88,3 +88,8 @@
 **Cluster Quirk:** The `dd-api` deployment uses an HPA but lacked a soft `podAntiAffinity` configuration.
 **Learning:** Using a hard `podAntiAffinity` (`requiredDuringSchedulingIgnoredDuringExecution`) with HPA can cause scheduling deadlocks when nodes are limited.
 **Resilience:** Apply `preferredDuringSchedulingIgnoredDuringExecution` to improve high availability without risking deadlocks.
+
+## 2024-05-24 - Hardened Redis Deployment Liveness Probe
+**Cluster Quirk:** The `dd-redis` deployment was using a basic `tcpSocket` check on port 6379 for its liveness probe.
+**Learning:** A TCP connection check only verifies that the port is open and accepting network connections. It passes even if the underlying Redis event loop is deadlocked or entirely unresponsive to commands, meaning a failing pod won't be restarted automatically by Kubernetes.
+**Resilience:** Replaced the `tcpSocket` probe with an `exec` probe running `["redis-cli", "ping"]`. This ensures the application layer is actively processing commands, allowing the kubelet to detect actual deadlocks and restart the container when necessary.
