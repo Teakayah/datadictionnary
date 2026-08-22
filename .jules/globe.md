@@ -34,3 +34,7 @@
 ## 2025-07-30 - Localizing Streamlit st.column_config
 **Learning:** When localizing Streamlit `st.dataframe`, do not forget that column headers inside `column_config` support translated strings directly, but any HTML headers inside `st.markdown()` blocks need f-string interpolation with the translation function.
 **Action:** Ensure both markdown and `st.dataframe` headers are translated together for a cohesive localized UI.
+
+## 2026-08-22 - Extract Hardcoded Backend Labels in Pipelines
+**Learning:** Hardcoded dictionary values for backend labels in UI components (like `_BACKEND_LABEL = {"databricks": "Databricks", ...}`) prevent translation of these labels. By refactoring to use translation keys directly via `format_func` (e.g., `format_func=lambda x: t(f"pipelines.backend_{x}")`), the UI can dynamically resolve the localized strings while keeping internal state keys clean.
+**Action:** When a UI component uses a dictionary to map internal keys to display labels, extract the display labels to the translation file and use `format_func` with `t()` to localize the options instead. Tests may need to be updated to select the internal key (e.g., `"databricks"`) instead of the hardcoded display label (e.g., `"Databricks"`).

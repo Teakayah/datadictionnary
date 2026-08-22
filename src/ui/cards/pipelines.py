@@ -31,11 +31,7 @@ from src.pipelines import (
     trigger_pipeline,
 )
 
-_BACKEND_LABEL = {
-    "databricks": "Databricks",
-    "adf":        "Azure Data Factory",
-    "ado":        "Azure DevOps",
-}
+
 _BACKEND_COLOR = {
     "databricks": "var(--accent)",
     "adf":        "var(--deepblue)",
@@ -72,11 +68,11 @@ def _pipeline_status_color(status: str) -> str:
 
 @st.dialog(t("pipelines.create_title"), width="large")
 def _show_pipeline_create_dialog():
-    backend_opts = [_BACKEND_LABEL[b] for b in BACKENDS]
+    backend_opts = [b for b in BACKENDS]
     sel_label = st.radio(
-        t("pipelines.backend"), options=backend_opts, horizontal=True, key="pl_create_backend",
+        t("pipelines.backend"), options=backend_opts, format_func=lambda x: t(f"pipelines.backend_{x}"), horizontal=True, key="pl_create_backend",
     )
-    backend = next(b for b in BACKENDS if _BACKEND_LABEL[b] == sel_label)
+    backend = sel_label
 
     title = st.text_input(t("pipelines.field_title"), placeholder=t("pipelines.field_title_placeholder"), max_chars=120, key="pl_create_title")
     desc  = st.text_area(t("pipelines.field_desc"), placeholder=t("pipelines.field_desc_placeholder"), max_chars=300, height=80, key="pl_create_desc")
@@ -141,7 +137,7 @@ def _render_admin_pipelines_section():
 
     for pl in pipelines:
         color = _BACKEND_COLOR.get(pl["backend"], "var(--ink-40)")
-        lbl   = _BACKEND_LABEL.get(pl["backend"], pl["backend"])
+        lbl   = t(f"pipelines.backend_{pl['backend']}")
         row_html = (
             f'<div style="border-left:3px solid {color};padding:8px 12px;'
             f'background:var(--paper-deep);border-radius:0 4px 4px 0;">'
@@ -210,7 +206,7 @@ def render_pipelines_page():
     for pl in pipelines:
         pid    = pl["pipeline_id"]
         color  = _BACKEND_COLOR.get(pl["backend"], "var(--ink-40)")
-        blabel = _BACKEND_LABEL.get(pl["backend"], pl["backend"])
+        blabel = t(f"pipelines.backend_{pl['backend']}")
         run    = active_runs[pid]
 
         with st.container():
