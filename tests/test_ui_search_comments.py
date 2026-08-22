@@ -412,3 +412,27 @@ def test_search_page_search_query_execution():
         view_btn.click().run()
 
     assert at.session_state["_dd_sticky_nav"] == "main.sales.orders"
+
+def test_comment_form_submit_error():
+    """Verify that an error is shown if saving the comment fails."""
+    def run_with_error():
+        import streamlit as st
+        from src.pages.search import _render_comment_form
+        from unittest.mock import patch
+
+        with patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+            with patch("src.pages.search.save_comment", side_effect=Exception("DB Error")):
+                _render_comment_form("table1", "steward1", "key1")
+
+    at2 = AppTest.from_function(run_with_error)
+    at2.session_state["dd_comment_open_key1"] = True
+    at2.run()
+
+    text_area = at2.text_area[0]
+    text_area.set_value("My comment").run()
+
+    send_btn = next(b for b in at2.button if b.label == "comment.send")
+    send_btn.click().run()
+
+    assert len(at2.error) > 0
+    assert at2.error[0].value == "common.error"
