@@ -34,3 +34,6 @@
 ## 2025-07-30 - Localizing Streamlit st.column_config
 **Learning:** When localizing Streamlit `st.dataframe`, do not forget that column headers inside `column_config` support translated strings directly, but any HTML headers inside `st.markdown()` blocks need f-string interpolation with the translation function.
 **Action:** Ensure both markdown and `st.dataframe` headers are translated together for a cohesive localized UI.
+## 2025-02-27 - Extract hardcoded time formatting
+**Learning:** Python's `dt.strftime("%H:%M")` was hardcoded in `src/i18n.py`, enforcing a 24-hour clock across all locales.
+**Action:** Extract format string to locale dictionaries (e.g. `t("date.time_format")`) to support native formatting styles like `%I:%M %p` (12-hour AM/PM) for US English and `%H:%M` for French.

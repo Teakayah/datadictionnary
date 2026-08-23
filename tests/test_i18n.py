@@ -166,10 +166,10 @@ def test_format_date_short_en():
         assert format_date(dt, "short") == "Jan 05"
 
 def test_format_date_long_en():
-    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"date": {"months": {"1": "Jan"}, "long": "{month} {day}, {year} {time}"}}}):
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"date": {"time_format": "%I:%M %p", "months": {"1": "Jan"}, "long": "{month} {day}, {year} {time}"}}}):
         mock_st.session_state = {"locale": "en"}
         dt = datetime(2023, 1, 5, 14, 30)
-        assert format_date(dt, "long") == "Jan 05, 2023 14:30"
+        assert format_date(dt, "long") == "Jan 05, 2023 02:30 PM"
 
 def test_t_pluralization_zero():
     with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items_zero": "No items", "items_one": "1 item", "items_other": "{count} items"}}):

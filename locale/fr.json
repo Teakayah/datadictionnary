@@ -468,6 +468,7 @@
       "12": "déc."
     },
     "short": "{day} {month}",
-    "long": "{day} {month} {year} {time} UTC"
+    "long": "{day} {month} {year} {time} UTC",
+    "time_format": "%H:%M"
   }
 }
