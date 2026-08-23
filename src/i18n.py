@@ -45,7 +45,11 @@ def _lookup(d: dict, parts: list) -> str | None:
 
 
 def get_locale() -> str:
-    """Detect preferred locale from the browser Accept-Language header."""
+    """Detect preferred locale from the browser Accept-Language header.
+
+    Returns:
+        str: The detected language code ('en' or 'fr'), defaulting to 'en' if detection fails.
+    """
     try:
         header = st.context.headers.get("Accept-Language", "en")
         primary = header.split(",")[0].split(";")[0].split("-")[0].strip().lower()
@@ -60,7 +64,14 @@ def _ensure_locale() -> None:
 
 
 def format_number(val: int | float) -> str:
-    """Format a number according to the active locale."""
+    """Format a number according to the active locale.
+
+    Args:
+        val (int | float): The number to format.
+
+    Returns:
+        str: The localized number string with appropriate decimal and thousand separators.
+    """
     _ensure_locale()
     lang = st.session_state.get("locale", "en")
 
@@ -79,7 +90,15 @@ def format_number(val: int | float) -> str:
             return f"{val:,.2f}"
 
 def format_date(dt, format_type="long") -> str:
-    """Format a datetime object according to the active locale."""
+    """Format a datetime object according to the active locale.
+
+    Args:
+        dt: The datetime object, ISO string, or object to format.
+        format_type (str, optional): The format style ('long' or 'short'). Defaults to "long".
+
+    Returns:
+        str: The localized formatted date string.
+    """
     if not dt:
         return ""
 
@@ -112,6 +131,13 @@ def t(key: str, **kwargs) -> str:
 
     Falls back to English if the key is missing in the active locale.
     Supports str.format() style placeholders: t('search.results_count', count=5).
+
+    Args:
+        key (str): The dotted translation key.
+        **kwargs: Variables for string interpolation and pluralization support (via 'count' or 'n').
+
+    Returns:
+        str: The translated and formatted string.
     """
     _ensure_locale()
     lang = st.session_state.get("locale", "en")
@@ -144,5 +170,12 @@ def t(key: str, **kwargs) -> str:
 
 
 def set_locale(lang: str) -> None:
-    """Persist locale choice; button click already triggers the rerun."""
+    """Persist locale choice; button click already triggers the rerun.
+
+    Args:
+        lang (str): The language code to persist ('en' or 'fr').
+
+    Returns:
+        None
+    """
     st.session_state["locale"] = lang

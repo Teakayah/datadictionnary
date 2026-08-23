@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch
 from streamlit.testing.v1 import AppTest
 import pandas as pd
