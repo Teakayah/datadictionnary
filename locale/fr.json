@@ -327,7 +327,10 @@
     "field_ado_pid": "Pipeline ID",
     "field_ado_pid_placeholder": "...",
     "create_title": "New Pipeline Definition",
-    "confirm_delete_title": "Delete Pipeline"
+    "confirm_delete_title": "Delete Pipeline",
+    "backend_databricks": "Databricks",
+    "backend_adf": "Azure Data Factory",
+    "backend_ado": "Azure DevOps"
   },
   "cms": {
     "confirm_delete_prompt": "Voulez-vous vraiment supprimer cette annonce ? Cette action est irréversible.",

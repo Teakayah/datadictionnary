@@ -36,7 +36,7 @@ class TestPipelineCreateDialog:
 
         at.text_input(key="pl_create_title").set_value("My DBX Pipeline")
         at.text_area(key="pl_create_desc").set_value("Test Desc")
-        at.radio(key="pl_create_backend").set_value("Databricks")
+        at.radio(key="pl_create_backend").set_value("databricks")
         at.run()
 
         at.text_input(key="pl_db_job").set_value("12345")
@@ -56,7 +56,7 @@ class TestPipelineCreateDialog:
         at = AppTest.from_function(create_dialog_app).run()
 
         at.text_input(key="pl_create_title").set_value("My ADF Pipeline")
-        at.radio(key="pl_create_backend").set_value("Azure Data Factory")
+        at.radio(key="pl_create_backend").set_value("adf")
         at.run()
 
         at.text_input(key="pl_adf_sub").set_value("sub1")
@@ -76,7 +76,7 @@ class TestPipelineCreateDialog:
         at = AppTest.from_function(create_dialog_app).run()
 
         at.text_input(key="pl_create_title").set_value("My ADO Pipeline")
-        at.radio(key="pl_create_backend").set_value("Azure DevOps")
+        at.radio(key="pl_create_backend").set_value("ado")
         at.run()
 
         at.text_input(key="pl_ado_org").set_value("org1")
