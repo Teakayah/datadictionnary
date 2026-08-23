@@ -96,3 +96,6 @@
 ## 2024-05-24 - Cover missing _fetch_metadata_for_fns in DB Queries
 **Learning:** The `_fetch_metadata_for_fns` utility, which is heavily relied upon by the semantic search fallback mechanism (Hybrid Fusion), was completely mocked out in all semantic tests (`test_semantic.py`). This left a critical SQL construction point and logic gap untested, which could silently break semantic search.
 **Action:** Added dedicated unit tests for DB layer utilities in `tests/test_db_queries.py` to ensure raw SQL construction for fetching metadata is validated without being obscured by higher-level mocks.
+## 2026-08-22 - Graceful Error Handling for Streamlit Components
+**Learning:** In Streamlit, unhandled exceptions inside button callback logic (such as saving to a database in `save_comment`) will crash the entire application via a runtime `Exception`. This degrades reliability significantly since typical user actions can bring down the UI.
+**Action:** When wrapping backend operations in UI components, always encapsulate risky calls (like DB saves) within a `try/except` block, log the stack trace using `logging.error`, and display a localized, safe warning to the user using `st.error()` so the interface remains stable and functional.

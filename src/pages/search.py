@@ -60,13 +60,17 @@ def _render_comment_form(
             if st.button(t("comment.send"), key=f"dd_comment_send_{key_suffix}", help=t("help.btn_send_comment"), use_container_width=True, type="primary"):
                 with st.spinner(t("common.saving")):
                     if _inp.strip():
-                        save_comment(
-                            "TABLE", full_name, _inp.strip(), steward,
-                            parent_comment_id=parent_comment_id,
-                        )
-                        st.session_state.pop(_open_key, None)
-                        st.toast(t("common.saved"))
-                        st.rerun()
+                        try:
+                            save_comment(
+                                "TABLE", full_name, _inp.strip(), steward,
+                                parent_comment_id=parent_comment_id,
+                            )
+                            st.session_state.pop(_open_key, None)
+                            st.toast(t("common.saved"))
+                            st.rerun()
+                        except Exception as exc:
+                            logging.error("Failed to save comment for %s: %s", full_name, exc, exc_info=True)
+                            st.error(t("common.error"))
                     else:
                         st.warning(t("comment.empty_error"))
         with _cc:
