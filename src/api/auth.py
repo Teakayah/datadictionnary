@@ -138,7 +138,7 @@ async def validate_token(token: str) -> AuthenticatedUser:
         )
     except JWTError as exc:
         logger.warning("JWT validation failed (possible attack or expiry): %s", exc)
-        raise ValueError(f"Invalid token: {exc}") from exc
+        raise ValueError("Invalid token") from exc
 
     oid = claims.get("oid", "")
     email = (

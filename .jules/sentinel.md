@@ -41,3 +41,7 @@
 **Vulnerability:** Second-order SQL injection in DuckDB due to unescaped column names returned from Databricks queries.
 **Learning:** Column names fetched from an external source (Databricks) and injected into an f-string or string joined DuckDB query without escaping could execute arbitrary SQL on the backend database running in the daemon.
 **Prevention:** Add a `_escape_id` function to properly escape column names (` '"' + str(val).replace('"', '""') + '"' `), and use positional parameter placeholders `?` in the fallback logic.
+## 2024-05-24 - Do not leak internal exception details to client
+**Vulnerability:** Leaking internal `JWTError` exception details via HTTP 401 response in `/mcp` endpoints.
+**Learning:** FastAPI's HTTPException and ValueError passing strings directly to `str(exc)` in dependencies can inadvertently expose underlying library stack traces or exception strings.
+**Prevention:** Sanitize or hardcode error strings returned to the client on authentication failures, ensuring no underlying library strings are leaked.
