@@ -95,3 +95,8 @@ Assertion: Mock `threading.Thread` and extract the target function via `mock_thr
 **Coverage Gap:** The `search_all_metadata` and `_search_keywords` functions in `src/db/queries.py` lacked test coverage, specifically for hybrid semantic search logic and column-specific scoring rules.
 **Learning:** Mocking lazy imports (like `src.semantic.semantic_search` which is imported conditionally inside the function) requires mocking the imported function explicitly at its source module path (`src.semantic.semantic_search`) rather than in the local module (`src.db.queries`). Additionally, simulating an `ImportError` on a lazy import requires patching `sys.modules` with `None` for the target module.
 **Assertion:** Use `patch("src.semantic.semantic_search", ...)` for mocking the conditionally imported function and `patch.dict(sys.modules, {"src.semantic": None})` to test exception handling for missing dependencies in lazy imports.
+
+## 2024-08-24 - Mocking DuckDB Context Managers
+Coverage Gap: Missing test coverage for `_notify_bookmarkers` in `src/sync/push.py` resulting in unverified db write paths.
+Learning: Mocking DuckDB connection objects for test cases requires explicit mocking of the `__enter__` return value for `conn.cursor()` since it is heavily used as a context manager (`with conn.cursor() as cur:`).
+Assertion: Use `cur_mock = MagicMock(); conn.cursor.return_value.__enter__.return_value = cur_mock` to properly intercept and assert against `cur.execute_write`.
