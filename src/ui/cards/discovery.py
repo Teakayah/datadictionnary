@@ -22,7 +22,7 @@ from src.cms import get_active_posts
 from src.ui.cards.cms_admin import _show_delete_cms_dialog
 from src.config import is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
-from src.db.queries import run_query, get_authorized_tables
+from src.db.queries import run_query, get_authorized_tables, get_authorized_table_names
 from src.i18n import t
 from src.notifications import get_unread_notifications, mark_all_read, mark_read
 from src.ui.cards._shared import _POST_COLOR, _dq_grade, _render_empty_state
@@ -329,7 +329,7 @@ def _render_bookmarks_tab(groups):
         _render_empty_state("🔖", t("personalization.no_col_bookmarks"))
     else:
         _col_bk_auth_fns = (
-            set(get_authorized_tables(groups)["full_name"].unique().tolist())
+            get_authorized_table_names(groups)
             if groups else set()
         )
         for _bk_id in sorted(col_bookmarks):
