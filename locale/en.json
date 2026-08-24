@@ -104,6 +104,8 @@
     "preview_needs_data": "No row data found. Regenerate the test dataset with --with-data to enable preview.",
     "preview_error": "Could not fetch data sample. You may not have permission to view the underlying data.",
     "showing_first_50": "Showing first 50 results out of {count}.",
+    "showing_first_50_columns": "Showing first 50 columns out of {count}.",
+    "showing_first_50_grants": "Showing first 50 grants out of {count}.",
     "table_desc_placeholder": "Describe the purpose of this table...",
     "steward_email_placeholder": "steward@example.com",
     "no_grants": "No grants recorded.",

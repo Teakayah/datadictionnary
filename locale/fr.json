@@ -119,7 +119,9 @@
     "no_columns": "No columns recorded.",
     "export_dictionary_help": "Download schema dictionary as CSV",
     "placeholder_desc": "Describe the table's contents, grain, and common use cases...",
-    "placeholder_steward": "e.g. data.steward@example.com"
+    "placeholder_steward": "e.g. data.steward@example.com",
+    "showing_first_50_columns": "Affichage des 50 premières colonnes sur {count}.",
+    "showing_first_50_grants": "Affichage des 50 premières permissions sur {count}."
   },
   "editor": {
     "save": "Enregistrer",
