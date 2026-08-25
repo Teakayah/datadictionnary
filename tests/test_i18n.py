@@ -207,3 +207,11 @@ def test_t_pluralization_handles_index_error_in_format():
     with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items_other": "{0} items"}}):
         mock_st.session_state = {"locale": "en"}
         assert "items" in t("items", count=5)
+
+def test_format_date_invalid_string():
+    # tests the ValueError fallback branch
+    assert format_date("invalid-date-string") == "invalid-date-string"
+
+def test_format_date_no_strftime():
+    # tests the branch where object has no strftime method
+    assert format_date(12345) == "12345"
