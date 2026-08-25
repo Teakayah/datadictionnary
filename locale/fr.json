@@ -59,7 +59,8 @@
     "no_catalogs": "Aucun catalogue accessible.",
     "load_error": "Impossible de charger la hiérarchie du catalogue.",
     "tree_help": "Ouvrir la table dans le catalogue",
-    "more_tables": "...et {count} autres tables. Utilisez la recherche pour les trouver."
+    "more_tables": "...et {count} autres tables. Utilisez la recherche pour les trouver.",
+    "completeness_grade": "Note d'exhaustivité {grade}"
   },
   "table": {
     "columns": "Colonnes",
