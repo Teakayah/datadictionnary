@@ -74,3 +74,6 @@
 ## 2024-08-14 - Optimize Pandas Groupby List Aggregation
 **Learning:** In pandas DataFrame operations, prefer `groupby().agg(list)` over `groupby().apply(list)` when aggregating grouped items into a list. `agg(list)` uses optimized reduction pathways and is significantly faster, whereas `apply(list)` incurs heavy overhead from flexible row-by-row evaluation.
 **Action:** Replace `apply(list)` with `agg(list)` after pandas `groupby` when constructing lists.
+## 2024-03-24 - [Speed up query scoring with nested np.where]
+**Learning:** Re-assigning individual elements using numpy indexing with `.any()` inside `if` statements is noticeably slower than using a fully vectorized nested `np.where()` mapping in python.
+**Action:** Avoid row-by-row mapping like `.apply()` and individual masked indexing like `t_scores[names.str.startswith(q_lower)] = 4`. Instead, use `np.where(condition, a, np.where(...))` for robust vectorized replacements in hot loops and list filters.

@@ -541,27 +541,21 @@ def _search_keywords(query: str, groups: tuple):
     names = combined["name"].fillna("").astype(str).str.lower()
     mtypes = combined["match_type"].fillna("").astype(str)
 
-    # Initialize scores with default Glossary value
+    # ⚡ Bolt: Replace multi-step numpy slice assignments with nested np.where for faster vectorized evaluation
     scores = np.where(mtypes == "Glossary", 1, 0)
 
-    # Table masks
     table_mask = mtypes == "Table"
     if table_mask.any():
-        table_names = names[table_mask]
-        t_scores = np.full(table_mask.sum(), 2)
-        t_scores[table_names.str.contains(q_lower, regex=False)] = 3
-        t_scores[table_names.str.startswith(q_lower)] = 4
-        t_scores[table_names == q_lower] = 5
-        scores[table_mask] = t_scores
+        t_names = names[table_mask]
+        scores[table_mask] = np.where(t_names == q_lower, 5,
+                             np.where(t_names.str.startswith(q_lower), 4,
+                             np.where(t_names.str.contains(q_lower, regex=False), 3, 2)))
 
-    # Column masks
     col_mask = mtypes == "Column"
     if col_mask.any():
-        col_names = names[col_mask]
-        c_scores = np.full(col_mask.sum(), 0)
-        c_scores[col_names.str.startswith(q_lower)] = 1
-        c_scores[col_names == q_lower] = 2
-        scores[col_mask] = c_scores
+        c_names = names[col_mask]
+        scores[col_mask] = np.where(c_names == q_lower, 2,
+                           np.where(c_names.str.startswith(q_lower), 1, 0))
 
     combined["_score"] = scores
     return (
