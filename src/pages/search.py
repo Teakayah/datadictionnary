@@ -708,7 +708,8 @@ def render_search_page(query_groups: tuple) -> None:
 
     if search_query:
         try:
-            results = search_all_metadata(search_query, query_groups)
+            with st.spinner(t("common.loading")):
+                results = search_all_metadata(search_query, query_groups)
             
             # Analytics: Track the search event
             try:
