@@ -99,3 +99,7 @@
 ## 2026-08-22 - Graceful Error Handling for Streamlit Components
 **Learning:** In Streamlit, unhandled exceptions inside button callback logic (such as saving to a database in `save_comment`) will crash the entire application via a runtime `Exception`. This degrades reliability significantly since typical user actions can bring down the UI.
 **Action:** When wrapping backend operations in UI components, always encapsulate risky calls (like DB saves) within a `try/except` block, log the stack trace using `logging.error`, and display a localized, safe warning to the user using `st.error()` so the interface remains stable and functional.
+
+## 2026-08-26 - Streamlit AppTest rerun handling in UI button tests
+**Learning:** Mocking `streamlit.rerun` using `with patch("streamlit.rerun")` when interacting with buttons in `AppTest` is an anti-pattern. `AppTest` natively handles the `st.rerun()` control flow execution loop. Mocking it suppresses this behavior and can leave test state assertions incomplete or break execution flow.
+**Action:** When writing tests that trigger a component rerun (e.g. `at.button(...).click().run()`), never patch `streamlit.rerun`. Let `AppTest` handle the reruns natively and assert state immediately following the `.run()` block.
