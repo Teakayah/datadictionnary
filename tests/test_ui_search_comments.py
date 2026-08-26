@@ -412,7 +412,7 @@ def test_search_page_search_query_execution():
 def test_comment_form_submit_error():
     """Verify that an error is shown if saving the comment fails."""
     def run_with_error():
-        import streamlit as st
+        import streamlit as st # noqa: F401
         from src.pages.search import _render_comment_form
         from unittest.mock import patch
 

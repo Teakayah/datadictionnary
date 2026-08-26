@@ -3,7 +3,7 @@
 from __future__ import annotations
 import pytest
 import pandas as pd
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from src.db.queries import (
     _fetch_metadata_for_fns,
     _get_write_connection,
