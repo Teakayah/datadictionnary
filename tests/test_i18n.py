@@ -171,6 +171,22 @@ def test_format_date_long_en():
         dt = datetime(2023, 1, 5, 14, 30)
         assert format_date(dt, "long") == "Jan 05, 2023 02:30 PM"
 
+def test_format_date_iso_string_valid():
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"date": {"time_format": "%I:%M %p", "months": {"1": "Jan"}, "long": "{month} {day}, {year} {time}"}}}):
+        mock_st.session_state = {"locale": "en"}
+        dt_str = "2023-01-05T14:30:00Z"
+        # The ISO parsing converts 'Z' to '+00:00', resulting in an offset-aware datetime object.
+        assert format_date(dt_str, "long") == "Jan 05, 2023 02:30 PM"
+
+def test_format_date_iso_string_invalid():
+    assert format_date("not-an-iso-string") == "not-an-iso-string"
+
+def test_format_date_no_strftime():
+    class Dummy:
+        pass
+    dummy = Dummy()
+    assert format_date(dummy) == str(dummy)
+
 def test_t_pluralization_zero():
     with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items_zero": "No items", "items_one": "1 item", "items_other": "{count} items"}}):
         mock_st.session_state = {"locale": "en"}
