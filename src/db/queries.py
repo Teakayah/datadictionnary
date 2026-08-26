@@ -544,24 +544,27 @@ def _search_keywords(query: str, groups: tuple):
     # Initialize scores with default Glossary value
     scores = np.where(mtypes == "Glossary", 1, 0)
 
+    # ⚡ Bolt: Replace sequential boolean mask indexing with vectorized np.where for faster array assignments
     # Table masks
     table_mask = mtypes == "Table"
     if table_mask.any():
         table_names = names[table_mask]
-        t_scores = np.full(table_mask.sum(), 2)
-        t_scores[table_names.str.contains(q_lower, regex=False)] = 3
-        t_scores[table_names.str.startswith(q_lower)] = 4
-        t_scores[table_names == q_lower] = 5
-        scores[table_mask] = t_scores
+        scores[table_mask] = np.where(
+            table_names == q_lower, 5,
+            np.where(
+                table_names.str.startswith(q_lower), 4,
+                np.where(table_names.str.contains(q_lower, regex=False), 3, 2)
+            )
+        )
 
     # Column masks
     col_mask = mtypes == "Column"
     if col_mask.any():
         col_names = names[col_mask]
-        c_scores = np.full(col_mask.sum(), 0)
-        c_scores[col_names.str.startswith(q_lower)] = 1
-        c_scores[col_names == q_lower] = 2
-        scores[col_mask] = c_scores
+        scores[col_mask] = np.where(
+            col_names == q_lower, 2,
+            np.where(col_names.str.startswith(q_lower), 1, 0)
+        )
 
     combined["_score"] = scores
     return (

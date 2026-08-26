@@ -74,3 +74,6 @@
 ## 2024-08-14 - Optimize Pandas Groupby List Aggregation
 **Learning:** In pandas DataFrame operations, prefer `groupby().agg(list)` over `groupby().apply(list)` when aggregating grouped items into a list. `agg(list)` uses optimized reduction pathways and is significantly faster, whereas `apply(list)` incurs heavy overhead from flexible row-by-row evaluation.
 **Action:** Replace `apply(list)` with `agg(list)` after pandas `groupby` when constructing lists.
+## 2024-08-26 - Optimize boolean array indexing
+**Learning:** When assigning values to an array or pandas Series based on multiple conditions, using sequential boolean mask indexing (e.g., `arr[mask] = val`) creates slower row-by-row mapping bottlenecks and unnecessary intermediate array creation.
+**Action:** Always prefer a single nested `np.where(cond1, val1, np.where(cond2, val2, default))` expression over sequential boolean mask indexing for better vectorization performance.
