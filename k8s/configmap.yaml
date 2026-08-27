@@ -10,6 +10,8 @@ data:
   ENVIRONMENT: "production"
   ENABLE_MOCK_AUTH: "false"
   DEMO_DATA: "false"
+  SYNC_HEALTHZ_PORT: "8765"
+  LOG_LEVEL: "INFO"
   REDIRECT_URI: "https://datadictionary.internal/"
   DUCKDB_PATH: "/data/dictionary_cache.duckdb"
   # Redis — shared by the Streamlit app, API server, and sync daemon.
