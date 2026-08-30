@@ -49,7 +49,7 @@ def render_catalog_browser(groups: list[str]) -> None:
 
         # ⚡ Bolt: Pre-compute schemas by catalog to avoid expensive DataFrame slicing (O(N^2)) in the render loop below.
         _schemas_by_cat = {}
-        for c, s in _grouped_tables.keys():
+        for c, s in _grouped_tables:
             if c not in _schemas_by_cat:
                 _schemas_by_cat[c] = set()
             _schemas_by_cat[c].add(s)
@@ -57,7 +57,7 @@ def render_catalog_browser(groups: list[str]) -> None:
         # Simple Tree Implementation using Streamlit expanders
         for cat in catalogs:
             with st.expander(f"📁 {cat}", expanded=False):
-                schemas = sorted(list(_schemas_by_cat.get(cat, set())))
+                schemas = sorted(_schemas_by_cat.get(cat, set()))
 
                 for sch in schemas:
                     st.html(f'<div style="margin-left: 20px; font-weight: 500; color: var(--ink-60); margin-top: 10px; margin-bottom: 5px;">📂 {_html.escape(str(sch))}</div>')

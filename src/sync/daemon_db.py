@@ -17,6 +17,7 @@ import duckdb
 
 from src.config import CATALOG_CACHE, DUCKDB_PATH, USER_DATA_PATH
 from src.db.duckdb_adapter import _DuckDBCursor, _initialize_schema
+import contextlib
 
 log = logging.getLogger(__name__)
 
@@ -65,10 +66,8 @@ class DaemonConn:
         return cur
 
     def close(self) -> None:
-        try:
+        with contextlib.suppress(Exception):
             self._con.close()
-        except Exception:
-            pass
 
     def __enter__(self) -> "DaemonConn":
         return self
