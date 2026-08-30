@@ -18,3 +18,6 @@
 ## 2024-07-26 - Empty state polish
 **Learning:** Generic Streamlit alert blocks like `st.info` do not provide a cohesive, branded empty state experience.
 **Action:** Replace `st.info` with custom styled `st.markdown` containers using design tokens for empty state screens. Ensure any corresponding `AppTest` test assertions are updated to check `at.markdown` instead of `at.info`.
+## 2024-08-30 - Empty state polish
+**Learning:** Generic Streamlit alert blocks like `st.info` do not provide a cohesive, branded empty state experience.
+**Action:** Replace `st.info` with custom styled `st.markdown` containers using design tokens for empty state screens. Ensure any corresponding `AppTest` test assertions are updated to check `at.markdown` instead of `at.info`.

@@ -30,6 +30,8 @@ from src.ui.cards.detail import (
     render_table_metadata_editor,
 )
 from src.ui.lineage import _build_lineage_graph, _lineage_vis_html, render_lineage_fullscreen
+from src.ui.cards._shared import _render_empty_state
+
 
 
 def _render_comment_form(
@@ -642,7 +644,7 @@ def render_search_page(query_groups: tuple) -> None:
         st.error(t("search.load_error"))
         _table_options = []
     elif _all_tables.empty:
-        st.info(t("search.no_access"))
+        _render_empty_state("🔒", t("search.no_access"))
         _table_options = []
     else:
         _table_options = (
