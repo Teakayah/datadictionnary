@@ -375,8 +375,9 @@ def is_pipeline_user() -> bool:
     pipeline_groups = _parse_groups(os.getenv("PIPELINE_GROUPS", ""))
     if not pipeline_groups:
         return False
+    # ⚡ Bolt: Use frozenset.isdisjoint instead of bool(frozenset & set) for faster set intersections without overhead
     user_groups = st.session_state.get("user_groups") or []
-    return bool(pipeline_groups & set(user_groups))
+    return not pipeline_groups.isdisjoint(user_groups)
 
 
 def is_admin() -> bool:
@@ -388,4 +389,5 @@ def is_admin() -> bool:
     admin_groups = _parse_groups(os.getenv("ADMIN_GROUPS", ""))
     if not admin_groups:
         return False
-    return bool(admin_groups & set(st.session_state.get("user_groups", [])))
+    # ⚡ Bolt: Use frozenset.isdisjoint instead of bool(frozenset & set) for faster set intersections without overhead
+    return not admin_groups.isdisjoint(st.session_state.get("user_groups", []))

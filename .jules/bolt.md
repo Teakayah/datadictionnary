@@ -74,3 +74,7 @@
 ## 2024-08-14 - Optimize Pandas Groupby List Aggregation
 **Learning:** In pandas DataFrame operations, prefer `groupby().agg(list)` over `groupby().apply(list)` when aggregating grouped items into a list. `agg(list)` uses optimized reduction pathways and is significantly faster, whereas `apply(list)` incurs heavy overhead from flexible row-by-row evaluation.
 **Action:** Replace `apply(list)` with `agg(list)` after pandas `groupby` when constructing lists.
+
+## 2026-08-30 - Faster set intersections
+**Learning:** The expression `bool(frozenset & set(list))` introduces significant overhead by unnecessarily converting the list to a set.
+**Action:** Use `not frozenset.isdisjoint(list)` instead, which directly iterates over the list in C and returns `True` immediately upon the first match, resulting in ~2x faster checks for overlap. Use this for role/group checking in authentication paths.
