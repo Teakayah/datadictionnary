@@ -99,3 +99,6 @@
 ## 2026-08-22 - Graceful Error Handling for Streamlit Components
 **Learning:** In Streamlit, unhandled exceptions inside button callback logic (such as saving to a database in `save_comment`) will crash the entire application via a runtime `Exception`. This degrades reliability significantly since typical user actions can bring down the UI.
 **Action:** When wrapping backend operations in UI components, always encapsulate risky calls (like DB saves) within a `try/except` block, log the stack trace using `logging.error`, and display a localized, safe warning to the user using `st.error()` so the interface remains stable and functional.
+## 2025-02-14 - Test Streamlit UI Helpers for HTML Injection
+**Learning:** Shared UI helper functions like `_render_empty_state` that wrap Streamlit primitives (e.g., `st.markdown` with raw HTML) often slip through test coverage because they are invoked in specific edge cases. Testing them via explicit mocking is critical to verify they correctly format interpolated values and properly apply required keyword arguments like `unsafe_allow_html=True` to prevent silent rendering failures.
+**Action:** When adding or auditing shared UI components that generate raw HTML in Streamlit, always add dedicated unit tests asserting the exact call arguments and structure passed to `st.markdown` or similar wrappers.
