@@ -74,3 +74,6 @@
 ## 2024-08-14 - Optimize Pandas Groupby List Aggregation
 **Learning:** In pandas DataFrame operations, prefer `groupby().agg(list)` over `groupby().apply(list)` when aggregating grouped items into a list. `agg(list)` uses optimized reduction pathways and is significantly faster, whereas `apply(list)` incurs heavy overhead from flexible row-by-row evaluation.
 **Action:** Replace `apply(list)` with `agg(list)` after pandas `groupby` when constructing lists.
+## 2024-08-31 - Optimize Set Intersection Checks
+**Learning:** In Python, checking for intersection between a set/frozenset and a list by converting the list to a set and using the `&` operator (e.g. `bool(my_set & set(my_list))`) requires unnecessary memory allocation for the new set.
+**Action:** Use `not my_set.isdisjoint(my_list)` rather than `bool(my_set & set(my_list))` to avoid unnecessary memory allocation and benefit from C-level short-circuiting.
