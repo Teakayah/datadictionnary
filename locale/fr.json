@@ -59,7 +59,9 @@
     "no_catalogs": "Aucun catalogue accessible.",
     "load_error": "Impossible de charger la hiérarchie du catalogue.",
     "tree_help": "Ouvrir la table dans le catalogue",
-    "more_tables": "...et {count} autres tables. Utilisez la recherche pour les trouver."
+    "more_tables": "...et {count} autres tables. Utilisez la recherche pour les trouver.",
+    "completeness_grade": "Note d'exhaustivité {grade}",
+    "completeness_score": "Exhaustivité {score}/100"
   },
   "table": {
     "columns": "Colonnes",
@@ -268,7 +270,8 @@
     "explore_button": "Explorer {name} →",
     "updated": "Mis à jour",
     "no_groups": "Votre compte n'est associé à aucun groupe d'accès aux données. Contactez votre administrateur pour demander l'accès.",
-    "updated_at": "Mis à jour le {time}"
+    "updated_at": "Mis à jour le {time}",
+    "data_quality_grade": "Note de qualité des données {grade}"
   },
   "pipelines": {
     "title": "Pipelines de données",
