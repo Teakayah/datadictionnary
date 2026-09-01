@@ -95,3 +95,7 @@ Assertion: Mock `threading.Thread` and extract the target function via `mock_thr
 **Coverage Gap:** The `search_all_metadata` and `_search_keywords` functions in `src/db/queries.py` lacked test coverage, specifically for hybrid semantic search logic and column-specific scoring rules.
 **Learning:** Mocking lazy imports (like `src.semantic.semantic_search` which is imported conditionally inside the function) requires mocking the imported function explicitly at its source module path (`src.semantic.semantic_search`) rather than in the local module (`src.db.queries`). Additionally, simulating an `ImportError` on a lazy import requires patching `sys.modules` with `None` for the target module.
 **Assertion:** Use `patch("src.semantic.semantic_search", ...)` for mocking the conditionally imported function and `patch.dict(sys.modules, {"src.semantic": None})` to test exception handling for missing dependencies in lazy imports.
+## 2024-09-01 - Mocking Streamlit layout elements
+**Coverage Gap:** Testing complex UI rendering logic involving `st.columns()` nested layout.
+**Learning:** When using Streamlit column layouts, assertions directly on the column mock (e.g. `mock_cols[0].markdown.assert_called()`) can be brittle or behave unexpectedly due to how Streamlit binds these to the global state.
+**Assertion:** It is more reliable to assert on the length of `mock_calls` array for the target mock object (e.g., `assert len(mock_cols[0].mock_calls) > 0`) when validating the rendered elements inside the `with c1:` block.
