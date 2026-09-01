@@ -99,3 +99,6 @@
 ## 2026-08-22 - Graceful Error Handling for Streamlit Components
 **Learning:** In Streamlit, unhandled exceptions inside button callback logic (such as saving to a database in `save_comment`) will crash the entire application via a runtime `Exception`. This degrades reliability significantly since typical user actions can bring down the UI.
 **Action:** When wrapping backend operations in UI components, always encapsulate risky calls (like DB saves) within a `try/except` block, log the stack trace using `logging.error`, and display a localized, safe warning to the user using `st.error()` so the interface remains stable and functional.
+## 2026-10-25 - Mocking Streamlit Markdown empty state interpolation
+**Learning:** When testing shared Streamlit UI helper components that generate raw HTML (e.g., wrapping `st.markdown`), dedicated unit tests should mock the underlying Streamlit function to verify correct string interpolation and ensure required arguments like `unsafe_allow_html=True` are passed, preventing silent rendering failures on custom alerts.
+**Action:** Always add tests mocking `st.markdown` when creating custom empty states or alerts, verifying the correct keyword arguments using `mock_markdown.call_args`.
