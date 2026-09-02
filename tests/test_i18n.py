@@ -207,3 +207,40 @@ def test_t_pluralization_handles_index_error_in_format():
     with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items_other": "{0} items"}}):
         mock_st.session_state = {"locale": "en"}
         assert "items" in t("items", count=5)
+
+def test_format_date_iso_string_valid():
+    # Arrange
+    mock_locale_data = {"en": {"date": {"months": {"1": "Jan"}, "short": "{month} {day}"}}}
+    date_str = "2023-01-05T14:30:00Z"
+
+    with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", mock_locale_data):
+        mock_st.session_state = {"locale": "en"}
+
+        # Act
+        result = format_date(date_str, "short")
+
+        # Assert
+        assert result == "Jan 05"
+
+def test_format_date_iso_string_invalid():
+    # Arrange
+    invalid_date_str = "invalid-date-string"
+
+    # Act
+    result = format_date(invalid_date_str, "short")
+
+    # Assert
+    assert result == invalid_date_str
+
+def test_format_date_no_strftime():
+    # Arrange
+    class DummyObj:
+        def __str__(self):
+            return "dummy"
+    obj = DummyObj()
+
+    # Act
+    result = format_date(obj, "short")
+
+    # Assert
+    assert result == "dummy"
