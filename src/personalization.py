@@ -185,4 +185,4 @@ def is_power_user() -> bool:
     editor_groups = _parse_groups(os.getenv("EDITOR_GROUPS", ""))
     if not editor_groups:
         return False
-    return bool(editor_groups & set(st.session_state.get("user_groups", [])))
+    return not editor_groups.isdisjoint(st.session_state.get("user_groups", []))
