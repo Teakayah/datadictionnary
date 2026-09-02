@@ -19,7 +19,7 @@ import streamlit as st
 def _render_empty_state(icon: str, text: str) -> None:
     st.markdown(
         f'<div style="padding: 24px; text-align: center; background: var(--paper-deep); border: 1px dashed var(--ink-20); border-radius: 4px;">'
-        f'<div style="font-size: 24px; color: var(--ink-40); margin-bottom: 8px;">{icon}</div>'
+        f'<div style="font-size: 24px; color: var(--ink-40); margin-bottom: 8px;" aria-hidden="true">{icon}</div>'
         f'<div style="font-family: var(--font-sans); font-size: 14px; color: var(--ink-60);">{text}</div>'
         f'</div>',
         unsafe_allow_html=True,
