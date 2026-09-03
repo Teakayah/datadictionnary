@@ -99,3 +99,7 @@
 ## 2026-08-22 - Graceful Error Handling for Streamlit Components
 **Learning:** In Streamlit, unhandled exceptions inside button callback logic (such as saving to a database in `save_comment`) will crash the entire application via a runtime `Exception`. This degrades reliability significantly since typical user actions can bring down the UI.
 **Action:** When wrapping backend operations in UI components, always encapsulate risky calls (like DB saves) within a `try/except` block, log the stack trace using `logging.error`, and display a localized, safe warning to the user using `st.error()` so the interface remains stable and functional.
+
+## 2026-09-03 - Mocking Missing Standard Libraries in Streamlit AppTest
+**Learning:** When using `AppTest.from_function()` to test a module that conditionally imports functions not available directly in the file context (such as lazy imports of `format_date` and `format_number` from `src.i18n`), standard patching using `patch("module.function")` will fail with an `AttributeError` because the mock machinery cannot find the function to replace.
+**Action:** When mocking functions imported lazily or unavailable on the parent module during testing, explicitly pass `create=True` to the `patch()` call. This allows `unittest.mock` to forcefully inject the mock object and prevent `AttributeError` during execution within Streamlit `AppTest`.

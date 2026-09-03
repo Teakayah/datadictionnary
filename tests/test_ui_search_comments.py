@@ -432,3 +432,72 @@ def test_comment_form_submit_error():
 
     assert len(at2.error) > 0
     assert at2.error[0].value == "common.error"
+
+
+def test_search_comments_rendering():
+    """Verify that comments and replies are rendered properly and reply form opens."""
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from unittest.mock import patch
+        from src.pages.search import _render_detail_panel
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "business_name_en": "Sales Orders",
+            "business_name_fr": "Commandes de vente",
+            "business_definition_en": "Sales order data.",
+            "business_definition_fr": "Données de commande de vente.",
+            "description": "Table containing sales orders.",
+            "dq_score": 95,
+            "steward_email": "test@example.com"
+        })
+        st.session_state["_live_completeness_main.sales.orders"] = 95
+        st.session_state["recent_views"] = []
+
+        mock_comments = [
+            {
+                "comment_id": "c1",
+                "author_name": "Alice",
+                "comment_text": "First comment",
+                "created_at": "2023-01-01T12:00:00Z",
+                "replies": [
+                    {
+                        "comment_id": "r1",
+                        "author_name": "Bob",
+                        "comment_text": "Reply to first comment",
+                        "created_at": "2023-01-02T12:00:00Z"
+                    }
+                ]
+            }
+        ]
+
+        with patch("src.pages.search.get_table_comments", return_value=mock_comments), \
+             patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+             patch("src.pages.search.get_column_overrides", return_value={}), \
+             patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+             patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+             patch("src.pages.search._pref_upsert"), \
+             patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+             patch("src.pages.search.format_date", return_value="formatted date", create=True), \
+             patch("src.pages.search.format_number", return_value="2", create=True):
+             _render_detail_panel(row, "main.sales.orders", tuple())
+
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_function(render_detail_panel)
+    at.session_state["bookmarks"] = {"main.sales.orders"}
+    at.run()
+
+    # Verify rendering by ensuring no exceptions and that the reply button is present
+    assert not at.exception
+
+    # Try to open reply form
+    reply_btn = next((b for b in at.button if b.key == "dd_comment_btn_main.sales.orders_c1"), None)
+    assert reply_btn is not None
+
+    with patch("streamlit.rerun"):
+        reply_btn.click().run()
+
+    assert at.session_state["dd_comment_open_main.sales.orders_c1"] is True
