@@ -95,3 +95,8 @@ Assertion: Mock `threading.Thread` and extract the target function via `mock_thr
 **Coverage Gap:** The `search_all_metadata` and `_search_keywords` functions in `src/db/queries.py` lacked test coverage, specifically for hybrid semantic search logic and column-specific scoring rules.
 **Learning:** Mocking lazy imports (like `src.semantic.semantic_search` which is imported conditionally inside the function) requires mocking the imported function explicitly at its source module path (`src.semantic.semantic_search`) rather than in the local module (`src.db.queries`). Additionally, simulating an `ImportError` on a lazy import requires patching `sys.modules` with `None` for the target module.
 **Assertion:** Use `patch("src.semantic.semantic_search", ...)` for mocking the conditionally imported function and `patch.dict(sys.modules, {"src.semantic": None})` to test exception handling for missing dependencies in lazy imports.
+
+## 2024-05-24 - Search Downstream Critical Lineage Edge Case
+**Coverage Gap:** The branch that tests `_has_critical` mapping to rendering a downstream warning in search detail view was previously uncovered.
+**Learning:** For testing `st.session_state` flows like `dd_nav_select` triggering the detail view correctly, ensuring dependent API mocks (`get_multi_hop_lineage`, `get_authorized_tables`, `search_all_metadata`) contain the exact schema (e.g. `direction`, `entity_type`) is strictly required.
+**Assertion:** Use `AppTest` to verify that `st.markdown` properly interpolates translation keys like `detail.downstream_certified_warning` by asserting against `md.value`.
