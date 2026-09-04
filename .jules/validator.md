@@ -95,3 +95,7 @@ Assertion: Mock `threading.Thread` and extract the target function via `mock_thr
 **Coverage Gap:** The `search_all_metadata` and `_search_keywords` functions in `src/db/queries.py` lacked test coverage, specifically for hybrid semantic search logic and column-specific scoring rules.
 **Learning:** Mocking lazy imports (like `src.semantic.semantic_search` which is imported conditionally inside the function) requires mocking the imported function explicitly at its source module path (`src.semantic.semantic_search`) rather than in the local module (`src.db.queries`). Additionally, simulating an `ImportError` on a lazy import requires patching `sys.modules` with `None` for the target module.
 **Assertion:** Use `patch("src.semantic.semantic_search", ...)` for mocking the conditionally imported function and `patch.dict(sys.modules, {"src.semantic": None})` to test exception handling for missing dependencies in lazy imports.
+## 2024-08-21 - [HIGH] Coverage Gap in i18n format_date Edge Cases
+**Coverage Gap:** The `format_date` function in `src/i18n.py` lacked test coverage for fallback logic when handling invalid ISO strings (raising `ValueError`) and objects missing a `strftime` method.
+**Learning:** Testing string-based date parsing edge cases is crucial to prevent unhandled exceptions during UI localization rendering when malformed backend timestamps are provided.
+**Assertion:** Wrote tests verifying that invalid ISO strings and non-datetime objects are gracefully returned as string literals without raising exceptions.

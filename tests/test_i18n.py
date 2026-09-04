@@ -207,3 +207,25 @@ def test_t_pluralization_handles_index_error_in_format():
     with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items_other": "{0} items"}}):
         mock_st.session_state = {"locale": "en"}
         assert "items" in t("items", count=5)
+
+def test_format_date_invalid_iso_string():
+    # Arrange
+    from src.i18n import format_date
+    invalid_date = "not-a-date"
+
+    # Act
+    result = format_date(invalid_date)
+
+    # Assert
+    assert result == "not-a-date"
+
+def test_format_date_no_strftime():
+    # Arrange
+    from src.i18n import format_date
+    non_date_obj = 12345
+
+    # Act
+    result = format_date(non_date_obj)
+
+    # Assert
+    assert result == "12345"
