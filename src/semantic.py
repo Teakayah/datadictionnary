@@ -71,7 +71,15 @@ def get_embedding_engine() -> EmbeddingEngine:
     return MockEmbeddingEngine()
 
 def generate_table_embeddings(tables: List[dict]) -> List[dict]:
-    """Generate embeddings for a list of tables based on their name and description."""
+    """Generate embeddings for a list of tables based on their name and description.
+
+    Args:
+        tables (List[dict]): A list of table metadata dictionaries containing 'full_name'
+                             and optionally 'comment' or 'table_description'.
+
+    Returns:
+        List[dict]: A list of dictionaries containing 'table_full_name' and its vector 'embedding'.
+    """
     engine = get_embedding_engine()
     
     # Prepare text for embedding: "catalog.schema.table: description"
@@ -92,7 +100,15 @@ def generate_table_embeddings(tables: List[dict]) -> List[dict]:
     return result
 
 def semantic_search(query: str, top_n: int = 10) -> List[str]:
-    """Perform a vector similarity search using the local DuckDB cache."""
+    """Perform a vector similarity search using the local DuckDB cache.
+
+    Args:
+        query (str): The text query to search for.
+        top_n (int, optional): The maximum number of results to return. Defaults to 10.
+
+    Returns:
+        List[str]: A list of table full names (catalog.schema.table) sorted by semantic similarity.
+    """
     # 1. Environment variable gate
     if not ENABLE_SEMANTIC_SEARCH:
         return []
