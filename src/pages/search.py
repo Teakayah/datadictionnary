@@ -90,7 +90,7 @@ def _render_result_card(full_name: str, name: str, desc: str, match_type: str, d
     st.markdown(f'''
     <div style="background:var(--paper); border:1px solid var(--ink-10); border-radius:4px; padding:14px 18px; height:100%;">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-            <span class="dd-dq-badge {_gcls}" title="Completeness grade {_grade}">{_grade}</span>
+            <span class="dd-dq-badge {_gcls}" title="{_html.escape(t("common.completeness_grade", grade=_grade))}">{_grade}</span>
             <span style="font-family:var(--font-mono); font-size:11px; color:var(--ink-60); text-transform:uppercase; letter-spacing:0.08em;">{_html.escape(match_type)}</span>
         </div>
         <div style="font-family:var(--font-sans); font-size:15px; font-weight:600; color:var(--ink); margin-bottom:2px;">{_html.escape(name)}</div>

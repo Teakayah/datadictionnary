@@ -383,7 +383,8 @@
     "beta": "Bêta",
     "saving": "Enregistrement...",
     "saved": "Changes saved.",
-    "deleting": "Suppression..."
+    "deleting": "Suppression...",
+    "completeness_grade": "Note d'exhaustivité {grade}"
   },
   "language": {
     "en": "EN",
