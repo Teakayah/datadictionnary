@@ -432,3 +432,60 @@ def test_comment_form_submit_error():
 
     assert len(at2.error) > 0
     assert at2.error[0].value == "common.error"
+
+def test_search_render_detail_comments_with_replies():
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from unittest.mock import patch
+        from src.pages.search import _render_detail_panel
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "business_name_en": "Sales Orders",
+            "business_name_fr": "Commandes de vente",
+            "business_definition_en": "Sales order data.",
+            "business_definition_fr": "Données de commande de vente.",
+            "description": "Table containing sales orders.",
+            "dq_score": 95,
+            "steward_email": "test@example.com"
+        })
+        st.session_state["_live_completeness_main.sales.orders"] = 95
+        st.session_state["recent_views"] = []
+
+        # We need to test the replies rendering loop
+        mock_comments = [
+            {
+                "comment_id": "c1",
+                "author_name": "User 1",
+                "created_at": pd.Timestamp.now(),
+                "comment_text": "Top level comment",
+                "replies": [
+                    {
+                        "comment_id": "r1",
+                        "author_name": "User 2",
+                        "created_at": pd.Timestamp.now(),
+                        "comment_text": "Reply comment"
+                    }
+                ]
+            }
+        ]
+
+        with patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+             patch("src.pages.search.get_table_comments", return_value=mock_comments), \
+             patch("src.pages.search.get_column_overrides", return_value={}), \
+             patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+             patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+            _render_detail_panel(row, "main.sales.orders", ("group1",))
+
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_function(render_detail_panel)
+    at.run()
+
+    assert not at.exception
+    # Assert top-level comment and reply text are rendered
+    markdowns = [m.value for m in at.markdown]
+    assert any("Top level comment" in m for m in markdowns)
+    assert any("Reply comment" in m for m in markdowns)

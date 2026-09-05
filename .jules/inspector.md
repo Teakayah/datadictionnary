@@ -99,3 +99,8 @@
 ## 2026-08-22 - Graceful Error Handling for Streamlit Components
 **Learning:** In Streamlit, unhandled exceptions inside button callback logic (such as saving to a database in `save_comment`) will crash the entire application via a runtime `Exception`. This degrades reliability significantly since typical user actions can bring down the UI.
 **Action:** When wrapping backend operations in UI components, always encapsulate risky calls (like DB saves) within a `try/except` block, log the stack trace using `logging.error`, and display a localized, safe warning to the user using `st.error()` so the interface remains stable and functional.
+
+## 2026-09-05 - Comment Replies Test Coverage
+**Coverage Gap:** The nested `for _r in _c.get("replies", []):` loop inside `src/pages/search.py`'s `_render_detail_panel` was entirely untested, leaving rendering logic for comment replies at risk of regression.
+**Learning:** Nested data structures retrieved from APIs or mocks (like replies within comments) require specific mocked state fixtures representing the nested hierarchy to hit loop coverage in AppTest.
+**Action:** When testing UI components that render lists or nested objects, explicitly include mock data with at least one element in the nested list, and assert its content appears in the output.
