@@ -18,6 +18,7 @@ from src.config import CATALOG_CACHE, SCHEMA_CACHE, is_demo_mode
 from src.db.queries import run_query
 from src.i18n import t
 from src.personalization import is_power_user
+from src.ui.cards._shared import _render_empty_state
 
 @dataclass
 class HealthMetrics:
@@ -143,7 +144,7 @@ def _render_schema_coverage(schema_stats: pd.DataFrame):
     )
     
     if schema_stats is None or schema_stats.empty:
-        st.info(t("common.empty"))
+        _render_empty_state("📝", t("common.empty"))
         return
 
     stats = schema_stats.copy()
@@ -253,7 +254,7 @@ def render_health(groups: tuple):
         undocumented = _get_undocumented_priority(groups)
 
         if schema_stats.empty:
-            st.info(t("health.no_data"))
+            _render_empty_state("📊", t("health.no_data"))
             return
 
         # 2. Calculate hero metrics
