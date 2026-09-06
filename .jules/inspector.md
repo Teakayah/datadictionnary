@@ -99,3 +99,6 @@
 ## 2026-08-22 - Graceful Error Handling for Streamlit Components
 **Learning:** In Streamlit, unhandled exceptions inside button callback logic (such as saving to a database in `save_comment`) will crash the entire application via a runtime `Exception`. This degrades reliability significantly since typical user actions can bring down the UI.
 **Action:** When wrapping backend operations in UI components, always encapsulate risky calls (like DB saves) within a `try/except` block, log the stack trace using `logging.error`, and display a localized, safe warning to the user using `st.error()` so the interface remains stable and functional.
+## 2026-09-06 - format_date error fallback coverage gap
+**Learning:** The `format_date` utility in `src/i18n.py` contains fallback logic to catch `ValueError` from `datetime.fromisoformat` and handles cases where the argument passed does not have a `strftime` method, but these edge cases were entirely missed by the test suite, lowering coverage.
+**Action:** Always include tests that pass explicitly malformed strings and non-datetime/non-string objects to date formatting utilities to verify the exception fallback blocks correctly return the raw value instead of throwing runtime exceptions.
