@@ -74,12 +74,6 @@ spec:
             - secretRef:
                 name: dd-secrets
 
-          env:
-            - name: SYNC_HEALTHZ_PORT
-              value: "8765"
-            - name: LOG_LEVEL
-              value: "INFO"
-
           volumeMounts:
             - name: data
               mountPath: /data
