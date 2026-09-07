@@ -609,3 +609,15 @@ def test_daemon_conn_execute(test_conn):
         mock_cursor.assert_called_with(test_conn._con)
         mock_cursor.return_value.execute.assert_called_with("SELECT 1", {"a": 1})
         assert cur == mock_cursor.return_value
+
+def test_silence_streamlit_warnings():
+    import logging
+    from src.sync.daemon import _silence_streamlit_warnings
+
+    # Arrange & Act
+    _silence_streamlit_warnings()
+
+    # Assert
+    assert logging.getLogger("streamlit").level == logging.ERROR
+    assert logging.getLogger("streamlit.runtime.caching.cache_data_api").level == logging.ERROR
+    assert logging.getLogger("streamlit.runtime.caching.cache_resource_api").level == logging.ERROR
