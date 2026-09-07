@@ -32,6 +32,14 @@ spec:
     - ports:
         - protocol: TCP
           port: 443
+    # API server
+    - to:
+        - podSelector:
+            matchLabels:
+              app: dd-api
+      ports:
+        - protocol: TCP
+          port: 8080
     # Redis cache.
     - to:
         - podSelector:
