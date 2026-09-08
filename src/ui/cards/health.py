@@ -244,7 +244,7 @@ def render_health(groups: tuple):
 
     with st.expander(t("help.health_expander")):
         _priority_note = t("help.health_priority_editor") if is_power_user() else t("help.health_priority_viewer")
-        st.markdown(t("help.health_content") + "\n\n" + _priority_note)
+        st.markdown(t("help.health_content", note=_priority_note))
 
     try:
         # 1. Fetch all metrics via SQL push-down

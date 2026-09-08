@@ -414,7 +414,7 @@
     "discovery_expander": "Utilisation de la page",
     "discovery_content": "**Recommandés** — tables populaires récemment mises à jour.\n\n**Nouveautés** — tables récemment créées ou modifiées dans votre périmètre.\n\n**Favoris** — vos tables et colonnes marquées d'une étoile.\n\n**Consultés** — les 50 dernières tables ouvertes.",
     "health_expander": "Utilisation de la page",
-    "health_content": "**Couverture tables** — % de tables avec description.\n\n**Couverture colonnes** — % de colonnes documentées.\n\n**Détail schémas** — statistiques par schéma pour identifier les manques.\n\n**Actions prioritaires** — tables populaires non documentées à traiter en priorité.",
+    "health_content": "**Couverture tables** — % de tables avec description.\n\n**Couverture colonnes** — % de colonnes documentées.\n\n**Détail schémas** — statistiques par schéma pour identifier les manques.\n\n**Actions prioritaires** — tables populaires non documentées à traiter en priorité.\n\n{note}",
     "glossary_expander": "Utilisation de la page",
     "glossary_content": "Parcourez le lexique métier défini dans Unity Catalog.\n\n**Détail du terme** — définition, logique de calcul, domaine et responsable.\n\n**Graphe de concepts** — visualisation des relations entre termes et tables.",
     "catalog_expander": "Utilisation de la page",
