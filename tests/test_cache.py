@@ -8,8 +8,6 @@ Coverage:
   - set: no-ops silently when Redis unavailable
   - set: serializes and calls setex with correct TTL
   - set: swallows Redis SET error
-  - flush_prefix: calls delete with matched keys
-  - flush_prefix: returns 0 when Redis unavailable
 """
 
 from __future__ import annotations
@@ -125,44 +123,6 @@ class TestSet:
         mock_client.setex = AsyncMock(side_effect=Exception("timeout"))
         with patch("redis.asyncio.from_url", return_value=mock_client):
             _run(rc.set("key", {"x": 1}))  # should not raise
-
-
-# ── flush_prefix ──────────────────────────────────────────────────────────────
-
-class TestFlushPrefix:
-    def setup_method(self):
-        _fresh_module()
-
-    def test_swallows_redis_error(self, monkeypatch):
-        monkeypatch.setenv("REDIS_URL", "redis://localhost:6379")
-        mock_client = AsyncMock()
-        mock_client.keys = AsyncMock(side_effect=Exception("timeout"))
-        with patch("redis.asyncio.from_url", return_value=mock_client):
-            count = _run(rc.flush_prefix("ddic:"))
-        assert count == 0
-
-    def test_returns_zero_without_redis(self, monkeypatch):
-        monkeypatch.delenv("REDIS_URL", raising=False)
-        count = _run(rc.flush_prefix("ddic:"))
-        assert count == 0
-
-    def test_deletes_matched_keys(self, monkeypatch):
-        monkeypatch.setenv("REDIS_URL", "redis://localhost:6379")
-        mock_client = AsyncMock()
-        mock_client.keys = AsyncMock(return_value=["ddic:abc", "ddic:def"])
-        mock_client.delete = AsyncMock(return_value=2)
-        with patch("redis.asyncio.from_url", return_value=mock_client):
-            count = _run(rc.flush_prefix("ddic:"))
-        assert count == 2
-        mock_client.delete.assert_awaited_once_with("ddic:abc", "ddic:def")
-
-    def test_returns_zero_when_no_keys_match(self, monkeypatch):
-        monkeypatch.setenv("REDIS_URL", "redis://localhost:6379")
-        mock_client = AsyncMock()
-        mock_client.keys = AsyncMock(return_value=[])
-        with patch("redis.asyncio.from_url", return_value=mock_client):
-            count = _run(rc.flush_prefix("ddic:"))
-        assert count == 0
 
 
 # ── delete ────────────────────────────────────────────────────────────────────

@@ -75,15 +75,3 @@ async def delete(key: str) -> None:
         logger.debug("Redis DELETE error: %s", exc)
 
 
-async def flush_prefix(prefix: str) -> int:
-    """Delete all keys matching a prefix pattern. Returns count deleted."""
-    client = _get_client()
-    if client is None:
-        return 0
-    try:
-        keys = await client.keys(f"{prefix}*")
-        if keys:
-            return await client.delete(*keys)
-    except Exception as exc:
-        logger.debug("Redis flush error: %s", exc)
-    return 0
