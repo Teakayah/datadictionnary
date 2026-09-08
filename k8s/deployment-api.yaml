@@ -84,6 +84,8 @@ spec:
                 name: dd-secrets
 
           volumeMounts:
+            - name: data
+              mountPath: /data
             - name: tmp
               mountPath: /tmp
 
@@ -106,6 +108,9 @@ spec:
             failureThreshold: 3
 
       volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: dd-data
         - name: tmp
           emptyDir: {}
 
