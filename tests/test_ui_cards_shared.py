@@ -50,3 +50,18 @@ def test_compute_live_completeness_zero_total():
         with patch("src.ui.cards._shared.run_query") as mock_run_query:
             mock_run_query.return_value = pd.DataFrame({"total": [0], "defined": [0]})
             assert _compute_live_completeness("cat.sch.tbl") == 0.0
+
+def test_render_empty_state():
+    # Arrange
+    from src.ui.cards._shared import _render_empty_state
+
+    with patch("src.ui.cards._shared.st.markdown") as mock_markdown:
+        # Act
+        _render_empty_state("📭", "Nothing here!")
+
+        # Assert
+        mock_markdown.assert_called_once()
+        args, kwargs = mock_markdown.call_args
+        assert "Nothing here!" in args[0]
+        assert "📭" in args[0]
+        assert kwargs.get("unsafe_allow_html") is True
