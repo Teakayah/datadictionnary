@@ -18,3 +18,6 @@
 ## 2024-07-26 - Empty state polish
 **Learning:** Generic Streamlit alert blocks like `st.info` do not provide a cohesive, branded empty state experience.
 **Action:** Replace `st.info` with custom styled `st.markdown` containers using design tokens for empty state screens. Ensure any corresponding `AppTest` test assertions are updated to check `at.markdown` instead of `at.info`.
+## 2024-10-24 - Standardizing Empty States with Shared Component
+**Learning:** Using raw HTML blocks with manual CSS styles (like dashed borders and custom paddings) for empty states in different tabs leads to inconsistent visuals and hard-to-maintain code when design tokens update. The application actually has a shared `_render_empty_state` UI utility that properly abstracts these structural tokens.
+**Action:** Always verify if a shared structural component exists before rendering generic HTML containers for common patterns like empty states, error fallbacks, or generic lists.
