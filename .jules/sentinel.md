@@ -45,3 +45,8 @@
 **Vulnerability:** Leaking internal `JWTError` exception details via HTTP 401 response in `/mcp` endpoints.
 **Learning:** FastAPI's HTTPException and ValueError passing strings directly to `str(exc)` in dependencies can inadvertently expose underlying library stack traces or exception strings.
 **Prevention:** Sanitize or hardcode error strings returned to the client on authentication failures, ensuring no underlying library strings are leaked.
+
+## 2024-05-27 - Streamlit unsafe_allow_html XSS in UI cards
+**Vulnerability:** Cross-Site Scripting (XSS) via unescaped localized strings from `t()` in Streamlit `unsafe_allow_html` blocks.
+**Learning:** Even if inner interpolation variables are escaped, the translated strings themselves may contain unescaped characters (like apostrophes) that can introduce XSS or break HTML when injected into raw HTML blocks via `st.markdown(..., unsafe_allow_html=True)`.
+**Prevention:** Always wrap the entire translation output in `_html.escape(t(...))` before injecting it into HTML strings when `unsafe_allow_html=True` is used.

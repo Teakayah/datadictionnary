@@ -352,12 +352,12 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                     if _override.get("edited_by"):
                         from src.i18n import format_date
                         st.markdown(
-                            f'<div class="dd-biz-audit">{t("editor.last_edited_by", user=_html.escape(_override["edited_by"]), date=_html.escape(format_date(_override.get("edited_at"))))}</div>',
+                            f'<div class="dd-biz-audit">{_html.escape(t("editor.last_edited_by", user=_override["edited_by"], date=format_date(_override.get("edited_at"))))}</div>',
                             unsafe_allow_html=True,
                         )
         else:
             st.markdown(
-                f'<p style="font-size:13px;color:var(--ink-40);padding:12px 0">{t("detail.no_columns")}</p>',
+                f'<p style="font-size:13px;color:var(--ink-40);padding:12px 0">{_html.escape(t("detail.no_columns"))}</p>',
                 unsafe_allow_html=True,
             )
 
@@ -444,7 +444,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                         st.session_state.pop("dd_nav_select", None)
                         st.rerun()
         else:
-            st.markdown(f'<p style="font-size:13px;color:var(--ink-40);padding:12px 0">{t("detail.no_grants")}</p>', unsafe_allow_html=True)
+            st.markdown(f'<p style="font-size:13px;color:var(--ink-40);padding:12px 0">{_html.escape(t("detail.no_grants"))}</p>', unsafe_allow_html=True)
 
         # Downstream impact
         try:
@@ -474,7 +474,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         if _n_downstream == 0:
             st.markdown(
                 f'<p style="font-size:13px;color:var(--ink-40);padding:4px 0 12px">'
-                f'{t("detail.downstream_none")}</p>',
+                f'{_html.escape(t("detail.downstream_none"))}</p>',
                 unsafe_allow_html=True,
             )
         else:
@@ -486,7 +486,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                 )
             st.markdown(
                 f'<p style="font-family:var(--font-mono);font-size:12px;color:var(--ink-60);'
-                f'padding:0 0 12px;">{t("detail.downstream_count", n=_n_downstream)}</p>',
+                f'padding:0 0 12px;">{_html.escape(t("detail.downstream_count", n=_n_downstream))}</p>',
                 unsafe_allow_html=True,
             )
 

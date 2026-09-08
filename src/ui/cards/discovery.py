@@ -59,7 +59,7 @@ def _render_table_card(row, key_prefix: str) -> None:
             <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(getattr(row, "catalog_name", "")))} · {_html.escape(str(getattr(row, "schema_name", "")))}</div>
             <div style="display:flex;align-items:center;gap:6px;">
                 {_dq_html}
-                <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{t("discovery.updated_at", time=_time_str)}</span>
+                <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{_html.escape(t("discovery.updated_at", time=_time_str))}</span>
             </div>
         </div>
         <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:4px 0 8px;">{_html.escape(str(getattr(row, "table_description", "")))}</p>
@@ -175,7 +175,7 @@ def render_cms_banner() -> None:
             f'margin-top:4px;line-height:var(--lh-body);">{body_safe}</div>'
         ) if body_safe else ""
 
-        author_date = t("cms.author_date", author=_html.escape(post["author_email"]), date=date_str)
+        author_date = _html.escape(t("cms.author_date", author=post["author_email"], date=date_str))
         card_html = (
             f'<div style="border-left:3px solid {color};padding:12px 16px;'
             f'background:var(--paper-deep);border-radius:0 4px 4px 0;margin-bottom:4px;">'
