@@ -34,6 +34,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from dotenv import load_dotenv
+import contextlib
 
 # Load .env BEFORE importing src.config so DUCKDB_PATH etc. resolve.
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
@@ -199,10 +200,8 @@ def run(once: bool = False, healthz_port: Optional[int] = None) -> int:
             _record_heartbeat(conn)
         except Exception as exc:
             log.error("Daemon cycle error: %s", exc, exc_info=True)
-            try:
+            with contextlib.suppress(Exception):
                 _set_status(conn, "dr_resync_status", f"Error: {str(exc)[:50]}")
-            except Exception:
-                pass
 
         if once:
             break

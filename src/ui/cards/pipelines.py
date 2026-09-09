@@ -68,7 +68,7 @@ def _pipeline_status_color(status: str) -> str:
 
 @st.dialog(t("pipelines.create_title"), width="large")
 def _show_pipeline_create_dialog():
-    backend_opts = [b for b in BACKENDS]
+    backend_opts = list(BACKENDS)
     sel_label = st.radio(
         t("pipelines.backend"), options=backend_opts, format_func=lambda x: t(f"pipelines.backend_{x}"), horizontal=True, key="pl_create_backend",
     )
