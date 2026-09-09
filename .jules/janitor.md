@@ -11,3 +11,6 @@
 ## 2026-06-24 - Removed orphaned src/storage directory
 **Learning:** The `src/storage` abstraction layers for DuckDB vs Session State were decoupled from caller files and completely removed since they were mostly refactored away and only a single usage in the codebase remained (OE-1). This removes 7 completely unused files, 3 test files, and reduces codebase complexity.
 **Action:** Removed orphaned `src/storage/` files along with related storage-specific test files `tests/test_storage_*.py`. Refactored the remaining usage in `src/ui/cards/detail.py`.
+## 2025-02-27 - [Suppressing Linter Warnings for Dynamic Imports]
+**Learning:** When resolving linter warnings for unused imports, running `ruff check . --fix` can aggressively remove seemingly "unused" local imports (e.g., `import streamlit as st` inside test wrapper functions) that are actually required for dynamic execution or framework wrappers like `AppTest`.
+**Action:** Do not use `--fix` blindly on test files, or ensure you manually restore required local imports with `# noqa: F401` to prevent test suite regressions while satisfying the linter.
