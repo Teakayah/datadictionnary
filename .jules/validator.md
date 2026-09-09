@@ -109,3 +109,8 @@ Assertion: Use `cur_mock = MagicMock(); conn.cursor.return_value.__enter__.retur
 **Coverage Gap:** The `get_column_overrides` function in `src.audit` lacked test coverage for both its demo mode and production database paths, leaving potential filtering or SQL fetch regressions uncaught.
 **Learning:** Found that mocking nested Streamlit session state operations (e.g. `st.session_state.get().get().items()`) requires explicitly wiring up the mocked `get` returns or setting a side_effect function to handle the chained dictionary lookups correctly when simulating demo mode data structures.
 **Assertion:** Wrote isolated unit tests covering `is_demo_mode=True`, production DB fetching via mocked `fetchall_as_pandas`, and DB exception handling, asserting the resulting dictionaries are constructed as expected.
+
+## 2024-05-24 - Search Downstream Critical Lineage Edge Case
+**Coverage Gap:** The branch that tests `_has_critical` mapping to rendering a downstream warning in search detail view was previously uncovered.
+**Learning:** For testing `st.session_state` flows like `dd_nav_select` triggering the detail view correctly, ensuring dependent API mocks (`get_multi_hop_lineage`, `get_authorized_tables`, `search_all_metadata`) contain the exact schema (e.g. `direction`, `entity_type`) is strictly required.
+**Assertion:** Use `AppTest` to verify that `st.markdown` properly interpolates translation keys like `detail.downstream_certified_warning` by asserting against `md.value`.
