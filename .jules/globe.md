@@ -41,3 +41,6 @@
 ## 2026-08-22 - Extract Hardcoded Backend Labels in Pipelines
 **Learning:** Hardcoded dictionary values for backend labels in UI components (like `_BACKEND_LABEL = {"databricks": "Databricks", ...}`) prevent translation of these labels. By refactoring to use translation keys directly via `format_func` (e.g., `format_func=lambda x: t(f"pipelines.backend_{x}")`), the UI can dynamically resolve the localized strings while keeping internal state keys clean.
 **Action:** When a UI component uses a dictionary to map internal keys to display labels, extract the display labels to the translation file and use `format_func` with `t()` to localize the options instead. Tests may need to be updated to select the internal key (e.g., `"databricks"`) instead of the hardcoded display label (e.g., `"Databricks"`).
+## 2024-08-24 - Extracted missing search layout localization keys
+**Learning:** Found dynamically formatted strings missing from the translation files that caused hardcoded language strings to appear or silent fallbacks.
+**Action:** Always ensure that interpolated text or variants inside application source code exist in the respective `locale` dictionary to keep it dynamic.
