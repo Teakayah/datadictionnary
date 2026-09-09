@@ -16,7 +16,7 @@ import streamlit as st
 
 from src.cms import _EXPIRY_DAYS, PostParams, create_post, delete_post, get_all_posts
 from src.i18n import t
-from src.ui.cards._shared import _POST_COLOR
+from src.ui.cards._shared import _POST_COLOR, _render_empty_state
 
 
 @st.dialog(t("cms.confirm_delete_title"))
@@ -114,13 +114,7 @@ def _render_admin_cms_section():
 
     posts = get_all_posts()
     if not posts:
-        st.markdown(
-            f'<div style="padding: 24px; text-align: center; background: var(--paper-deep); border: 1px dashed var(--ink-20); border-radius: 4px;">'
-            f'<div style="font-size: 24px; color: var(--ink-40); margin-bottom: 8px;">📣</div>'
-            f'<div style="font-family: var(--font-sans); font-size: 14px; color: var(--ink-60);">{t("cms.no_posts")}</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+        _render_empty_state("📣", t("cms.no_posts"))
         return
 
     type_labels = {

@@ -17,6 +17,7 @@ import logging
 
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
+from src.ui.cards._shared import _render_empty_state
 
 from src.auth import is_admin, is_pipeline_user
 from src.i18n import t
@@ -126,13 +127,7 @@ def _render_admin_pipelines_section():
 
     pipelines = get_pipelines()
     if not pipelines:
-        st.markdown(
-            f'<div style="padding: 24px; text-align: center; background: var(--paper-deep); border: 1px dashed var(--ink-20); border-radius: 4px;">'
-            f'<div style="font-size: 24px; color: var(--ink-40); margin-bottom: 8px;">⚙️</div>'
-            f'<div style="font-family: var(--font-sans); font-size: 14px; color: var(--ink-60);">{t("pipelines.no_pipelines")}</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+        _render_empty_state("⚙️", t("pipelines.no_pipelines"))
         return
 
     for pl in pipelines:
@@ -178,13 +173,7 @@ def render_pipelines_page():
 
     pipelines = get_pipelines()
     if not pipelines:
-        st.markdown(
-            f'<div style="padding: 32px; text-align: center; background: var(--paper-deep); border: 1px dashed var(--ink-20); border-radius: 4px; margin-top: 24px;">'
-            f'<div style="font-size: 32px; color: var(--ink-40); margin-bottom: 12px;">⚡</div>'
-            f'<div style="font-family: var(--font-sans); font-size: 15px; color: var(--ink-60);">{t("pipelines.no_pipelines")}</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+        _render_empty_state("⚡", t("pipelines.no_pipelines"))
         return
 
     _any_active = False

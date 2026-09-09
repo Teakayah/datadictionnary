@@ -25,3 +25,7 @@
 ## 2024-11-20 - Hide decorative empty state icons from screen readers
 **Learning:** Decorative icons (e.g. emojis) used in empty state components can confuse screen readers if not properly hidden.
 **Action:** Add `aria-hidden="true"` to decorative icons in empty state layouts to improve accessibility for screen readers.
+
+## 2024-10-24 - Standardizing Empty States with Shared Component
+**Learning:** Using raw HTML blocks with manual CSS styles (like dashed borders and custom paddings) for empty states in different tabs leads to inconsistent visuals and hard-to-maintain code when design tokens update. The application actually has a shared `_render_empty_state` UI utility that properly abstracts these structural tokens.
+**Action:** Always verify if a shared structural component exists before rendering generic HTML containers for common patterns like empty states, error fallbacks, or generic lists.
