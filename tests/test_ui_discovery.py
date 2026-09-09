@@ -25,7 +25,7 @@ def render_discovery_page_app():
             "dq_status": ["pass", "pass", "fail"]
         })
 
-    with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=mock_get_auth_tables):
+    with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=mock_get_auth_tables), patch("src.ui.cards.discovery.get_authorized_table_names", return_value={"main.sales.orders", "main.finance.ledger", "main.marketing.leads"}):
         render_discovery(["finance", "sales"])
 
 def render_discovery_page_app_empty():
@@ -36,7 +36,7 @@ def render_discovery_page_app_empty():
     def mock_get_auth_tables(groups):
         return pd.DataFrame()
 
-    with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=mock_get_auth_tables):
+    with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=mock_get_auth_tables), patch("src.ui.cards.discovery.get_authorized_table_names", return_value=set()):
         render_discovery(["finance", "sales"])
 
 class TestDiscoveryTabs:
