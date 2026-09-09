@@ -341,3 +341,59 @@ def test_save_business_name_admin():
         save_business_name("catalog.schema.table", "col1", "New Name", "New Def")
 
         mock_enqueue.assert_called_once_with("catalog.schema.table", "col1", "New Def", "admin_user")
+
+def test_get_column_overrides_demo_mode():
+    with patch("src.audit.is_demo_mode", return_value=True), \
+         patch("src.audit.st") as mock_st:
+
+        mock_store = {
+            "catalog.schema.table": {
+                "col1": {"business_name": "name1", "status": "published"},
+                "col2": {"business_name": "name2", "status": "pending_approval"}
+            }
+        }
+
+        # We need to simulate: st.session_state.get(_DEMO_BN_KEY, {}).get(table_full_name, {})
+        # st.session_state.get(...) returns mock_store
+        mock_st.session_state.get.return_value = mock_store
+
+        from src.audit import get_column_overrides
+        result = get_column_overrides("catalog.schema.table")
+
+        assert "col1" in result
+        assert result["col1"]["business_name"] == "name1"
+        assert "status" not in result["col1"]
+        assert "col2" not in result
+
+def test_get_column_overrides_production():
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit.get_db_connection") as mock_get_conn:
+
+        mock_cursor = MagicMock()
+        mock_get_conn.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+
+        import pandas as pd
+        df = pd.DataFrame([
+            {"column_name": "col1", "business_name": "name1", "definition": "def1", "edited_by": "user", "edited_at": "now"}
+        ])
+        mock_cursor.fetchall_as_pandas.return_value = df
+
+        from src.audit import get_column_overrides
+        result = get_column_overrides("catalog.schema.table")
+
+        assert "col1" in result
+        assert result["col1"]["business_name"] == "name1"
+        assert result["col1"]["definition"] == "def1"
+
+def test_get_column_overrides_exception():
+    with patch("src.audit.is_demo_mode", return_value=False), \
+         patch("src.audit.get_db_connection") as mock_get_conn, \
+         patch("src.audit.log.warning") as mock_warning:
+
+        mock_get_conn.side_effect = Exception("DB error")
+
+        from src.audit import get_column_overrides
+        result = get_column_overrides("catalog.schema.table")
+
+        assert result == {}
+        mock_warning.assert_called_once()
