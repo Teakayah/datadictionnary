@@ -44,3 +44,7 @@
 ## 2024-08-24 - Extracted missing search layout localization keys
 **Learning:** Found dynamically formatted strings missing from the translation files that caused hardcoded language strings to appear or silent fallbacks.
 **Action:** Always ensure that interpolated text or variants inside application source code exist in the respective `locale` dictionary to keep it dynamic.
+
+## 2024-08-31 - Extracting Hardcoded Formatted Tooltips
+**Learning:** Hardcoded f-strings within UI components, specifically inside HTML attributes like `title="Completeness grade {grade}"`, prevent translation. When formatting is nested inside HTML generation, you must extract the entire formatted string as a translation token that accepts interpolation.
+**Action:** Extract hardcoded hover tooltips and `title` attributes into the translation dictionary using named placeholders, and use `t('key', param=value)` to inject the string before escaping it for HTML.

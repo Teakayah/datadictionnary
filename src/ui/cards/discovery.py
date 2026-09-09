@@ -47,7 +47,7 @@ def _render_table_card(row, key_prefix: str) -> None:
         else "var(--ink-40)"
     )
     _dq_html = (
-        f'<span class="dd-dq-badge {_gcls}" title="Data quality grade {_grade}">{_grade}</span>'
+        f'<span class="dd-dq-badge {_gcls}" title="{_html.escape(t("discovery.data_quality_grade", grade=_grade))}">{_grade}</span>'
         f'<span style="font-family:var(--font-mono);font-size:10px;color:{_status_color};'
         f'margin-left:4px;">{_html.escape(_dq_status)}</span>'
         if _dq_score else ""

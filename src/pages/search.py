@@ -90,7 +90,7 @@ def _render_result_card(full_name: str, name: str, desc: str, match_type: str, d
     st.markdown(f'''
     <div style="background:var(--paper); border:1px solid var(--ink-10); border-radius:4px; padding:14px 18px; height:100%;">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-            <span class="dd-dq-badge {_gcls}" title="Completeness grade {_grade}">{_grade}</span>
+            <span class="dd-dq-badge {_gcls}" title="{t("catalog.completeness_grade", grade=_grade)}">{_grade}</span>
             <span style="font-family:var(--font-mono); font-size:11px; color:var(--ink-60); text-transform:uppercase; letter-spacing:0.08em;">{_html.escape(match_type)}</span>
         </div>
         <div style="font-family:var(--font-sans); font-size:15px; font-weight:600; color:var(--ink); margin-bottom:2px;">{_html.escape(name)}</div>
@@ -169,7 +169,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             f'<div class="dd-detail-table-name" style="margin-bottom:0">{_h1}</div>'
             f'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">'
             f'<span class="dd-dq-badge {_gcls}" style="width:32px;height:32px;font-size:14px;" '
-            f'title="Completeness {_score:.0f}/100">{_grade}</span>'
+            f'title="{t("catalog.completeness_score", score=int(_score))}">{_grade}</span>'
             f'<span style="font-family:var(--font-mono);font-size:13px;color:var(--ink-60);">{_score:.0f}%</span>'
             f'</div>'
             f'</div>'

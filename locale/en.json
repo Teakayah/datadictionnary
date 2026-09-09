@@ -59,7 +59,9 @@
     "no_catalogs": "No catalogs accessible.",
     "load_error": "Could not load catalog hierarchy.",
     "tree_help": "Open table in catalog",
-    "more_tables": "...and {count} more tables. Use search to find them."
+    "more_tables": "...and {count} more tables. Use search to find them.",
+    "completeness_grade": "Completeness grade {grade}",
+    "completeness_score": "Completeness {score}/100"
   },
   "table": {
     "columns": "Columns",
@@ -270,7 +272,8 @@
     "explore_button": "Explore {name} →",
     "updated": "Updated",
     "no_groups": "Your account is not associated with any data access groups. Contact your administrator to request access.",
-    "updated_at": "Updated {time}"
+    "updated_at": "Updated {time}",
+    "data_quality_grade": "Data quality grade {grade}"
   },
   "pipelines": {
     "title": "Data Pipelines",

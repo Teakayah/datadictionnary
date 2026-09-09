@@ -76,7 +76,7 @@ def render_catalog_browser(groups: list[str]) -> None:
                             # Show grade badge above the button via markdown, then the clickable button
                             st.html(
                                 f'<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">'
-                                f'<span class="dd-dq-badge {_html.escape(_gcls)}" title="Completeness grade {_html.escape(_grade)}">{_html.escape(_grade)}</span>'
+                                f'<span class="dd-dq-badge {_html.escape(_gcls)}" title="{_html.escape(t("catalog.completeness_grade", grade=_grade))}">{_html.escape(_grade)}</span>'
                                 f'<span style="font-family:var(--font-mono);font-size:12px;color:var(--ink-60);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_html.escape(tbl)}</span>'
                                 f'</div>'
                             )
