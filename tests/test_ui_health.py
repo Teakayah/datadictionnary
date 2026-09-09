@@ -24,10 +24,10 @@ def test_render_priority_actions_with_data():
 
 def test_render_health_empty():
     with patch("src.ui.cards.health._get_table_health_stats") as mock_stats, \
-         patch("src.ui.cards.health.st.info") as mock_info:
+         patch("src.ui.cards.health._render_empty_state") as mock_empty:
         mock_stats.return_value = pd.DataFrame()
         render_health(("cat1",))
-        mock_info.assert_called_once()
+        mock_empty.assert_called_once()
 
 def test_render_health_metrics_happy_path():
     with patch("src.ui.cards.health._get_table_health_stats") as mock_stats, \
@@ -101,10 +101,10 @@ def test_render_health_hero_metrics():
 
 def test_render_schema_coverage_empty():
     import streamlit as st
-    with patch("src.ui.cards.health.st.info") as mock_info:
+    with patch("src.ui.cards.health._render_empty_state") as mock_empty:
         from src.ui.cards.health import _render_schema_coverage
         _render_schema_coverage(pd.DataFrame())
-        mock_info.assert_called_once()
+        mock_empty.assert_called_once()
 
 def test_render_schema_coverage_with_data():
     import streamlit as st
