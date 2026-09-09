@@ -74,7 +74,10 @@
 ## 2024-08-14 - Optimize Pandas Groupby List Aggregation
 **Learning:** In pandas DataFrame operations, prefer `groupby().agg(list)` over `groupby().apply(list)` when aggregating grouped items into a list. `agg(list)` uses optimized reduction pathways and is significantly faster, whereas `apply(list)` incurs heavy overhead from flexible row-by-row evaluation.
 **Action:** Replace `apply(list)` with `agg(list)` after pandas `groupby` when constructing lists.
-
 ## 2024-09-12 - Optimize intersection of frozenset and list
 **Learning:** Using `bool(frozenset_obj & set(list_obj))` is slow as it allocates memory to convert the list to a set and evaluate intersection. Using `not frozenset_obj.isdisjoint(list_obj)` is much faster since it leverages optimized C-level short-circuiting and avoids unnecessary memory allocation.
 **Action:** Always prefer `not my_set.isdisjoint(my_list)` over `bool(my_set & set(my_list))` to check for intersection between a set and a list.
+
+## 2024-08-26 - Optimize boolean array indexing
+**Learning:** When assigning values to an array or pandas Series based on multiple conditions, using sequential boolean mask indexing (e.g., `arr[mask] = val`) creates slower row-by-row mapping bottlenecks and unnecessary intermediate array creation.
+**Action:** Always prefer a single nested `np.where(cond1, val1, np.where(cond2, val2, default))` expression over sequential boolean mask indexing for better vectorization performance.
