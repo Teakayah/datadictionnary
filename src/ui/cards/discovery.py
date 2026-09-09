@@ -238,6 +238,9 @@ def render_discovery(groups):
         "recommended": t("personalization.tab_recommended"),
     }
 
+    if st.session_state.get("discovery_active_tab") not in _disc_tabs:
+        st.session_state["discovery_active_tab"] = _disc_tabs[0]
+
     _disc_active = st.segmented_control(
         "discovery_tabs",
         options=_disc_tabs,

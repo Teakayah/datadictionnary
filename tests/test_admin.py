@@ -197,7 +197,7 @@ class TestAdminPage:
         sql_returns(
             pd.DataFrame({"tables": [42], "columns": [300], "comments": [5], "overrides": [2]}),
         )
-        monkeypatch.setattr("src.ui.cards.admin.st.segmented_control", lambda *args, **kwargs: "Quality Insights")
+        monkeypatch.setattr("src.ui.cards.admin.st.segmented_control", lambda *args, **kwargs: "insights")
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
         metrics = {m.label: m.value for m in at.metric}
@@ -311,7 +311,7 @@ class TestAdminDemo:
         at = self._run_demo_admin(monkeypatch, pre_state={"demo_audit_log": pre_audit})
         assert not at.exception, f"Exception: {at.exception}"
         # Stat cards are on tab 1 (Quality Insights); navigate there
-        monkeypatch.setattr("src.ui.cards.admin.st.segmented_control", lambda *args, **kwargs: "Quality Insights")
+        monkeypatch.setattr("src.ui.cards.admin.st.segmented_control", lambda *args, **kwargs: "insights")
         at.run()
         assert not at.exception, f"Exception: {at.exception}"
         metrics = {m.label: m.value for m in at.metric}
@@ -468,7 +468,7 @@ class TestPendingReviews:
             at.run()
             assert not at.exception, f"Exception: {at.exception}"
 
-            at.session_state["admin_active_tab"] = "Operations"
+            at.session_state["admin_active_tab"] = "ops"
             at.session_state["_admin_tab_idx"] = 0
             at.run()
 
@@ -523,7 +523,7 @@ class TestPendingReviews:
             assert not at.exception, f"Exception: {at.exception}"
 
             # Switch to Data Operations
-            at.session_state["admin_active_tab"] = "Operations"
+            at.session_state["admin_active_tab"] = "ops"
             at.session_state["_admin_tab_idx"] = 0
             at.run()
 

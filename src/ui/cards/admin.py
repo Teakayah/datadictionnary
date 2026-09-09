@@ -706,30 +706,28 @@ def render_admin_page():
     </div>
     ''', unsafe_allow_html=True)
 
-    _admin_tab_labels = [
-        t("admin.tab_ops"),
-        t("admin.tab_insights"),
-        t("admin.tab_audit"),
-    ]
-    _stored = st.session_state.get("admin_active_tab")
-    if _stored not in _admin_tab_labels:
-        _idx = st.session_state.get("_admin_tab_idx", 0)
-        st.session_state["admin_active_tab"] = (
-            _admin_tab_labels[_idx] if 0 <= _idx < len(_admin_tab_labels)
-            else _admin_tab_labels[0]
-        )
+    _admin_tabs = ["ops", "insights", "audit"]
+    _admin_tab_labels = {
+        "ops": t("admin.tab_ops"),
+        "insights": t("admin.tab_insights"),
+        "audit": t("admin.tab_audit"),
+    }
+
+    if st.session_state.get("admin_active_tab") not in _admin_tabs:
+        st.session_state["admin_active_tab"] = _admin_tabs[0]
+
     _admin_active = st.segmented_control(
         "admin_tabs",
-        options=_admin_tab_labels,
+        options=_admin_tabs,
+        format_func=lambda x: _admin_tab_labels[x[0]] if isinstance(x, list) and len(x) > 0 else _admin_tab_labels.get(x, "") if not isinstance(x, list) else "",
         key="admin_active_tab",
         label_visibility="collapsed",
         selection_mode="single",
     )
     if _admin_active is None:
-        _admin_active = _admin_tab_labels[st.session_state.get("_admin_tab_idx", 0)]
-    st.session_state["_admin_tab_idx"] = _admin_tab_labels.index(_admin_active)
+        _admin_active = "ops"
 
-    if _admin_active == _admin_tab_labels[0]:
+    if _admin_active == "ops":
         with st.expander(t("help.admin_ops_expander")):
             st.markdown(t("help.admin_ops_content"))
         _render_pending_reviews_section()
@@ -739,7 +737,7 @@ def render_admin_page():
         _render_admin_editing_section()
         _render_admin_groups_cache_section()
         _render_admin_sync_section()
-    elif _admin_active == _admin_tab_labels[1]:
+    elif _admin_active == "insights":
         with st.expander(t("help.admin_insights_expander")):
             st.markdown(t("help.admin_insights_content"))
         _render_admin_stats_section()
