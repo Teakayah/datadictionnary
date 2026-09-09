@@ -35,14 +35,28 @@ def _get_client() -> Optional[Any]:
 
 
 def cache_key(*parts: Any) -> str:
-    """Stable, namespaced cache key derived from arbitrary args."""
+    """Stable, namespaced cache key derived from arbitrary args.
+
+    Args:
+        *parts (Any): Arbitrary arguments to serialize and hash.
+
+    Returns:
+        str: A stable, namespaced cache key string.
+    """
     raw = json.dumps(parts, sort_keys=True, default=str)
     digest = hashlib.sha256(raw.encode()).hexdigest()[:24]
     return f"ddic:{digest}"
 
 
 async def get(key: str) -> Optional[Any]:
-    """Return a cached value or None."""
+    """Return a cached value or None.
+
+    Args:
+        key (str): The cache key to retrieve.
+
+    Returns:
+        Optional[Any]: The deserialized cached value, or None if not found or on error.
+    """
     client = _get_client()
     if client is None:
         return None
@@ -55,7 +69,13 @@ async def get(key: str) -> Optional[Any]:
 
 
 async def set(key: str, value: Any, ttl: int = 300) -> None:
-    """Store a value with a TTL in seconds."""
+    """Store a value with a TTL in seconds.
+
+    Args:
+        key (str): The cache key to store.
+        value (Any): The value to cache.
+        ttl (int, optional): Time-to-live in seconds. Defaults to 300.
+    """
     client = _get_client()
     if client is None:
         return
@@ -66,6 +86,11 @@ async def set(key: str, value: Any, ttl: int = 300) -> None:
 
 
 async def delete(key: str) -> None:
+    """Delete a key from the cache.
+
+    Args:
+        key (str): The cache key to delete.
+    """
     client = _get_client()
     if client is None:
         return
@@ -73,5 +98,4 @@ async def delete(key: str) -> None:
         await client.delete(key)
     except Exception as exc:
         logger.debug("Redis DELETE error: %s", exc)
-
 
