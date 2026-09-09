@@ -806,7 +806,7 @@ def test_render_admin_integrity_report_with_empty_data():
         at = AppTest.from_function(app)
         at.run()
         assert not at.exception
-        assert len(at.info) >= 1  # Verify at least one empty message
+        assert any("No data" in md.value or "Empty" in md.value for md in at.markdown)  # Verify at least one empty message
 
 
 def test_render_admin_editing_section():
