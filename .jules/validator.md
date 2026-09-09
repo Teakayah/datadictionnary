@@ -114,3 +114,8 @@ Assertion: Use `cur_mock = MagicMock(); conn.cursor.return_value.__enter__.retur
 **Coverage Gap:** The branch that tests `_has_critical` mapping to rendering a downstream warning in search detail view was previously uncovered.
 **Learning:** For testing `st.session_state` flows like `dd_nav_select` triggering the detail view correctly, ensuring dependent API mocks (`get_multi_hop_lineage`, `get_authorized_tables`, `search_all_metadata`) contain the exact schema (e.g. `direction`, `entity_type`) is strictly required.
 **Assertion:** Use `AppTest` to verify that `st.markdown` properly interpolates translation keys like `detail.downstream_certified_warning` by asserting against `md.value`.
+
+## 2024-09-01 - Mocking Streamlit layout elements
+**Coverage Gap:** Testing complex UI rendering logic involving `st.columns()` nested layout.
+**Learning:** When using Streamlit column layouts, assertions directly on the column mock (e.g. `mock_cols[0].markdown.assert_called()`) can be brittle or behave unexpectedly due to how Streamlit binds these to the global state.
+**Assertion:** It is more reliable to assert on the length of `mock_calls` array for the target mock object (e.g., `assert len(mock_cols[0].mock_calls) > 0`) when validating the rendered elements inside the `with c1:` block.
