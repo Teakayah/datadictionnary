@@ -478,7 +478,7 @@ def test_comment_form_submit_error():
     assert len(at2.error) > 0
     assert at2.error[0].value == "common.error"
 
-<<<<<<< HEAD
+
 def test_search_page_grants_rendered_with_query_groups_public():
     """Verify that the search page renders the grants correctly when query groups are provided."""
     def render_detail_panel():
