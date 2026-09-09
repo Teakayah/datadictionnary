@@ -360,8 +360,8 @@ def test_search_page_no_access():
 
     at = AppTest.from_function(app_wrapper)
     at.run()
-    assert len(at.info) > 0
-    assert at.info[0].value == "search.no_access"
+    assert len(at.markdown) > 0
+    assert any("search.no_access" in md.value for md in at.markdown)
 
 def test_search_page_active_group():
     """Verify that the search page renders the correct info and handles group filters."""
