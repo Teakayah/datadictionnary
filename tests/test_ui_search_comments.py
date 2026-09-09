@@ -478,6 +478,7 @@ def test_comment_form_submit_error():
     assert len(at2.error) > 0
     assert at2.error[0].value == "common.error"
 
+<<<<<<< HEAD
 def test_search_page_grants_rendered_with_query_groups_public():
     """Verify that the search page renders the grants correctly when query groups are provided."""
     def render_detail_panel():
@@ -593,4 +594,70 @@ def test_search_comments_rendering():
         reply_btn.click().run()
 
     assert at.session_state["dd_comment_open_main.sales.orders_c1"] is True
+
+
+def test_search_comments_replies_render():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+
+    import pandas as pd
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales"
+    }])
+
+    mock_search_results = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "match_type": "Table",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "description": "Sales orders"
+    }])
+
+    mock_comments = [{
+        "comment_id": "c1",
+        "author_name": "John Doe",
+        "created_at": "2023-01-01T10:00:00Z",
+        "comment_text": "This is a comment",
+        "replies": [{
+            "author_name": "Jane Doe",
+            "created_at": "2023-01-01T11:00:00Z",
+            "comment_text": "This is a reply"
+        }]
+    }]
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_search_results), \
+         patch("src.pages.search.get_table_steward", return_value="steward@example.com"), \
+         patch("src.pages.search.get_table_comments", return_value=mock_comments), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.track_search"):
+
+        at.run()
+        at.selectbox(key="catalog_search").set_value("orders").run()
+
+        # Click view details
+        buttons = at.button
+        view_btns = [b for b in buttons if b.key and b.key.startswith("view_")]
+        view_btns[0].click().run()
+
+        # Check that we can see comment rendering elements
+        markdown_values = [m.value for m in at.markdown]
+
+        has_comment = any("This is a comment" in val for val in markdown_values)
+        has_reply = any("This is a reply" in val for val in markdown_values)
+
+        assert has_comment, "Comment not rendered"
+        assert has_reply, "Reply not rendered"
 
