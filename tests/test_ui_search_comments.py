@@ -348,6 +348,51 @@ def test_search_page_hero_and_load_error():
     assert len(at.error) > 0
     assert at.error[0].value == "search.load_error"
 
+def test_search_page_grants_rendered_with_query_groups():
+    """Verify that the search page renders the grants correctly when query groups are provided."""
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from unittest.mock import patch
+        from src.pages.search import _render_detail_panel
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "business_name_en": "Sales Orders",
+            "business_name_fr": "Commandes de vente",
+            "business_definition_en": "Sales order data.",
+            "business_definition_fr": "Données de commande de vente.",
+            "description": "Table containing sales orders.",
+            "dq_score": 95,
+            "steward_email": "test@example.com"
+        })
+        st.session_state["_live_completeness_main.sales.orders"] = 95
+        st.session_state["recent_views"] = []
+
+        with patch("src.pages.search.get_table_comments", return_value=[]), \
+             patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+             patch("src.pages.search.get_column_overrides", return_value={}), \
+             patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+             patch("src.pages.search.run_query", side_effect=[
+                 pd.DataFrame([{"principal": "sales_team", "privilege": "SELECT"}]), # for grants
+                 pd.DataFrame([]), # for search related
+                 pd.DataFrame([]), # for data profile
+             ]), \
+             patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+             _render_detail_panel(row, "main.sales.orders", ("group1", "group2"))
+
+    at = AppTest.from_function(render_detail_panel)
+    at.session_state["bookmarks"] = {"main.sales.orders"}
+    at.run()
+
+    assert not at.exception
+    grant_btn = next((b for b in at.button if b.key and "sales_team" in b.key), None)
+    assert grant_btn is not None
+    grant_btn.click().run()
+    assert at.session_state["group_filter"] == "sales_team"
+
 def test_search_page_no_access():
     """Verify that the search page handles empty authorized tables."""
     def app_wrapper():
@@ -432,3 +477,50 @@ def test_comment_form_submit_error():
 
     assert len(at2.error) > 0
     assert at2.error[0].value == "common.error"
+
+def test_search_page_grants_rendered_with_query_groups_public():
+    """Verify that the search page renders the grants correctly when query groups are provided."""
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from unittest.mock import patch
+        from src.pages.search import _render_detail_panel
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "business_name_en": "Sales Orders",
+            "business_name_fr": "Commandes de vente",
+            "business_definition_en": "Sales order data.",
+            "business_definition_fr": "Données de commande de vente.",
+            "description": "Table containing sales orders.",
+            "dq_score": 95,
+            "steward_email": "test@example.com"
+        })
+        st.session_state["_live_completeness_main.sales.orders"] = 95
+        st.session_state["recent_views"] = []
+
+        with patch("src.pages.search.get_table_comments", return_value=[]), \
+             patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+             patch("src.pages.search.get_column_overrides", return_value={}), \
+             patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+             patch("src.pages.search.run_query", side_effect=[
+                 pd.DataFrame([{"principal": "SELECT_ALL_USERS", "privilege": "SELECT"}]), # for grants
+                 pd.DataFrame([]), # for search related
+                 pd.DataFrame([]), # for data profile
+             ]), \
+             patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+             _render_detail_panel(row, "main.sales.orders", ("group1", "group2"))
+
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_function(render_detail_panel)
+    at.session_state["bookmarks"] = {"main.sales.orders"}
+    at.run()
+
+    assert not at.exception
+    grant_btn = next((b for b in at.button if b.key and "public" in b.key), None)
+    assert grant_btn is not None
+
+    grant_btn.click().run()
+    assert at.session_state["group_filter"] == "SELECT_ALL_USERS"
