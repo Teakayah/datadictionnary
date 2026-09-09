@@ -93,3 +93,7 @@
 **Cluster Quirk:** The `dd-redis` deployment was using a basic `tcpSocket` check on port 6379 for its liveness probe.
 **Learning:** A TCP connection check only verifies that the port is open and accepting network connections. It passes even if the underlying Redis event loop is deadlocked or entirely unresponsive to commands, meaning a failing pod won't be restarted automatically by Kubernetes.
 **Resilience:** Replaced the `tcpSocket` probe with an `exec` probe running `["redis-cli", "ping"]`. This ensures the application layer is actively processing commands, allowing the kubelet to detect actual deadlocks and restart the container when necessary.
+## 2025-01-20 - dd-api missing PVC mount for DuckDB
+**Cluster Quirk:** The `dd-api` deployment missed the `dd-data` PersistentVolumeClaim mount at `/data`, causing it to crash or fail when attempting to read the sync daemon's cache at `DUCKDB_PATH` (`/data/dictionary_cache.duckdb`).
+**Learning:** ConfigMaps define paths correctly, but Kubernetes pods remain blind to persistent storage until explicitly mounted in the container's `volumeMounts` and defined in the pod's `volumes`. Without this, API queries to duckdb would silently fail.
+**Resilience:** Mounted `dd-data` PVC to `/data` in `k8s/deployment-api.yaml`, aligning its storage topology with `dd-app` and `dd-sync-worker` for reliable read access to the cached catalog.
