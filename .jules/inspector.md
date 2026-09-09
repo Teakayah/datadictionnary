@@ -103,3 +103,7 @@
 ## 2026-08-26 - Streamlit AppTest rerun handling in UI button tests
 **Learning:** Mocking `streamlit.rerun` using `with patch("streamlit.rerun")` when interacting with buttons in `AppTest` is an anti-pattern. `AppTest` natively handles the `st.rerun()` control flow execution loop. Mocking it suppresses this behavior and can leave test state assertions incomplete or break execution flow.
 **Action:** When writing tests that trigger a component rerun (e.g. `at.button(...).click().run()`), never patch `streamlit.rerun`. Let `AppTest` handle the reruns natively and assert state immediately following the `.run()` block.
+
+## 2026-09-03 - Mocking Missing Standard Libraries in Streamlit AppTest
+**Learning:** When using `AppTest.from_function()` to test a module that conditionally imports functions not available directly in the file context (such as lazy imports of `format_date` and `format_number` from `src.i18n`), standard patching using `patch("module.function")` will fail with an `AttributeError` because the mock machinery cannot find the function to replace.
+**Action:** When mocking functions imported lazily or unavailable on the parent module during testing, explicitly pass `create=True` to the `patch()` call. This allows `unittest.mock` to forcefully inject the mock object and prevent `AttributeError` during execution within Streamlit `AppTest`.
