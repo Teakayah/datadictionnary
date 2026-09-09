@@ -57,7 +57,17 @@ _EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\Z")
 
 
 def _safe_ident(part: str) -> str:
-    """Return part wrapped in backticks, refusing anything not [A-Za-z0-9_-]."""
+    """Return part wrapped in backticks, refusing anything not [A-Za-z0-9_-].
+
+    Args:
+        part (str): The identifier part to sanitize and wrap.
+
+    Returns:
+        str: The safely backtick-quoted identifier.
+
+    Raises:
+        ValueError: If the identifier contains invalid characters, preventing SQL injection.
+    """
     if not part or not _IDENT_RE.match(part):
         raise ValueError(f"Refusing to interpolate unsafe identifier: {part!r}")
     return f"`{part}`"
@@ -68,6 +78,15 @@ def _split_full_name(table_full_name: str) -> list[str]:
 
     The `table_full_name` strictly corresponds to the Databricks Unity Catalog
     3-level namespace structure. It must contain exactly three parts separated by dots.
+
+    Args:
+        table_full_name (str): The full table name in `catalog.schema.table` format.
+
+    Returns:
+        list[str]: A list of three validated identifier parts.
+
+    Raises:
+        ValueError: If the string does not have exactly three dot-separated parts or contains invalid characters.
     """
     parts = (table_full_name or "").split(".")
     if len(parts) != 3:
@@ -355,6 +374,9 @@ def _process_sync_queue(conn=None) -> int:
         conn (Optional): Optional injected connection (used by the sidecar daemon
             with its own DuckDB handle). When None, falls back to the
             Streamlit-cached _get_write_connection.
+
+    Returns:
+        int: The number of sync items that were processed (either successful or failed).
 
     Priority ordering (weight ASC, queued_at ASC):
         1. Metadata    — COLUMN_DEF, TABLE_DESC

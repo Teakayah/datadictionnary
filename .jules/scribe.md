@@ -10,3 +10,6 @@
 ## 2024-08-17 - Module Docstring Position
 **Learning:** In Python files, module-level docstrings (`"""..."""`) must be placed as the absolute first statement in the file, preceding all imports (including `from __future__ import annotations`). Placing imports before the module docstring demotes it to a regular string expression and triggers Ruff `E402` (Module level import not at top of file) errors.
 **Action:** Ensure the module docstring is always the first statement in a file when creating or refactoring files.
+## 2024-08-30 - Google Docstring Styling Programmatic Updates
+**Learning:** When modifying large multiline string blocks like Python docstrings where standard unified `patch` tools frequently fail due to indentation, context, or whitespace mismatches, using a `python -c` script reading the file and using `.replace()` to safely modify the exact text block programmatically is an effective and robust workaround.
+**Action:** Always prefer using inline Python `.replace()` scripts in `run_in_bash_session` to rewrite or append documentation in Python files if standard patching is rejected.
