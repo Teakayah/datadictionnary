@@ -150,6 +150,30 @@ class TestMockAuth:
         # Group IDs were updated to match generate_test_data.py dataset (finance_group)
         assert "finance_group" in at.session_state["user_groups"]
 
+
+
+    def test_auto_login_query_param_finance(self):
+        """Mock login via URL query parameters must populate session_state correctly for a valid department."""
+        at = unauthenticated_app()
+        at.query_params["mock_login"] = "true"
+        at.query_params["mock_dept"] = "finance"
+        at.run()
+
+        assert at.session_state["authenticated"] is True
+        assert "finance_group" in at.session_state["user_groups"]
+        assert at.session_state["user_email"] == "finance.user@research-org.ca"
+
+    def test_auto_login_query_param_default_admin(self):
+        """Mock login via URL query parameters must fallback to admin for an invalid department."""
+        at = unauthenticated_app()
+        at.query_params["mock_login"] = "true"
+        at.query_params["mock_dept"] = "invalid_dept"
+        at.run()
+
+        assert at.session_state["authenticated"] is True
+        assert "mock_admin_group" in at.session_state["user_groups"]
+        assert at.session_state["user_email"] == "admin@research-org.ca"
+
     def test_mock_signin_sets_user_name(self):
         """Mock sign-in must set a non-empty user_name."""
         at = unauthenticated_app()
@@ -773,3 +797,53 @@ class TestDiscovery:
             assert "SECRET_DB_ERROR_DISCOVERY" not in i.value, "Exception details leaked in st.info"
         html = _html(*at.markdown)
         assert "SECRET_DB_ERROR_DISCOVERY" not in html, "Exception details leaked in st.markdown"
+
+class TestTabState:
+    """Tab state cleanup tests."""
+
+    def test_tab_change_clears_transient_state(self):
+        """Changing tabs must clear transient state such as dd_col_edit_mode and dd_comment_open_*."""
+        # Initialize app
+        at = authenticated_app()
+
+        # Inject transient state BEFORE running, mimicking previous tab state
+        at.session_state["_dd_current_tab"] = "search"
+        at.session_state["dd_col_edit_mode"] = "some_mode"
+        at.session_state["dd_comment_open_123"] = True
+
+        # We need to simulate changing tabs.
+        # Actually app.py gets current_tab from src.ui.header.render_header()
+        # By default, render_header returns "search" or reads query params.
+        # Let's set query params to force a different tab.
+        at.query_params["tab"] = "catalog"
+        at.run()
+
+        # Check if the state was cleared
+        assert "dd_col_edit_mode" not in at.session_state
+        assert "dd_comment_open_123" not in at.session_state
+        assert at.session_state["_dd_current_tab"] == "catalog"
+
+
+class TestPageRouting:
+    """Page routing tests."""
+
+    def test_routing_health(self):
+        """Routing to health tab."""
+        at = authenticated_app()
+        at.query_params["tab"] = "health"
+        at.run()
+        assert at.session_state["_dd_current_tab"] == "health"
+
+    def test_routing_pipelines(self):
+        """Routing to pipelines tab."""
+        at = authenticated_app()
+        at.query_params["tab"] = "pipelines"
+        at.run()
+        assert at.session_state["_dd_current_tab"] == "pipelines"
+
+    def test_routing_admin(self):
+        """Routing to admin tab."""
+        at = authenticated_app()
+        at.query_params["tab"] = "admin"
+        at.run()
+        assert at.session_state["_dd_current_tab"] == "admin"
