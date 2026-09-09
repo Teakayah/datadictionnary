@@ -545,7 +545,7 @@ def _render_pending_reviews_section():
             f'{_html.escape(tbl)} · {_html.escape(col)}</div>'
             f'<div style="display:flex;gap:24px;margin:6px 0;">'
             f'<div><span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-40);">'
-            f'{t("admin.reviews_new_value")}</span>'
+            f'{_html.escape(t("admin.reviews_new_value"))}</span>'
             f'<div style="font-family:var(--font-sans);font-size:13px;color:var(--ink);">'
             f'{_html.escape(biz)}</div>'
             f'<div style="font-family:var(--font-sans);font-size:12px;color:var(--ink-60);">'
@@ -553,7 +553,7 @@ def _render_pending_reviews_section():
             f'</div>'
             f'<div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);'
             f'margin-top:4px;">'
-            f'{t("admin.reviews_proposed_by", user=_html.escape(by), date=_html.escape(at))}'
+            f'{_html.escape(t("admin.reviews_proposed_by", user=by, date=at))}'
             f'</div></div>',
             unsafe_allow_html=True,
         )
@@ -645,18 +645,18 @@ def _render_pending_table_friendly_names_section():
             f'text-transform:uppercase;margin-bottom:6px;">{_html.escape(tbl)}</div>'
             f'<div style="display:flex;gap:24px;margin:6px 0;flex-wrap:wrap;">'
             f'<div style="flex:1;min-width:240px;">'
-            f'<span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-40);">{t("language.en")}</span>'
+            f'<span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-40);">{_html.escape(t("language.en"))}</span>'
             f'<div style="font-family:var(--font-sans);font-size:14px;font-weight:500;color:var(--ink);">{_html.escape(name_en)}</div>'
             f'<div style="font-family:var(--font-sans);font-size:12px;color:var(--ink-60);">{_html.escape(def_en)}</div>'
             f'</div>'
             f'<div style="flex:1;min-width:240px;">'
-            f'<span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-40);">{t("language.fr")}</span>'
+            f'<span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-40);">{_html.escape(t("language.fr"))}</span>'
             f'<div style="font-family:var(--font-sans);font-size:14px;font-weight:500;color:var(--ink);">{_html.escape(name_fr)}</div>'
             f'<div style="font-family:var(--font-sans);font-size:12px;color:var(--ink-60);">{_html.escape(def_fr)}</div>'
             f'</div>'
             f'</div>'
             f'<div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-40);margin-top:6px;">'
-            f'{t("admin.reviews_proposed_by", user=_html.escape(by), date=_html.escape(at))}</div>'
+            f'{_html.escape(t("admin.reviews_proposed_by", user=by, date=at))}</div>'
             f'</div>',
             unsafe_allow_html=True,
         )
