@@ -52,7 +52,7 @@ def test_send_reply_email_no_smtp(monkeypatch, caplog):
     monkeypatch.setenv("DEMO_DATA", "false")
     monkeypatch.delenv("SMTP_HOST", raising=False)
     send_reply_email("parent@test.com", "Replier", "Object", "Reply Text", "")
-    assert "Reply saved but email not sent: SMTP_HOST not configured" in caplog.text
+    assert "Comment saved but email not sent: SMTP_HOST not configured." in caplog.text
 
 
 def test_send_comment_email_no_smtp(monkeypatch, caplog):
@@ -60,7 +60,7 @@ def test_send_comment_email_no_smtp(monkeypatch, caplog):
     monkeypatch.setenv("DEMO_DATA", "false")
     monkeypatch.delenv("SMTP_HOST", raising=False)
     send_comment_email("to@test.com", "Author", "Object", "Text")
-    assert "Comment saved but email not sent: SMTP_HOST or steward_email not configured" in caplog.text
+    assert "Comment saved but email not sent: SMTP_HOST not configured." in caplog.text
 
 def test_get_table_comments_prod_error_connection(monkeypatch, caplog):
     from src.comments import get_table_comments
@@ -262,7 +262,7 @@ def test_send_comment_email_smtp(monkeypatch, caplog):
 
         mock_server.sendmail.side_effect = Exception("SMTP error")
         send_comment_email("to@test.com", "Author", "Object", "Text")
-        assert "Failed to send comment email" in caplog.text
+        assert "Failed to send email to" in caplog.text
 
 def test_send_reply_email_smtp(monkeypatch, caplog):
     from src.comments import send_reply_email
@@ -280,7 +280,7 @@ def test_send_reply_email_smtp(monkeypatch, caplog):
 
         mock_server.sendmail.side_effect = Exception("SMTP error")
         send_reply_email("parent@test.com", "Replier", "Object", "Reply Text", "steward@test.com")
-        assert "Failed to send reply email" in caplog.text
+        assert "Failed to send email to" in caplog.text
 
 def test_send_reply_email_no_recipients(monkeypatch, caplog):
     from src.comments import send_reply_email

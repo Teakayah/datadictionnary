@@ -65,8 +65,48 @@ def _build_comment_tree(flat: list) -> list:
     return roots
 
 
+
+def _send_email_notification(
+    recipients: list[str],
+    subject: str,
+    body: str,
+    demo_log_msg: str,
+) -> None:
+    """Internal helper to send an email or log it in demo mode."""
+    import smtplib
+    from email.mime.text import MIMEText
+
+    valid_recipients = [r for r in recipients if r]
+    if not valid_recipients:
+        return
+
+    if is_demo_mode():
+        print(demo_log_msg)
+        return
+
+    smtp_host = os.getenv("SMTP_HOST", "")
+    if not smtp_host:
+        logging.warning("Comment saved but email not sent: SMTP_HOST not configured.")
+        return
+
+    safe_recipients = [r.replace("\r", "").replace("\n", "") for r in valid_recipients]
+    msg = MIMEText(body, "plain")
+    msg["Subject"] = subject
+    msg["From"] = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
+    msg["To"] = ", ".join(safe_recipients)
+
+    try:
+        with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587"))) as s:
+            s.starttls()
+            s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASSWORD", ""))
+            s.sendmail(msg["From"], safe_recipients, msg.as_string())
+        logging.info("Email sent to %s", safe_recipients)
+    except Exception as e:
+        logging.error("Failed to send email to %s: %s", safe_recipients, e)
+
+
 def send_comment_email(to_email: str, author_name: str, object_name: str, comment_text: str) -> None:
-    """Send a comment notification email to the data steward.
+    """Notify the steward of a new root-level comment.
 
     In demo mode logs to console instead of sending. Silently skips if
     SMTP_HOST or to_email is not configured rather than raising.
@@ -80,32 +120,14 @@ def send_comment_email(to_email: str, author_name: str, object_name: str, commen
     Returns:
         None
     """
-    import smtplib
-    from email.mime.text import MIMEText
-
-    if is_demo_mode():
-        print(f"[DEMO EMAIL] To: {to_email} | Object: {object_name} | From: {author_name}\n{comment_text}")
-        return
-    smtp_host = os.getenv("SMTP_HOST", "")
-    if not smtp_host or not to_email:
-        logging.warning("Comment saved but email not sent: SMTP_HOST or steward_email not configured.")
-        return
-    # Strip newlines from header fields to prevent SMTP header injection.
     safe_object_name = object_name.replace("\r", "").replace("\n", "")
     safe_author_name = author_name.replace("\r", "").replace("\n", "")
-    safe_to_email = to_email.replace("\r", "").replace("\n", "")
-    msg = MIMEText(f"{safe_author_name} left a comment on {safe_object_name}:\n\n{comment_text}", "plain")
-    msg["Subject"] = f"[Data Dictionary] Comment on {safe_object_name}"
-    msg["From"]    = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
-    msg["To"]      = safe_to_email
-    try:
-        with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587"))) as s:
-            s.starttls()
-            s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASSWORD", ""))
-            s.sendmail(msg["From"], [safe_to_email], msg.as_string())
-        logging.info("Comment email sent to %s", to_email)
-    except Exception as e:
-        logging.error("Failed to send comment email to %s: %s", to_email, e)
+    _send_email_notification(
+        recipients=[to_email],
+        subject=f"[Data Dictionary] Comment on {safe_object_name}",
+        body=f"{safe_author_name} left a comment on {safe_object_name}:\n\n{comment_text}",
+        demo_log_msg=f"[DEMO EMAIL] To: {to_email} | Object: {object_name} | From: {author_name}\n{comment_text}"
+    )
 
 
 def send_reply_email(
@@ -129,41 +151,16 @@ def send_reply_email(
     Returns:
         None
     """
-    import smtplib
-    from email.mime.text import MIMEText
-
     recipients = list({e for e in [parent_author_email, steward_email] if e})
-    if not recipients:
-        return
-
-    if is_demo_mode():
-        print(f"[DEMO REPLY] To: {recipients} | Object: {object_name} | From: {reply_author_name}\n{reply_text}")
-        return
-
-    smtp_host = os.getenv("SMTP_HOST", "")
-    if not smtp_host:
-        logging.warning("Reply saved but email not sent: SMTP_HOST not configured.")
-        return
-
-    # Strip newlines from header fields to prevent SMTP header injection.
-    safe_object_name  = object_name.replace("\r", "").replace("\n", "")
+    safe_object_name = object_name.replace("\r", "").replace("\n", "")
     safe_reply_author = reply_author_name.replace("\r", "").replace("\n", "")
-    safe_recipients = [r.replace("\r", "").replace("\n", "") for r in recipients]
-    msg = MIMEText(
-        f"{safe_reply_author} replied to a comment on {safe_object_name}:\n\n{reply_text}",
-        "plain",
+
+    _send_email_notification(
+        recipients=recipients,
+        subject=f"[Data Dictionary] Reply on {safe_object_name}",
+        body=f"{safe_reply_author} replied to a comment on {safe_object_name}:\n\n{reply_text}",
+        demo_log_msg=f"[DEMO REPLY] To: {recipients} | Object: {object_name} | From: {reply_author_name}\n{reply_text}"
     )
-    msg["Subject"] = f"[Data Dictionary] Reply on {safe_object_name}"
-    msg["From"]    = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
-    msg["To"]      = ", ".join(safe_recipients)
-    try:
-        with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587"))) as s:
-            s.starttls()
-            s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASSWORD", ""))
-            s.sendmail(msg["From"], safe_recipients, msg.as_string())
-        logging.info("Reply email sent to %s", recipients)
-    except Exception as e:
-        logging.error("Failed to send reply email to %s: %s", recipients, e)
 
 
 def _fetch_comment_author_email(comment_id: str) -> str:
