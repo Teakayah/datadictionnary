@@ -21,3 +21,7 @@
 ## 2026-09-07 - Segmented control localization stability
 **Learning:** Localizing `st.segmented_control` by passing translated strings directly to `options` breaks widget state when users change language (since the state maps to the locale-specific string). Also, complex lambda formatting in `format_func` causes issues with testing frameworks passing unexpected types like lists.
 **Action:** Decouple internal identifiers from display strings by passing internal keys to `options` and using a clean `format_func` (handling lists for test framework compatibility) to render translations. Use internal keys for all state checks.
+
+## 2024-11-20 - Hide decorative empty state icons from screen readers
+**Learning:** Decorative icons (e.g. emojis) used in empty state components can confuse screen readers if not properly hidden.
+**Action:** Add `aria-hidden="true"` to decorative icons in empty state layouts to improve accessibility for screen readers.
