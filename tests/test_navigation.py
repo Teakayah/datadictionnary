@@ -436,7 +436,7 @@ class TestHealthDashboard:
         sql_returns(empty_tables_df())
         at = authenticated_app(tab="health")
         at.run()
-        assert any("No accessible data to audit." in i.value for i in at.info)
+        assert any("No accessible data to audit." in md.value for md in at.markdown)
 
     def test_health_shows_priority_actions(self, monkeypatch):
         """Health dashboard must list undocumented tables as priority actions."""

@@ -21,6 +21,7 @@ import logging
 
 import pandas as pd
 import streamlit as st
+from src.ui.cards._shared import _render_empty_state
 
 from src.audit import (
     approve_business_name,
@@ -316,7 +317,7 @@ def _render_admin_integrity_report():
                 use_container_width=True,
             )
         else:
-            st.info(t("common.empty"))
+            _render_empty_state("📋", t("common.empty"))
 
     with col_r:
         st.markdown(f"**{t('admin.integrity_dq_alerts_title')}**")
@@ -361,7 +362,7 @@ def _render_admin_search_analytics_section():
     )
     df = get_search_analytics()
     if df.empty:
-        st.info(t("admin.search_analytics_empty"))
+        _render_empty_state("🔍", t("admin.search_analytics_empty"))
     else:
         st.dataframe(
             df,
