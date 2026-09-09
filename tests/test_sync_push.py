@@ -21,6 +21,8 @@ from __future__ import annotations
 import logging
 import sys
 
+from unittest.mock import MagicMock
+from src.sync.push import _build_summary, _notify_bookmarkers
 import pytest
 
 
@@ -298,7 +300,6 @@ class TestProcessSyncQueue:
 
     def test_process_sync_queue_empty(self, monkeypatch):
         from src.sync import push as push_module
-        from unittest.mock import MagicMock
         monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
@@ -309,7 +310,6 @@ class TestProcessSyncQueue:
 
     def test_process_sync_queue_db_error(self, monkeypatch):
         from src.sync import push as push_module
-        from unittest.mock import MagicMock
         monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
         mock_conn = MagicMock()
         mock_conn.cursor.side_effect = Exception("db connection error")
@@ -319,7 +319,6 @@ class TestProcessSyncQueue:
     def test_process_sync_queue_success(self, monkeypatch):
         from src.sync import push as push_module
         import json
-        from unittest.mock import MagicMock
         monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
@@ -348,7 +347,6 @@ class TestProcessSyncQueue:
     def test_process_sync_queue_failure_retry(self, monkeypatch):
         from src.sync import push as push_module
         import json
-        from unittest.mock import MagicMock
         monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
@@ -372,7 +370,6 @@ class TestProcessSyncQueue:
     def test_process_sync_queue_failure_max_attempts(self, monkeypatch):
         from src.sync import push as push_module
         import json
-        from unittest.mock import MagicMock
         monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
@@ -407,7 +404,6 @@ class TestEnqueueSync:
 
     def test_enqueue_sync_column_def(self, monkeypatch):
         from src.sync import push as push_module
-        from unittest.mock import MagicMock
         monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
@@ -425,7 +421,6 @@ class TestEnqueueSync:
 
     def test_enqueue_sync_table_desc(self, monkeypatch):
         from src.sync import push as push_module
-        from unittest.mock import MagicMock
         monkeypatch.setattr(push_module, "_duckdb_available", lambda: True)
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
@@ -506,3 +501,47 @@ def test_push_to_databricks_table_business_name(monkeypatch):
     args = mock_cursor.execute.call_args[0]
     assert "MERGE INTO" in args[0]
     assert args[1]["full_name"] == "c.s.t"
+
+def test_build_summary():
+    assert _build_summary("TABLE_DESC", {}) == "Description updated"
+    assert _build_summary("COLUMN_DEF", {"column_name": "foo"}) == "Column 'foo' definition updated"
+    assert _build_summary("COLUMN_DEF", {}) == "Column definition updated"
+    assert _build_summary("STEWARD", {"steward_email": "a@b.c"}) == "Steward changed to a@b.c"
+    assert _build_summary("STEWARD", {}) == "Steward updated"
+    assert _build_summary("UNKNOWN", {}) == "Table updated"
+
+def test_notify_bookmarkers_success():
+    conn = MagicMock()
+    cur_mock = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cur_mock
+
+    # 2 rows returned, one is the author, one is another user
+    cur_mock.fetchall.return_value = [("user_other",), ("user_author",)]
+
+    _notify_bookmarkers(conn, "test.schema.tbl", "TABLE_DESC", {}, "user_author")
+
+    # Check that we fetched bookmarkers
+    cur_mock.execute.assert_called_once()
+    assert "user_data.user_preferences" in cur_mock.execute.call_args[0][0]
+
+    # Check that we only inserted one notification for the other user
+    assert cur_mock.execute_write.call_count == 1
+    call_args = cur_mock.execute_write.call_args[0]
+    assert call_args[1][1] == "user_other"
+
+def test_notify_bookmarkers_empty():
+    conn = MagicMock()
+    cur_mock = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cur_mock
+    cur_mock.fetchall.return_value = []
+
+    _notify_bookmarkers(conn, "test.schema.tbl", "TABLE_DESC", {}, "user_author")
+
+    cur_mock.execute_write.assert_not_called()
+
+def test_notify_bookmarkers_exception():
+    conn = MagicMock()
+    conn.cursor.side_effect = Exception("db error")
+
+    # Should not raise exception (fail gracefully)
+    _notify_bookmarkers(conn, "test.schema.tbl", "TABLE_DESC", {}, "user_author")

@@ -99,3 +99,8 @@ Assertion: Mock `threading.Thread` and extract the target function via `mock_thr
 **Coverage Gap:** Missing coverage in app.py for mock login URL query parameters, transient state clearance on tab switch, and some routing logic.
 **Learning:** `app.py` is the entrypoint to a Streamlit app. For Mock Auth URL querying, we needed to pass the query parameters using `at.query_params["mock_login"] = "true"` and `at.query_params["mock_dept"] = "finance"`. The tab switching clears session states, testing this involves setting transient state in `at.session_state` before a tab change.
 **Assertion:** We can test tab switches and URL mocking logic effectively by directly setting properties in `at.query_params` and `at.session_state` prior to `at.run()`.
+
+## 2024-08-24 - Mocking DuckDB Context Managers
+Coverage Gap: Missing test coverage for `_notify_bookmarkers` in `src/sync/push.py` resulting in unverified db write paths.
+Learning: Mocking DuckDB connection objects for test cases requires explicit mocking of the `__enter__` return value for `conn.cursor()` since it is heavily used as a context manager (`with conn.cursor() as cur:`).
+Assertion: Use `cur_mock = MagicMock(); conn.cursor.return_value.__enter__.return_value = cur_mock` to properly intercept and assert against `cur.execute_write`.
