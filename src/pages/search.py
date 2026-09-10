@@ -693,7 +693,7 @@ def render_search_page(query_groups: tuple) -> None:
         )
         for _i, _row in enumerate(_results_to_show.itertuples(index=False)):
             _fn = str(getattr(_row, "full_name", ""))
-            if not _fn:
+            if not _fn or _fn == "nan" or _fn == "None":
                 continue
             _gc, _gb = st.columns([5, 1], gap="small", vertical_alignment="top")
             with _gc:
@@ -749,7 +749,7 @@ def render_search_page(query_groups: tuple) -> None:
                     )
                     for _sr_i, _sr in enumerate(_results_to_show.itertuples(index=False)):
                         _fn = _s(getattr(_sr, "full_name", None))
-                        if not _fn:
+                        if not _fn or _fn == "nan" or _fn == "None":
                             continue
                         _card_col, _btn_col = st.columns([5, 1], gap="small", vertical_alignment="top")
                         with _card_col:
