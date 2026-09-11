@@ -274,3 +274,58 @@ def test_search_query_group_filter_nan_full_name():
         # No results should be displayed because of continue block
         gview_btns = [b for b in at.button if b.key and b.key.startswith("gview_")]
         assert len(gview_btns) == 0
+
+def test_search_results_with_nan_score():
+    import pandas as pd
+    import numpy as np
+    import streamlit as st
+    from src.pages.search import _render_detail_panel
+    from unittest.mock import patch
+
+    # Arrange
+    row = pd.Series({
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "table_name": "orders",
+        "full_name": "main.sales.orders",
+        "dq_score": np.nan,
+        "steward_email": "test@example.com"
+    })
+
+    def run_detail_panel():
+        import pandas as pd
+        import numpy as np
+        import streamlit as st
+        from unittest.mock import patch
+        from src.pages.search import _render_detail_panel
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "dq_score": np.nan,
+            "steward_email": "test@example.com"
+        })
+
+        st.session_state["recent_views"] = []
+        with patch("src.pages.search.get_table_comments", return_value=[]), \
+             patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+             patch("src.pages.search.get_column_overrides", return_value={}), \
+             patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+             patch("src.pages.search.run_query", side_effect=[
+                 pd.DataFrame([]), # grants
+                 pd.DataFrame([]), # search related
+                 pd.DataFrame([]), # data profile
+             ]), \
+             patch("src.pages.search._compute_live_completeness", side_effect=Exception("Failed")), \
+             patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+             # Act
+             _render_detail_panel(row, "main.sales.orders", ("group1", "group2"))
+
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_function(run_detail_panel)
+    at.run()
+
+    # Assert
+    assert not at.exception, f"Expected no exception, got {at.exception[0] if at.exception else 'None'}"
