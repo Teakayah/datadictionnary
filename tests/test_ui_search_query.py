@@ -128,3 +128,149 @@ def test_search_query_more_than_50():
         # Should show info about 50 limit
         assert len(at.info) > 0
         assert any(i.value == "search.showing_first_50" for i in at.info)
+
+def test_search_query_search_error():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", side_effect=Exception("DB connection failed")), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.track_search"):
+
+        at.run()
+        at.selectbox(key="catalog_search").set_value("orders").run()
+
+        assert not at.exception
+        assert len(at.error) > 0
+        assert at.error[0].value == "detail.load_error"
+
+def test_search_query_empty_full_name():
+    # Arrange
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales"
+    }])
+
+    mock_search_results = pd.DataFrame([{
+        "full_name": "",  # Coverage gap 753
+        "table_name": "unauthorized",
+        "match_type": "Table",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "description": "Unauthorized table"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_search_results), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.track_search"):
+
+        # Act
+        at.run()
+        at.selectbox(key="catalog_search").set_value("orders").run()
+
+        # Assert
+        assert not at.exception
+        # No results should be displayed because of continue block
+        view_btns = [b for b in at.button if b.key and b.key.startswith("view_")]
+        assert len(view_btns) == 0
+
+def test_search_query_group_filter_empty_full_name():
+    # Arrange
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["group_filter"] = "SELECT_ALL_USERS"
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "", # Coverage gap 697
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search._pref_upsert"):
+
+        # Act
+        at.run()
+
+        # Assert
+        assert not at.exception
+        # No results should be displayed because of continue block
+        gview_btns = [b for b in at.button if b.key and b.key.startswith("gview_")]
+        assert len(gview_btns) == 0
+
+
+def test_search_query_group_filter_nan_full_name():
+    # Arrange
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["group_filter"] = "SELECT_ALL_USERS"
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+    import numpy as np
+    mock_authorized = pd.DataFrame([{
+        "full_name": np.nan, # Coverage gap 697
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search._pref_upsert"):
+
+        # Act
+        at.run()
+
+        # Assert
+        assert not at.exception
+        # No results should be displayed because of continue block
+        gview_btns = [b for b in at.button if b.key and b.key.startswith("gview_")]
+        assert len(gview_btns) == 0
