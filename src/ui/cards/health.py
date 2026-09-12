@@ -1,4 +1,5 @@
 from __future__ import annotations
+import html as _html
 """Health dashboard — catalog-wide metadata coverage metrics.
 
 Renders the "/health" tab. Pure read-only views: documentation coverage,
@@ -113,25 +114,25 @@ def _render_health_hero_metrics(metrics: HealthMetrics):
     with c1:
         st.markdown(f'''
         <div style="background:var(--paper); border-top:3px solid var(--accent); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-            <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.table_coverage")}</div>
+            <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{_html.escape(t("health.table_coverage"))}</div>
             <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{metrics.table_coverage:.0f}%</div>
-            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.tables_described", n_desc=metrics.n_desc, n_tables=metrics.n_tables)}</div>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{_html.escape(t("health.tables_described", n_desc=metrics.n_desc, n_tables=metrics.n_tables))}</div>
         </div>
         ''', unsafe_allow_html=True)
     with c2:
         st.markdown(f'''
         <div style="background:var(--paper); border-top:3px solid var(--deepblue); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-            <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.column_coverage")}</div>
+            <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{_html.escape(t("health.column_coverage"))}</div>
             <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{metrics.col_coverage:.0f}%</div>
-            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.columns_defined", n_col_desc=metrics.n_col_desc, n_cols=metrics.n_cols)}</div>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{_html.escape(t("health.columns_defined", n_col_desc=metrics.n_col_desc, n_cols=metrics.n_cols))}</div>
         </div>
         ''', unsafe_allow_html=True)
     with c3:
         st.markdown(f'''
         <div style="background:var(--paper); border-top:3px solid var(--ochre); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-            <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{t("health.freshness_index")}</div>
+            <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{_html.escape(t("health.freshness_index"))}</div>
             <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">A</div>
-            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{t("health.last_sync")}</div>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{_html.escape(t("health.last_sync"))}</div>
         </div>
         ''', unsafe_allow_html=True)
 
@@ -139,7 +140,7 @@ def _render_health_hero_metrics(metrics: HealthMetrics):
 def _render_schema_coverage(schema_stats: pd.DataFrame):
     st.markdown(
         '<div class="dd-section-header"><span class="dd-eyebrow" '
-        f'style="margin-bottom:0">{t("health.coverage_by_schema")}</span></div>',
+        f'style="margin-bottom:0">{_html.escape(t("health.coverage_by_schema"))}</span></div>',
         unsafe_allow_html=True,
     )
     
@@ -168,7 +169,7 @@ def _render_schema_coverage(schema_stats: pd.DataFrame):
 def _render_priority_actions(undocumented: pd.DataFrame):
     st.markdown(
         '<div class="dd-section-header"><span class="dd-eyebrow" '
-        f'style="margin-bottom:0">{t("health.priority_actions")}</span></div>',
+        f'style="margin-bottom:0">{_html.escape(t("health.priority_actions"))}</span></div>',
         unsafe_allow_html=True,
     )
 
@@ -205,8 +206,8 @@ def _render_zero_result_alerts():
             
         st.markdown(f'''
         <div style="background:rgba(184, 54, 42, 0.08); border-left:4px solid var(--accent); padding:20px 24px; border-radius:2px; margin: 24px 0 24px 0; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
-            <div style="font-family:var(--font-sans); font-size:11px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px;">{t("health.steward_alert_title")}</div>
-            <div style="font-family:var(--font-sans); font-size:14px; font-weight:500; color:var(--ink); margin-bottom:8px;">{t("health.steward_alert_body")}</div>
+            <div style="font-family:var(--font-sans); font-size:11px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px;">{_html.escape(t("health.steward_alert_title"))}</div>
+            <div style="font-family:var(--font-sans); font-size:14px; font-weight:500; color:var(--ink); margin-bottom:8px;">{_html.escape(t("health.steward_alert_body"))}</div>
         </div>
         ''', unsafe_allow_html=True)
         
@@ -237,9 +238,9 @@ def _render_zero_result_alerts():
 def render_health(groups: tuple):
     st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">{t("health.title")}</div>
-      <h1>{t("health.hero_title")}</h1>
-      <p class="lead">{t("health.hero_subtitle")}</p>
+      <div class="dd-eyebrow">{_html.escape(t("health.title"))}</div>
+      <h1>{_html.escape(t("health.hero_title"))}</h1>
+      <p class="lead">{_html.escape(t("health.hero_subtitle"))}</p>
     </div>
     ''', unsafe_allow_html=True)
 
