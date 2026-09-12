@@ -208,7 +208,14 @@
     "col_author": "Author",
     "col_posted_at": "Posted at",
     "col_score": "Score",
-    "col_status": "Status"
+    "col_status": "Status",
+    "sync_progress": "Sync progress: {pct}%",
+    "sync_pending": "{count} pending",
+    "sync_processing": "{count} processing",
+    "sync_done": "{count} done",
+    "sync_failed": "{count} failed",
+    "sync_self_healing": "Self-healing daemon",
+    "sync_worker_heartbeat": "Worker heartbeat"
   },
   "health": {
     "title": "§ Catalog health",

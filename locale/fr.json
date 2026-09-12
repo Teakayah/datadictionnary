@@ -208,7 +208,14 @@
     "col_author": "Auteur",
     "col_posted_at": "Publié le",
     "col_score": "Score",
-    "col_status": "Statut"
+    "col_status": "Statut",
+    "sync_progress": "Progression de la synchronisation : {pct}%",
+    "sync_pending": "{count} en attente",
+    "sync_processing": "{count} en cours",
+    "sync_done": "{count} terminés",
+    "sync_failed": "{count} échoués",
+    "sync_self_healing": "Démon d'auto-réparation",
+    "sync_worker_heartbeat": "Battement de cœur du worker"
   },
   "health": {
     "title": "§ Santé du catalogue",
