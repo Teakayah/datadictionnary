@@ -37,6 +37,13 @@ def _get_client() -> Optional[Any]:
 def cache_key(*parts: Any) -> str:
     """Stable, namespaced cache key derived from arbitrary args.
 
+    WHY IT EXISTS:
+    We generate cache keys by hashing the query parameters and the user groups.
+    This ensures that cache hits are securely isolated by permission boundary.
+    If a user searches for the same query as an admin, they will get a different
+    cache hit containing only the subset of tables they are authorized to access,
+    because the user groups array is part of the hash input.
+
     Args:
         *parts (Any): Arbitrary arguments to serialize and hash.
 
