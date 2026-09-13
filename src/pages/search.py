@@ -146,7 +146,12 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         # Live completeness score
         _live_key = f"_live_completeness_{full_name}"
         if _live_key not in st.session_state:
-            _fallback = float(str(row.get("dq_score", "") or 0) or 0)
+            _raw_score = row.get("dq_score")
+            if _pd.isna(_raw_score):
+                _fallback = 0.0
+            else:
+                _score_str = str(_raw_score).strip()
+                _fallback = float(_score_str) if _score_str and _score_str != "nan" else 0.0
             try:
                 st.session_state[_live_key] = _compute_live_completeness(full_name) or _fallback
             except Exception:
