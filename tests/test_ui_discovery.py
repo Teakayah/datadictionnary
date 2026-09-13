@@ -496,3 +496,53 @@ def test_discovery_recommended_exception_fallback(m1, m2):
     at.run()
     assert not at.exception
     assert len(at.error) > 0 or len(at.info) > 0 or len(at.warning) > 0
+
+@patch("src.ui.cards.discovery.is_admin", return_value=False)
+@patch("src.ui.cards.discovery.get_active_posts")
+def test_discovery_render_cms_banner_not_admin(mock_get_posts, mock_is_admin):
+    # Arrange
+    mock_get_posts.return_value = [
+        {
+            "post_id": "1",
+            "post_type": "announcement",
+            "title": "Welcome",
+            "body": "Hello world",
+            "author_email": "admin@example.com",
+            "created_at": pd.Timestamp("2023-01-01")
+        },
+        {
+            "post_id": "2",
+            "post_type": "featured_table",
+            "title": "Important Data",
+            "body": "Check this",
+            "author_email": "admin@example.com",
+            "created_at": pd.Timestamp("2023-01-01"),
+            "table_ref": "main.sales.orders"
+        }
+    ]
+
+    def dummy_render_cms_banner():
+        from src.ui.cards.discovery import render_cms_banner
+        import streamlit as st
+        st.session_state["bookmarks"] = set()
+        render_cms_banner()
+
+    # Act
+    at = AppTest.from_function(dummy_render_cms_banner).run()
+
+    # Assert
+    html = [m.value for m in at.markdown]
+    assert any("Welcome" in val for val in html)
+    assert any("Important Data" in val for val in html)
+
+    btn = None
+    for b in at.button:
+        if b.key == "cms_nav_2":
+            btn = b
+            break
+
+    assert btn is not None
+    btn.click().run()
+
+    assert "search" in at.query_params["tab"]
+    assert at.session_state["dd_search_override"] == "orders"

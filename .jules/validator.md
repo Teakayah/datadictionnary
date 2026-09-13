@@ -127,3 +127,9 @@ Assertion: Use `cur_mock = MagicMock(); conn.cursor.return_value.__enter__.retur
 **Coverage Gap:** Data quality score missingness caused a `ValueError: cannot convert float NaN to integer` during render when `dq_score=NaN` was cast to float then int.
 **Learning:** Missing values (`np.nan` or `None`) when cast to a string via `str()` evaluate to the literal strings `"nan"` and `"None"`. Standard falsy checks (`val or 0`) will not catch these representations, breaking downstream logic.
 **Assertion:** Explicitly use `pd.isna()` or string comparisons (`val == "nan"`) to correctly handle missing data, especially from pandas Series. Added a direct test of the render panel with a `np.nan` score.
+
+## 2026-09-12 - [Mocking Streamlit Query Params in AppTest]
+**Coverage Gap:** The non-admin path in `render_cms_banner` was uncovered, particularly testing navigation clicks where `st.query_params` updates.
+**Learning:** Checking query parameters after clicking a navigation button in an AppTest can result in either a string or list of strings being returned depending on Streamlit versions/mocks. Also, `st.markdown` needs to be validated properly by asserting against generated raw HTML blocks using `any()`.
+**Assertion:** Always check for substring inclusion (e.g., `"search" in at.query_params["tab"]`) instead of exact list equality when testing Streamlit query param updates in `AppTest`, and verify raw output with `[m.value for m in at.markdown]`.
+
