@@ -368,3 +368,120 @@ def test_live_completeness_exception():
         # check score in session state
         assert at.session_state["_live_completeness_main.sales.orders"] == 50.0
 
+
+def test_add_remove_bookmark():
+    from unittest.mock import patch, call
+    from streamlit.testing.v1 import AppTest
+
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        st.session_state["user_email"] = "test@example.com"
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com"
+        })
+        _render_detail_panel(row, "main.sales.orders", ("group1",))
+
+    at = AppTest.from_function(render_detail_panel)
+    at.session_state["bookmarks"] = set()
+    at.session_state["recent_views"] = []
+
+    with patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search._pref_upsert") as mock_upsert, \
+         patch("src.pages.search._pref_delete") as mock_delete, \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        # Click add bookmark
+        at.button(key="bk_main.sales.orders").click().run()
+
+        assert "main.sales.orders" in at.session_state["bookmarks"]
+        assert call("main.sales.orders", "bookmark") in mock_upsert.mock_calls
+        assert len(at.toast) > 0
+        assert "personalization.bookmark_added" in at.toast[0].value
+
+        # Now it is bookmarked, click again to remove
+        at.button(key="bk_main.sales.orders").click().run()
+
+        assert "main.sales.orders" not in at.session_state["bookmarks"]
+        mock_delete.assert_called_once_with("main.sales.orders", "bookmark")
+        assert len(at.toast) > 0
+        assert "personalization.bookmark_removed" in at.toast[-1].value
+
+def test_add_remove_col_bookmark():
+    from unittest.mock import patch, call
+    from streamlit.testing.v1 import AppTest
+
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        st.session_state["user_email"] = "test@example.com"
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com"
+        })
+        _render_detail_panel(row, "main.sales.orders", ("group1",))
+
+    at = AppTest.from_function(render_detail_panel)
+    at.session_state["col_bookmarks"] = set()
+    at.session_state["recent_views"] = []
+
+    import pandas as pd
+    mock_columns = pd.DataFrame([{
+        "column_name": "id",
+        "data_type": "INTEGER",
+        "comment": "ID column"
+    }])
+
+    with patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.get_table_columns", return_value=mock_columns), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search._pref_upsert") as mock_upsert, \
+         patch("src.pages.search._pref_delete") as mock_delete, \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        col_bk_key = "colbk_main.sales.orders__id"
+
+        # Click add col bookmark
+        at.button(key=col_bk_key).click().run()
+
+        assert "main.sales.orders::id" in at.session_state["col_bookmarks"]
+        assert call("main.sales.orders::id", "col_bookmark") in mock_upsert.mock_calls
+        assert len(at.toast) > 0
+        assert "personalization.bookmark_added" in at.toast[0].value
+
+        # Remove col bookmark
+        at.button(key=col_bk_key).click().run()
+
+        assert "main.sales.orders::id" not in at.session_state["col_bookmarks"]
+        mock_delete.assert_called_once_with("main.sales.orders::id", "col_bookmark")
+        assert len(at.toast) > 0
+        assert "personalization.bookmark_removed" in at.toast[-1].value
