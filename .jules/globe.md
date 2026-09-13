@@ -48,3 +48,6 @@
 ## 2024-08-31 - Extracting Hardcoded Formatted Tooltips
 **Learning:** Hardcoded f-strings within UI components, specifically inside HTML attributes like `title="Completeness grade {grade}"`, prevent translation. When formatting is nested inside HTML generation, you must extract the entire formatted string as a translation token that accepts interpolation.
 **Action:** Extract hardcoded hover tooltips and `title` attributes into the translation dictionary using named placeholders, and use `t('key', param=value)` to inject the string before escaping it for HTML.
+## 2026-09-12 - Extract Missing Fallback Keys
+**Learning:** The i18n module gracefully falls back to the dotted key (e.g. `admin.sync_progress`) if a key is missing from the translation files, hiding the missing key problem by appearing as technical text. However, dynamically formatted fallback keys, especially those containing interpolated values, break completely because the template (`{pct}`) expects format strings which are absent in the raw fallback token.
+**Action:** Always ensure that dynamically formatted strings or any variants inside application source code actually exist in the respective `locale` dictionary to keep it correctly translatable and dynamic.
