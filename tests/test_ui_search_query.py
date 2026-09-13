@@ -329,3 +329,42 @@ def test_search_results_with_nan_score():
 
     # Assert
     assert not at.exception, f"Expected no exception, got {at.exception[0] if at.exception else 'None'}"
+
+def test_live_completeness_exception():
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "business_name_en": "Sales Orders",
+            "business_name_fr": "Commandes de vente",
+            "business_definition_en": "Sales order data.",
+            "business_definition_fr": "Données de commande de vente.",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com"
+        })
+        _render_detail_panel(row, "main.sales.orders", ("group1",))
+
+    at = AppTest.from_function(render_detail_panel)
+    # Arrange
+    with patch("src.pages.search._compute_live_completeness", side_effect=Exception("DB Error")), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        # Act
+        at.run()
+
+        # Assert
+        assert not at.exception
+        # check score in session state
+        assert at.session_state["_live_completeness_main.sales.orders"] == 50.0
+

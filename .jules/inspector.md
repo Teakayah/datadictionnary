@@ -107,3 +107,7 @@
 ## 2026-09-03 - Mocking Missing Standard Libraries in Streamlit AppTest
 **Learning:** When using `AppTest.from_function()` to test a module that conditionally imports functions not available directly in the file context (such as lazy imports of `format_date` and `format_number` from `src.i18n`), standard patching using `patch("module.function")` will fail with an `AttributeError` because the mock machinery cannot find the function to replace.
 **Action:** When mocking functions imported lazily or unavailable on the parent module during testing, explicitly pass `create=True` to the `patch()` call. This allows `unittest.mock` to forcefully inject the mock object and prevent `AttributeError` during execution within Streamlit `AppTest`.
+
+## 2024-03-22 - Missing Exception Handling Tests for Live Completeness Score
+**Learning:** Found a missing test scenario in `src.pages.search._render_detail_panel` where `_compute_live_completeness` can raise an exception. The application handles this exception by falling back to the `dq_score` from the row, but this was previously completely untested.
+**Action:** When working with Streamlit session state and functions that can throw exceptions, explicitly add test cases to simulate those exceptions and verify the fallback logic correctly populates session state.
