@@ -378,7 +378,7 @@ def _render_bookmarks_tab(groups):
                     st.rerun()
 
 
-def _get_recommended_tables(groups: tuple, authorized_full_names: set, top_n: int = 10) -> list[str]:
+def _get_recommended_tables(authorized_full_names: set, top_n: int = 10) -> list[str]:
     """Return full_names of popular tables in the user's groups, from audit_log."""
     if is_demo_mode() or not _duckdb_available():
         return []
@@ -423,7 +423,7 @@ def _render_recommended_tab(groups):
             _render_empty_state("💡", t("personalization.recommended_empty"))
             return
         authorized_fns = set(all_tables["full_name"].unique().tolist())
-        recommended_fns = _get_recommended_tables(groups, authorized_fns)
+        recommended_fns = _get_recommended_tables(authorized_fns)
         if not recommended_fns:
             _render_empty_state("💡", t("personalization.recommended_empty"))
             return

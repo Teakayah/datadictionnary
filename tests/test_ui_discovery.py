@@ -257,7 +257,7 @@ class TestDiscoveryTabs:
 
         # Test empty result
         mock_query.return_value = pd.DataFrame()
-        assert _get_recommended_tables(["finance"], {"main.sales.orders"}) == []
+        assert _get_recommended_tables({"main.sales.orders"}) == []
 
         # Test with data
         mock_query.return_value = pd.DataFrame({
@@ -270,7 +270,7 @@ class TestDiscoveryTabs:
             # ledger should be excluded because it's recent
             # leads should be excluded because it's not authorized
             # only orders should be returned
-            res = _get_recommended_tables(["finance"], auth_tables)
+            res = _get_recommended_tables(auth_tables)
             assert res == ["main.sales.orders"]
 
         # Test query failure
