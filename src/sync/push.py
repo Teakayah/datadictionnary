@@ -314,6 +314,15 @@ _NOTIFIABLE_TYPES = frozenset({"TABLE_DESC", "COLUMN_DEF", "STEWARD"})
 
 
 def _build_summary(sync_type: str, payload: dict) -> str:
+    """Generate a human-readable summary of the metadata change for notifications.
+
+    Args:
+        sync_type (str): The type of metadata that was synced (e.g., 'TABLE_DESC', 'COLUMN_DEF', 'STEWARD').
+        payload (dict): The dictionary containing the specific data updated, such as column names or steward emails.
+
+    Returns:
+        str: A short, descriptive string indicating what changed (e.g., 'Column "id" definition updated').
+    """
     if sync_type == "TABLE_DESC":
         return "Description updated"
     if sync_type == "COLUMN_DEF":
