@@ -27,7 +27,7 @@ class TestCmsCreateDialog:
         at.text_input[0].set_value("Test Title")
         at.text_area[0].set_value("Test Body")
         # Radio button: "Announcement" (default) is 0
-        at.radio[0].set_value(en_locale["cms"]["type_announcement"])
+        at.radio[0].set_value("announcement")
 
         at.button[0].click().run() # Click "Save"
 
@@ -53,7 +53,7 @@ class TestCmsCreateDialog:
         at = AppTest.from_function(create_dialog_app).run()
 
         at.text_input[0].set_value("Test Title")
-        at.radio[0].set_value(en_locale["cms"]["type_featured"]) # Changes the UI to show table ref
+        at.radio[0].set_value("featured_table") # Changes the UI to show table ref
         at.run()
 
         # Second text input is now table_ref
