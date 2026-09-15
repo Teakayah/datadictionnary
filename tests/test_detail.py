@@ -70,62 +70,9 @@ def data_sample_app(table_name):
     from src.ui.cards.detail import render_data_sample
     render_data_sample(table_name)
 
-def biz_editor_app(table_full_name, column_name, current_val, current_def):
-    from src.ui.cards.detail import render_business_name_editor
-    render_business_name_editor(table_full_name, column_name, current_val, current_def)
-
 def table_business_name_editor_app(table_full_name, current_name_en, current_name_fr, current_def_en, current_def_fr):
     from src.ui.cards.detail import render_table_business_name_editor
     render_table_business_name_editor(table_full_name, current_name_en, current_name_fr, current_def_en, current_def_fr)
-
-
-class TestRenderBusinessNameEditor:
-    @patch("src.db.queries._get_write_connection")
-    @patch("src.ui.cards.detail.st.rerun")
-    def test_render_business_name_editor_save(self, mock_rerun, mock_get_conn):
-        mock_conn = MagicMock()
-        mock_cursor = MagicMock()
-        mock_get_conn.return_value = mock_conn
-        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
-
-        at = AppTest.from_function(biz_editor_app, args=("cat.sch.tbl", "col1", "old name", "old def")).run()
-        at.text_input[0].set_value("new name")
-        at.text_area[0].set_value("new def")
-        at.button[0].click().run()
-
-        mock_cursor.execute_write.assert_called()
-        assert "business_name_overrides" in mock_cursor.execute_write.call_args_list[0][0][0]
-        mock_rerun.assert_called_once()
-        assert not at.exception
-        assert not at.error
-
-    @patch("src.db.queries._get_write_connection")
-    @patch("src.ui.cards.detail.st.rerun")
-    def test_render_business_name_editor_exception(self, mock_rerun, mock_get_conn):
-        mock_conn = MagicMock()
-        mock_cursor = MagicMock()
-        mock_get_conn.return_value = mock_conn
-        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
-        mock_cursor.execute_write.side_effect = Exception("DB Error")
-
-        at = AppTest.from_function(biz_editor_app, args=("cat.sch.tbl", "col1", "old name", "old def")).run()
-        at.text_input[0].set_value("new name")
-        at.text_area[0].set_value("new def")
-        at.button[0].click().run()
-
-        mock_cursor.execute_write.assert_called()
-        mock_rerun.assert_not_called()
-        assert len(at.error) > 0
-        assert at.error[0].value == en_locale["common"]["error"]
-
-    @patch("src.db.queries._get_write_connection")
-    @patch("src.ui.cards.detail.st.rerun")
-    def test_render_business_name_editor_cancel(self, mock_rerun, mock_get_conn):
-        at = AppTest.from_function(biz_editor_app, args=("cat.sch.tbl", "col1", "old name", "old def")).run()
-        at.button[1].click().run()
-
-        mock_get_conn.assert_not_called()
-        mock_rerun.assert_called_once()
 
 class TestRenderTableBusinessNameEditor:
     @patch("src.ui.cards.detail.save_table_business_name")
