@@ -546,3 +546,92 @@ def test_discovery_render_cms_banner_not_admin(mock_get_posts, mock_is_admin):
 
     assert "search" in at.query_params["tab"]
     assert at.session_state["dd_search_override"] == "orders"
+
+@patch("src.ui.cards.discovery.st.segmented_control")
+@patch("src.ui.cards.discovery.get_active_posts")
+def test_discovery_tabs_none_selected(mock_get_posts, mock_seg_ctrl):
+    # Arrange
+    mock_get_posts.return_value = []
+    mock_seg_ctrl.return_value = None
+
+    # Act
+    at = AppTest.from_function(render_discovery_page_app).run()
+
+    # Assert
+    html = [m.value for m in at.markdown]
+    assert any(en_locale["personalization"]["tab_notable"] in val for val in html)
+
+@patch("src.ui.cards.discovery.st.segmented_control")
+@patch("src.ui.cards.discovery.get_active_posts")
+def test_discovery_no_groups(mock_get_posts, mock_seg_ctrl):
+    # Arrange
+    mock_get_posts.return_value = []
+    mock_seg_ctrl.return_value = "notable"
+    def dummy_app():
+        from src.ui.cards.discovery import render_discovery
+        render_discovery([])
+
+    # Act
+    at = AppTest.from_function(dummy_app).run()
+
+    # Assert
+    assert any(en_locale["discovery"]["no_groups"] in m.value for m in at.markdown)
+
+    # Arrange
+    def dummy_app_none():
+        from src.ui.cards.discovery import render_discovery
+        render_discovery(["none"])
+
+    # Act
+    at2 = AppTest.from_function(dummy_app_none).run()
+
+    # Assert
+    assert any(en_locale["discovery"]["no_groups"] in m.value for m in at2.markdown)
+
+
+@patch("src.ui.cards.discovery.st.segmented_control")
+@patch("src.ui.cards.discovery.get_active_posts")
+def test_discovery_bookmarks_tab_empty(mock_get_posts, mock_seg_ctrl):
+    # Arrange
+    mock_get_posts.return_value = []
+    mock_seg_ctrl.return_value = "bookmarks"
+
+    # Act
+    at = AppTest.from_function(render_discovery_page_app).run()
+    at.session_state["bookmarks"] = {"main.nonexistent.table"}
+    at.run()
+
+    # Assert
+    assert any(en_locale["personalization"]["no_bookmarks"] in m.value for m in at.markdown)
+
+@patch("src.ui.cards.discovery.st.segmented_control")
+@patch("src.ui.cards.discovery.get_active_posts")
+def test_discovery_recent_tab_empty_views(mock_get_posts, mock_seg_ctrl):
+    # Arrange
+    mock_get_posts.return_value = []
+    mock_seg_ctrl.return_value = "recent"
+
+    # Act
+    at = AppTest.from_function(render_discovery_page_app).run()
+    at.session_state["recent_views"] = ["main.nonexistent.table"]
+    at.run()
+
+    # Assert
+    assert any(en_locale["personalization"]["no_recent"] in m.value for m in at.markdown)
+
+@patch("src.ui.cards.discovery.st.segmented_control")
+@patch("src.ui.cards.discovery.get_active_posts")
+def test_discovery_col_bookmark_invalid_and_unauthorized(mock_get_posts, mock_seg_ctrl):
+    # Arrange
+    mock_get_posts.return_value = []
+    mock_seg_ctrl.return_value = "bookmarks"
+
+    # Act
+    at = AppTest.from_function(render_discovery_page_app).run()
+    at.session_state["col_bookmarks"] = {"invalid_bookmark_format", "main.unauthorized.table::amount"}
+    at.run()
+
+    # Assert
+    html = [m.value for m in at.markdown]
+    assert not any("invalid_bookmark_format" in val for val in html)
+    assert not any("unauthorized" in val for val in html)
