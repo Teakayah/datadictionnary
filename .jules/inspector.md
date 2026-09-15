@@ -111,7 +111,10 @@
 ## 2024-03-22 - Missing Exception Handling Tests for Live Completeness Score
 **Learning:** Found a missing test scenario in `src.pages.search._render_detail_panel` where `_compute_live_completeness` can raise an exception. The application handles this exception by falling back to the `dq_score` from the row, but this was previously completely untested.
 **Action:** When working with Streamlit session state and functions that can throw exceptions, explicitly add test cases to simulate those exceptions and verify the fallback logic correctly populates session state.
-
 ## 2026-09-13 - Streamlit session state get set default mutation
 **Learning:** Testing UI flows that rely on `st.session_state.get('key', set()).add(...)` without the key being initialized reveals that modifying the returned default set does not implicitly write back to the Streamlit `session_state` during tests (or runtime), and standard asserts will fail because `st.session_state` was not populated. Furthermore, missing `.get()` default behaviors in tests obscure bugs where UI interacts with uninitialized state keys.
 **Action:** When adding tests for UI actions that push or discard from session state collections (like bookmarks), ensure the session state is initialized appropriately (`at.session_state["key"] = set()`) before simulating the interaction, and assert against the initialized key instead of calling `.get()` blindly.
+
+## 2024-11-20 - Testing dynamic nested component bookmarks
+**Learning:** The nested column bookmarking logic in the UI iterates over dynamically generated `_col_bk_id` keys in `_render_detail_panel`. Tests were missing for this specific flow. It is important to explicitly seed and verify `at.session_state["col_bookmarks"]` sets when simulating interaction with these iterated buttons in `AppTest` because global bookmarks behave differently than localized column ones.
+**Action:** When adding tests for nested/iterated components, ensure their underlying data structures and session state variables are correctly seeded as sets before invoking `AppTest.run()` to prevent `KeyError` or missing test coverage.
