@@ -39,18 +39,18 @@ def _show_cms_create_dialog():
 
     Handles form inputs (type, title, body, links) and triggers the save action.
     """
-    type_labels = {
-        "announcement":  t("cms.type_announcement"),
-        "featured_table": t("cms.type_featured"),
-        "guide":         t("cms.type_guide"),
+    key_map = {
+        "announcement": "cms.type_announcement",
+        "featured_table": "cms.type_featured",
+        "guide": "cms.type_guide",
     }
-    sel_type = st.radio(
+    post_type = st.radio(
         t("cms.post_type"),
-        options=list(type_labels.values()),
+        options=list(key_map.keys()),
+        format_func=lambda x: t(key_map[x]),
         horizontal=True,
         key="cms_create_type",
     )
-    post_type = next(k for k, v in type_labels.items() if v == sel_type)
 
     title = st.text_input(t("cms.post_title"), placeholder=t("cms.post_title_placeholder"), max_chars=120, key="cms_create_title")
     body  = st.text_area(t("cms.post_body"), placeholder=t("cms.post_body_placeholder"), max_chars=500, height=100, key="cms_create_body")
