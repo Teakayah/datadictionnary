@@ -661,3 +661,61 @@ def test_search_comments_replies_render():
         assert has_comment, "Comment not rendered"
         assert has_reply, "Reply not rendered"
 
+
+def test_search_column_bookmark_actions():
+    """Verify that column bookmark toggling works."""
+    from streamlit.testing.v1 import AppTest
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from unittest.mock import patch
+        from src.pages.search import _render_detail_panel
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "business_name_en": "Sales Orders",
+            "business_name_fr": "Commandes de vente",
+            "business_definition_en": "Sales order data.",
+            "business_definition_fr": "Données de commande de vente.",
+            "description": "Table containing sales orders.",
+            "dq_score": 95,
+            "steward_email": "test@example.com"
+        })
+        st.session_state["_live_completeness_main.sales.orders"] = 95
+        st.session_state["recent_views"] = []
+
+        with patch("src.pages.search.get_table_comments", return_value=[]), \
+             patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+             patch("src.pages.search.get_column_overrides", return_value={}), \
+             patch("src.pages.search.get_table_columns", return_value=pd.DataFrame([{"column_name": "amount", "data_type": "DOUBLE", "comment": "Order amount"}])), \
+             patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+             patch("src.pages.search._pref_upsert"), \
+             patch("src.pages.search._pref_delete"), \
+             patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+             _render_detail_panel(row, "main.sales.orders", tuple())
+
+    at = AppTest.from_function(render_detail_panel)
+    at.session_state["col_bookmarks"] = {"main.sales.orders::amount"}
+    at.run()
+
+    # Find the button and remove the bookmark
+    bk_btn = next((b for b in at.button if b.key == "colbk_main.sales.orders__amount"), None)
+
+    from unittest.mock import patch
+    with patch("streamlit.rerun"):
+        bk_btn.click().run()
+
+    assert "main.sales.orders::amount" not in at.session_state["col_bookmarks"]
+
+    # Now test adding a bookmark
+    at = AppTest.from_function(render_detail_panel)
+    at.session_state["col_bookmarks"] = set()
+    at.run()
+
+    bk_btn = next((b for b in at.button if b.key == "colbk_main.sales.orders__amount"), None)
+    with patch("streamlit.rerun"):
+        bk_btn.click().run()
+
+    assert "main.sales.orders::amount" in at.session_state["col_bookmarks"]
