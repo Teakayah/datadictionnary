@@ -133,3 +133,7 @@ Assertion: Use `cur_mock = MagicMock(); conn.cursor.return_value.__enter__.retur
 **Learning:** Checking query parameters after clicking a navigation button in an AppTest can result in either a string or list of strings being returned depending on Streamlit versions/mocks. Also, `st.markdown` needs to be validated properly by asserting against generated raw HTML blocks using `any()`.
 **Assertion:** Always check for substring inclusion (e.g., `"search" in at.query_params["tab"]`) instead of exact list equality when testing Streamlit query param updates in `AppTest`, and verify raw output with `[m.value for m in at.markdown]`.
 
+## 2023-10-25 - [Title] Discovery UI Unreachable Dead Code
+Coverage Gap: The else branch inside `_render_notable_tab` prompting for user sign in was unreachable since an earlier statement would return early if `primary_group` was falsey.
+Learning: When addressing test coverage gaps involving missing lines, if analysis reveals the un-covered lines are logically unreachable dead code (e.g., statements following a branch with a guaranteed early-return), remove the dead code to satisfy the coverage metric instead of attempting to mock impossible test states.
+Assertion: Tested normal empty states and removed the unreachable dead code block.
