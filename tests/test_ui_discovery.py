@@ -275,7 +275,7 @@ class TestDiscoveryTabs:
 
         # Test query failure
         mock_query.side_effect = Exception("DB error")
-        assert _get_recommended_tables(["finance"], auth_tables) == []
+        assert _get_recommended_tables(auth_tables) == []
 
     @patch("src.ui.cards.discovery.st.segmented_control")
     @patch("src.ui.cards.discovery.get_active_posts")
