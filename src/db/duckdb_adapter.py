@@ -303,6 +303,7 @@ class _DuckDBCursor:
         self._rel = None
 
     def execute(self, sql: str, params=None):
+        """Translates pyformat query parameters to DuckDB syntax and executes the query."""
         if self._con is None:
             self._rel = None
             return
@@ -349,9 +350,11 @@ class _DuckDBConn:
         self._con = _get_shared_duckdb_connection()
 
     def cursor(self):
+        """Returns a new wrapper cursor that shares the singleton connection to prevent file-locking errors."""
         return _DuckDBCursor(self._con)
 
     def execute(self, sql: str, params=None):
+        """Executes a SQL query directly using a temporary cursor."""
         cur = _DuckDBCursor(self._con)
         cur.execute(sql, params)
         return cur
