@@ -33,3 +33,6 @@
 ## 2024-05-28 - Visual feedback during search
 **Learning:** The catalog search selectbox initiates heavy backend queries upon selection but provides no immediate visual feedback, leaving users unsure if their input was registered.
 **Action:** Wrap synchronous search execution in `st.spinner(t("common.loading"))` to provide immediate visual loading feedback.
+## 2026-09-16 - Standardizing empty states in admin reviews
+**Learning:** Admin review lists were rendering raw HTML blocks for empty states, which creates inconsistent UI, is hard to maintain, and ignores the established `_render_empty_state` UI utility pattern.
+**Action:** Replace raw HTML empty state containers in `src/ui/cards/admin.py` with the standardized `_render_empty_state` function to maintain cohesive visual design tokens.
