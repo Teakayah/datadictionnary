@@ -81,3 +81,6 @@
 ## 2024-08-26 - Optimize boolean array indexing
 **Learning:** When assigning values to an array or pandas Series based on multiple conditions, using sequential boolean mask indexing (e.g., `arr[mask] = val`) creates slower row-by-row mapping bottlenecks and unnecessary intermediate array creation.
 **Action:** Always prefer a single nested `np.where(cond1, val1, np.where(cond2, val2, default))` expression over sequential boolean mask indexing for better vectorization performance.
+## 2024-09-16 - Optimize redundant DataFrame unique extraction
+**Learning:** Manually executing `set(df['col'].unique().tolist())` on the frontend for each render loop is a redundant performance bottleneck when the backend already exposes a globally `@st.cache_data` decorated function that computes and returns this exact set.
+**Action:** Always verify if a cached backend function exists that returns the needed derivation (e.g., `get_authorized_table_names`) instead of manually computing it on the UI side from raw DataFrames on every render.

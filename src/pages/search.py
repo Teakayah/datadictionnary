@@ -14,7 +14,7 @@ import streamlit.components.v1 as components
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, MAX_BUSINESS_NAME_LEN
 from src.i18n import t
 from src.db.queries import (
-    get_authorized_tables, search_all_metadata,
+    get_authorized_tables, get_authorized_table_names, search_all_metadata,
     get_multi_hop_lineage, run_query, export_schema_to_csv,
 )
 from src.analytics import SearchEvent, track_search
@@ -600,7 +600,7 @@ def render_search_page(query_groups: tuple) -> None:
 
     try:
         _all_tables = get_authorized_tables(query_groups)
-        _auth_full_names = set(_all_tables["full_name"].unique().tolist()) if _all_tables is not None and not _all_tables.empty else set()
+        _auth_full_names = get_authorized_table_names(query_groups)
     except Exception as e:
         logging.error("Error querying authorized tables: %s", e, exc_info=True)
         _all_tables = None

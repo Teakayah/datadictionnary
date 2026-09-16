@@ -400,6 +400,7 @@ def test_search_page_no_access():
         from unittest.mock import patch
         from src.pages.search import render_search_page
         with patch("src.pages.search.get_authorized_tables", return_value=pd.DataFrame()), \
+                 patch("src.pages.search.get_authorized_table_names", return_value={"main.sales.orders"}), \
              patch("src.pages.search.t", side_effect=lambda k, **kw: k):
             render_search_page(tuple())
 
@@ -415,6 +416,7 @@ def test_search_page_active_group():
         from unittest.mock import patch
         from src.pages.search import render_search_page
         with patch("src.pages.search.get_authorized_tables", return_value=pd.DataFrame({"full_name": ["main.sales.orders"], "table_name": ["orders"], "catalog_name": ["main"], "schema_name": ["sales"], "dq_score": [95]})), \
+                 patch("src.pages.search.get_authorized_table_names", return_value={"main.sales.orders"}), \
              patch("src.pages.search.search_all_metadata", return_value=pd.DataFrame({"full_name": ["main.sales.orders"], "table_name": ["orders"], "catalog_name": ["main"], "schema_name": ["sales"], "dq_score": [95], "match_type": ["Table"]})), \
              patch("src.pages.search.t", side_effect=lambda k, **kw: k):
             render_search_page(tuple())
@@ -436,6 +438,7 @@ def test_search_page_search_query_execution():
         from unittest.mock import patch
         from src.pages.search import render_search_page
         with patch("src.pages.search.get_authorized_tables", return_value=pd.DataFrame({"full_name": ["main.sales.orders"], "table_name": ["orders"], "catalog_name": ["main"], "schema_name": ["sales"], "dq_score": [95]})), \
+                 patch("src.pages.search.get_authorized_table_names", return_value={"main.sales.orders"}), \
              patch("src.pages.search.search_all_metadata", return_value=pd.DataFrame({"full_name": ["main.sales.orders"], "table_name": ["orders"], "catalog_name": ["main"], "schema_name": ["sales"], "dq_score": [95], "match_type": ["Table"]})), \
              patch("src.pages.search.track_search"), \
              patch("src.pages.search._render_detail_panel"), \
@@ -636,6 +639,7 @@ def test_search_comments_replies_render():
     }]
 
     with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+             patch("src.pages.search.get_authorized_table_names", return_value=set(mock_authorized["full_name"].tolist() if mock_authorized is not None and not mock_authorized.empty else [])), \
          patch("src.pages.search.search_all_metadata", return_value=mock_search_results), \
          patch("src.pages.search.get_table_steward", return_value="steward@example.com"), \
          patch("src.pages.search.get_table_comments", return_value=mock_comments), \

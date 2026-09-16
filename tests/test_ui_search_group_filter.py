@@ -32,6 +32,7 @@ def test_search_group_filter_browse():
     }])
 
     with patch("src.pages.search.get_authorized_tables", return_value=mock_tables), \
+         patch("src.pages.search.get_authorized_table_names", return_value=set(mock_tables["full_name"].tolist())), \
          patch("src.pages.search.search_all_metadata", return_value=mock_tables), \
          patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
          patch("src.pages.search.get_table_comments", return_value=[]), \
@@ -82,6 +83,7 @@ def test_search_analytics_track_success():
     }])
 
     with patch("src.pages.search.get_authorized_tables", return_value=mock_tables), \
+         patch("src.pages.search.get_authorized_table_names", return_value=set(mock_tables["full_name"].tolist())), \
          patch("src.pages.search.search_all_metadata", return_value=mock_tables), \
          patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
          patch("src.pages.search.track_search") as mock_track:
@@ -116,6 +118,7 @@ def test_search_analytics_track_exception():
     }])
 
     with patch("src.pages.search.get_authorized_tables", return_value=mock_tables), \
+         patch("src.pages.search.get_authorized_table_names", return_value=set(mock_tables["full_name"].tolist())), \
          patch("src.pages.search.search_all_metadata", return_value=mock_tables), \
          patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
          patch("src.pages.search.track_search", side_effect=Exception("Analytics failed")):

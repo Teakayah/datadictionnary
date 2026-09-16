@@ -42,6 +42,7 @@ def test_search_downstream_critical():
     })
 
     with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+             patch("src.pages.search.get_authorized_table_names", return_value=set(mock_authorized["full_name"].tolist() if mock_authorized is not None and not mock_authorized.empty else [])), \
          patch("src.pages.search.search_all_metadata", return_value=mock_authorized), \
          patch("src.pages.search.get_multi_hop_lineage", return_value=mock_lineage), \
          patch("src.pages.search._build_lineage_graph", return_value=([], [])), \
