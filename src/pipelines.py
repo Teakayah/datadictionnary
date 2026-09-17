@@ -1,4 +1,5 @@
 from __future__ import annotations
+from dataclasses import dataclass
 from typing import Any, Optional
 """Pipeline definitions, run tracking, and execution for Databricks / ADF / ADO.
 
@@ -141,36 +142,40 @@ def get_pipelines() -> list[dict]:
         return []
 
 
-def create_pipeline_def(
-    title: str,
-    description: str,
-    backend: str,
-    databricks_job_id: Optional[str],
-    adf_subscription_id: Optional[str],
-    adf_resource_group: Optional[str],
-    adf_factory_name: Optional[str],
-    adf_pipeline_name: Optional[str],
-    ado_organization: Optional[str],
-    ado_project: Optional[str],
-    ado_pipeline_id: Optional[str],
-    created_by: str,
-) -> None:
+
+@dataclass
+class PipelineDefParams:
+    title: str
+    backend: str
+    created_by: str
+    description: str = ""
+    databricks_job_id: Optional[str] = None
+    adf_subscription_id: Optional[str] = None
+    adf_resource_group: Optional[str] = None
+    adf_factory_name: Optional[str] = None
+    adf_pipeline_name: Optional[str] = None
+    ado_organization: Optional[str] = None
+    ado_project: Optional[str] = None
+    ado_pipeline_id: Optional[str] = None
+
+
+def create_pipeline_def(params: PipelineDefParams) -> None:
     """Persist a new pipeline definition to the configured backend."""
     _check_admin("create pipeline definitions")
     pipeline = {
         "pipeline_id":         str(uuid.uuid4()),
-        "title":               title,
-        "description":         description or None,
-        "backend":             backend,
-        "databricks_job_id":   databricks_job_id or None,
-        "adf_subscription_id": adf_subscription_id or None,
-        "adf_resource_group":  adf_resource_group or None,
-        "adf_factory_name":    adf_factory_name or None,
-        "adf_pipeline_name":   adf_pipeline_name or None,
-        "ado_organization":    ado_organization or None,
-        "ado_project":         ado_project or None,
-        "ado_pipeline_id":     ado_pipeline_id or None,
-        "created_by":          created_by,
+        "title":               params.title,
+        "description":         params.description or None,
+        "backend":             params.backend,
+        "databricks_job_id":   params.databricks_job_id or None,
+        "adf_subscription_id": params.adf_subscription_id or None,
+        "adf_resource_group":  params.adf_resource_group or None,
+        "adf_factory_name":    params.adf_factory_name or None,
+        "adf_pipeline_name":   params.adf_pipeline_name or None,
+        "ado_organization":    params.ado_organization or None,
+        "ado_project":         params.ado_project or None,
+        "ado_pipeline_id":     params.ado_pipeline_id or None,
+        "created_by":          params.created_by,
         "created_at":          datetime.now(UTC),
     }
     if is_demo_mode():

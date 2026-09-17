@@ -448,22 +448,22 @@ class TestPipelineDefAdminGuards:
     """create_pipeline_def and delete_pipeline_def are admin-only."""
 
     def test_create_pipeline_def_rejects_non_admin(self, demo_pipelines):
-        from src.pipelines import create_pipeline_def
+        from src.pipelines import PipelineDefParams, create_pipeline_def
         with patch("src.pipelines.is_admin", return_value=False):
             with pytest.raises(PermissionError, match="admins"):
-                create_pipeline_def(
-                    "title", "desc", "databricks", "42", None, None, None, None,
-                    None, None, None, "u",
-                )
+                create_pipeline_def(PipelineDefParams(
+                    title="title", description="desc", backend="databricks", databricks_job_id="42",
+                    created_by="u",
+                ))
         # Storage was not touched.
         assert demo_pipelines.get("_demo_pipelines") in (None, [])
 
     def test_create_pipeline_def_admin_succeeds(self, admin_caller_context, demo_pipelines):
-        from src.pipelines import create_pipeline_def
-        create_pipeline_def(
-            "My Pipe", "desc", "databricks", "42", None, None, None, None,
-            None, None, None, "admin",
-        )
+        from src.pipelines import PipelineDefParams, create_pipeline_def
+        create_pipeline_def(PipelineDefParams(
+            title="My Pipe", description="desc", backend="databricks", databricks_job_id="42",
+            created_by="admin",
+        ))
         pipelines = demo_pipelines["_demo_pipelines"]
         assert len(pipelines) == 1
         assert pipelines[0]["title"] == "My Pipe"
@@ -814,9 +814,9 @@ def test_pipeline_def_db_paths():
         mock_conn_inst = MockConnection()
         mock_conn.return_value = mock_conn_inst
 
-        from src.pipelines import create_pipeline_def, delete_pipeline_def
+        from src.pipelines import PipelineDefParams, create_pipeline_def, delete_pipeline_def
 
-        create_pipeline_def(
+        create_pipeline_def(PipelineDefParams(
             title="My DB Pipe",
             description="desc",
             backend="databricks",
@@ -829,7 +829,7 @@ def test_pipeline_def_db_paths():
             ado_organization=None,
             ado_project=None,
             ado_pipeline_id=None
-        )
+        ))
 
         delete_pipeline_def("test_id")
 

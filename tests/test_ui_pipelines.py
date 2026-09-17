@@ -1,5 +1,6 @@
 import json
 from unittest.mock import patch
+from src.pipelines import PipelineDefParams
 
 import pytest
 from streamlit.testing.v1 import AppTest
@@ -46,10 +47,12 @@ class TestPipelineCreateDialog:
 
         at.button(key="pl_save").click().run()
 
-        mock_create.assert_called_once_with(
-            "My DBX Pipeline", "Test Desc", "databricks",
-            "12345", None, None, None, None, None, None, None, "test@example.com"
-        )
+        mock_create.assert_called_once_with(PipelineDefParams(
+            title="My DBX Pipeline", description="Test Desc", backend="databricks",
+            databricks_job_id="12345", created_by="test@example.com",
+            adf_subscription_id=None, adf_resource_group=None, adf_factory_name=None, adf_pipeline_name=None,
+            ado_organization=None, ado_project=None, ado_pipeline_id=None
+        ))
 
     @patch("src.ui.cards.pipelines.create_pipeline_def")
     def test_create_pipeline_adf_success(self, mock_create):
@@ -66,10 +69,12 @@ class TestPipelineCreateDialog:
 
         at.button(key="pl_save").click().run()
 
-        mock_create.assert_called_once_with(
-            "My ADF Pipeline", "", "adf",
-            None, "sub1", "rg1", "fact1", "pipe1", None, None, None, "admin"
-        )
+        mock_create.assert_called_once_with(PipelineDefParams(
+            title="My ADF Pipeline", description="", backend="adf", created_by="admin",
+            databricks_job_id=None,
+            adf_subscription_id="sub1", adf_resource_group="rg1", adf_factory_name="fact1", adf_pipeline_name="pipe1",
+            ado_organization=None, ado_project=None, ado_pipeline_id=None
+        ))
 
     @patch("src.ui.cards.pipelines.create_pipeline_def")
     def test_create_pipeline_ado_success(self, mock_create):
@@ -85,10 +90,12 @@ class TestPipelineCreateDialog:
 
         at.button(key="pl_save").click().run()
 
-        mock_create.assert_called_once_with(
-            "My ADO Pipeline", "", "ado",
-            None, None, None, None, None, "org1", "proj1", "42", "admin"
-        )
+        mock_create.assert_called_once_with(PipelineDefParams(
+            title="My ADO Pipeline", description="", backend="ado", created_by="admin",
+            databricks_job_id=None,
+            adf_subscription_id=None, adf_resource_group=None, adf_factory_name=None, adf_pipeline_name=None,
+            ado_organization="org1", ado_project="proj1", ado_pipeline_id="42"
+        ))
 
     @patch("src.ui.cards.pipelines.create_pipeline_def")
     def test_create_pipeline_cancel(self, mock_create):
