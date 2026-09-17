@@ -184,6 +184,7 @@ class TestPushToDatabricks:
         _push_to_databricks("AUDIT", None, payload)
         sql, bound = _push_cursor().execute.call_args.args
         assert "INSERT INTO data_governance.dictionary_cache.audit_log" in sql
+        assert "sha2(%(actor_email)s, 256)" in sql
         assert bound is payload
 
     def test_comment_inserts_into_catalog_comments(self, databricks_env):
@@ -197,6 +198,8 @@ class TestPushToDatabricks:
         _push_to_databricks("COMMENT", None, payload)
         sql, bound = _push_cursor().execute.call_args.args
         assert "INSERT INTO data_governance.dictionary_cache.comments" in sql
+        assert "sha2(%(author_email)s, 256)" in sql
+        assert "sha2(%(steward_email)s, 256)" in sql
         assert bound is payload
 
     def test_unknown_sync_type_warns_and_skips_execute(self, databricks_env, caplog):

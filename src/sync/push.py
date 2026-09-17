@@ -235,7 +235,7 @@ def _push_to_databricks(sync_type: str, table_full_name: Optional[str], payload:
                 audit_tbl = f"{CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log"
                 cur.execute(
                     f"INSERT INTO {audit_tbl} (event_id, event_type, object_type, object_name, actor_email, old_value, new_value, created_at) "
-                    f"VALUES (%(event_id)s, %(event_type)s, %(object_type)s, %(object_name)s, %(actor_email)s, %(old_value)s, %(new_value)s, current_timestamp())",
+                    f"VALUES (%(event_id)s, %(event_type)s, %(object_type)s, %(object_name)s, sha2(%(actor_email)s, 256), %(old_value)s, %(new_value)s, current_timestamp())",
                     payload
                 )
 
@@ -295,7 +295,7 @@ def _push_to_databricks(sync_type: str, table_full_name: Optional[str], payload:
                 comm_tbl = f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
                 cur.execute(
                     f"INSERT INTO {comm_tbl} (comment_id, object_type, object_name, comment_text, author_name, author_email, created_at, steward_email, parent_comment_id) "
-                    f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, %(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
+                    f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, %(author_name)s, sha2(%(author_email)s, 256), current_timestamp(), sha2(%(steward_email)s, 256), %(parent_comment_id)s)",
                     payload
                 )
 
