@@ -144,8 +144,15 @@ class TestDelete:
         mock_client.delete.assert_awaited_once_with("key")
 
     def test_swallows_redis_error(self, monkeypatch):
+        # Arrange
         monkeypatch.setenv("REDIS_URL", "redis://localhost:6379")
         mock_client = AsyncMock()
-        mock_client.delete = AsyncMock(side_effect=Exception("connection refused"))
-        with patch("redis.asyncio.from_url", return_value=mock_client):
-            _run(rc.delete("key"))  # should not raise
+        error_instance = Exception("connection refused")
+        mock_client.delete = AsyncMock(side_effect=error_instance)
+
+        # Act
+        with patch("redis.asyncio.from_url", return_value=mock_client), patch("src.cache.redis_cache.logger.debug") as mock_logger:
+            _run(rc.delete("key"))
+
+            # Assert
+            mock_logger.assert_called_once_with("Redis DELETE error: %s", error_instance)
