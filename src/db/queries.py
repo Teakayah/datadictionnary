@@ -9,6 +9,8 @@ architecture (Demo -> DuckDB -> Databricks) transparently for callers.
 from __future__ import annotations
 
 
+
+
 import csv
 import io
 import os
@@ -490,7 +492,6 @@ def _search_keywords(query: str, groups: tuple):
             )
             sql_results = sql_results.assign(description=_desc_src)
 
-    term_matches = []
     if _DEMO_GLOSSARY is not None and not _DEMO_GLOSSARY.empty and query:
         _allowed_fns = get_authorized_table_names(groups)
         query_lower = query.lower()
@@ -500,32 +501,37 @@ def _search_keywords(query: str, groups: tuple):
             query_lower, regex=False, na=False
         )
         glossary_df = _DEMO_GLOSSARY[mask]
-        for row in glossary_df.itertuples(index=False):
-            related_tables = getattr(row, "related_tables", [])
-            target_table = related_tables[0] if related_tables else ""
-            if target_table and target_table not in _allowed_fns:
-                continue
-            parts = target_table.split(".")
-            term_matches.append(
-                {
-                    "full_name": target_table,
-                    "name": getattr(row, "term", ""),
-                    "match_type": "Glossary",
-                    "description": getattr(row, "definition", ""),
-                    "table_description": "",
-                    "catalog_name": parts[0] if len(parts) == 3 else "",
-                    "schema_name": parts[1] if len(parts) == 3 else "",
-                    "table_name": parts[2] if len(parts) == 3 else "",
-                }
-            )
 
-    if term_matches:
-        glossary_results = pd.DataFrame(term_matches)
-        combined = (
-            pd.concat([sql_results, glossary_results], ignore_index=True)
-            if sql_results is not None and not sql_results.empty
-            else glossary_results
-        )
+        if not glossary_df.empty:
+            target_tables = glossary_df["related_tables"].str[0].fillna("")
+            valid_mask = (target_tables == "") | target_tables.isin(_allowed_fns)
+            valid_df = glossary_df[valid_mask]
+            valid_targets = target_tables[valid_mask]
+
+            if not valid_df.empty:
+                parts = valid_targets.str.split(".", expand=True)
+                has_3_parts_mask = valid_targets.str.count(r'\.') == 2
+
+                glossary_results = pd.DataFrame({
+                    "full_name": valid_targets,
+                    "name": valid_df.get("term", pd.Series(dtype=str)).fillna(""),
+                    "match_type": "Glossary",
+                    "description": valid_df.get("definition", pd.Series(dtype=str)).fillna(""),
+                    "table_description": "",
+                    "catalog_name": parts[0].where(has_3_parts_mask, "").fillna("") if 0 in parts else "",
+                    "schema_name": parts[1].where(has_3_parts_mask, "").fillna("") if 1 in parts else "",
+                    "table_name": parts[2].where(has_3_parts_mask, "").fillna("") if 2 in parts else "",
+                })
+
+                combined = (
+                    pd.concat([sql_results, glossary_results], ignore_index=True)
+                    if sql_results is not None and not sql_results.empty
+                    else glossary_results
+                )
+            else:
+                combined = sql_results
+        else:
+            combined = sql_results
     else:
         combined = sql_results
 
