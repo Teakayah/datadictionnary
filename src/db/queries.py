@@ -601,10 +601,14 @@ def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
     )
 
     if cols is not None and not cols.empty:
-        for c in cols.itertuples(index=False):
-            cname = str(getattr(c, "column_name", ""))
-            ctype = str(getattr(c, "data_type", ""))
-            ccomment = str(getattr(c, "comment", "") or "")
+        cnames = cols["column_name"].tolist() if "column_name" in cols else [""] * len(cols)
+        ctypes = cols["data_type"].tolist() if "data_type" in cols else [""] * len(cols)
+        ccomments = cols["comment"].tolist() if "comment" in cols else [""] * len(cols)
+
+        for cname_raw, ctype_raw, ccomment_raw in zip(cnames, ctypes, ccomments):
+            cname = str(cname_raw)
+            ctype = str(ctype_raw)
+            ccomment = str(ccomment_raw or "")
 
             override = col_overrides.get(cname, {})
             biz_name = override.get("business_name", "")

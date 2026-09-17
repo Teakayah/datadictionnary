@@ -264,10 +264,14 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             if n_cols > 50:
                 st.info(t("detail.showing_first_50_columns", count=n_cols))
                 cols = cols.head(50)
-            for c in cols.itertuples(index=False):
-                _cname    = str(getattr(c, "column_name", ""))
-                _ctype    = str(getattr(c, "data_type", ""))
-                _ccomment = str(getattr(c, "comment", "") or "")
+            _cnames = cols["column_name"].tolist() if "column_name" in cols else [""] * len(cols)
+            _ctypes = cols["data_type"].tolist() if "data_type" in cols else [""] * len(cols)
+            _ccomments = cols["comment"].tolist() if "comment" in cols else [""] * len(cols)
+
+            for _cname_raw, _ctype_raw, _ccomment_raw in zip(_cnames, _ctypes, _ccomments):
+                _cname = str(_cname_raw)
+                _ctype = str(_ctype_raw)
+                _ccomment = str(_ccomment_raw or "")
                 _edit_key = f"{full_name}__{_cname}"
                 _override = col_overrides.get(_cname, {})
                 _col_biz  = _override.get("business_name", "")
