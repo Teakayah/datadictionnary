@@ -16,6 +16,20 @@ import os
 import streamlit as st
 
 
+
+def load_translations(lang: str) -> dict:
+    locale_dir = os.path.join(os.path.dirname(__file__), "..", "locale")
+    lang_file = os.path.join(locale_dir, f"{lang}.json")
+    try:
+        with open(lang_file, 'r', encoding='utf-8') as f:
+            return _json.load(f)
+    except (FileNotFoundError, _json.JSONDecodeError):
+        # fallback to en
+        if lang != 'en':
+            return load_translations('en')
+        return {}
+
+
 def _load_locales() -> dict:
     # Resolve relative to this file's parent's parent (the repo root locale/ dir).
     base = os.path.join(os.path.dirname(__file__), "..", "locale")

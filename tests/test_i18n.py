@@ -223,3 +223,67 @@ def test_t_pluralization_handles_index_error_in_format():
     with patch("src.i18n.st") as mock_st, patch("src.i18n.LOCALES", {"en": {"items_other": "{0} items"}}):
         mock_st.session_state = {"locale": "en"}
         assert "items" in t("items", count=5)
+
+def test_load_locales_file_not_found():
+    # Arrange
+    with patch("builtins.open", side_effect=FileNotFoundError("Missing file")):
+        from src.i18n import _load_locales
+        # Act
+        res = _load_locales()
+        # Assert
+        assert res == {"en": {}, "fr": {}}
+
+def test_load_locales_json_decode_error():
+    # Arrange
+    import json
+    with patch("builtins.open"), patch("src.i18n._json.load", side_effect=json.JSONDecodeError("Expecting value", "", 0)):
+        from src.i18n import _load_locales
+        # Act
+        res = _load_locales()
+        # Assert
+        assert res == {"en": {}, "fr": {}}
+
+def test_load_translations_file_not_found():
+    # Arrange
+    from src.i18n import load_translations
+    import builtins
+
+    import builtins
+    original_open = builtins.open
+
+    def mocked_open(file, *args, **kwargs):
+        if "fr.json" in str(file):
+            raise FileNotFoundError("Simulated missing fr file")
+        return original_open(file, *args, **kwargs)
+
+    with patch("builtins.open", side_effect=mocked_open):
+        # Act
+        res = load_translations("fr")
+
+        # Assert
+        # Should fallback to en.json which has real data
+        assert isinstance(res, dict)
+        assert "nav" in res or "date" in res # some basic check to make sure it actually loaded english
+
+def test_load_translations_json_decode_error():
+    # Arrange
+    from src.i18n import load_translations
+    import json
+
+    import builtins
+    original_open = builtins.open
+
+    def mocked_open(file, *args, **kwargs):
+        if "fr.json" in str(file):
+            from unittest.mock import mock_open
+            # Return a file-like object that will cause json.load to fail
+            return mock_open(read_data="invalid json")()
+        return original_open(file, *args, **kwargs)
+
+    with patch("builtins.open", side_effect=mocked_open):
+        # Act
+        res = load_translations("fr")
+
+        # Assert
+        assert isinstance(res, dict)
+        assert "nav" in res or "date" in res
