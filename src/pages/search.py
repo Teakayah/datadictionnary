@@ -101,6 +101,390 @@ def _render_result_card(full_name: str, name: str, desc: str, match_type: str, d
     </div>''', unsafe_allow_html=True)
 
 
+def _render_detail_panel_columns(row: "_pd.Series", full_name: str) -> None:
+    # Columns section
+    col_overrides = get_column_overrides(full_name)
+    cols = get_table_columns(full_name)
+    n_cols = len(cols) if cols is not None and not cols.empty else 0
+
+    _c_preview, _c_export = st.columns(2, gap="small")
+    with _c_preview:
+        if st.button(t("detail.preview_data"), key=f"preview_{full_name}", help=t("help.btn_preview_data"), use_container_width=True):
+            render_data_sample(full_name)
+    with _c_export:
+        if n_cols > 0:
+            st.download_button(
+                label=t("detail.export_dictionary"),
+                data=export_schema_to_csv(cols, col_overrides),
+                file_name=f"{row['catalog_name']}_{row['schema_name']}_{row['table_name']}_schema.csv",
+                mime="text/csv",
+                key=f"export_{full_name}",
+                use_container_width=True,
+                help=t("detail.export_dictionary_help"),
+            )
+
+    st.markdown(
+        f'<div class="dd-section-header">'
+        f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_columns")}</span>'
+        f'<span class="dd-section-count">{n_cols}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    _power    = is_power_user()
+    _col_edit = st.session_state.get("dd_col_edit_mode", "")
+
+    if n_cols > 0:
+        if n_cols > 50:
+            st.info(t("detail.showing_first_50_columns", count=n_cols))
+            cols = cols.head(50)
+        for c in cols.itertuples(index=False):
+            _cname    = str(getattr(c, "column_name", ""))
+            _ctype    = str(getattr(c, "data_type", ""))
+            _ccomment = str(getattr(c, "comment", "") or "")
+            _edit_key = f"{full_name}__{_cname}"
+            _override = col_overrides.get(_cname, {})
+            _col_biz  = _override.get("business_name", "")
+            _col_def  = _override.get("definition", "")
+
+            st.markdown('<hr class="dd-col-divider">', unsafe_allow_html=True)
+            _r_name, _r_type, _r_desc, _r_btn, _r_star = st.columns([3, 2, 4, 1, 1], gap="small")
+
+            if _col_biz:
+                _r_name.markdown(
+                    f'<span class="dd-col-biz-name">{_html.escape(_col_biz)}</span>'
+                    f'<span class="dd-col-tech-sub">{_html.escape(_cname)}</span>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                _r_name.markdown(f'<span class="dd-col-name">{_html.escape(_cname)}</span>', unsafe_allow_html=True)
+
+            _r_type.markdown(f'<span class="dd-col-type">{_html.escape(_ctype)}</span>', unsafe_allow_html=True)
+
+            if _col_def:
+                _r_desc.markdown(
+                    f'<span class="dd-col-desc">{_html.escape(_col_def)}</span>'
+                    f'<span class="dd-col-desc-faded">{_html.escape(_ccomment)}</span>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                _r_desc.markdown(f'<span class="dd-col-desc">{_html.escape(_ccomment)}</span>', unsafe_allow_html=True)
+
+            if _power and _col_edit != _edit_key:
+                if _r_btn.button("✎", key=f"col_edit_{_edit_key}", help=t("common.edit"), use_container_width=True):
+                    st.session_state["dd_col_edit_mode"] = _edit_key
+                    st.rerun()
+
+            _col_bk_id = f"{full_name}::{_cname}"
+            _is_col_bk = _col_bk_id in st.session_state.get("col_bookmarks", set())
+            if _r_star.button("★" if _is_col_bk else "☆", key=f"colbk_{_edit_key}", help=t("personalization.remove_bookmark") if _is_col_bk else t("personalization.add_bookmark"), use_container_width=True):
+                if _is_col_bk:
+                    st.session_state.get("col_bookmarks", set()).discard(_col_bk_id)
+                    _pref_delete(_col_bk_id, "col_bookmark")
+                    st.toast(t("personalization.bookmark_removed"))
+                else:
+                    st.session_state.get("col_bookmarks", set()).add(_col_bk_id)
+                    _pref_upsert(_col_bk_id, "col_bookmark")
+                    st.toast(t("personalization.bookmark_added"))
+                st.rerun()
+
+            if _col_edit == _edit_key:
+                st.markdown(
+                    f'<div class="dd-edit-banner">{t("editor.edit_mode_banner")}</div>',
+                    unsafe_allow_html=True,
+                )
+                _inp_name = st.text_input(
+                    t("editor.business_name_label"),
+                    value=_col_biz,
+                    placeholder=t("editor.placeholder_biz_name"),
+                    max_chars=None if os.getenv("TESTING_NO_MAX_CHARS") else MAX_BUSINESS_NAME_LEN,
+                    key=f"col_biz_name_{_edit_key}",
+                )
+                _inp_def = st.text_input(
+                    t("editor.definition_label"),
+                    value=_col_def,
+                    placeholder=t("editor.placeholder_biz_def"),
+                    max_chars=None if os.getenv("TESTING_NO_MAX_CHARS") else MAX_BUSINESS_NAME_LEN,
+                    key=f"col_biz_def_{_edit_key}",
+                )
+                _sc, _cc, _ = st.columns([2, 2, 4], gap="small")
+                with _sc:
+                    if st.button(t("editor.save"), key=f"col_biz_save_{_edit_key}", help=t("help.btn_editor_save"), use_container_width=True, type="primary"):
+                        with st.spinner(t("common.saving")):
+                            try:
+                                save_business_name(full_name, _cname, _inp_name.strip(), _inp_def.strip())
+                                st.session_state.pop("dd_col_edit_mode", None)
+                                st.session_state.pop(f"_live_completeness_{full_name}", None)
+                                st.toast(t("common.saved"))
+                                st.rerun()
+                            except PermissionError:
+                                st.error(t("editor.permission_error"))
+                            except ValueError as exc:
+                                logging.error("Validation failed for %s.%s: %s", full_name, _cname, exc, exc_info=True)
+                                st.error(t("common.error"))
+                            except Exception as exc:
+                                logging.error("Save failed for %s.%s: %s", full_name, _cname, exc, exc_info=True)
+                                # Security: do not expose internal error details to UI
+                                st.error(t("common.error"))
+                with _cc:
+                    if st.button(t("editor.cancel"), key=f"col_biz_cancel_{_edit_key}", help=t("help.btn_editor_cancel"), use_container_width=True):
+                        st.session_state.pop("dd_col_edit_mode", None)
+                        st.rerun()
+                if _override.get("edited_by"):
+                    from src.i18n import format_date
+                    st.markdown(
+                        f'<div class="dd-biz-audit">{_html.escape(t("editor.last_edited_by", user=_override["edited_by"], date=format_date(_override.get("edited_at"))))}</div>',
+                        unsafe_allow_html=True,
+                    )
+    else:
+        st.markdown(
+            f'<p style="font-size:13px;color:var(--ink-40);padding:12px 0">{_html.escape(t("detail.no_columns"))}</p>',
+            unsafe_allow_html=True,
+        )
+
+
+
+def _render_detail_panel_comments(full_name: str) -> None:
+    # Comments section
+    _steward_email = get_table_steward(full_name)
+    _comments      = get_table_comments(full_name)
+    _n_comments    = sum(1 + len(_c.get("replies", [])) for _c in _comments)
+    from src.i18n import format_number
+    st.markdown(
+        f'<div class="dd-section-header">'
+        f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_comments")}</span>'
+        f'<span class="dd-section-count">{format_number(_n_comments)}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    from src.i18n import format_date
+    for _c in _comments:
+        _cid    = str(_c.get("comment_id", ""))
+        st.markdown(
+            f'<div class="dd-comment-row">'
+            f'<span class="dd-comment-author">{_html.escape(str(_c.get("author_name", "")))}</span>'
+            f'<span class="dd-comment-date"> · {_html.escape(format_date(_c.get("created_at")))}</span>'
+            f'<div class="dd-comment-text">{_html.escape(str(_c.get("comment_text", "")))}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        for _r in _c.get("replies", []):
+            _, _reply_col = st.columns([1, 11])
+            with _reply_col:
+                st.markdown(
+                    f'<div class="dd-comment-row dd-comment-reply">'
+                    f'<span class="dd-comment-author">{_html.escape(str(_r.get("author_name", "")))}</span>'
+                    f'<span class="dd-comment-date"> · {_html.escape(format_date(_r.get("created_at")))}</span>'
+                    f'<div class="dd-comment-text">{_html.escape(str(_r.get("comment_text", "")))}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+        _, _reply_form_col = st.columns([1, 11])
+        with _reply_form_col:
+            _render_comment_form(full_name, _steward_email, f"{full_name}_{_cid}", _cid)
+
+    _render_comment_form(full_name, _steward_email, full_name)
+
+
+
+def _render_detail_panel_grants(full_name: str, query_groups: tuple) -> None:
+    # Grants section
+    _placeholders = ", ".join(f"%(grant_group_{i})s" for i in range(len(query_groups))) if query_groups else "''"
+    grants_params: dict = {"table_full_name": full_name}
+    for _i, _g in enumerate(query_groups):
+        grants_params[f"grant_group_{_i}"] = _g
+    grants_query = (
+        "SELECT DISTINCT principal, privilege FROM {0}.{1}.permissions_cache "
+        "WHERE table_full_name = %(table_full_name)s "
+        "AND (principal IN ({2}) OR principal = 'SELECT_ALL_USERS') "
+        "ORDER BY principal"
+    ).format(CATALOG_CACHE, SCHEMA_CACHE, _placeholders)  # nosec B608
+    grants   = run_query(grants_query, grants_params)
+    n_grants = len(grants) if grants is not None and not grants.empty else 0
+    st.markdown(
+        f'<div class="dd-section-header" style="margin-top:0">'
+        f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_grants")}</span>'
+        f'<span class="dd-section-count">{n_grants}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    if n_grants > 0:
+        if n_grants > 50:
+            st.info(t("detail.showing_first_50_grants", count=n_grants))
+            grants = grants.head(50)
+        for g in grants.itertuples(index=False):
+            principal = str(getattr(g, "principal", ""))
+            privilege = str(getattr(g, "privilege", ""))
+            st.markdown('<div style="border-top: 1px solid var(--ink-10); margin: 8px 0 4px 0;"></div>', unsafe_allow_html=True)
+            if principal == "SELECT_ALL_USERS":
+                if st.button(t("detail.browse_public_tables", privilege=privilege), key=f"grant_{full_name}_public_{privilege}", use_container_width=True):
+                    st.session_state["group_filter"] = "SELECT_ALL_USERS"
+                    st.session_state.pop("catalog_search", None)
+                    st.session_state.pop("dd_nav_select", None)
+                    st.rerun()
+            else:
+                if st.button(t("detail.search_tables_accessible", principal=principal, privilege=privilege), key=f"grant_{full_name}_{principal}_{privilege}", use_container_width=True):
+                    st.session_state["group_filter"] = principal
+                    st.session_state.pop("catalog_search", None)
+                    st.session_state.pop("dd_nav_select", None)
+                    st.rerun()
+    else:
+        st.markdown(f'<p style="font-size:13px;color:var(--ink-40);padding:12px 0">{_html.escape(t("detail.no_grants"))}</p>', unsafe_allow_html=True)
+
+
+
+def _render_detail_panel_downstream(full_name: str) -> None:
+    from src.i18n import format_number
+
+    # Downstream impact
+    try:
+        _downstream = get_multi_hop_lineage(full_name, depth=2)
+        _ds_rows = (
+            _downstream[_downstream["direction"] == "downstream"]
+            if _downstream is not None and not _downstream.empty and "direction" in _downstream.columns
+            else None
+        )
+        _n_downstream = len(_ds_rows) if _ds_rows is not None else 0
+        _has_critical = (
+            _ds_rows["entity_type"].str.lower().str.contains("certified|production", na=False).any()
+            if _n_downstream > 0 and "entity_type" in _ds_rows.columns
+            else False
+        )
+    except Exception:
+        _n_downstream = 0
+        _has_critical = False
+
+    st.markdown(
+        f'<div class="dd-section-header">'
+        f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_downstream")}</span>'
+        f'<span class="dd-section-count">{format_number(_n_downstream)}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    if _n_downstream == 0:
+        st.markdown(
+            f'<p style="font-size:13px;color:var(--ink-40);padding:4px 0 12px">'
+            f'{_html.escape(t("detail.downstream_none"))}</p>',
+            unsafe_allow_html=True,
+        )
+    else:
+        if _has_critical:
+            st.markdown(
+                f'<p style="font-family:var(--font-sans);font-size:12px;color:var(--accent);'
+                f'padding:4px 0 8px;">{t("detail.downstream_certified_warning")}</p>',
+                unsafe_allow_html=True,
+            )
+        st.markdown(
+            f'<p style="font-family:var(--font-mono);font-size:12px;color:var(--ink-60);'
+            f'padding:0 0 12px;">{_html.escape(t("detail.downstream_count", n=_n_downstream))}</p>',
+            unsafe_allow_html=True,
+        )
+
+
+
+def _render_detail_panel_lineage(row: "_pd.Series", full_name: str, query_groups: tuple) -> None:
+    from src.i18n import format_number
+
+    # Lineage + related tables
+    graph_nodes, graph_links = _build_lineage_graph(
+        full_name, str(row["table_name"]), query_groups, run_query, max_depth=2,
+    )
+
+    # ⚡ Bolt: No N+1 query exists here. The loop safely constructs a parameter dictionary
+    # for a single parameterized IN clause execution (preventing injection).
+    # Parameter unrolling is required for cross-driver compatibility (e.g. DuckDB and Databricks SQL Connector).
+    # It does not execute a query per group.
+    rel_placeholders = ", ".join(f"%(group_{i})s" for i in range(len(query_groups))) if query_groups else "''"
+    rel_params = {"catalog_name": row["catalog_name"], "schema_name": row["schema_name"], "full_name": full_name}
+    for i, group in enumerate(query_groups):
+        rel_params[f"group_{i}"] = group
+    related_query = (
+        "SELECT t.full_name, t.table_name, t.catalog_name, t.schema_name, 'Same schema' AS relationship "
+        "FROM {0}.{1}.tables_metadata t JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name "
+        "WHERE t.catalog_name = %(catalog_name)s AND t.schema_name = %(schema_name)s "
+        "AND t.full_name != %(full_name)s AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS') "
+        "UNION "
+        "SELECT DISTINCT t.full_name, t.table_name, t.catalog_name, t.schema_name, 'Shared column' AS relationship "
+        "FROM {0}.{1}.columns_metadata c1 JOIN {0}.{1}.columns_metadata c2 ON c1.column_name = c2.column_name "
+        "JOIN {0}.{1}.tables_metadata t ON c2.table_full_name = t.full_name "
+        "JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name "
+        "WHERE c1.table_full_name = %(full_name)s AND c2.table_full_name != %(full_name)s "
+        "AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS') LIMIT 12"
+    ).format(CATALOG_CACHE, SCHEMA_CACHE, rel_placeholders)  # nosec B608
+    related  = run_query(related_query, rel_params)
+    n_related = len(related) if related is not None and not related.empty else 0
+
+    if n_related > 0:
+        # ⚡ Bolt: Use set-based tracking for O(1) membership checks instead of O(N) any() over lists
+        existing_node_ids = {n["id"] for n in graph_nodes}
+        existing_links = {
+            (lnk["from"], lnk["to"]) if lnk["from"] < lnk["to"] else (lnk["to"], lnk["from"])
+            for lnk in graph_links
+        }
+        for rel in related.itertuples(index=False):
+            _rel_full      = str(getattr(rel, "full_name", ""))
+            _rel_name      = _html.escape(str(getattr(rel, "table_name", "")))
+            _rel_raw_badge = str(getattr(rel, "relationship", ""))
+            _rel_badge = (
+                t("detail.same_schema") if _rel_raw_badge == "Same schema"
+                else t("detail.shared_column") if _rel_raw_badge == "Shared column"
+                else _html.escape(_rel_raw_badge)
+            )
+            if _rel_full not in existing_node_ids:
+                existing_node_ids.add(_rel_full)
+                graph_nodes.append({"id": _rel_full, "label": _rel_name, "current": False, "relationship": _rel_badge})
+
+            link_pair = (full_name, _rel_full) if full_name < _rel_full else (_rel_full, full_name)
+            if link_pair not in existing_links:
+                existing_links.add(link_pair)
+                graph_links.append({"from": full_name, "to": _rel_full})
+
+    _lin_hdr_col, _lin_btn_col = st.columns([11, 1])
+    with _lin_hdr_col:
+        st.markdown(
+            f'<div class="dd-section-header">'
+            f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_lineage")} & {t("detail.section_related")}</span>'
+            f'<span class="dd-section-count">{t("detail.related_count", formatted_count=format_number(n_related))}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    with _lin_btn_col:
+        if st.button("⤢", key=f"expand_lin_{full_name}", help=t("detail.expand_lineage"), use_container_width=True):
+            render_lineage_fullscreen(graph_nodes, graph_links, full_name)
+
+    components.html(_lineage_vis_html(graph_nodes, graph_links, height=350), height=380)
+
+    if n_related > 0:
+        st.markdown('<div style="margin-top: 16px;"></div>', unsafe_allow_html=True)
+        _cols = st.columns(min(3, n_related), gap="small")
+        for i, rel in enumerate(related.itertuples(index=False)):
+            with _cols[i % 3]:
+                _rel_full      = str(getattr(rel, "full_name", ""))
+                _rel_name      = _html.escape(str(getattr(rel, "table_name", "")))
+                _rel_sch       = _html.escape(f"{getattr(rel, 'catalog_name', '')}.{getattr(rel, 'schema_name', '')}")
+                _rel_raw_badge = str(getattr(rel, "relationship", ""))
+                _rel_badge = (
+                    t("detail.same_schema") if _rel_raw_badge == "Same schema"
+                    else t("detail.shared_column") if _rel_raw_badge == "Shared column"
+                    else _html.escape(_rel_raw_badge)
+                )
+                st.markdown(
+                    f'<div class="dd-related-card">'
+                    f'<div class="dd-related-badge">{_rel_badge}</div>'
+                    f'<div class="dd-related-name">{_rel_name}</div>'
+                    f'<div class="dd-related-schema">{_rel_sch}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                if st.button(t("detail.open_related"), key=f"rel_{_rel_full}", type="secondary", use_container_width=True):
+                    st.session_state["dd_search_override"] = str(getattr(rel, "table_name", ""))
+                    st.session_state["dd_nav_select"] = _rel_full
+                    st.rerun()
+
+
+
+
 def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple) -> None:
     """Render the two-column table detail panel (main + side)."""
     col_main, col_side = st.columns([7, 5], gap="large")
@@ -228,370 +612,13 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             st.session_state.recent_views = [full_name] + [x for x in _rv if x != full_name][:49]
             _pref_upsert(full_name, "recent")
 
-        # Columns section
-        col_overrides = get_column_overrides(full_name)
-        cols = get_table_columns(full_name)
-        n_cols = len(cols) if cols is not None and not cols.empty else 0
-
-        _c_preview, _c_export = st.columns(2, gap="small")
-        with _c_preview:
-            if st.button(t("detail.preview_data"), key=f"preview_{full_name}", help=t("help.btn_preview_data"), use_container_width=True):
-                render_data_sample(full_name)
-        with _c_export:
-            if n_cols > 0:
-                st.download_button(
-                    label=t("detail.export_dictionary"),
-                    data=export_schema_to_csv(cols, col_overrides),
-                    file_name=f"{row['catalog_name']}_{row['schema_name']}_{row['table_name']}_schema.csv",
-                    mime="text/csv",
-                    key=f"export_{full_name}",
-                    use_container_width=True,
-                    help=t("detail.export_dictionary_help"),
-                )
-
-        st.markdown(
-            f'<div class="dd-section-header">'
-            f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_columns")}</span>'
-            f'<span class="dd-section-count">{n_cols}</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-
-        _power    = is_power_user()
-        _col_edit = st.session_state.get("dd_col_edit_mode", "")
-
-        if n_cols > 0:
-            if n_cols > 50:
-                st.info(t("detail.showing_first_50_columns", count=n_cols))
-                cols = cols.head(50)
-            for c in cols.itertuples(index=False):
-                _cname    = str(getattr(c, "column_name", ""))
-                _ctype    = str(getattr(c, "data_type", ""))
-                _ccomment = str(getattr(c, "comment", "") or "")
-                _edit_key = f"{full_name}__{_cname}"
-                _override = col_overrides.get(_cname, {})
-                _col_biz  = _override.get("business_name", "")
-                _col_def  = _override.get("definition", "")
-
-                st.markdown('<hr class="dd-col-divider">', unsafe_allow_html=True)
-                _r_name, _r_type, _r_desc, _r_btn, _r_star = st.columns([3, 2, 4, 1, 1], gap="small")
-
-                if _col_biz:
-                    _r_name.markdown(
-                        f'<span class="dd-col-biz-name">{_html.escape(_col_biz)}</span>'
-                        f'<span class="dd-col-tech-sub">{_html.escape(_cname)}</span>',
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    _r_name.markdown(f'<span class="dd-col-name">{_html.escape(_cname)}</span>', unsafe_allow_html=True)
-
-                _r_type.markdown(f'<span class="dd-col-type">{_html.escape(_ctype)}</span>', unsafe_allow_html=True)
-
-                if _col_def:
-                    _r_desc.markdown(
-                        f'<span class="dd-col-desc">{_html.escape(_col_def)}</span>'
-                        f'<span class="dd-col-desc-faded">{_html.escape(_ccomment)}</span>',
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    _r_desc.markdown(f'<span class="dd-col-desc">{_html.escape(_ccomment)}</span>', unsafe_allow_html=True)
-
-                if _power and _col_edit != _edit_key:
-                    if _r_btn.button("✎", key=f"col_edit_{_edit_key}", help=t("common.edit"), use_container_width=True):
-                        st.session_state["dd_col_edit_mode"] = _edit_key
-                        st.rerun()
-
-                _col_bk_id = f"{full_name}::{_cname}"
-                _is_col_bk = _col_bk_id in st.session_state.get("col_bookmarks", set())
-                if _r_star.button("★" if _is_col_bk else "☆", key=f"colbk_{_edit_key}", help=t("personalization.remove_bookmark") if _is_col_bk else t("personalization.add_bookmark"), use_container_width=True):
-                    if _is_col_bk:
-                        st.session_state.get("col_bookmarks", set()).discard(_col_bk_id)
-                        _pref_delete(_col_bk_id, "col_bookmark")
-                        st.toast(t("personalization.bookmark_removed"))
-                    else:
-                        st.session_state.get("col_bookmarks", set()).add(_col_bk_id)
-                        _pref_upsert(_col_bk_id, "col_bookmark")
-                        st.toast(t("personalization.bookmark_added"))
-                    st.rerun()
-
-                if _col_edit == _edit_key:
-                    st.markdown(
-                        f'<div class="dd-edit-banner">{t("editor.edit_mode_banner")}</div>',
-                        unsafe_allow_html=True,
-                    )
-                    _inp_name = st.text_input(
-                        t("editor.business_name_label"),
-                        value=_col_biz,
-                        placeholder=t("editor.placeholder_biz_name"),
-                        max_chars=None if os.getenv("TESTING_NO_MAX_CHARS") else MAX_BUSINESS_NAME_LEN,
-                        key=f"col_biz_name_{_edit_key}",
-                    )
-                    _inp_def = st.text_input(
-                        t("editor.definition_label"),
-                        value=_col_def,
-                        placeholder=t("editor.placeholder_biz_def"),
-                        max_chars=None if os.getenv("TESTING_NO_MAX_CHARS") else MAX_BUSINESS_NAME_LEN,
-                        key=f"col_biz_def_{_edit_key}",
-                    )
-                    _sc, _cc, _ = st.columns([2, 2, 4], gap="small")
-                    with _sc:
-                        if st.button(t("editor.save"), key=f"col_biz_save_{_edit_key}", help=t("help.btn_editor_save"), use_container_width=True, type="primary"):
-                            with st.spinner(t("common.saving")):
-                                try:
-                                    save_business_name(full_name, _cname, _inp_name.strip(), _inp_def.strip())
-                                    st.session_state.pop("dd_col_edit_mode", None)
-                                    st.session_state.pop(f"_live_completeness_{full_name}", None)
-                                    st.toast(t("common.saved"))
-                                    st.rerun()
-                                except PermissionError:
-                                    st.error(t("editor.permission_error"))
-                                except ValueError as exc:
-                                    logging.error("Validation failed for %s.%s: %s", full_name, _cname, exc, exc_info=True)
-                                    st.error(t("common.error"))
-                                except Exception as exc:
-                                    logging.error("Save failed for %s.%s: %s", full_name, _cname, exc, exc_info=True)
-                                    # Security: do not expose internal error details to UI
-                                    st.error(t("common.error"))
-                    with _cc:
-                        if st.button(t("editor.cancel"), key=f"col_biz_cancel_{_edit_key}", help=t("help.btn_editor_cancel"), use_container_width=True):
-                            st.session_state.pop("dd_col_edit_mode", None)
-                            st.rerun()
-                    if _override.get("edited_by"):
-                        from src.i18n import format_date
-                        st.markdown(
-                            f'<div class="dd-biz-audit">{_html.escape(t("editor.last_edited_by", user=_override["edited_by"], date=format_date(_override.get("edited_at"))))}</div>',
-                            unsafe_allow_html=True,
-                        )
-        else:
-            st.markdown(
-                f'<p style="font-size:13px;color:var(--ink-40);padding:12px 0">{_html.escape(t("detail.no_columns"))}</p>',
-                unsafe_allow_html=True,
-            )
-
-        # Comments section
-        _steward_email = get_table_steward(full_name)
-        _comments      = get_table_comments(full_name)
-        _n_comments    = sum(1 + len(_c.get("replies", [])) for _c in _comments)
-        from src.i18n import format_number
-        st.markdown(
-            f'<div class="dd-section-header">'
-            f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_comments")}</span>'
-            f'<span class="dd-section-count">{format_number(_n_comments)}</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-
-        from src.i18n import format_date
-        for _c in _comments:
-            _cid    = str(_c.get("comment_id", ""))
-            st.markdown(
-                f'<div class="dd-comment-row">'
-                f'<span class="dd-comment-author">{_html.escape(str(_c.get("author_name", "")))}</span>'
-                f'<span class="dd-comment-date"> · {_html.escape(format_date(_c.get("created_at")))}</span>'
-                f'<div class="dd-comment-text">{_html.escape(str(_c.get("comment_text", "")))}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-            for _r in _c.get("replies", []):
-                _, _reply_col = st.columns([1, 11])
-                with _reply_col:
-                    st.markdown(
-                        f'<div class="dd-comment-row dd-comment-reply">'
-                        f'<span class="dd-comment-author">{_html.escape(str(_r.get("author_name", "")))}</span>'
-                        f'<span class="dd-comment-date"> · {_html.escape(format_date(_r.get("created_at")))}</span>'
-                        f'<div class="dd-comment-text">{_html.escape(str(_r.get("comment_text", "")))}</div>'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
-            _, _reply_form_col = st.columns([1, 11])
-            with _reply_form_col:
-                _render_comment_form(full_name, _steward_email, f"{full_name}_{_cid}", _cid)
-
-        _render_comment_form(full_name, _steward_email, full_name)
+        _render_detail_panel_columns(row, full_name)
+        _render_detail_panel_comments(full_name)
 
     with col_side:
-        # Grants section
-        _placeholders = ", ".join(f"%(grant_group_{i})s" for i in range(len(query_groups))) if query_groups else "''"
-        grants_params: dict = {"table_full_name": full_name}
-        for _i, _g in enumerate(query_groups):
-            grants_params[f"grant_group_{_i}"] = _g
-        grants_query = (
-            "SELECT DISTINCT principal, privilege FROM {0}.{1}.permissions_cache "
-            "WHERE table_full_name = %(table_full_name)s "
-            "AND (principal IN ({2}) OR principal = 'SELECT_ALL_USERS') "
-            "ORDER BY principal"
-        ).format(CATALOG_CACHE, SCHEMA_CACHE, _placeholders)  # nosec B608
-        grants   = run_query(grants_query, grants_params)
-        n_grants = len(grants) if grants is not None and not grants.empty else 0
-        st.markdown(
-            f'<div class="dd-section-header" style="margin-top:0">'
-            f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_grants")}</span>'
-            f'<span class="dd-section-count">{n_grants}</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-        if n_grants > 0:
-            if n_grants > 50:
-                st.info(t("detail.showing_first_50_grants", count=n_grants))
-                grants = grants.head(50)
-            for g in grants.itertuples(index=False):
-                principal = str(getattr(g, "principal", ""))
-                privilege = str(getattr(g, "privilege", ""))
-                st.markdown('<div style="border-top: 1px solid var(--ink-10); margin: 8px 0 4px 0;"></div>', unsafe_allow_html=True)
-                if principal == "SELECT_ALL_USERS":
-                    if st.button(t("detail.browse_public_tables", privilege=privilege), key=f"grant_{full_name}_public_{privilege}", use_container_width=True):
-                        st.session_state["group_filter"] = "SELECT_ALL_USERS"
-                        st.session_state.pop("catalog_search", None)
-                        st.session_state.pop("dd_nav_select", None)
-                        st.rerun()
-                else:
-                    if st.button(t("detail.search_tables_accessible", principal=principal, privilege=privilege), key=f"grant_{full_name}_{principal}_{privilege}", use_container_width=True):
-                        st.session_state["group_filter"] = principal
-                        st.session_state.pop("catalog_search", None)
-                        st.session_state.pop("dd_nav_select", None)
-                        st.rerun()
-        else:
-            st.markdown(f'<p style="font-size:13px;color:var(--ink-40);padding:12px 0">{_html.escape(t("detail.no_grants"))}</p>', unsafe_allow_html=True)
-
-        # Downstream impact
-        try:
-            _downstream = get_multi_hop_lineage(full_name, depth=2)
-            _ds_rows = (
-                _downstream[_downstream["direction"] == "downstream"]
-                if _downstream is not None and not _downstream.empty and "direction" in _downstream.columns
-                else None
-            )
-            _n_downstream = len(_ds_rows) if _ds_rows is not None else 0
-            _has_critical = (
-                _ds_rows["entity_type"].str.lower().str.contains("certified|production", na=False).any()
-                if _n_downstream > 0 and "entity_type" in _ds_rows.columns
-                else False
-            )
-        except Exception:
-            _n_downstream = 0
-            _has_critical = False
-
-        st.markdown(
-            f'<div class="dd-section-header">'
-            f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_downstream")}</span>'
-            f'<span class="dd-section-count">{format_number(_n_downstream)}</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-        if _n_downstream == 0:
-            st.markdown(
-                f'<p style="font-size:13px;color:var(--ink-40);padding:4px 0 12px">'
-                f'{_html.escape(t("detail.downstream_none"))}</p>',
-                unsafe_allow_html=True,
-            )
-        else:
-            if _has_critical:
-                st.markdown(
-                    f'<p style="font-family:var(--font-sans);font-size:12px;color:var(--accent);'
-                    f'padding:4px 0 8px;">{t("detail.downstream_certified_warning")}</p>',
-                    unsafe_allow_html=True,
-                )
-            st.markdown(
-                f'<p style="font-family:var(--font-mono);font-size:12px;color:var(--ink-60);'
-                f'padding:0 0 12px;">{_html.escape(t("detail.downstream_count", n=_n_downstream))}</p>',
-                unsafe_allow_html=True,
-            )
-
-        # Lineage + related tables
-        graph_nodes, graph_links = _build_lineage_graph(
-            full_name, str(row["table_name"]), query_groups, run_query, max_depth=2,
-        )
-
-        # ⚡ Bolt: No N+1 query exists here. The loop safely constructs a parameter dictionary
-        # for a single parameterized IN clause execution (preventing injection).
-        # Parameter unrolling is required for cross-driver compatibility (e.g. DuckDB and Databricks SQL Connector).
-        # It does not execute a query per group.
-        rel_placeholders = ", ".join(f"%(group_{i})s" for i in range(len(query_groups))) if query_groups else "''"
-        rel_params = {"catalog_name": row["catalog_name"], "schema_name": row["schema_name"], "full_name": full_name}
-        for i, group in enumerate(query_groups):
-            rel_params[f"group_{i}"] = group
-        related_query = (
-            "SELECT t.full_name, t.table_name, t.catalog_name, t.schema_name, 'Same schema' AS relationship "
-            "FROM {0}.{1}.tables_metadata t JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name "
-            "WHERE t.catalog_name = %(catalog_name)s AND t.schema_name = %(schema_name)s "
-            "AND t.full_name != %(full_name)s AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS') "
-            "UNION "
-            "SELECT DISTINCT t.full_name, t.table_name, t.catalog_name, t.schema_name, 'Shared column' AS relationship "
-            "FROM {0}.{1}.columns_metadata c1 JOIN {0}.{1}.columns_metadata c2 ON c1.column_name = c2.column_name "
-            "JOIN {0}.{1}.tables_metadata t ON c2.table_full_name = t.full_name "
-            "JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name "
-            "WHERE c1.table_full_name = %(full_name)s AND c2.table_full_name != %(full_name)s "
-            "AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS') LIMIT 12"
-        ).format(CATALOG_CACHE, SCHEMA_CACHE, rel_placeholders)  # nosec B608
-        related  = run_query(related_query, rel_params)
-        n_related = len(related) if related is not None and not related.empty else 0
-
-        if n_related > 0:
-            # ⚡ Bolt: Use set-based tracking for O(1) membership checks instead of O(N) any() over lists
-            existing_node_ids = {n["id"] for n in graph_nodes}
-            existing_links = {
-                (lnk["from"], lnk["to"]) if lnk["from"] < lnk["to"] else (lnk["to"], lnk["from"])
-                for lnk in graph_links
-            }
-            for rel in related.itertuples(index=False):
-                _rel_full      = str(getattr(rel, "full_name", ""))
-                _rel_name      = _html.escape(str(getattr(rel, "table_name", "")))
-                _rel_raw_badge = str(getattr(rel, "relationship", ""))
-                _rel_badge = (
-                    t("detail.same_schema") if _rel_raw_badge == "Same schema"
-                    else t("detail.shared_column") if _rel_raw_badge == "Shared column"
-                    else _html.escape(_rel_raw_badge)
-                )
-                if _rel_full not in existing_node_ids:
-                    existing_node_ids.add(_rel_full)
-                    graph_nodes.append({"id": _rel_full, "label": _rel_name, "current": False, "relationship": _rel_badge})
-
-                link_pair = (full_name, _rel_full) if full_name < _rel_full else (_rel_full, full_name)
-                if link_pair not in existing_links:
-                    existing_links.add(link_pair)
-                    graph_links.append({"from": full_name, "to": _rel_full})
-
-        _lin_hdr_col, _lin_btn_col = st.columns([11, 1])
-        with _lin_hdr_col:
-            st.markdown(
-                f'<div class="dd-section-header">'
-                f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_lineage")} & {t("detail.section_related")}</span>'
-                f'<span class="dd-section-count">{t("detail.related_count", formatted_count=format_number(n_related))}</span>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-        with _lin_btn_col:
-            if st.button("⤢", key=f"expand_lin_{full_name}", help=t("detail.expand_lineage"), use_container_width=True):
-                render_lineage_fullscreen(graph_nodes, graph_links, full_name)
-
-        components.html(_lineage_vis_html(graph_nodes, graph_links, height=350), height=380)
-
-        if n_related > 0:
-            st.markdown('<div style="margin-top: 16px;"></div>', unsafe_allow_html=True)
-            _cols = st.columns(min(3, n_related), gap="small")
-            for i, rel in enumerate(related.itertuples(index=False)):
-                with _cols[i % 3]:
-                    _rel_full      = str(getattr(rel, "full_name", ""))
-                    _rel_name      = _html.escape(str(getattr(rel, "table_name", "")))
-                    _rel_sch       = _html.escape(f"{getattr(rel, 'catalog_name', '')}.{getattr(rel, 'schema_name', '')}")
-                    _rel_raw_badge = str(getattr(rel, "relationship", ""))
-                    _rel_badge = (
-                        t("detail.same_schema") if _rel_raw_badge == "Same schema"
-                        else t("detail.shared_column") if _rel_raw_badge == "Shared column"
-                        else _html.escape(_rel_raw_badge)
-                    )
-                    st.markdown(
-                        f'<div class="dd-related-card">'
-                        f'<div class="dd-related-badge">{_rel_badge}</div>'
-                        f'<div class="dd-related-name">{_rel_name}</div>'
-                        f'<div class="dd-related-schema">{_rel_sch}</div>'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
-                    if st.button(t("detail.open_related"), key=f"rel_{_rel_full}", type="secondary", use_container_width=True):
-                        st.session_state["dd_search_override"] = str(getattr(rel, "table_name", ""))
-                        st.session_state["dd_nav_select"] = _rel_full
-                        st.rerun()
+        _render_detail_panel_grants(full_name, query_groups)
+        _render_detail_panel_downstream(full_name)
+        _render_detail_panel_lineage(row, full_name, query_groups)
 
 
 def render_search_page(query_groups: tuple) -> None:
