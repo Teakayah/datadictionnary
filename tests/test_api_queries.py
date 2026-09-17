@@ -108,17 +108,24 @@ class TestGetAuthorizedTableNames:
 
 class TestGetTableDetails:
     def test_returns_none_when_not_authorized(self):
+        # Arrange
         access_denied = pd.DataFrame([{"n": 0}])
         with patch("src.api.queries._base_run_query", return_value=access_denied):
+            # Act
             result = get_table_details("c.s.t", ("g1",))
-        assert result is None
+            # Assert
+            assert result is None
 
     def test_returns_none_when_access_check_empty(self):
+        # Arrange
         with patch("src.api.queries._base_run_query", return_value=pd.DataFrame()):
+            # Act
             result = get_table_details("c.s.t", ("g1",))
-        assert result is None
+            # Assert
+            assert result is None
 
     def test_returns_columns_when_authorized(self):
+        # Arrange
         access_ok = pd.DataFrame([{"n": 1}])
         cols = pd.DataFrame([
             {"column_name": "id", "data_type": "BIGINT", "description": "PK"},
@@ -131,12 +138,15 @@ class TestGetTableDetails:
             return access_ok if call_count == 1 else cols
 
         with patch("src.api.queries._base_run_query", side_effect=_side_effect):
+            # Act
             result = get_table_details("c.s.t", ("g1",))
 
+        # Assert
         assert result is not None
         assert list(result["column_name"]) == ["id"]
 
     def test_second_query_passes_full_name(self):
+        # Arrange
         access_ok = pd.DataFrame([{"n": 1}])
         cols = pd.DataFrame([{"column_name": "x", "data_type": "INT", "description": ""}])
         calls = []
@@ -146,9 +156,34 @@ class TestGetTableDetails:
             return access_ok if len(calls) == 1 else cols
 
         with patch("src.api.queries._base_run_query", side_effect=_side_effect):
+            # Act
             get_table_details("cat.schema.tbl", ("g1",))
 
+        # Assert
         assert calls[1] == {"fn": "cat.schema.tbl"}
+
+    def test_mock_auth_bypass(self):
+        # Arrange
+        import os
+        access_ok = pd.DataFrame([{"n": 1}])
+        cols = pd.DataFrame([{"column_name": "id"}])
+        call_count = 0
+
+        def _side_effect(sql, params):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                assert params.get("group_0") == "Catalog.Read.All"
+            return access_ok if call_count == 1 else cols
+
+        with patch.dict(os.environ, {"MOCK_AUTH": "true"}), \
+             patch("src.api.queries._base_run_query", side_effect=_side_effect):
+            # Act
+            result = get_table_details("some.table", ())
+
+        # Assert
+        assert result is not None
+        assert "id" in result["column_name"].values
 
 
 # ── search_metadata ───────────────────────────────────────────────────────────

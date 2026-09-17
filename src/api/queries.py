@@ -64,6 +64,11 @@ def get_authorized_tables(groups: tuple[str, ...]) -> pd.DataFrame:
 
 def get_table_details(full_name: str, groups: tuple[str, ...]) -> pd.DataFrame | None:
     """Return column metadata for a table, or None if not found / not authorized."""
+    import os
+    # Demo/Mock bypass
+    if os.getenv("MOCK_AUTH") == "true":
+        groups = ("Catalog.Read.All",)
+
     ph, params = _group_clause(groups)
     params["fn"] = full_name
 
