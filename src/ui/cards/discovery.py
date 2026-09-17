@@ -29,6 +29,56 @@ from src.ui.cards._shared import _POST_COLOR, _dq_grade, _render_empty_state
 from src.personalization import _pref_delete, _pref_upsert
 
 
+def _render_dq_badge(dq_score: str, dq_status: str) -> str:
+    """Render the data quality badge HTML if a score is present."""
+    if not dq_score:
+        return ""
+    _grade, _gcls = _dq_grade(dq_score)
+    _status_color = (
+        "var(--accent)"  if dq_status.lower() == "fail"
+        else "#2D6A4F"   if dq_status.lower() == "pass"
+        else "var(--ink-40)"
+    )
+    return (
+        f'<span class="dd-dq-badge {_gcls}" title="{_html.escape(t("discovery.data_quality_grade", grade=_grade))}">{_grade}</span>'
+        f'<span style="font-family:var(--font-mono);font-size:10px;color:{_status_color};'
+        f'margin-left:4px;">{_html.escape(dq_status)}</span>'
+    )
+
+
+def _render_navigation_button(table_name: str, full_name: str, key_prefix: str) -> None:
+    """Render the navigation button to jump to table search details."""
+    if st.button(
+        f"→ {table_name}",
+        key=f"{key_prefix}_open_{full_name}",
+        help=t("search.view_details_help"),
+        use_container_width=True, type="secondary",
+    ):
+        st.query_params["tab"] = "search"
+        st.session_state["dd_search_override"] = table_name
+        st.session_state["dd_nav_select"] = full_name
+        st.rerun()
+
+
+def _render_bookmark_button(is_bk: bool, full_name: str, key_prefix: str) -> None:
+    """Render the bookmark toggle star button and handle state updates."""
+    label = "★" if is_bk else "☆"
+    help_text = (
+        t("personalization.remove_bookmark") if is_bk
+        else t("personalization.add_bookmark")
+    )
+    if st.button(label, key=f"{key_prefix}_bk_{full_name}", help=help_text, use_container_width=True):
+        if is_bk:
+            st.session_state.get("bookmarks", set()).discard(full_name)
+            _pref_delete(full_name, "bookmark")
+            st.toast(t("personalization.bookmark_removed"))
+        else:
+            st.session_state.get("bookmarks", set()).add(full_name)
+            _pref_upsert(full_name, "bookmark")
+            st.toast(t("personalization.bookmark_added"))
+        st.rerun()
+
+
 def _render_table_card(row, key_prefix: str) -> None:
     """Discovery card: table name is clickable, star toggles bookmark."""
     from src.i18n import format_date
@@ -40,18 +90,7 @@ def _render_table_card(row, key_prefix: str) -> None:
 
     _dq_score  = str(getattr(row, "dq_score", "") or "")
     _dq_status = str(getattr(row, "dq_status", "") or "")
-    _grade, _gcls = _dq_grade(_dq_score)
-    _status_color = (
-        "var(--accent)"  if _dq_status.lower() == "fail"
-        else "#2D6A4F"   if _dq_status.lower() == "pass"
-        else "var(--ink-40)"
-    )
-    _dq_html = (
-        f'<span class="dd-dq-badge {_gcls}" title="{_html.escape(t("discovery.data_quality_grade", grade=_grade))}">{_grade}</span>'
-        f'<span style="font-family:var(--font-mono);font-size:10px;color:{_status_color};'
-        f'margin-left:4px;">{_html.escape(_dq_status)}</span>'
-        if _dq_score else ""
-    )
+    _dq_html = _render_dq_badge(_dq_score, _dq_status)
 
     st.markdown(f'''
     <div style="background:var(--paper); border:1px solid var(--ink-10); padding:16px 20px 4px; margin-bottom:4px; border-radius:2px;">
@@ -68,32 +107,9 @@ def _render_table_card(row, key_prefix: str) -> None:
 
     _c_name, _c_star = st.columns([11, 1], gap="small")
     with _c_name:
-        if st.button(
-            f"→ {_tname}",
-            key=f"{key_prefix}_open_{_full}",
-            help=t("search.view_details_help"),
-            use_container_width=True, type="secondary",
-        ):
-            st.query_params["tab"] = "search"
-            st.session_state["dd_search_override"] = _tname
-            st.session_state["dd_nav_select"] = _full
-            st.rerun()
+        _render_navigation_button(_tname, _full, key_prefix)
     with _c_star:
-        label = "★" if _is_bk else "☆"
-        help_text = (
-            t("personalization.remove_bookmark") if _is_bk
-            else t("personalization.add_bookmark")
-        )
-        if st.button(label, key=f"{key_prefix}_bk_{_full}", help=help_text, use_container_width=True):
-            if _is_bk:
-                st.session_state.get("bookmarks", set()).discard(_full)
-                _pref_delete(_full, "bookmark")
-                st.toast(t("personalization.bookmark_removed"))
-            else:
-                st.session_state.get("bookmarks", set()).add(_full)
-                _pref_upsert(_full, "bookmark")
-                st.toast(t("personalization.bookmark_added"))
-            st.rerun()
+        _render_bookmark_button(_is_bk, _full, key_prefix)
     st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
 
 
