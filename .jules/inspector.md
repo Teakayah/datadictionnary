@@ -111,3 +111,6 @@
 ## 2024-03-22 - Missing Exception Handling Tests for Live Completeness Score
 **Learning:** Found a missing test scenario in `src.pages.search._render_detail_panel` where `_compute_live_completeness` can raise an exception. The application handles this exception by falling back to the `dq_score` from the row, but this was previously completely untested.
 **Action:** When working with Streamlit session state and functions that can throw exceptions, explicitly add test cases to simulate those exceptions and verify the fallback logic correctly populates session state.
+## 2026-09-17 - FastAPI Application Setup Coverage
+**Learning:** The root `src/api/main.py` FastAPI file lacked top-level testing for routing inclusion and CORS setup, leaving middleware and API routing configuration untested. Even simple router integrations in FastAPI applications should be explicitly tested to catch silent failures during app initialization.
+**Action:** Added `test_app_routing_and_cors` in `tests/test_api_main.py` to assert the app starts up with the correct lifespan context, explicitly tests CORS headers on an `OPTIONS` request, and verifies that the `live` health check router responds to `GET` requests.
