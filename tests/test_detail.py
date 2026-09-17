@@ -317,8 +317,8 @@ class TestRenderDataSample:
         at = AppTest.from_function(data_sample_app, args=("cat.sch.tbl",)).run()
 
         assert len(at.dataframe) == 0
-        assert len(at.info) > 0
-        assert at.info[0].value == en_locale["detail"]["preview_needs_data"]
+        assert len(at.markdown) > 0
+        assert en_locale["detail"]["preview_needs_data"] in at.markdown[-1].value
 
     @patch("src.ui.cards.detail.get_authorized_table_names")
     @patch("src.ui.cards.detail.is_demo_mode")

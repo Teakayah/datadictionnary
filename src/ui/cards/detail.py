@@ -10,6 +10,7 @@ import logging
 
 import pandas as pd
 import streamlit as st
+from src.ui.cards._shared import _render_empty_state
 
 from src.audit import save_table_metadata, save_table_business_name, get_table_business_name_override
 import src.auth
@@ -166,7 +167,7 @@ def render_data_sample(table_full_name: str):
         if df is not None and not df.empty:
             st.dataframe(df, use_container_width=True, height=2000)
         else:
-            st.info(t("detail.preview_needs_data"))
+            _render_empty_state("📭", t("detail.preview_needs_data"))
     except Exception as e:
         logging.error(
             "Error fetching data sample for %s: %s", table_full_name, e, exc_info=True,

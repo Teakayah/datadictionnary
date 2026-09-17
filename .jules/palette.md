@@ -36,3 +36,8 @@
 ## 2026-09-16 - Standardizing empty states in admin reviews
 **Learning:** Admin review lists were rendering raw HTML blocks for empty states, which creates inconsistent UI, is hard to maintain, and ignores the established `_render_empty_state` UI utility pattern.
 **Action:** Replace raw HTML empty state containers in `src/ui/cards/admin.py` with the standardized `_render_empty_state` function to maintain cohesive visual design tokens.
+
+## 2024-11-20 - Standardize empty states for data previews
+**Learning:** Generic info blocks are sometimes still used instead of the shared empty state UI utility for empty states (e.g. data preview needs data).
+**Action:** Use the custom empty state component for data previews to standardize visuals and improve accessibility.
+
