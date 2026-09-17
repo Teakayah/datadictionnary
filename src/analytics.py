@@ -103,44 +103,48 @@ def get_zero_result_searches(limit: int = 50) -> List[dict]:
     return df.to_dict('records') if df is not None and not df.empty else []
 
 
+def _get_demo_zero_result_alerts(days: int) -> List[dict]:
+    import streamlit as st
+    data = st.session_state.get("demo_analytics", [])
+    zeros = [d for d in data if d["results_count"] == 0]
+
+    # Group by query
+    groups = {}
+    for z in zeros:
+        q = z["query"]
+        ts = z["timestamp"]
+        # Ensure ts is a datetime object
+        if isinstance(ts, str):
+            ts = datetime.fromisoformat(ts)
+        if isinstance(ts, datetime) and ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+
+        if q not in groups:
+            groups[q] = []
+        groups[q].append(ts)
+
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=days)
+
+    alerts = []
+    for q, times in groups.items():
+        first_seen = min(times)
+        last_seen = max(times)
+        if first_seen < cutoff:
+            alerts.append({
+                "query": q,
+                "search_count": len(times),
+                "first_seen": first_seen,
+                "last_seen": last_seen
+            })
+
+    return sorted(alerts, key=lambda x: x["last_seen"], reverse=True)
+
+
 def get_zero_result_alerts(days: int = 7) -> List[dict]:
     """Retrieve search terms returning zero results for more than N days."""
     if _use_demo_backend():
-        import streamlit as st
-        data = st.session_state.get("demo_analytics", [])
-        zeros = [d for d in data if d["results_count"] == 0]
-
-        # Group by query
-        groups = {}
-        for z in zeros:
-            q = z["query"]
-            ts = z["timestamp"]
-            # Ensure ts is a datetime object
-            if isinstance(ts, str):
-                ts = datetime.fromisoformat(ts)
-            if isinstance(ts, datetime) and ts.tzinfo is None:
-                ts = ts.replace(tzinfo=timezone.utc)
-
-            if q not in groups:
-                groups[q] = []
-            groups[q].append(ts)
-
-        now = datetime.now(timezone.utc)
-        cutoff = now - timedelta(days=days)
-
-        alerts = []
-        for q, times in groups.items():
-            first_seen = min(times)
-            last_seen = max(times)
-            if first_seen < cutoff:
-                alerts.append({
-                    "query": q,
-                    "search_count": len(times),
-                    "first_seen": first_seen,
-                    "last_seen": last_seen
-                })
-
-        return sorted(alerts, key=lambda x: x["last_seen"], reverse=True)
+        return _get_demo_zero_result_alerts(days)
     with _analytics_conn() as conn:
         if not conn.open:
             return []
