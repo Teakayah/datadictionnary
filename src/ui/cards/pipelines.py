@@ -24,6 +24,7 @@ from src.i18n import t
 from src.pipelines import (
     BACKENDS,
     cancel_run,
+    PipelineDefParams,
     create_pipeline_def,
     delete_pipeline_def,
     get_active_run,
@@ -99,11 +100,20 @@ def _show_pipeline_create_dialog():
                     st.error(t("pipelines.error_title"))
                     return
                 actor = st.session_state.get("user_email", "admin")
-                create_pipeline_def(
-                    title.strip(), (desc or "").strip(), backend,
-                    db_job_id, adf_sub, adf_rg, adf_fact, adf_pipe,
-                    ado_org, ado_proj, ado_pid, actor,
-                )
+                create_pipeline_def(PipelineDefParams(
+                    title=title.strip(),
+                    description=(desc or "").strip(),
+                    backend=backend,
+                    databricks_job_id=db_job_id,
+                    adf_subscription_id=adf_sub,
+                    adf_resource_group=adf_rg,
+                    adf_factory_name=adf_fact,
+                    adf_pipeline_name=adf_pipe,
+                    ado_organization=ado_org,
+                    ado_project=ado_proj,
+                    ado_pipeline_id=ado_pid,
+                    created_by=actor,
+                ))
                 st.toast(t("common.saved"))
                 st.rerun()
     with _c:
