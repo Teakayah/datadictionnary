@@ -100,12 +100,15 @@ _SEARCH_TERMS = [
     "xyzzy_no_match", "subaward", "reagent", "postdoc", "firewall",
 ]
 
+_CATALOG = "data_governance"
 _SCHEMA = "dictionary_cache"  # schema used by generate_test_data.py
 
 # ── Global connection to be shared by all users ──────────────────────────────
 # DuckDB allows sharing a connection object across threads if using cursors.
 try:
-    _GLOBAL_CON = duckdb.connect(_WORKING_DB, read_only=True)
+    _GLOBAL_CON = duckdb.connect(":memory:")
+    safe_working_db = _WORKING_DB.replace("'", "''")
+    _GLOBAL_CON.execute(f"ATTACH '{safe_working_db}' AS {_CATALOG} (READ_ONLY)")
     # Attach a private in-memory DB as 'user_data' for overrides fallback
     _GLOBAL_CON.execute("ATTACH ':memory:' AS user_data")
     _GLOBAL_CON.execute("""
@@ -131,11 +134,12 @@ def _open_con(read_only: bool = True, attach_user_data: bool = True) -> duckdb.D
     try:
         # Each thread (Locust user) gets its own cursor
         con = _GLOBAL_CON.cursor()
-        con.execute(f"SET search_path = '{_SCHEMA}'")
+        con.execute(f"USE {_CATALOG}.{_SCHEMA}")
         return con
     except Exception as exc:
         print(f"[locust] ERROR: could not create cursor: {exc}")
         return None
+
 
 
 def _load_table_names() -> list[str]:
