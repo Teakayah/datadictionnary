@@ -133,3 +133,7 @@ Assertion: Use `cur_mock = MagicMock(); conn.cursor.return_value.__enter__.retur
 **Learning:** Checking query parameters after clicking a navigation button in an AppTest can result in either a string or list of strings being returned depending on Streamlit versions/mocks. Also, `st.markdown` needs to be validated properly by asserting against generated raw HTML blocks using `any()`.
 **Assertion:** Always check for substring inclusion (e.g., `"search" in at.query_params["tab"]`) instead of exact list equality when testing Streamlit query param updates in `AppTest`, and verify raw output with `[m.value for m in at.markdown]`.
 
+## 2024-09-17 - Missing test file for src/api/routers/tables.py
+**Coverage Gap:** The router API module `src/api/routers/tables.py` had tests embedded inside `tests/test_api_endpoints.py`, which conflates integration endpoints tests with the router unit testing.
+**Learning:** Modularly splitting router tests into dedicated test files matching the router's path (e.g. `tests/test_api_routers_tables.py`) ensures that unit tests remain isolated, easy to locate, and maintain focus on individual routers rather than bloat generic endpoint test files. Use `FastAPI.testclient.TestClient` while mocking dependencies for API tests.
+**Assertion:** Follow the AAA pattern to define explicit `# Arrange`, `# Act`, and `# Assert` sections inside new test cases. Move generic routing logic out of the integration endpoints test.
