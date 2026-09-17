@@ -7,6 +7,7 @@ Caching is handled by Redis at the endpoint/tool level instead.
 from __future__ import annotations
 
 import pandas as pd
+import os
 
 from src.config import CATALOG_CACHE, SCHEMA_CACHE
 from src.db.duckdb_adapter import _duckdb_available
@@ -44,6 +45,10 @@ def get_authorized_tables(groups: tuple[str, ...]) -> pd.DataFrame:
     Returns:
         pd.DataFrame: A pandas DataFrame containing authorized table metadata.
     """
+    # Demo/Mock bypass
+    if os.getenv("MOCK_AUTH") == "true":
+        groups = ("Catalog.Read.All",)
+
     ph, params = _group_clause(groups)
     tbl_ovr, _ = _overrides_tables()
     sql = f"""
@@ -104,6 +109,10 @@ def search_metadata(query: str, groups: tuple[str, ...]) -> pd.DataFrame:
     Returns:
         pd.DataFrame: A pandas DataFrame containing search results with match details.
     """
+    # Demo/Mock bypass
+    if os.getenv("MOCK_AUTH") == "true":
+        groups = ("Catalog.Read.All",)
+
     ph, params = _group_clause(groups)
     params["q"] = f"%{query}%"
     tbl_ovr, col_ovr = _overrides_tables()

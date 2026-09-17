@@ -12,6 +12,7 @@ Coverage:
 
 from __future__ import annotations
 
+import os
 from unittest.mock import patch
 
 import pandas as pd
@@ -46,26 +47,44 @@ class TestGroupClause:
         assert params == {"group_0": "g1", "group_1": "g2", "group_2": "g3"}
 
 
+
 # ── get_authorized_tables ─────────────────────────────────────────────────────
 
 class TestGetAuthorizedTables:
     def test_returns_dataframe_from_query(self):
+        # Arrange
         expected = pd.DataFrame([{"full_name": "c.s.t", "catalog_name": "c"}])
         with patch("src.api.queries._base_run_query", return_value=expected) as mock_q:
+            # Act
             result = get_authorized_tables(("g1", "g2"))
-        assert mock_q.call_count == 1
-        sql, params = mock_q.call_args[0]
-        assert "tables_metadata" in sql
-        assert "SELECT_ALL_USERS" in sql
-        assert params["group_0"] == "g1"
-        pd.testing.assert_frame_equal(result, expected)
+            # Assert
+            assert mock_q.call_count == 1
+            sql, params = mock_q.call_args[0]
+            assert "tables_metadata" in sql
+            assert "SELECT_ALL_USERS" in sql
+            assert params["group_0"] == "g1"
+            pd.testing.assert_frame_equal(result, expected)
 
     def test_empty_groups_uses_no_match_placeholder(self):
+        # Arrange
         with patch("src.api.queries._base_run_query", return_value=pd.DataFrame()) as mock_q:
+            # Act
             get_authorized_tables(())
-        sql, params = mock_q.call_args[0]
-        assert "__no_match__" in sql
-        assert params == {}
+            # Assert
+            sql, params = mock_q.call_args[0]
+            assert "__no_match__" in sql
+            assert params == {}
+
+    @patch("os.getenv", return_value="true")
+    def test_mock_auth_bypass(self, mock_getenv):
+        # Arrange
+        with patch("src.api.queries._base_run_query", return_value=pd.DataFrame()) as mock_q:
+            # Act
+            get_authorized_tables(("user_group",))
+            # Assert
+            sql, params = mock_q.call_args[0]
+            assert params["group_0"] == "Catalog.Read.All"
+            assert "group_1" not in params
 
 
 # ── get_authorized_table_names ────────────────────────────────────────────────
@@ -151,29 +170,71 @@ class TestGetTableDetails:
         assert calls[1] == {"fn": "cat.schema.tbl"}
 
 
+
 # ── search_metadata ───────────────────────────────────────────────────────────
 
 class TestSearchMetadata:
     def test_passes_like_param(self):
+        # Arrange
+        expected_query = "revenue"
+        expected_groups = ("g1",)
         with patch("src.api.queries._base_run_query", return_value=pd.DataFrame()) as mock_q:
-            search_metadata("revenue", ("g1",))
-        _, params = mock_q.call_args[0]
-        assert params["q"] == "%revenue%"
+            # Act
+            search_metadata(expected_query, expected_groups)
+            # Assert
+            _, params = mock_q.call_args[0]
+            assert params["q"] == f"%{expected_query}%"
 
     def test_returns_results_dataframe(self):
+        # Arrange
         expected = pd.DataFrame([
             {"full_name": "a.b.c", "name": "revenue_table", "match_type": "Table"}
         ])
         with patch("src.api.queries._base_run_query", return_value=expected):
+            # Act
             result = search_metadata("revenue", ("g1",))
-        pd.testing.assert_frame_equal(result, expected)
+            # Assert
+            pd.testing.assert_frame_equal(result, expected)
 
     def test_sql_contains_union_for_columns(self):
+        # Arrange
         with patch("src.api.queries._base_run_query", return_value=pd.DataFrame()) as mock_q:
+            # Act
             search_metadata("col", ("g1",))
-        sql, _ = mock_q.call_args[0]
-        assert "UNION ALL" in sql
-        assert "columns_metadata" in sql
+            # Assert
+            sql, _ = mock_q.call_args[0]
+            assert "UNION ALL" in sql
+            assert "columns_metadata" in sql
+
+    @patch("os.getenv", return_value="true")
+    def test_mock_auth_bypass(self, mock_getenv):
+        # Arrange
+        with patch("src.api.queries._base_run_query", return_value=pd.DataFrame()) as mock_q:
+            # Act
+            search_metadata("query", ("user_group",))
+            # Assert
+            sql, params = mock_q.call_args[0]
+            assert params["group_0"] == "Catalog.Read.All"
+            assert "group_1" not in params
+
+    def test_empty_query_string(self):
+        # Arrange
+        with patch("src.api.queries._base_run_query", return_value=pd.DataFrame()) as mock_q:
+            # Act
+            search_metadata("", ("g1",))
+            # Assert
+            _, params = mock_q.call_args[0]
+            assert params["q"] == "%%"
+
+    def test_special_characters_in_query(self):
+        # Arrange
+        special_query = "test_%_and_*"
+        with patch("src.api.queries._base_run_query", return_value=pd.DataFrame()) as mock_q:
+            # Act
+            search_metadata(special_query, ("g1",))
+            # Assert
+            _, params = mock_q.call_args[0]
+            assert params["q"] == f"%{special_query}%"
 
 
 # ── get_lineage ───────────────────────────────────────────────────────────────
