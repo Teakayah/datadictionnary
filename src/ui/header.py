@@ -1,5 +1,3 @@
-from __future__ import annotations
-from typing import Optional
 """UI header and footer components.
 
 Contains the SVG brand constants and the render functions for the
@@ -11,10 +9,12 @@ Public API:
     render_header() — full navigation header with lang toggle
     render_footer() — standard application footer
 """
+from __future__ import annotations
 
-
+from typing import Optional
 import html as _html
 import json as _json
+
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -40,62 +40,27 @@ MS_LOGO_SVG = """<svg width="16" height="16" viewBox="0 0 23 23" fill="none">
 </svg>"""
 
 
-def render_header(user_name: Optional[str] = None, active_tab: str = "search", show_admin: bool = False, show_pipelines: bool = False):
-    _ensure_locale()
-    locale = st.session_state.get("locale", "en")
-
-    user_section = ""
-    if user_name:
-        user_section = f'<span class="dd-nav-sep"></span><span class="dd-nav-user">{_html.escape(user_name)}</span>'
-
-    def link(label, tab_id):
-        active = "active" if active_tab == tab_id else ""
-        return f'<a href="#" data-tab="{tab_id}" class="dd-nav-tab {active}">{label}</a>'
-
-    admin_link     = link(t("nav.admin"),     "admin")     if show_admin     else ""
-    pipelines_link = link(t("nav.pipelines"), "pipelines") if show_pipelines else ""
-
+def _build_lang_toggle(locale: str) -> str:
     en_active = "dd-lang-active" if locale == "en" else ""
-    fr_active  = "dd-lang-active" if locale == "fr" else ""
+    fr_active = "dd-lang-active" if locale == "fr" else ""
     title_en = t("language.switch_to_en")
     title_fr = t("language.switch_to_fr")
-    aria_language = t("nav.aria_language_selector")
-    aria_nav = t("nav.aria_main_navigation")
-    lang_toggle = f'<span class="dd-nav-sep"></span><span class="dd-lang-toggle" aria-label="{aria_language}"><a href="#" data-lang="en" class="dd-lang-opt {en_active}" title="{title_en}">EN</a><span class="dd-lang-sep">/</span><a href="#" data-lang="fr" class="dd-lang-opt {fr_active}" title="{title_fr}">FR</a></span>'
+    aria_lang = t("nav.aria_language_selector")
 
-    st.html(f'''
-<div class="dd-header" lang="{locale}">
-  <div class="dd-header-inner">
-    <a href="#" data-tab="search" class="dd-logo-link">
-      {LOGO_MARK_SVG}
-      <span class="dd-logo-text">{t("common.app_title")}</span>
-      <span class="dd-pill">{t("common.beta")}</span>
-    </a>
-    <nav class="dd-nav" role="navigation" aria-label="{aria_nav}">
-      {link(t("nav.search"), "search")}
-      {link(t("nav.catalog"), "catalog")}
-      {link(t("nav.glossary"), "glossary")}
-      {link(t("nav.discovery"), "discovery")}
-      {link(t("nav.health"), "health")}
-      {pipelines_link}
-      {admin_link}
-      {lang_toggle}
-      {user_section}
-    </nav>
-  </div>
-</div>
-''')
+    return (
+        f'<span class="dd-nav-sep"></span>'
+        f'<span class="dd-lang-toggle" aria-label="{aria_lang}">'
+        f'<a href="#" data-lang="en" class="dd-lang-opt {en_active}" title="{title_en}">EN</a>'
+        f'<span class="dd-lang-sep">/</span>'
+        f'<a href="#" data-lang="fr" class="dd-lang-opt {fr_active}" title="{title_fr}">FR</a>'
+        f'</span>'
+    )
 
-    # Hidden Streamlit nav/lang proxy buttons — JS clicks these; the container is
-    # hidden immediately via CSS :has(#dd-proxy-anchor) so they never flash.
-    _tabs = ["search", "catalog", "glossary", "discovery", "health"]
-    if show_pipelines:
-        _tabs.append("pipelines")
-    if show_admin:
-        _tabs.append("admin")
+
+def _render_proxy_buttons(tabs: list[str]) -> None:
     with st.container():
         st.markdown('<div id="dd-proxy-anchor"></div>', unsafe_allow_html=True)
-        for tab_id in _tabs:
+        for tab_id in tabs:
             if st.button(t(f"nav.{tab_id}"), key=f"nav_{tab_id}"):
                 st.query_params["tab"] = tab_id
                 st.rerun()
@@ -103,19 +68,19 @@ def render_header(user_name: Optional[str] = None, active_tab: str = "search", s
         st.button("LOCALE_EN", key="lang_btn_en", on_click=set_locale, args=("en",))
         st.button("LOCALE_FR", key="lang_btn_fr", on_click=set_locale, args=("fr",))
 
-    # Zero-height iframe: wires nav clicks → hidden Streamlit buttons,
-    # and wires language toggle clicks → hidden lang proxy buttons.
-    _tab_map = {tid: t(f"nav.{tid}") for tid in _tabs}
-    _tab_map_js = _json.dumps(_tab_map)
-    _nav_labels_js = _json.dumps(list(_tab_map.values()))
+
+def _inject_wiring_js(tabs: list[str]) -> None:
+    tab_map = {tid: t(f"nav.{tid}") for tid in tabs}
+    tab_map_js = _json.dumps(tab_map)
+    nav_labels_js = _json.dumps(list(tab_map.values()))
 
     components.html(f"""
     <div style="display:none;">
     <script>
     (function() {{
         const parentDoc = window.parent.document;
-        const NAV_LABELS = {_nav_labels_js};
-        const TAB_MAP = {_tab_map_js};
+        const NAV_LABELS = {nav_labels_js};
+        const TAB_MAP = {tab_map_js};
         const iframeId = Math.random().toString(36);
 
         function wire() {{
@@ -162,6 +127,65 @@ def render_header(user_name: Optional[str] = None, active_tab: str = "search", s
     </script>
     </div>
     """, height=0)
+
+
+def render_header(
+    user_name: Optional[str] = None,
+    active_tab: str = "search",
+    show_admin: bool = False,
+    show_pipelines: bool = False
+) -> None:
+    """Render the application header with navigation and locale toggle."""
+    _ensure_locale()
+    locale = st.session_state.get("locale", "en")
+
+    user_section = ""
+    if user_name:
+        user_section = (
+            f'<span class="dd-nav-sep"></span>'
+            f'<span class="dd-nav-user">{_html.escape(user_name)}</span>'
+        )
+
+    def link(label: str, tab_id: str) -> str:
+        active = "active" if active_tab == tab_id else ""
+        return f'<a href="#" data-tab="{tab_id}" class="dd-nav-tab {active}">{label}</a>'
+
+    admin_link = link(t("nav.admin"), "admin") if show_admin else ""
+    pipelines_link = link(t("nav.pipelines"), "pipelines") if show_pipelines else ""
+    lang_toggle = _build_lang_toggle(locale)
+    aria_nav = t("nav.aria_main_navigation")
+
+    st.html(f'''
+<div class="dd-header" lang="{locale}">
+  <div class="dd-header-inner">
+    <a href="#" data-tab="search" class="dd-logo-link">
+      {LOGO_MARK_SVG}
+      <span class="dd-logo-text">{t("common.app_title")}</span>
+      <span class="dd-pill">{t("common.beta")}</span>
+    </a>
+    <nav class="dd-nav" role="navigation" aria-label="{aria_nav}">
+      {link(t("nav.search"), "search")}
+      {link(t("nav.catalog"), "catalog")}
+      {link(t("nav.glossary"), "glossary")}
+      {link(t("nav.discovery"), "discovery")}
+      {link(t("nav.health"), "health")}
+      {pipelines_link}
+      {admin_link}
+      {lang_toggle}
+      {user_section}
+    </nav>
+  </div>
+</div>
+''')
+
+    tabs = ["search", "catalog", "glossary", "discovery", "health"]
+    if show_pipelines:
+        tabs.append("pipelines")
+    if show_admin:
+        tabs.append("admin")
+
+    _render_proxy_buttons(tabs)
+    _inject_wiring_js(tabs)
 
 
 def render_footer() -> None:
