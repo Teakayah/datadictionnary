@@ -89,7 +89,11 @@ async def set(key: str, value: Any, ttl: int = 300) -> None:
     try:
         await client.setex(key, ttl, json.dumps(value, default=str))
     except Exception as exc:
-        logger.debug("Redis SET error: %s", exc)
+        import redis
+        if isinstance(exc, redis.RedisError):
+            print(f"Redis set error for {key}: {exc}")
+        else:
+            logger.debug("Redis SET error: %s", exc)
 
 
 async def delete(key: str) -> None:

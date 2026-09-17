@@ -118,11 +118,20 @@ class TestSet:
         assert json.loads(args[0][2]) == [1, 2, 3]
 
     def test_swallows_redis_error(self, monkeypatch):
+        # Arrange
+        import redis
         monkeypatch.setenv("REDIS_URL", "redis://localhost:6379")
         mock_client = AsyncMock()
-        mock_client.setex = AsyncMock(side_effect=Exception("timeout"))
+        error = redis.RedisError("timeout")
+        mock_client.setex = AsyncMock(side_effect=error)
+
+        # Act
         with patch("redis.asyncio.from_url", return_value=mock_client):
-            _run(rc.set("key", {"x": 1}))  # should not raise
+            with patch("builtins.print") as mock_print:
+                _run(rc.set("key", {"x": 1}))
+
+        # Assert
+        mock_print.assert_called_once_with("Redis set error for key: timeout")
 
 
 # ── delete ────────────────────────────────────────────────────────────────────
