@@ -81,3 +81,6 @@
 ## 2024-08-26 - Optimize boolean array indexing
 **Learning:** When assigning values to an array or pandas Series based on multiple conditions, using sequential boolean mask indexing (e.g., `arr[mask] = val`) creates slower row-by-row mapping bottlenecks and unnecessary intermediate array creation.
 **Action:** Always prefer a single nested `np.where(cond1, val1, np.where(cond2, val2, default))` expression over sequential boolean mask indexing for better vectorization performance.
+## 2026-09-17 - Vectorized deletion using DuckDB JSON extension
+**Learning:** Using DuckDB's `json_extract_string(payload_json, '$.column_name')` function provides significantly better performance than the shorthand `->>` operator when evaluating JSON predicates in vectorized queries.
+**Action:** Replaced `payload_json->>'column_name'` with `json_extract_string(payload_json, '$.column_name')` in `src/sync/push.py` to fix N+1 performance issues during metadata sync cleanup.
