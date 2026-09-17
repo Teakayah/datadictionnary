@@ -435,26 +435,42 @@ def update_existing_html(filename):
     title = title_match.group(1) if title_match else "Documentation"
     
     # Extract main content
-    # Look for content after the hero section (which ends with </section>)
-    # and before the footer (which starts with <footer or <!-- Footer)
-    body_match = re.search(r'</section>\s*(.*?)(\s*<footer|\s*<!-- Footer)', content, re.DOTALL)
+    body_match = re.search(r'</header>\s*(?:<section class="hero">.*?</section>\s*)?(.*?)(\s*<footer|\s*<!-- Footer)', content, re.DOTALL)
     
     if not body_match:
-        # Try after </nav> (TOC) if no hero section end found or if hero was different
+        body_match = re.search(r'</section>\s*(.*?)(\s*<footer|\s*<!-- Footer)', content, re.DOTALL)
+    if not body_match:
         body_match = re.search(r'</nav>\s*(.*?)(\s*<footer|\s*<!-- Footer)', content, re.DOTALL)
-    
+
+    if not body_match:
+        # Fallback 1: Try inside <article> or <main>
+        body_match = re.search(r'<(?:article|main)[^>]*>(.*?)</(?:article|main)>', content, re.DOTALL)
+
     if body_match:
         body = body_match.group(1)
-        # Clean up some old tags if they exist
-        body = re.sub(r'<div class="page">', '', body)
-        # We don't want to blindly remove the TOC from existing HTML anymore
-        # as it might be a hand-crafted or previously correct one.
-        # body = re.sub(r'<nav class="toc">.*?</nav>', '', body, flags=re.DOTALL)
-        body = re.sub(r'<hr>', '<hr>', body) # Keep hr
     else:
-        # Fallback: just use the whole body and let the user fix it if it's too messy
-        print(f"Warning: Could not extract body for {filename}")
-        return
+        # Fallback 2: Try <body> tag
+        body_fallback = re.search(r'<body[^>]*>(.*?)</body>', content, re.DOTALL)
+        if body_fallback:
+            body = body_fallback.group(1)
+        else:
+            # Final fallback: use the whole content
+            body = content
+
+        # Clean up layout tags since we used a broader fallback
+        body = re.sub(r'<aside[^>]*>.*?</aside>', '', body, flags=re.DOTALL)
+        # Keep TOC, remove other navs
+        body = re.sub(r'<nav(?![^>]*class=\"toc\")[^>]*>.*?</nav>', '', body, flags=re.DOTALL)
+        body = re.sub(r'<header[^>]*>.*?</header>', '', body, flags=re.DOTALL)
+        body = re.sub(r'<footer[^>]*>.*?</footer>', '', body, flags=re.DOTALL)
+        body = re.sub(r'<section class="hero">.*?</section>', '', body, flags=re.DOTALL)
+        body = re.sub(r'<!DOCTYPE.*?>', '', body, flags=re.DOTALL|re.IGNORECASE)
+        body = re.sub(r'<head>.*?</head>', '', body, flags=re.DOTALL|re.IGNORECASE)
+        body = re.sub(r'<html.*?>|</html>', '', body, flags=re.DOTALL|re.IGNORECASE)
+
+    # Clean up some old tags if they exist
+    body = re.sub(r'<div class="page">', '', body)
+    body = re.sub(r'<hr>', '<hr>', body) # Keep hr
 
     cat = CATEGORIES.get(filename, "Guides")
     html = wrap_html(title, body, filename, cat)
