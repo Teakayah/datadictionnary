@@ -237,34 +237,34 @@ def get_column_overrides(table_full_name: str) -> dict:
     return {}
 
 
-def _upsert_column_override(override: ColumnOverride) -> None:
-    if is_demo_mode():
-        store = st.session_state.setdefault(_DEMO_BN_KEY, {}).setdefault(override.table_full_name, {})
-        pending_store = st.session_state.setdefault(_DEMO_BN_PENDING_KEY, {})
+def _upsert_column_override_demo(override: ColumnOverride) -> None:
+    store = st.session_state.setdefault(_DEMO_BN_KEY, {}).setdefault(override.table_full_name, {})
+    pending_store = st.session_state.setdefault(_DEMO_BN_PENDING_KEY, {})
 
-        item = {
-            "business_name": override.business_name,
-            "definition":    override.definition,
-            "edited_by":     override.edited_by,
-            "edited_at":     "just now",
-            "status":        override.status,
+    item = {
+        "business_name": override.business_name,
+        "definition":    override.definition,
+        "edited_by":     override.edited_by,
+        "edited_at":     "just now",
+        "status":        override.status,
+    }
+    store[override.column_name] = item
+
+    # Pending items live in a flat dict for O(1) list_pending lookups.
+    key = (override.table_full_name, override.column_name)
+    if override.status == "pending_approval":
+        pending_store[key] = {
+            "table_full_name": override.table_full_name,
+            "column_name":     override.column_name,
+            "business_name":   item.get("business_name", ""),
+            "definition":      item.get("definition", ""),
+            "edited_by":       item.get("edited_by", ""),
+            "edited_at":       item.get("edited_at", ""),
         }
-        store[override.column_name] = item
+    else:
+        pending_store.pop(key, None)
 
-        # Pending items live in a flat dict for O(1) list_pending lookups.
-        key = (override.table_full_name, override.column_name)
-        if override.status == "pending_approval":
-            pending_store[key] = {
-                "table_full_name": override.table_full_name,
-                "column_name":     override.column_name,
-                "business_name":   item.get("business_name", ""),
-                "definition":      item.get("definition", ""),
-                "edited_by":       item.get("edited_by", ""),
-                "edited_at":       item.get("edited_at", ""),
-            }
-        else:
-            pending_store.pop(key, None)
-        return
+def _upsert_column_override_db(override: ColumnOverride) -> None:
     conn = _get_write_connection()
     with conn.cursor() as cursor:
         cursor.execute_write(
@@ -292,6 +292,12 @@ def _upsert_column_override(override: ColumnOverride) -> None:
                 "status":          override.status,
             },
         )
+
+def _upsert_column_override(override: ColumnOverride) -> None:
+    if is_demo_mode():
+        _upsert_column_override_demo(override)
+    else:
+        _upsert_column_override_db(override)
 
 
 def list_pending_business_names() -> list:
@@ -484,28 +490,28 @@ def get_table_business_name_override(table_full_name: str) -> dict:
     return {}
 
 
-def _upsert_table_business_name_override(override: TableBusinessNameOverride) -> None:
-    if is_demo_mode():
-        store = st.session_state.setdefault(_DEMO_TBN_KEY, {})
-        pending_store = st.session_state.setdefault(_DEMO_TBN_PENDING_KEY, {})
-        item = {
-            "business_name_en":       override.business_name_en,
-            "business_name_fr":       override.business_name_fr,
-            "business_definition_en": override.business_definition_en,
-            "business_definition_fr": override.business_definition_fr,
-            "edited_by":              override.edited_by,
-            "edited_at":              "just now",
-            "status":                 override.status,
+def _upsert_table_business_name_override_demo(override: TableBusinessNameOverride) -> None:
+    store = st.session_state.setdefault(_DEMO_TBN_KEY, {})
+    pending_store = st.session_state.setdefault(_DEMO_TBN_PENDING_KEY, {})
+    item = {
+        "business_name_en":       override.business_name_en,
+        "business_name_fr":       override.business_name_fr,
+        "business_definition_en": override.business_definition_en,
+        "business_definition_fr": override.business_definition_fr,
+        "edited_by":              override.edited_by,
+        "edited_at":              "just now",
+        "status":                 override.status,
+    }
+    store[override.table_full_name] = item
+    if override.status == "pending_approval":
+        pending_store[override.table_full_name] = {
+            "table_full_name": override.table_full_name,
+            **{k: v for k, v in item.items() if k != "status"},
         }
-        store[override.table_full_name] = item
-        if override.status == "pending_approval":
-            pending_store[override.table_full_name] = {
-                "table_full_name": override.table_full_name,
-                **{k: v for k, v in item.items() if k != "status"},
-            }
-        else:
-            pending_store.pop(override.table_full_name, None)
-        return
+    else:
+        pending_store.pop(override.table_full_name, None)
+
+def _upsert_table_business_name_override_db(override: TableBusinessNameOverride) -> None:
     conn = _get_write_connection()
     with conn.cursor() as cursor:
         cursor.execute_write(
@@ -538,6 +544,12 @@ def _upsert_table_business_name_override(override: TableBusinessNameOverride) ->
                 "status":  override.status,
             },
         )
+
+def _upsert_table_business_name_override(override: TableBusinessNameOverride) -> None:
+    if is_demo_mode():
+        _upsert_table_business_name_override_demo(override)
+    else:
+        _upsert_table_business_name_override_db(override)
 
 
 def list_pending_table_business_names() -> list:
