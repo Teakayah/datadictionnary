@@ -13,3 +13,6 @@
 ## 2024-08-30 - Google Docstring Styling Programmatic Updates
 **Learning:** When modifying large multiline string blocks like Python docstrings where standard unified `patch` tools frequently fail due to indentation, context, or whitespace mismatches, using a `python -c` script reading the file and using `.replace()` to safely modify the exact text block programmatically is an effective and robust workaround.
 **Action:** Always prefer using inline Python `.replace()` scripts in `run_in_bash_session` to rewrite or append documentation in Python files if standard patching is rejected.
+## 2024-11-20 - Adding "Why It Exists" to regex explainers
+**Learning:** Some regular expressions (e.g., regex used in parsing SQL placeholders in `src/db/duckdb_adapter.py`) include a breakdown of the match pattern but omit the necessary contextual "WHY IT EXISTS" explanation, making the underlying intent and business value of the translation obscured.
+**Action:** Always ensure that when documenting complex regular expressions with a "REGEX BREAKDOWN", it is accompanied by a "WHY IT EXISTS" section explaining the business context or problem it solves.
