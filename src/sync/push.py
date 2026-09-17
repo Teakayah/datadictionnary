@@ -411,18 +411,19 @@ def _process_sync_queue(conn=None) -> int:
         if not rows:
             return 0
 
+        sync_ids = [row[0] for row in rows]
+        # Use DuckDB's ANY() for arrays, supported natively by our adapter via list parameter dict mapping
+        with conn.cursor() as cursor:
+            cursor.execute_write(
+                "UPDATE user_data.pending_sync SET status='syncing', attempts=attempts+1, last_attempt_at=current_localtimestamp() WHERE sync_id = ANY(%(ids)s)",
+                {"ids": sync_ids}
+            )
+
         processed = 0
         for row in rows:
             sync_id, stype, table_fn, payload_str, attempts, queued_by = row
             payload = json.loads(payload_str)
             new_attempts = attempts + 1
-
-            # Optimistic update: mark syncing
-            with conn.cursor() as cursor:
-                cursor.execute_write(
-                    "UPDATE user_data.pending_sync SET status='syncing', attempts=%(att)s, last_attempt_at=current_localtimestamp() WHERE sync_id=%(id)s",
-                    {"att": new_attempts, "id": sync_id},
-                )
 
             try:
                 _push_to_databricks(stype, table_fn, payload)

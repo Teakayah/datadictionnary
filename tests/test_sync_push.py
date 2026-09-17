@@ -336,8 +336,8 @@ class TestProcessSyncQueue:
         mock_push.assert_called_once_with("COLUMN_DEF", "tbl1", {"col": "A"})
 
         mock_cursor.execute_write.assert_any_call(
-            "UPDATE user_data.pending_sync SET status='syncing', attempts=%(att)s, last_attempt_at=current_localtimestamp() WHERE sync_id=%(id)s",
-            {"att": 1, "id": "sync1"}
+            "UPDATE user_data.pending_sync SET status='syncing', attempts=attempts+1, last_attempt_at=current_localtimestamp() WHERE sync_id = ANY(%(ids)s)",
+            {"ids": ["sync1"]}
         )
         mock_cursor.execute_write.assert_any_call(
             "UPDATE user_data.pending_sync SET status='done', completed_at=current_localtimestamp(), last_error=NULL WHERE sync_id=%(id)s",
