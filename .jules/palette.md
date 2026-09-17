@@ -33,3 +33,6 @@
 ## 2024-05-28 - Visual feedback during search
 **Learning:** The catalog search selectbox initiates heavy backend queries upon selection but provides no immediate visual feedback, leaving users unsure if their input was registered.
 **Action:** Wrap synchronous search execution in `st.spinner(t("common.loading"))` to provide immediate visual loading feedback.
+## 2024-11-20 - Standardize empty states for data previews
+**Learning:** Generic info blocks are sometimes still used instead of the shared empty state UI utility for empty states (e.g. data preview needs data).
+**Action:** Use the custom empty state component for data previews to standardize visuals and improve accessibility.
