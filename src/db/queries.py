@@ -62,6 +62,25 @@ def business_definition_expr(table_alias: str = "m") -> str:
     return f"{table_alias}.{col}"
 
 
+
+def _build_auth_filters(groups: list | tuple) -> tuple[str, dict]:
+    """Helper to build authorization SQL and params for queries."""
+    if not groups:
+        return "''", {}
+
+    group_placeholders = ", ".join(f"%(group_{i})s" for i in range(len(groups)))
+    params = {f"group_{i}": group for i, group in enumerate(groups)}
+
+    return group_placeholders, params
+
+
+def _get_override_table_name(table_type: str = "table_metadata") -> str:
+    """Helper to resolve the override table name based on DuckDB availability."""
+    if _duckdb_available():
+        return f"user_data.{table_type}_overrides"
+    return f"{CATALOG_CACHE}.{SCHEMA_CACHE}.{table_type}_overrides"
+
+
 def _get_write_connection():
     """Return a DuckDB connection for write operations.
 
@@ -183,18 +202,8 @@ def get_authorized_tables(groups):
     """
     if is_demo_mode():
         return _DEMO_TABLES
-    group_placeholders = (
-        ", ".join(f"%(group_{i})s" for i in range(len(groups))) if groups else "''"
-    )
-    params: dict = {}
-    if groups:
-        for i, group in enumerate(groups):
-            params[f"group_{i}"] = group
-    _table_overrides_tbl = (
-        "user_data.table_metadata_overrides"
-        if _duckdb_available()
-        else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.table_metadata_overrides"
-    )
+    group_placeholders, params = _build_auth_filters(groups)
+    _table_overrides_tbl = _get_override_table_name("table_metadata")
 
     sql_query = (
         """
@@ -346,10 +355,7 @@ def _fetch_metadata_for_fns(full_names: list[str], groups: tuple) -> pd.DataFram
     if not full_names:
         return pd.DataFrame()
     
-    group_placeholders = (
-        ", ".join(f"%(group_{i})s" for i in range(len(groups))) if groups else "''"
-    )
-    params = {f"group_{i}": g for i, g in enumerate(groups)}
+    group_placeholders, params = _build_auth_filters(groups)
     params["fns"] = full_names
 
     sql = f"""
@@ -399,23 +405,11 @@ def _search_keywords(query: str, groups: tuple):
 
     logging.info("GLOBAL SEARCH query=%s groups=%s", query, groups)
 
-    group_placeholders = (
-        ", ".join(f"%(group_{i})s" for i in range(len(groups))) if groups else "''"
-    )
-    params: dict = {f"group_{i}": g for i, g in enumerate(groups)} if groups else {}
+    group_placeholders, params = _build_auth_filters(groups)
     params["q"] = f"%{query}%"
 
-    _overrides_tbl = (
-        "user_data.business_name_overrides"
-        if _duckdb_available()
-        else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
-    )
-
-    _table_overrides_tbl = (
-        "user_data.table_metadata_overrides"
-        if _duckdb_available()
-        else f"{CATALOG_CACHE}.{SCHEMA_CACHE}.table_metadata_overrides"
-    )
+    _overrides_tbl = _get_override_table_name("business_name")
+    _table_overrides_tbl = _get_override_table_name("table_metadata")
 
     _bn_expr  = business_name_expr("m")
     _bdf_expr = business_definition_expr("m")
