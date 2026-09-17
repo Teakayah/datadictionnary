@@ -47,7 +47,10 @@ def test_merge_into_local_fallback_loop():
     df = pd.DataFrame({"id": [1, 2], "val": ["a", "b"]})
     _merge_into_local(mock_conn, "comments", df)
 
-    assert mock_cur.execute_write.call_count == 2
+    assert mock_cur.executemany_write.call_count == 1
+    args, _ = mock_cur.executemany_write.call_args
+    assert "INSERT OR IGNORE" in args[0]
+    assert len(args[1]) == 2
 
 def test_merge_into_local_duckdb_native():
     mock_conn = MagicMock()
