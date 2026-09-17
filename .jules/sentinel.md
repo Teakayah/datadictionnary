@@ -50,3 +50,10 @@
 **Vulnerability:** Cross-Site Scripting (XSS) via unescaped localized strings from `t()` in Streamlit `unsafe_allow_html` blocks.
 **Learning:** Even if inner interpolation variables are escaped, the translated strings themselves may contain unescaped characters (like apostrophes) that can introduce XSS or break HTML when injected into raw HTML blocks via `st.markdown(..., unsafe_allow_html=True)`.
 **Prevention:** Always wrap the entire translation output in `_html.escape(t(...))` before injecting it into HTML strings when `unsafe_allow_html=True` is used.
+## 2024-05-24 - Fix SQL Injection in DuckDB ATTACH
+
+**Vulnerability:** A SQL injection vulnerability existed in DuckDB ATTACH statements due to reliance on random dollar-quoting tags (e.g., `$t...$`). If an attacker crafted a path starting with the exact same tag, it would close the literal prematurely, enabling arbitrary SQL command execution.
+
+**Learning:** Dollar quoting with random tags is susceptible to injection if the string content can match or guess the tag structure. While probability is low with a cryptographic random tag, an attacker controlling the string can structure the payload to match the fixed pattern (e.g., prefixing with `$t...$`), bypassing the escaping entirely if the tag evaluates in a predictable way or if the attacker guesses it. Proper escaping of single quotes (e.g., replacing `'` with `''`) and wrapping the string in single quotes is the standard and most secure method for string literals in SQL databases when prepared statements aren't fully supported for the target syntax like ATTACH paths.
+
+**Prevention:** Always use standard string literal escaping rules (e.g., doubling single quotes) and wrap the value in single quotes when interpolating strings into SQL queries where parameterization is unsupported.
