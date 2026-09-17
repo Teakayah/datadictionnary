@@ -40,6 +40,97 @@ def render_discovery_page_app_empty():
         render_discovery(["finance", "sales"])
 
 class TestDiscoveryTabs:
+    @patch("src.ui.cards.discovery.st.segmented_control")
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_bookmarks_tab_col_bookmark_unauthorized(self, mock_get_posts, mock_seg_ctrl):
+        mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = "bookmarks"
+
+        at = AppTest.from_function(render_discovery_page_app_empty).run()
+        at.session_state["bookmarks"] = set()
+        at.session_state["col_bookmarks"] = {"unauthorized.table::col1"}
+        at.run()
+
+        assert not at.exception
+
+    @patch("src.ui.cards.discovery.st.segmented_control")
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_no_tab_selected_defaults_to_notable(self, mock_get_posts, mock_seg_ctrl):
+        # Line 255: if _disc_active is None: _disc_active = "notable"
+        mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = None
+        at = AppTest.from_function(render_discovery_page_app).run()
+
+        at.run()
+
+        # Verify it defaults to notable
+        html = [m.value for m in at.markdown]
+        assert any(en_locale["personalization"]["tab_notable"] in val for val in html)
+
+    @patch("src.ui.cards.discovery.st.segmented_control")
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_empty_groups_render_no_groups(self, mock_get_posts, mock_seg_ctrl):
+        # Lines 279-280: if not primary_group or primary_group == "none": _render_empty_state(...)
+        mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = "notable"
+
+        def app_wrapper():
+            from src.ui.cards.discovery import render_discovery
+            render_discovery(["none"])
+
+        at = AppTest.from_function(app_wrapper).run()
+        at.run()
+
+        html = [m.value for m in at.markdown]
+        assert any(en_locale["discovery"]["no_groups"] in val for val in html)
+
+    @patch("src.ui.cards.discovery.st.segmented_control")
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_bookmarks_tab_all_unauthorized(self, mock_get_posts, mock_seg_ctrl):
+        # Line 316: _render_empty_state("★", t("personalization.no_bookmarks"))
+        mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = "bookmarks"
+        at = AppTest.from_function(render_discovery_page_app).run()
+
+        # User has bookmarks, but authorized tables is mock_get_auth_tables which returns something
+        # Let's ensure the intersection is empty.
+        at.session_state["bookmarks"] = {"unauthorized.table"}
+        at.run()
+
+        html = [m.value for m in at.markdown]
+        assert any(en_locale["personalization"]["no_bookmarks"] in val for val in html)
+
+    @patch("src.ui.cards.discovery.st.segmented_control")
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_bookmarks_tab_col_bookmark_malformed_and_unauthorized(self, mock_get_posts, mock_seg_ctrl):
+        # Line 340: continue (if "::" not in _bk_id)
+        # Line 343: continue (if parent table not authorized)
+        mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = "bookmarks"
+        at = AppTest.from_function(render_discovery_page_app_empty).run()
+
+        # "malformed" (no ::) and "unauthorized::col"
+        at.session_state["col_bookmarks"] = {"malformed", "unauth.table::col1"}
+        at.run()
+
+        # It shouldn't crash and both lines should be covered!
+        assert not at.exception
+
+
+    @patch("src.ui.cards.discovery.st.segmented_control")
+    @patch("src.ui.cards.discovery.get_active_posts")
+    def test_discovery_recent_tab_all_unauthorized(self, mock_get_posts, mock_seg_ctrl):
+        # Line 461: _render_empty_state("⏱", t("personalization.no_recent"))
+        mock_get_posts.return_value = []
+        mock_seg_ctrl.return_value = "recent"
+        at = AppTest.from_function(render_discovery_page_app).run()
+
+        at.session_state["recent_views"] = ["unauthorized.table"]
+        at.run()
+
+        html = [m.value for m in at.markdown]
+        assert any(en_locale["personalization"]["no_recent"] in val for val in html)
+
     @patch("src.ui.cards.discovery.get_active_posts")
     def test_discovery_tabs_render_notable(self, mock_get_posts):
         mock_get_posts.return_value = []
@@ -337,7 +428,6 @@ class TestDiscoveryTabs:
         at.run()
 
         assert any(en_locale["discovery"]["no_updates"] in m.value for m in at.markdown)
-
 
 @patch("src.ui.cards.discovery.get_unread_notifications")
 @patch("src.ui.cards.discovery.mark_read")

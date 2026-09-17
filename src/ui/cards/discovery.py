@@ -292,8 +292,6 @@ def _render_notable_tab(groups):
         except Exception as e:
             logging.error("Error in discovery tab: %s", e)
             st.error(t("discovery.load_error"))
-    else:
-        _render_empty_state("🔒", t("discovery.sign_in_prompt"))
 
 
 def _render_bookmarks_tab(groups):

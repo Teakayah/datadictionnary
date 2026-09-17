@@ -133,3 +133,7 @@ Assertion: Use `cur_mock = MagicMock(); conn.cursor.return_value.__enter__.retur
 **Learning:** Checking query parameters after clicking a navigation button in an AppTest can result in either a string or list of strings being returned depending on Streamlit versions/mocks. Also, `st.markdown` needs to be validated properly by asserting against generated raw HTML blocks using `any()`.
 **Assertion:** Always check for substring inclusion (e.g., `"search" in at.query_params["tab"]`) instead of exact list equality when testing Streamlit query param updates in `AppTest`, and verify raw output with `[m.value for m in at.markdown]`.
 
+## 2026-09-17 - Missing Tests for discovery.py
+Coverage Gap: Missing line coverage and unreachable code logic in `src/ui/cards/discovery.py` caused several lines to remain untested.
+Learning: Python `AppTest` requires simulating `st.session_state` properly for keys like `col_bookmarks`. Since some logic used an early return `if not primary_group or primary_group == "none": return`, the `else:` branch beneath it was mathematically unreachable. Removing dead code resolves coverage gaps when mocking impossible states isn't viable.
+Assertion: Ensure correct session keys (e.g. `col_bookmarks` vs `bookmarks`) are updated in `at.session_state` and verify mathematically unreachable branch conditions to prune dead code and enhance coverage cleanly.
