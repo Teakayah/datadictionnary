@@ -525,9 +525,9 @@ def test_notify_bookmarkers_success():
     assert "user_data.user_preferences" in cur_mock.execute.call_args[0][0]
 
     # Check that we only inserted one notification for the other user
-    assert cur_mock.execute_write.call_count == 1
-    call_args = cur_mock.execute_write.call_args[0]
-    assert call_args[1][1] == "user_other"
+    assert cur_mock.executemany_write.call_count == 1
+    call_args = cur_mock.executemany_write.call_args[0]
+    assert call_args[1][0][1] == "user_other"
 
 def test_notify_bookmarkers_empty():
     conn = MagicMock()

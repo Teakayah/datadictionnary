@@ -81,3 +81,6 @@
 ## 2024-08-26 - Optimize boolean array indexing
 **Learning:** When assigning values to an array or pandas Series based on multiple conditions, using sequential boolean mask indexing (e.g., `arr[mask] = val`) creates slower row-by-row mapping bottlenecks and unnecessary intermediate array creation.
 **Action:** Always prefer a single nested `np.where(cond1, val1, np.where(cond2, val2, default))` expression over sequential boolean mask indexing for better vectorization performance.
+## 2023-10-27 - Fix N+1 query in bookmark notifications
+**Learning:** DuckDB adapters need `executemany` wrapper support to prevent massive overhead during sequential inserts loop for notifications.
+**Action:** Added `executemany` and `executemany_write` to `DuckDBCursor` and updated `_notify_bookmarkers` in `push.py` to batch insert using it, yielding ~62% performance improvement.

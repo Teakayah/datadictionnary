@@ -347,19 +347,23 @@ def _notify_bookmarkers(conn, table_full_name: str, sync_type: str, payload: dic
         summary = _build_summary(sync_type, payload)
         now = datetime.now(timezone.utc).replace(tzinfo=None)
 
+        params_list = []
         for (user_oid,) in rows:
             if user_oid == changed_by:
                 continue
             nid = str(uuid.uuid4())
+            params_list.append([nid, user_oid, table_full_name, sync_type, changed_by, summary, now])
+
+        if params_list:
             with conn.cursor() as cur:
-                cur.execute_write(
+                cur.executemany_write(
                     """
                     INSERT INTO user_data.notifications
                         (notification_id, user_oid, table_full_name, change_type,
                          changed_by, summary, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
-                    [nid, user_oid, table_full_name, sync_type, changed_by, summary, now],
+                    params_list,
                 )
     except Exception as exc:
         logging.warning(

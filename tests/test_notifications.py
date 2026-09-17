@@ -64,8 +64,8 @@ class TestNotifyBookmarkers:
         conn, cursor = _make_conn([("user-a",), ("user-b",)])
         _notify_bookmarkers(conn, "cat.s.t", "TABLE_DESC", {}, changed_by="user-a")
         # user-a is the actor — only user-b gets a notification
-        assert cursor.execute_write.call_count == 1
-        args = cursor.execute_write.call_args[0][1]
+        assert cursor.executemany_write.call_count == 1
+        args = cursor.executemany_write.call_args[0][1][0]
         assert args[1] == "user-b"          # user_oid
         assert args[2] == "cat.s.t"         # table_full_name
         assert args[3] == "TABLE_DESC"       # change_type
@@ -79,7 +79,7 @@ class TestNotifyBookmarkers:
     def test_inserts_for_all_bookmarkers_when_actor_not_in_list(self):
         conn, cursor = _make_conn([("user-x",), ("user-y",)])
         _notify_bookmarkers(conn, "cat.s.t", "COLUMN_DEF", {"column_name": "id"}, changed_by="someone-else")
-        assert cursor.execute_write.call_count == 2
+        assert cursor.executemany_write.call_count == 1
 
     def test_swallows_db_errors(self):
         conn = MagicMock()
@@ -91,7 +91,7 @@ class TestNotifyBookmarkers:
         conn, cursor = _make_conn([("user-b",)])
         payload = {"column_name": "amount"}
         _notify_bookmarkers(conn, "cat.s.t", "COLUMN_DEF", payload, changed_by="actor")
-        args = cursor.execute_write.call_args[0][1]
+        args = cursor.executemany_write.call_args[0][1][0]
         summary = args[5]
         assert "amount" in summary
 
