@@ -50,3 +50,8 @@
 **Vulnerability:** Cross-Site Scripting (XSS) via unescaped localized strings from `t()` in Streamlit `unsafe_allow_html` blocks.
 **Learning:** Even if inner interpolation variables are escaped, the translated strings themselves may contain unescaped characters (like apostrophes) that can introduce XSS or break HTML when injected into raw HTML blocks via `st.markdown(..., unsafe_allow_html=True)`.
 **Prevention:** Always wrap the entire translation output in `_html.escape(t(...))` before injecting it into HTML strings when `unsafe_allow_html=True` is used.
+
+## 2024-05-24 - DuckDB ATTACH Path Parameterization Limitations
+**Vulnerability:** SQL Injection in DuckDB `ATTACH` command paths.
+**Learning:** DuckDB does not support parameter binding (e.g., `?`) for paths in `ATTACH` commands. Additionally, dollar quoting (`$tag$...$tag$`) is brittle and can be bypassed or fail if dynamically generated tags aren't handled correctly.
+**Prevention:** When dynamically building `ATTACH` statements, use standard single quotes (`'`) for string literals and rigorously sanitize the user-controlled path variable by removing null bytes (`\x00`) and escaping single quotes (`.replace("'", "''")`).
