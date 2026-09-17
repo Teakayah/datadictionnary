@@ -232,8 +232,7 @@ _SCHEMA_STATEMENTS = (
 
 def _initialize_schema(con):
     """Initialize user data tables with primary keys (if they don't exist)."""
-    for statement in _SCHEMA_STATEMENTS:
-        con.execute(statement)
+    con.execute(";\n".join(_SCHEMA_STATEMENTS))
 
 
 def _get_shared_duckdb_connection():
