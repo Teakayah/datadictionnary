@@ -621,3 +621,27 @@ def test_silence_streamlit_warnings():
     assert logging.getLogger("streamlit").level == logging.ERROR
     assert logging.getLogger("streamlit.runtime.caching.cache_data_api").level == logging.ERROR
     assert logging.getLogger("streamlit.runtime.caching.cache_resource_api").level == logging.ERROR
+
+def test_record_heartbeat_error_does_not_crash():
+    # Arrange
+    import pytest
+    from src.sync.daemon import _record_heartbeat
+    import src.sync.daemon as daemon
+    from unittest.mock import MagicMock, patch
+
+    mock_conn = MagicMock()
+
+    def boom(*args, **kwargs):
+        raise Exception("Database error")
+
+    # Act
+    with patch.object(daemon, "_set_status", side_effect=boom), \
+         patch.object(daemon, "log") as mock_log:
+        try:
+            _record_heartbeat(mock_conn)
+        except Exception:
+            pytest.fail("Exception propagated out of heartbeat function")
+
+    # Assert
+    mock_log.error.assert_called()
+    assert "Failed to write heartbeat" in mock_log.error.call_args[0][0]
