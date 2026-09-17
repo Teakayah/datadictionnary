@@ -314,6 +314,18 @@ class _DuckDBCursor:
         else:
             self._rel = self._con.execute(sql, params)
 
+    def executemany_write(self, sql: str, params=None):
+        """Thread-safe batch write execution wrapped in a lock."""
+        if self._con is None:
+            return
+        with _db_write_lock:
+            self._con.executemany(sql, params)
+
+    def executemany(self, sql: str, params=None):
+        if self._con is None:
+            return
+        self._con.executemany(sql, params)
+
     def execute_write(self, sql: str, params=None):
         """Thread-safe write execution wrapped in a lock."""
         with _db_write_lock:
