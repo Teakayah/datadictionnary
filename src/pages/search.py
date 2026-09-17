@@ -696,17 +696,18 @@ def render_search_page(query_groups: tuple) -> None:
             f'{t("search.results_count", count=len(_gr))}</p>',
             unsafe_allow_html=True,
         )
-        for _i, _row in enumerate(_results_to_show.itertuples(index=False)):
-            _fn = str(getattr(_row, "full_name", ""))
+        # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration over pre-computed list of dicts
+        for _i, _row in enumerate(_results_to_show.to_dict('records')):
+            _fn = str(_row.get("full_name", ""))
             if not _fn or _fn == "nan" or _fn == "None":
                 continue
             _gc, _gb = st.columns([5, 1], gap="small", vertical_alignment="top")
             with _gc:
-                _render_result_card(_fn, str(getattr(_row, "name", "") or getattr(_row, "table_name", "")), str(getattr(_row, "description", "") or ""), "Table", str(getattr(_row, "dq_score", "") or ""))
+                _render_result_card(_fn, str(_row.get("name") or _row.get("table_name", "")), str(_row.get("description") or ""), "Table", str(_row.get("dq_score") or ""))
             with _gb:
                 if st.button(f"{t('search.view_details')} →", key=f"gview_{_fn}_{_i}", help=t("search.view_details_help"), use_container_width=True):
                     if _fn in _auth_full_names:
-                        st.session_state["dd_search_override"] = str(getattr(_row, "name", "") or getattr(_row, "table_name", ""))
+                        st.session_state["dd_search_override"] = str(_row.get("name") or _row.get("table_name", ""))
                         st.session_state["dd_nav_select"] = _fn
                         st.rerun()
                     else:
@@ -752,13 +753,14 @@ def render_search_page(query_groups: tuple) -> None:
                         f'{t("search.results_count", count=len(results))}</p>',
                         unsafe_allow_html=True,
                     )
-                    for _sr_i, _sr in enumerate(_results_to_show.itertuples(index=False)):
-                        _fn = _s(getattr(_sr, "full_name", None))
+                    # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration over pre-computed list of dicts
+                    for _sr_i, _sr in enumerate(_results_to_show.to_dict('records')):
+                        _fn = _s(_sr.get("full_name"))
                         if not _fn or _fn == "nan" or _fn == "None":
                             continue
                         _card_col, _btn_col = st.columns([5, 1], gap="small", vertical_alignment="top")
                         with _card_col:
-                            _render_result_card(_fn, _s(getattr(_sr, "name", None)), _s(getattr(_sr, "description", None)), _s(getattr(_sr, "match_type", None)), _s(getattr(_sr, "dq_score", "")))
+                            _render_result_card(_fn, _s(_sr.get("name")), _s(_sr.get("description")), _s(_sr.get("match_type")), _s(_sr.get("dq_score", "")))
                         with _btn_col:
                             if st.button(f"{t('search.view_details')} →", key=f"view_{_fn}_{_sr_i}", help=t("search.view_details_help"), use_container_width=True):
                                 if _fn in _auth_full_names:
