@@ -319,6 +319,17 @@ class _DuckDBCursor:
         with _db_write_lock:
             self.execute(sql, params)
 
+    def executemany(self, sql: str, params=None):
+        if self._con is None:
+            self._rel = None
+            return
+        self._rel = self._con.executemany(sql, params)
+
+    def executemany_write(self, sql: str, params=None):
+        """Thread-safe write execution wrapped in a lock."""
+        with _db_write_lock:
+            self.executemany(sql, params)
+
     def fetchall(self):
         if self._rel is None:
             return []

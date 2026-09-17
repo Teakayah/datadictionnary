@@ -81,3 +81,6 @@
 ## 2024-08-26 - Optimize boolean array indexing
 **Learning:** When assigning values to an array or pandas Series based on multiple conditions, using sequential boolean mask indexing (e.g., `arr[mask] = val`) creates slower row-by-row mapping bottlenecks and unnecessary intermediate array creation.
 **Action:** Always prefer a single nested `np.where(cond1, val1, np.where(cond2, val2, default))` expression over sequential boolean mask indexing for better vectorization performance.
+## 2024-05-13 - Replace loop row-by-row queries with executemany
+**Learning:** Using `executemany` over row-by-row iterations for DuckDB write adapters significantly speeds up bulk insertion operations and resolves N+1 loop performance bottlenecks, while maintaining thread safety via a shared lock.
+**Action:** Added `executemany` and `executemany_write` to `_DuckDBCursor` and modified `dr_resync` to leverage it for bulk insertion instead of `for row in df.itertuples(...)` with `execute_write`.
