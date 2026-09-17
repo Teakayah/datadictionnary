@@ -58,6 +58,12 @@ def get_locale() -> str:
         return "en"
 
 
+def get_current_locale() -> str:
+    """Get the current active locale from session state, defaulting to English."""
+    _ensure_locale()
+    return st.session_state.get("locale", "en")
+
+
 def _ensure_locale() -> None:
     if "locale" not in st.session_state:
         st.session_state["locale"] = get_locale()
@@ -72,8 +78,7 @@ def format_number(val: int | float) -> str:
     Returns:
         str: The localized number string with appropriate decimal and thousand separators.
     """
-    _ensure_locale()
-    lang = st.session_state.get("locale", "en")
+    lang = get_current_locale()
 
     # Very basic locale-aware formatting using standard python string formatting
     if lang == "fr":
@@ -139,8 +144,7 @@ def t(key: str, **kwargs) -> str:
     Returns:
         str: The translated and formatted string.
     """
-    _ensure_locale()
-    lang = st.session_state.get("locale", "en")
+    lang = get_current_locale()
 
     # Pluralization support
     count_vars = ["count", "n"]

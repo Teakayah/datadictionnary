@@ -15,6 +15,7 @@ import os
 import pandas as pd
 import numpy as np
 import streamlit as st
+from src.i18n import get_current_locale
 import logging
 from src.config import is_demo_mode, CATALOG_CACHE, SCHEMA_CACHE
 from src.demo.data import (
@@ -38,7 +39,7 @@ def _current_locale() -> str:
     by the next query without a process restart.
     """
     try:
-        return st.session_state.get("locale", "en") or "en"
+        return get_current_locale()
     except Exception:
         return "en"
 

@@ -19,7 +19,7 @@ import json as _json
 import streamlit as st
 import streamlit.components.v1 as components
 
-from src.i18n import _ensure_locale, t, set_locale
+from src.i18n import _ensure_locale, t, set_locale, get_current_locale
 
 # ── Logo & icon SVGs (inlined to avoid Streamlit static-file serving issues) ──
 
@@ -43,6 +43,7 @@ MS_LOGO_SVG = """<svg width="16" height="16" viewBox="0 0 23 23" fill="none">
 def _build_lang_toggle(locale: str) -> str:
     en_active = "dd-lang-active" if locale == "en" else ""
     fr_active = "dd-lang-active" if locale == "fr" else ""
+
     title_en = t("language.switch_to_en")
     title_fr = t("language.switch_to_fr")
     aria_lang = t("nav.aria_language_selector")
@@ -136,8 +137,8 @@ def render_header(
     show_pipelines: bool = False
 ) -> None:
     """Render the application header with navigation and locale toggle."""
-    _ensure_locale()
-    locale = st.session_state.get("locale", "en")
+    locale = get_current_locale()
+
 
     user_section = ""
     if user_name:
