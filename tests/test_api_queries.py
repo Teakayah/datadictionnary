@@ -193,6 +193,15 @@ class TestGetLineage:
         assert "RECURSIVE" in sql
         assert "lineage_cache" in sql
 
+    def test_returns_dataframe_from_query(self):
+        # Arrange
+        expected = pd.DataFrame([{"table_full_name": "c.s.t", "direction": "UPSTREAM", "entity_full_name": "c.s.t2", "entity_type": "TABLE", "depth": 1}])
+        with patch("src.api.queries._base_run_query", return_value=expected):
+            # Act
+            result = get_lineage("c.s.t")
+        # Assert
+        pd.testing.assert_frame_equal(result, expected)
+
     def test_default_depth_is_one(self):
         with patch("src.api.queries._base_run_query", return_value=pd.DataFrame()) as mock_q:
             get_lineage("c.s.t")
