@@ -1,14 +1,27 @@
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
-from src.api.main import app
+import os
+import importlib
 
 @pytest.fixture
 def client():
     # Provide the test client with a valid lifespan hook context
     with patch("src.api.main._validate_auth_config"):
+        from src.api.main import app
         with TestClient(app) as client:
             yield client
+
+def test_app_routing_and_cors(client):
+    # Test that CORS headers are applied
+    response = client.options("/health/live", headers={"Origin": "https://example.com", "Access-Control-Request-Method": "GET"})
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "*"
+    assert "GET" in response.headers["access-control-allow-methods"]
+
+    # Test that the lifespan and basic routes are connected properly
+    response = client.get("/health/live")
+    assert response.status_code == 200
 
 def test_security_headers_middleware(client):
     response = client.get("/health/live")
@@ -37,12 +50,9 @@ async def test_security_headers_middleware_not_http_direct():
     mock_app.assert_called_once_with(scope, receive, send)
 
 def test_production_environment_header():
-    import os
-
     original_env = os.environ.get("ENVIRONMENT")
 
     with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
-        import importlib
         import src.api.main
 
         # Test reloading the module strictly, but we must restore it to avoid breaking others

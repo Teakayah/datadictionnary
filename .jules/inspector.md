@@ -118,3 +118,8 @@
 ## 2024-11-20 - Testing dynamic nested component bookmarks
 **Learning:** The nested column bookmarking logic in the UI iterates over dynamically generated `_col_bk_id` keys in `_render_detail_panel`. Tests were missing for this specific flow. It is important to explicitly seed and verify `at.session_state["col_bookmarks"]` sets when simulating interaction with these iterated buttons in `AppTest` because global bookmarks behave differently than localized column ones.
 **Action:** When adding tests for nested/iterated components, ensure their underlying data structures and session state variables are correctly seeded as sets before invoking `AppTest.run()` to prevent `KeyError` or missing test coverage.
+
+## 2026-09-17 - FastAPI Application Setup Coverage
+**Learning:** The root `src/api/main.py` FastAPI file lacked top-level testing for routing inclusion and CORS setup, leaving middleware and API routing configuration untested. Even simple router integrations in FastAPI applications should be explicitly tested to catch silent failures during app initialization.
+**Action:** Added `test_app_routing_and_cors` in `tests/test_api_main.py` to assert the app starts up with the correct lifespan context, explicitly tests CORS headers on an `OPTIONS` request, and verifies that the `live` health check router responds to `GET` requests.
+
