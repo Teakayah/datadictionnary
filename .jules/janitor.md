@@ -18,3 +18,6 @@
 ## 2026-08-24 - Unnecessary complex operation over DataFrame for set extraction
 **Learning:** Found `set(get_authorized_tables(groups)["full_name"].unique().tolist())` which unnecessarily downloads all table columns into a pandas dataframe then does a complex transformation, when a simpler optimized `get_authorized_table_names(groups)` which returns the set directly is available.
 **Action:** Replaced the unoptimized extraction with the optimized `get_authorized_table_names(groups)` in `src/ui/cards/discovery.py`.
+## 2026-09-17 - Consolidate Locale State Fetching
+**Learning:** The application retrieved locale state across multiple files (`src/db/queries.py`, `src/pages/search.py`, `src/ui/header.py`, `src/i18n.py`) directly from `st.session_state.get("locale", "en")`. This approach leads to repeated code and risks missed initialization if `_ensure_locale()` isn't called prior.
+**Action:** Always create a unified getter method (`get_current_locale()`) to encapsulate `session_state` access and ensure prerequisites (like `_ensure_locale()`) are satisfied.

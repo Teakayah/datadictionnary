@@ -19,7 +19,7 @@ import json as _json
 import streamlit as st
 import streamlit.components.v1 as components
 
-from src.i18n import _ensure_locale, t, set_locale
+from src.i18n import _ensure_locale, t, set_locale, get_current_locale
 
 # ── Logo & icon SVGs (inlined to avoid Streamlit static-file serving issues) ──
 
@@ -42,7 +42,7 @@ MS_LOGO_SVG = """<svg width="16" height="16" viewBox="0 0 23 23" fill="none">
 
 def render_header(user_name: Optional[str] = None, active_tab: str = "search", show_admin: bool = False, show_pipelines: bool = False):
     _ensure_locale()
-    locale = st.session_state.get("locale", "en")
+    locale = get_current_locale()
 
     user_section = ""
     if user_name:

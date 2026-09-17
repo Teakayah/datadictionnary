@@ -12,7 +12,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, MAX_BUSINESS_NAME_LEN
-from src.i18n import t
+from src.i18n import t, get_current_locale
 from src.db.queries import (
     get_authorized_tables, search_all_metadata,
     get_multi_hop_lineage, run_query, export_schema_to_csv,
@@ -112,7 +112,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         # Friendly name and definition come from the bilingual UC reference
         # table populated at sync time. Locale switches at runtime are picked
         # up by reading st.session_state on every render.
-        _locale = st.session_state.get("locale", "en") or "en"
+        _locale = get_current_locale()
         _bn_col = "business_name_fr" if _locale == "fr" else "business_name_en"
         _bd_col = "business_definition_fr" if _locale == "fr" else "business_definition_en"
         _friendly = row.get(_bn_col) if hasattr(row, "get") else None
