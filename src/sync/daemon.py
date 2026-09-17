@@ -72,7 +72,10 @@ def _set_status(conn, key: str, value: str) -> None:
 def _record_heartbeat(conn) -> None:
     global _last_heartbeat
     _last_heartbeat = time.time()
-    _set_status(conn, "worker_heartbeat", datetime.now(UTC).isoformat())
+    try:
+        _set_status(conn, "worker_heartbeat", datetime.now(UTC).isoformat())
+    except Exception as e:
+        log.error(f"Failed to write heartbeat: {e}")
 
 
 # ── Stale-row recovery ───────────────────────────────────────────────────────
