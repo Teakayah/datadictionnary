@@ -50,3 +50,7 @@
 **Vulnerability:** Cross-Site Scripting (XSS) via unescaped localized strings from `t()` in Streamlit `unsafe_allow_html` blocks.
 **Learning:** Even if inner interpolation variables are escaped, the translated strings themselves may contain unescaped characters (like apostrophes) that can introduce XSS or break HTML when injected into raw HTML blocks via `st.markdown(..., unsafe_allow_html=True)`.
 **Prevention:** Always wrap the entire translation output in `_html.escape(t(...))` before injecting it into HTML strings when `unsafe_allow_html=True` is used.
+## 2023-10-27 - PII data exposure in Audit Log
+**Vulnerability:** The `actor_email` field was being logged directly as plaintext into the audit log and synced to Databricks when `sync_type == "AUDIT"`.
+**Learning:** Always hash or redact PII fields (like emails) when logging them, especially when syncing to external storage, to avoid exposing sensitive data to users with access to the logs.
+**Prevention:** Ensure any PII data is sanitized or hashed (e.g., using SHA-256) before being persisted or transmitted.

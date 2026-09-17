@@ -2,6 +2,7 @@
 from __future__ import annotations
 from typing import Optional
 
+import hashlib
 import json
 import logging
 import os
@@ -233,10 +234,13 @@ def _push_to_databricks(sync_type: str, table_full_name: Optional[str], payload:
 
             elif sync_type == "AUDIT":
                 audit_tbl = f"{CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log"
+                audit_payload = dict(payload)
+                if audit_payload.get("actor_email"):
+                    audit_payload["actor_email"] = hashlib.sha256(audit_payload["actor_email"].encode("utf-8")).hexdigest()
                 cur.execute(
                     f"INSERT INTO {audit_tbl} (event_id, event_type, object_type, object_name, actor_email, old_value, new_value, created_at) "
                     f"VALUES (%(event_id)s, %(event_type)s, %(object_type)s, %(object_name)s, %(actor_email)s, %(old_value)s, %(new_value)s, current_timestamp())",
-                    payload
+                    audit_payload
                 )
 
             elif sync_type == "TABLE_BUSINESS_NAME":

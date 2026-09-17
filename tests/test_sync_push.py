@@ -176,6 +176,7 @@ class TestPushToDatabricks:
 
     def test_audit_inserts_into_catalog_audit_log(self, databricks_env):
         from src.sync.push import _push_to_databricks
+        import hashlib
         payload = {
             "event_id": "e1", "event_type": "test_event",
             "object_type": "TABLE", "object_name": "cat.sch.tbl",
@@ -184,7 +185,8 @@ class TestPushToDatabricks:
         _push_to_databricks("AUDIT", None, payload)
         sql, bound = _push_cursor().execute.call_args.args
         assert "INSERT INTO data_governance.dictionary_cache.audit_log" in sql
-        assert bound is payload
+        assert bound["event_id"] == "e1"
+        assert bound["actor_email"] == hashlib.sha256("alice@x.com".encode("utf-8")).hexdigest()
 
     def test_comment_inserts_into_catalog_comments(self, databricks_env):
         from src.sync.push import _push_to_databricks
