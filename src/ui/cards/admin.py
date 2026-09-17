@@ -519,11 +519,7 @@ def _render_pending_reviews_section():
         pending = []
 
     if not pending:
-        st.markdown(
-            f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-40);">'
-            f'{t("admin.reviews_empty")}</p>',
-            unsafe_allow_html=True,
-        )
+        _render_empty_state("✨", t("admin.reviews_empty"))
         return
 
     if len(pending) > 50:
@@ -618,11 +614,7 @@ def _render_pending_table_friendly_names_section():
         pending = []
 
     if not pending:
-        st.markdown(
-            f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-40);">'
-            f'{t("admin.reviews_empty")}</p>',
-            unsafe_allow_html=True,
-        )
+        _render_empty_state("✨", t("admin.reviews_empty"))
         return
 
     if len(pending) > 50:
