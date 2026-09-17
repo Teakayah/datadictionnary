@@ -47,7 +47,15 @@ def _to_duckdb_sql(sql: str, params: dict) -> tuple:
     result = sql
     for name, value in params.items():
         if isinstance(value, (list, tuple)):
-            # Explain the regex:
+            # Replace `IN %(name)s` with `= ANY($name)`
+            #
+            # WHY IT EXISTS:
+            # DuckDB natively supports `= ANY($name)` instead of the traditional `IN` clause
+            # for passing arrays. Since the current backend assumes pyformat placeholder strings,
+            # this regex translates those placeholders to the `= ANY` syntax, enabling the DuckDB
+            # adapter to properly digest dynamically injected array parameters (like permission groups).
+            #
+            # REGEX BREAKDOWN:
             # \b         - Word boundary to ensure we match 'IN' as a whole word
             # IN\s+      - Matches 'IN' followed by one or more whitespace characters
             # %\(        - Matches the literal string '%('
