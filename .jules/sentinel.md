@@ -50,3 +50,7 @@
 **Vulnerability:** Cross-Site Scripting (XSS) via unescaped localized strings from `t()` in Streamlit `unsafe_allow_html` blocks.
 **Learning:** Even if inner interpolation variables are escaped, the translated strings themselves may contain unescaped characters (like apostrophes) that can introduce XSS or break HTML when injected into raw HTML blocks via `st.markdown(..., unsafe_allow_html=True)`.
 **Prevention:** Always wrap the entire translation output in `_html.escape(t(...))` before injecting it into HTML strings when `unsafe_allow_html=True` is used.
+## 2025-05-24 - Hash PII in Audit Logs
+**Vulnerability:** PII exposure (actor email logged in plain text in audit table).
+**Learning:** Raw identifier fields like emails must be anonymized before persistence into permanent audit tables unless explicitly necessary for downstream compliance parsing that has proper strict RBAC.
+**Prevention:** Apply standard one-way cryptographic hashing (SHA-256) to sensitive user identifiers immediately prior to write-back or within the event construction layer.
