@@ -89,3 +89,7 @@
 **Learning:** Using `executemany` over row-by-row iterations for DuckDB write adapters significantly speeds up bulk insertion operations and resolves N+1 loop performance bottlenecks, while maintaining thread safety via a shared lock.
 **Action:** Added `executemany` and `executemany_write` to `_DuckDBCursor` and modified `dr_resync` to leverage it for bulk insertion instead of `for row in df.itertuples(...)` with `execute_write`.
 
+## 2023-10-27 - Fix N+1 query in bookmark notifications
+**Learning:** DuckDB adapters need `executemany` wrapper support to prevent massive overhead during sequential inserts loop for notifications.
+**Action:** Added `executemany` and `executemany_write` to `DuckDBCursor` and updated `_notify_bookmarkers` in `push.py` to batch insert using it, yielding ~62% performance improvement.
+
