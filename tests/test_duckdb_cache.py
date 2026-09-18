@@ -309,6 +309,41 @@ class TestDuckDBAdapter:
         df = cur.fetchall_as_pandas()
         assert len(df) == 1
         assert df.iloc[0]["a"] == 3
+
+    def test_cursor_executemany(self, tmp_path):
+        cur = self._cursor(str(tmp_path / "t.duckdb"))
+        cur.execute("CREATE TABLE test (a INTEGER, b VARCHAR)")
+
+        # Test executemany with params
+        cur.executemany("INSERT INTO test VALUES (?, ?)", [[1, 'a'], [2, 'b']])
+        cur.execute("SELECT * FROM test")
+        df = cur.fetchall_as_pandas()
+        assert len(df) == 2
+        assert df.iloc[0]["a"] == 1
+        assert df.iloc[1]["b"] == 'b'
+
+        # Test executemany without params
+        # DuckDB's executemany requires params, so we will use pytest.raises to assert the exception
+        cur.execute("CREATE TABLE test2 (a INTEGER)")
+        with pytest.raises(duckdb.InvalidInputException):
+            cur.executemany("INSERT INTO test2 VALUES (42)")
+
+    def test_cursor_executemany_write(self, tmp_path):
+        cur = self._cursor(str(tmp_path / "t.duckdb"))
+        cur.execute("CREATE TABLE test (a INTEGER, b VARCHAR)")
+
+        cur.executemany_write("INSERT INTO test VALUES (?, ?)", [[1, 'a'], [2, 'b']])
+        cur.execute("SELECT * FROM test")
+        df = cur.fetchall_as_pandas()
+        assert len(df) == 2
+        assert df.iloc[0]["a"] == 1
+
+    def test_cursor_executemany_none_con(self):
+        # h helper dict correctly retrieves _DuckDBCursor loaded in setup helpers
+        cur = self.h["_DuckDBCursor"](None)
+        cur.executemany("INSERT INTO test VALUES (?, ?)", [[1, 'a']])
+        assert cur._rel is None
+
     def test_duckconn_execute(self, tmp_path):
         import src.db.duckdb_adapter as _adapter
         db_path = str(tmp_path / "cache.duckdb")
