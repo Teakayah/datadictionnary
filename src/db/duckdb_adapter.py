@@ -329,7 +329,19 @@ class _DuckDBCursor:
         if params is None:
             self._rel = self._con.executemany(sql)
         else:
-            self._rel = self._con.executemany(sql, params)
+            # DuckDB's executemany requires native parameters ($name),
+            # but we receive a list of dicts with pyformat syntax.
+            # We must convert the SQL once using the first dictionary,
+            # then convert all parameter dictionaries to maintain compatibility.
+            if isinstance(params, (list, tuple)) and len(params) > 0 and isinstance(params[0], dict):
+                converted_sql, _ = _to_duckdb_sql(sql, params[0])
+                converted_params = []
+                for p in params:
+                    _, cp = _to_duckdb_sql(sql, p)
+                    converted_params.append(cp)
+                self._rel = self._con.executemany(converted_sql, converted_params)
+            else:
+                self._rel = self._con.executemany(sql, params)
 
     def executemany_write(self, sql: str, params=None):
         """Thread-safe batch write execution wrapped in a lock."""

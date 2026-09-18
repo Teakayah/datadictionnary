@@ -137,3 +137,7 @@ Assertion: Use `cur_mock = MagicMock(); conn.cursor.return_value.__enter__.retur
 Coverage Gap: The else branch inside `_render_notable_tab` prompting for user sign in was unreachable since an earlier statement would return early if `primary_group` was falsey.
 Learning: When addressing test coverage gaps involving missing lines, if analysis reveals the un-covered lines are logically unreachable dead code (e.g., statements following a branch with a guaranteed early-return), remove the dead code to satisfy the coverage metric instead of attempting to mock impossible test states.
 Assertion: Tested normal empty states and removed the unreachable dead code block.
+## 2024-05-18 - Missing coverage in get_authorized_table_names and get_authorized_tables
+Coverage Gap: The `get_authorized_table_names` and `get_authorized_tables` functions in `src/db/queries.py` lacked complete coverage, particularly for empty state handling and the demo mode branch logic, leading to missing assertions for authorization edge cases.
+Learning: Unmocked external cached responses in DB query tests can cause assertions to randomly fail if the shared cached singleton has expired or holds unexpected data. Furthermore, complex functions querying external data warehouses are notoriously flaky.
+Assertion: Ensure mocking targets explicitly return isolated, clean mock Pandas DataFrames to properly assert functionality strictly inside the target functions without touching backend databases or caches.
