@@ -21,3 +21,6 @@
 ## 2026-09-17 - Consolidate Locale State Fetching
 **Learning:** The application retrieved locale state across multiple files (`src/db/queries.py`, `src/pages/search.py`, `src/ui/header.py`, `src/i18n.py`) directly from `st.session_state.get("locale", "en")`. This approach leads to repeated code and risks missed initialization if `_ensure_locale()` isn't called prior.
 **Action:** Always create a unified getter method (`get_current_locale()`) to encapsulate `session_state` access and ensure prerequisites (like `_ensure_locale()`) are satisfied.
+## 2024-05-24 - Remove unused imports and variables
+**Learning:** Found multiple unused variables (`F841`) and unused imports (`F401`) throughout the tests using Ruff. Streamlit imports (`import streamlit as st`) are frequently imported inside functions without actually being used. Unused variable assignments (`mock_md`, `mock_markdown`, `calls`, `row`) are also common in testing files.
+**Action:** Use `ruff check . --select F401,F841 --fix` (with `--unsafe-fixes` where safe, like simple assignments) to aggressively clean up unused variables and unused imports, particularly those hidden inside function scopes in tests.
