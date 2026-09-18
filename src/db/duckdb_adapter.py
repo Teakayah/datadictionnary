@@ -73,10 +73,21 @@ def _to_duckdb_sql(sql: str, params: dict) -> tuple:
         else:
             converted[name] = value
     # Convert remaining pyformat placeholders to DuckDB named parameters.
-    # Regex breakdown:
+    #
+    # WHY IT EXISTS:
+    # Most of the application's SQL queries are written using standard pyformat
+    # placeholders (e.g. `%(user_id)s`) as expected by Databricks and standard
+    # Python DB-API drivers. However, DuckDB natively requires named parameters
+    # to be formatted with a dollar sign (e.g. `$user_id`). This regex safely
+    # and automatically translates any remaining pyformat placeholders into
+    # DuckDB-compatible syntax, allowing identical SQL strings to be executed
+    # seamlessly against both backends without manual rewriting.
+    #
+    # REGEX BREAKDOWN:
     # %\(        - Matches literal '%('
     # (\w+)      - Capturing group 1: Matches one or more word characters (the parameter name)
     # \)s        - Matches literal ')s'
+    #
     # Example replacement: "%(user_id)s" -> "$user_id"
     result = re.sub(r"%\((\w+)\)s", r"$\1", result)
     # DuckDB compatibility: current_timestamp() → current_localtimestamp()
