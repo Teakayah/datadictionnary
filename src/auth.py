@@ -130,6 +130,7 @@ def _try_silent_refresh() -> bool:
 
 
 def _get_catalog_stats() -> tuple[str, str]:
+    from src.i18n import format_number
     """Return (n_tables, n_schemas) as strings for the sign-in hero stats row.
 
     Works in demo mode and with a live DuckDB/Databricks cache. Falls back to
@@ -139,7 +140,7 @@ def _get_catalog_stats() -> tuple[str, str]:
         from src.config import is_demo_mode, CATALOG_CACHE, SCHEMA_CACHE  # noqa: PLC0415
         if is_demo_mode():
             from src.demo.data import _DEMO_TABLES  # noqa: PLC0415
-            return str(len(_DEMO_TABLES)), str(_DEMO_TABLES["schema_name"].nunique())
+            return format_number(len(_DEMO_TABLES)), format_number(_DEMO_TABLES["schema_name"].nunique())
         from src.db.queries import run_query  # noqa: PLC0415
         _t = run_query(
             f"SELECT COUNT(*) AS n FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata", {}
@@ -147,8 +148,8 @@ def _get_catalog_stats() -> tuple[str, str]:
         _s = run_query(
             f"SELECT COUNT(DISTINCT schema_name) AS n FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata", {}
         )
-        n_t = str(int(_t.iloc[0]["n"])) if _t is not None and not _t.empty else "—"
-        n_s = str(int(_s.iloc[0]["n"])) if _s is not None and not _s.empty else "—"
+        n_t = format_number(int(_t.iloc[0]["n"])) if _t is not None and not _t.empty else "—"
+        n_s = format_number(int(_s.iloc[0]["n"])) if _s is not None and not _s.empty else "—"
         return n_t, n_s
     except Exception:
         return "—", "—"
