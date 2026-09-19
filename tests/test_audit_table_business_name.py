@@ -3,6 +3,7 @@ import pandas as pd
 from unittest.mock import patch, MagicMock
 
 from src.audit import (
+    TableBusinessNameOverride,
     get_table_business_name_override,
     _approve_table_business_name_override,
     _upsert_table_business_name_override,
@@ -330,7 +331,17 @@ def test_save_table_business_name_admin():
         assert override.status == "published"
 
         mock_enqueue.assert_called_once_with(
-            "catalog.schema.table", "en", "fr", "def en", "def fr", "admin_user"
+            "catalog.schema.table",
+            TableBusinessNameOverride(
+                table_full_name="catalog.schema.table",
+                business_name_en="en",
+                business_name_fr="fr",
+                business_definition_en="def en",
+                business_definition_fr="def fr",
+                edited_by="admin_user",
+                status="published",
+            ),
+            "admin_user"
         )
         mock_shared_conn.execute.assert_called_once_with("CHECKPOINT user_data")
         mock_log.assert_called_once()
@@ -420,7 +431,17 @@ def test_approve_table_business_name_success():
 
         mock_approve.assert_called_once_with("catalog.schema.table")
         mock_enqueue.assert_called_once_with(
-            "catalog.schema.table", "en", "fr", "def en", "def fr", "admin_user"
+            "catalog.schema.table",
+            TableBusinessNameOverride(
+                table_full_name="catalog.schema.table",
+                business_name_en="en",
+                business_name_fr="fr",
+                business_definition_en="def en",
+                business_definition_fr="def fr",
+                edited_by="admin_user",
+                status="published",
+            ),
+            "admin_user"
         )
         mock_shared_conn.execute.assert_called_once_with("CHECKPOINT user_data")
         mock_search.clear.assert_called_once()

@@ -266,6 +266,7 @@ class TestEnqueueTableBusinessName:
 
     def test_enqueue_writes_correct_sync_type(self):
         from src.sync.push import enqueue_table_business_name_sync
+        from src.audit import TableBusinessNameOverride
 
         captured = {}
 
@@ -275,12 +276,18 @@ class TestEnqueueTableBusinessName:
             captured["queued_by"] = queued_by
 
         with patch("src.sync.push.enqueue_sync", side_effect=fake_enqueue):
+            override = TableBusinessNameOverride(
+                table_full_name="main.analytics.customers",
+                business_name_en="Customers",
+                business_name_fr="Clients",
+                business_definition_en="Master customer list.",
+                business_definition_fr="Liste principale des clients.",
+                edited_by="admin@example.com",
+                status="published",
+            )
             enqueue_table_business_name_sync(
                 "main.analytics.customers",
-                "Customers",
-                "Clients",
-                "Master customer list.",
-                "Liste principale des clients.",
+                override,
                 "admin@example.com",
             )
 
@@ -288,6 +295,7 @@ class TestEnqueueTableBusinessName:
 
     def test_enqueue_payload_contains_all_fields(self):
         from src.sync.push import enqueue_table_business_name_sync
+        from src.audit import TableBusinessNameOverride
 
         captured = {}
 
@@ -295,12 +303,18 @@ class TestEnqueueTableBusinessName:
             captured["payload"] = payload
 
         with patch("src.sync.push.enqueue_sync", side_effect=fake_enqueue):
+            override = TableBusinessNameOverride(
+                table_full_name=FULL_NAME,
+                business_name_en="Customers",
+                business_name_fr="Clients",
+                business_definition_en="EN def",
+                business_definition_fr="FR def",
+                edited_by="user@example.com",
+                status="published",
+            )
             enqueue_table_business_name_sync(
                 FULL_NAME,
-                "Customers",
-                "Clients",
-                "EN def",
-                "FR def",
+                override,
                 "user@example.com",
             )
 
@@ -312,6 +326,7 @@ class TestEnqueueTableBusinessName:
 
     def test_enqueue_queued_by_forwarded(self):
         from src.sync.push import enqueue_table_business_name_sync
+        from src.audit import TableBusinessNameOverride
 
         captured = {}
 
@@ -319,8 +334,17 @@ class TestEnqueueTableBusinessName:
             captured["queued_by"] = queued_by
 
         with patch("src.sync.push.enqueue_sync", side_effect=fake_enqueue):
+            override = TableBusinessNameOverride(
+                table_full_name=FULL_NAME,
+                business_name_en="n_en",
+                business_name_fr="n_fr",
+                business_definition_en="d_en",
+                business_definition_fr="d_fr",
+                edited_by="editor@example.com",
+                status="published",
+            )
             enqueue_table_business_name_sync(
-                FULL_NAME, "n_en", "n_fr", "d_en", "d_fr",
+                FULL_NAME, override,
                 "editor@example.com",
             )
 

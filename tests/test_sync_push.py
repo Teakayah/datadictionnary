@@ -456,7 +456,17 @@ from unittest.mock import patch
 def test_enqueue_table_business_name_sync():
     with patch("src.sync.push.enqueue_sync") as mock_enqueue:
         from src.sync.push import enqueue_table_business_name_sync
-        enqueue_table_business_name_sync("c.s.t", "en", "fr", "def_en", "def_fr", "user")
+        from src.audit import TableBusinessNameOverride
+        override = TableBusinessNameOverride(
+            table_full_name="c.s.t",
+            business_name_en="en",
+            business_name_fr="fr",
+            business_definition_en="def_en",
+            business_definition_fr="def_fr",
+            edited_by="user",
+            status="published",
+        )
+        enqueue_table_business_name_sync("c.s.t", override, "user")
         mock_enqueue.assert_called_once_with(
             "TABLE_BUSINESS_NAME",
             "c.s.t",

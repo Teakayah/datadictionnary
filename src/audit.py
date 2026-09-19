@@ -674,8 +674,7 @@ def save_table_business_name(
         if _admin:
             enqueue_table_business_name_sync(
                 table_full_name,
-                business_name_en, business_name_fr,
-                definition_en, definition_fr,
+                override,
                 user_name,
             )
 
@@ -700,12 +699,18 @@ def approve_table_business_name(table_full_name: str) -> None:
     published = _approve_table_business_name_override(table_full_name)
     user_name = st.session_state.get("user_name", "unknown")
     if _duckdb_available():
+        override = TableBusinessNameOverride(
+            table_full_name=table_full_name,
+            business_name_en=published.get("business_name_en", ""),
+            business_name_fr=published.get("business_name_fr", ""),
+            business_definition_en=published.get("business_definition_en", ""),
+            business_definition_fr=published.get("business_definition_fr", ""),
+            edited_by=published.get("edited_by", user_name),
+            status=published.get("status", "published"),
+        )
         enqueue_table_business_name_sync(
             table_full_name,
-            published.get("business_name_en", ""),
-            published.get("business_name_fr", ""),
-            published.get("business_definition_en", ""),
-            published.get("business_definition_fr", ""),
+            override,
             user_name,
         )
         try:

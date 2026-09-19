@@ -1,6 +1,9 @@
 """Queue and Push logic for Databricks write-back."""
 from __future__ import annotations
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from src.audit import TableBusinessNameOverride
 
 import json
 import logging
@@ -147,10 +150,7 @@ def enqueue_column_sync(table_full_name: str, column_name: str, definition: str,
 
 def enqueue_table_business_name_sync(
     table_full_name: str,
-    business_name_en: str,
-    business_name_fr: str,
-    definition_en: str,
-    definition_fr: str,
+    override: "TableBusinessNameOverride",
     queued_by: str,
 ) -> None:
     """Queue a write-back of the bilingual friendly name into the UC reference table.
@@ -162,10 +162,10 @@ def enqueue_table_business_name_sync(
         "TABLE_BUSINESS_NAME",
         table_full_name,
         {
-            "business_name_en":       business_name_en or "",
-            "business_name_fr":       business_name_fr or "",
-            "business_definition_en": definition_en or "",
-            "business_definition_fr": definition_fr or "",
+            "business_name_en":       override.business_name_en or "",
+            "business_name_fr":       override.business_name_fr or "",
+            "business_definition_en": override.business_definition_en or "",
+            "business_definition_fr": override.business_definition_fr or "",
         },
         queued_by,
     )
