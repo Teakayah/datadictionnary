@@ -299,6 +299,58 @@ class TestDuckDBAdapter:
         assert len(df) == 1
         assert df.iloc[0]["a"] == 2
 
+
+
+    def test_cursor_executemany_no_params(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        # Arrange
+        con = duckdb.connect(str(tmp_path / "cache.duckdb"))
+        cur = _adapter._DuckDBCursor(con)
+        cur.execute("CREATE TABLE test (a INTEGER)")
+        # Act/Assert
+        import duckdb as ddb
+        with pytest.raises(ddb.InvalidInputException):
+            cur.executemany("INSERT INTO test VALUES (?)")
+
+    def test_cursor_executemany_none_con(self):
+        import src.db.duckdb_adapter as _adapter
+        # Arrange
+        cur = _adapter._DuckDBCursor(None)
+        # Act
+        cur.executemany("INSERT INTO test VALUES (?)", [[1], [2]])
+        # Assert
+        assert cur._rel is None
+
+    def test_cursor_executemany_with_params(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        # Arrange
+        con = duckdb.connect(str(tmp_path / "cache.duckdb"))
+        cur = _adapter._DuckDBCursor(con)
+        cur.execute("CREATE TABLE test (a INTEGER)")
+        # Act
+        cur.executemany("INSERT INTO test VALUES (?)", [[1], [2]])
+        # Assert
+        cur.execute("SELECT * FROM test")
+        df = cur.fetchall_as_pandas()
+        assert len(df) == 2
+        assert df.iloc[0]["a"] == 1
+        assert df.iloc[1]["a"] == 2
+
+    def test_cursor_executemany_write_with_params(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        # Arrange
+        con = duckdb.connect(str(tmp_path / "cache.duckdb"))
+        cur = _adapter._DuckDBCursor(con)
+        cur.execute("CREATE TABLE test (a INTEGER)")
+        # Act
+        cur.executemany_write("INSERT INTO test VALUES (?)", [[3], [4]])
+        # Assert
+        cur.execute("SELECT * FROM test")
+        df = cur.fetchall_as_pandas()
+        assert len(df) == 2
+        assert df.iloc[0]["a"] == 3
+        assert df.iloc[1]["a"] == 4
+
     def test_cursor_execute_write(self, tmp_path):
         import src.db.duckdb_adapter as _adapter
         con = duckdb.connect(str(tmp_path / "cache.duckdb"))
