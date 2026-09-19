@@ -182,14 +182,14 @@ def _render_priority_actions(undocumented: pd.DataFrame):
             undocumented = undocumented.head(50)
         for row in undocumented.itertuples(index=False):
             if st.button(
-                f"📄 {getattr(row, 'table_name', '')}",
-                key=f"health_fix_{getattr(row, 'full_name', '')}",
+                f"📄 {row.table_name}",
+                key=f"health_fix_{row.full_name}",
                 use_container_width=True,
                 help=t("help.btn_priority_fix"),
             ):
                 st.query_params["tab"] = "search"
-                st.session_state["dd_search_override"] = getattr(row, 'table_name', '')
-                st.session_state["dd_nav_select"] = getattr(row, 'full_name', '')
+                st.session_state["dd_search_override"] = row.table_name
+                st.session_state["dd_nav_select"] = row.full_name
                 st.rerun()
     else:
         st.success(t("health.all_documented"))

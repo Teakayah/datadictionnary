@@ -496,7 +496,7 @@ def _search_keywords(query: str, groups: tuple):
         )
         glossary_df = _DEMO_GLOSSARY[mask]
         for row in glossary_df.itertuples(index=False):
-            related_tables = getattr(row, "related_tables", [])
+            related_tables = row.related_tables
             target_table = related_tables[0] if related_tables else ""
             if target_table and target_table not in _allowed_fns:
                 continue
@@ -504,9 +504,9 @@ def _search_keywords(query: str, groups: tuple):
             term_matches.append(
                 {
                     "full_name": target_table,
-                    "name": getattr(row, "term", ""),
+                    "name": row.term,
                     "match_type": "Glossary",
-                    "description": getattr(row, "definition", ""),
+                    "description": row.definition,
                     "table_description": "",
                     "catalog_name": parts[0] if len(parts) == 3 else "",
                     "schema_name": parts[1] if len(parts) == 3 else "",
