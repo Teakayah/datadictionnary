@@ -49,11 +49,11 @@ async def get_table(
 
     columns = [
         ColumnInfo(
-            column_name=row["column_name"],
-            data_type=row["data_type"],
-            description=row.get("description"),
+            column_name=row.column_name,
+            data_type=row.data_type,
+            description=row.description,
         )
-        for row in cols_df.to_dict(orient="records")
+        for row in cols_df.itertuples()
     ]
     result = TableDetail(full_name=full_name, columns=columns).model_dump()
     await redis_cache.set(ck, result, ttl=600)
