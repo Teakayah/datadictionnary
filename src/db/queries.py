@@ -583,32 +583,24 @@ def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
     Returns:
         str: A CSV-formatted string of the table metadata.
     """
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(
-        [
-            "Column Name",
-            "Business Name",
-            "Data Type",
-            "System Description",
-            "Business Definition",
-        ]
-    )
+    if cols is None or cols.empty:
+        return "Column Name,Business Name,Data Type,System Description,Business Definition\r\n"
 
-    if cols is not None and not cols.empty:
-        cnames = cols["column_name"].tolist() if "column_name" in cols else [""] * len(cols)
-        ctypes = cols["data_type"].tolist() if "data_type" in cols else [""] * len(cols)
-        ccomments = cols["comment"].tolist() if "comment" in cols else [""] * len(cols)
+    cnames = cols.get("column_name", pd.Series([""] * len(cols), index=cols.index)).astype(str)
 
-        for cname_raw, ctype_raw, ccomment_raw in zip(cnames, ctypes, ccomments):
-            cname = str(cname_raw)
-            ctype = str(ctype_raw)
-            ccomment = str(ccomment_raw or "")
+    df = pd.DataFrame(index=cols.index)
+    df["Column Name"] = cnames
 
-            override = col_overrides.get(cname, {})
-            biz_name = override.get("business_name", "")
-            biz_def = override.get("definition", "")
+    if col_overrides:
+        ov = pd.DataFrame.from_dict(col_overrides, orient="index")
+        df["Business Name"] = cnames.map(ov["business_name"]).fillna("") if "business_name" in ov.columns else ""
+        df["Data Type"] = cols.get("data_type", pd.Series([""] * len(cols), index=cols.index)).astype(str)
+        df["System Description"] = cols.get("comment", pd.Series([""] * len(cols), index=cols.index)).fillna("").astype(str)
+        df["Business Definition"] = cnames.map(ov["definition"]).fillna("") if "definition" in ov.columns else ""
+    else:
+        df["Business Name"] = ""
+        df["Data Type"] = cols.get("data_type", pd.Series([""] * len(cols), index=cols.index)).astype(str)
+        df["System Description"] = cols.get("comment", pd.Series([""] * len(cols), index=cols.index)).fillna("").astype(str)
+        df["Business Definition"] = ""
 
-            writer.writerow([cname, biz_name, ctype, ccomment, biz_def])
-
-    return output.getvalue()
+    return df.to_csv(index=False, lineterminator="\r\n")

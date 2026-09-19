@@ -101,3 +101,6 @@
 **Learning:** Using `itertuples(index=False)` combined with `getattr()` to iterate over Pandas DataFrames in Streamlit UI rendering and CSV export is extremely slow due to generator overhead and repeated attribute lookups.
 **Action:** Extracted column series directly using `.tolist()` and iterated over them using `zip()`, which avoids generator/object instantiation overhead and reduces time significantly.
 
+## 2024-05-24 - Optimize CSV Serialization
+**Learning:** Using `pandas.DataFrame.to_csv()` combined with native `.map()` operations for dictionary lookups is faster for serializing schema metadata than extracting lists and manually looping with `csv.writer`, and requires fewer lines of code.
+**Action:** Refactored `export_schema_to_csv` in `src/db/queries.py` to use a vectorized pandas approach.
