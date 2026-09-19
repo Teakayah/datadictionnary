@@ -82,26 +82,26 @@ def _render_bookmark_button(is_bk: bool, full_name: str, key_prefix: str) -> Non
 def _render_table_card(row, key_prefix: str) -> None:
     """Discovery card: table name is clickable, star toggles bookmark."""
     from src.i18n import format_date
-    _ts = getattr(row, "updated_at", None)
+    _ts = row.get("updated_at")
     _time_str = format_date(_ts)
-    _full  = str(getattr(row, "full_name", ""))
-    _tname = str(getattr(row, "table_name", ""))
+    _full  = str(row.get("full_name", ""))
+    _tname = str(row.get("table_name", ""))
     _is_bk = _full in st.session_state.get("bookmarks", set())
 
-    _dq_score  = str(getattr(row, "dq_score", "") or "")
-    _dq_status = str(getattr(row, "dq_status", "") or "")
+    _dq_score  = str(row.get("dq_score") or "")
+    _dq_status = str(row.get("dq_status") or "")
     _dq_html = _render_dq_badge(_dq_score, _dq_status)
 
     st.markdown(f'''
     <div style="background:var(--paper); border:1px solid var(--ink-10); padding:16px 20px 4px; margin-bottom:4px; border-radius:2px;">
         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
-            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(getattr(row, "catalog_name", "")))} · {_html.escape(str(getattr(row, "schema_name", "")))}</div>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(row.get("catalog_name", "")))} · {_html.escape(str(row.get("schema_name", "")))}</div>
             <div style="display:flex;align-items:center;gap:6px;">
                 {_dq_html}
                 <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{_html.escape(t("discovery.updated_at", time=_time_str))}</span>
             </div>
         </div>
-        <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:4px 0 8px;">{_html.escape(str(getattr(row, "table_description", "")))}</p>
+        <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:4px 0 8px;">{_html.escape(str(row.get("table_description", "")))}</p>
     </div>
     ''', unsafe_allow_html=True)
 
@@ -301,7 +301,8 @@ def _render_notable_tab(groups):
             all_authorized = get_authorized_tables((primary_group,))
             if not all_authorized.empty and "updated_at" in all_authorized.columns:
                 recent_tables = all_authorized.sort_values(by="updated_at", ascending=False).head(10)
-                for row in recent_tables.itertuples(index=False):
+                # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
+                for row in recent_tables.to_dict("records"):
                     _render_table_card(row, "notable")
             else:
                 _render_empty_state("✨", t("discovery.no_updates"))
@@ -331,7 +332,8 @@ def _render_bookmarks_tab(groups):
                 if bk_df.empty:
                     _render_empty_state("★", t("personalization.no_bookmarks"))
                 else:
-                    for row in bk_df.itertuples(index=False):
+                    # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
+                    for row in bk_df.to_dict("records"):
                         _render_table_card(row, "bk")
         except Exception as e:
             logging.error("Error loading bookmarks: %s", e)
@@ -412,10 +414,10 @@ def _get_recommended_tables(authorized_full_names: set, top_n: int = 10) -> list
         recent = set(st.session_state.get("recent_views", [])[:5])
         # ⚡ Bolt: Removed redundant and slow string split/join operations on object_name
         return [
-            str(r.object_name)
-            for r in result.itertuples(index=False)
-            if str(r.object_name) in authorized_full_names
-            and str(r.object_name) not in recent
+            str(r.get("object_name", ""))
+            for r in result.to_dict("records")
+            if str(r.get("object_name", "")) in authorized_full_names
+            and str(r.get("object_name", "")) not in recent
         ][:top_n]
     except Exception as exc:
         logging.warning("Recommended tab query failed: %s", exc)
@@ -447,7 +449,8 @@ def _render_recommended_tab(groups):
         # ⚡ Bolt: Replace .map() ordering with pd.Categorical for faster sorting and to avoid creating/dropping temp columns
         rec_df["full_name"] = pd.Categorical(rec_df["full_name"], categories=recommended_fns, ordered=True)
         rec_df = rec_df.sort_values("full_name")
-        for row in rec_df.itertuples(index=False):
+        # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
+        for row in rec_df.to_dict("records"):
             _render_table_card(row, "rec")
     except Exception as e:
         logging.error("Error loading recommendations: %s", e)
@@ -476,7 +479,8 @@ def _render_recent_tab(groups):
             if rv_df.empty:
                 _render_empty_state("⏱", t("personalization.no_recent"))
             else:
-                for row in rv_df.itertuples(index=False):
+                # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
+                for row in rv_df.to_dict("records"):
                     _render_table_card(row, "rv")
         except Exception as e:
             logging.error("Error loading recent views: %s", e)
