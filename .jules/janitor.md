@@ -21,3 +21,6 @@
 ## 2026-09-17 - Consolidate Locale State Fetching
 **Learning:** The application retrieved locale state across multiple files (`src/db/queries.py`, `src/pages/search.py`, `src/ui/header.py`, `src/i18n.py`) directly from `st.session_state.get("locale", "en")`. This approach leads to repeated code and risks missed initialization if `_ensure_locale()` isn't called prior.
 **Action:** Always create a unified getter method (`get_current_locale()`) to encapsulate `session_state` access and ensure prerequisites (like `_ensure_locale()`) are satisfied.
+## 2024-05-08 - [Use Native Attribute Access with Pandas itertuples]
+**Learning:** `getattr()` incurs unnecessary overhead and is redundant when used in conjunction with `itertuples()`. Native attribute access (e.g., `row.column_name`) is the idiomatic, correct way to access namedtuple fields and is significantly faster and cleaner.
+**Action:** Replaced `getattr(row, "col")` with `row.col` globally across DataFrames iterating with `itertuples()`, utilizing `hasattr()` sparingly in UI code where mocked test `itertuples` returns lack specific columns that optional schema queries rely on.

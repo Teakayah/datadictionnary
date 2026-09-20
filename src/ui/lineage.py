@@ -69,9 +69,9 @@ def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, ru
 
     if result is not None and not result.empty and "direction" in result.columns and "table_full_name" in result.columns:
         for lr in result.itertuples(index=False):
-            node_fn = str(getattr(lr, "table_full_name"))
-            efn = str(getattr(lr, "entity_full_name"))
-            direction = str(getattr(lr, "direction"))
+            node_fn = str(lr.table_full_name)
+            efn = str(lr.entity_full_name)
+            direction = str(lr.direction)
             link = {"from": efn, "to": node_fn} if direction == "UPSTREAM" else {"from": node_fn, "to": efn}
             if link not in graph_links:
                 graph_links.append(link)

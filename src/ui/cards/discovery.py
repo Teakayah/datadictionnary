@@ -82,26 +82,26 @@ def _render_bookmark_button(is_bk: bool, full_name: str, key_prefix: str) -> Non
 def _render_table_card(row, key_prefix: str) -> None:
     """Discovery card: table name is clickable, star toggles bookmark."""
     from src.i18n import format_date
-    _ts = getattr(row, "updated_at", None)
+    _ts = row.updated_at
     _time_str = format_date(_ts)
-    _full  = str(getattr(row, "full_name", ""))
-    _tname = str(getattr(row, "table_name", ""))
+    _full  = str(row.full_name)
+    _tname = str(row.table_name)
     _is_bk = _full in st.session_state.get("bookmarks", set())
 
-    _dq_score  = str(getattr(row, "dq_score", "") or "")
-    _dq_status = str(getattr(row, "dq_status", "") or "")
+    _dq_score  = str(row.dq_score or "")
+    _dq_status = str(row.dq_status or "")
     _dq_html = _render_dq_badge(_dq_score, _dq_status)
 
     st.markdown(f'''
     <div style="background:var(--paper); border:1px solid var(--ink-10); padding:16px 20px 4px; margin-bottom:4px; border-radius:2px;">
         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
-            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(getattr(row, "catalog_name", "")))} · {_html.escape(str(getattr(row, "schema_name", "")))}</div>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(row.catalog_name))} · {_html.escape(str(row.schema_name))}</div>
             <div style="display:flex;align-items:center;gap:6px;">
                 {_dq_html}
                 <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent);">{_html.escape(t("discovery.updated_at", time=_time_str))}</span>
             </div>
         </div>
-        <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:4px 0 8px;">{_html.escape(str(getattr(row, "table_description", "")))}</p>
+        <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:4px 0 8px;">{_html.escape(str(row.table_description))}</p>
     </div>
     ''', unsafe_allow_html=True)
 

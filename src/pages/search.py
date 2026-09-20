@@ -439,8 +439,8 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                 st.info(t("detail.showing_first_50_grants", count=n_grants))
                 grants = grants.head(50)
             for g in grants.itertuples(index=False):
-                principal = str(getattr(g, "principal", ""))
-                privilege = str(getattr(g, "privilege", ""))
+                principal = str(g.principal) if hasattr(g, "principal") else ""
+                privilege = str(g.privilege) if hasattr(g, "privilege") else ""
                 st.markdown('<div style="border-top: 1px solid var(--ink-10); margin: 8px 0 4px 0;"></div>', unsafe_allow_html=True)
                 if principal == "SELECT_ALL_USERS":
                     if st.button(t("detail.browse_public_tables", privilege=privilege), key=f"grant_{full_name}_public_{privilege}", use_container_width=True):
@@ -538,9 +538,9 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                 for lnk in graph_links
             }
             for rel in related.itertuples(index=False):
-                _rel_full      = str(getattr(rel, "full_name", ""))
-                _rel_name      = _html.escape(str(getattr(rel, "table_name", "")))
-                _rel_raw_badge = str(getattr(rel, "relationship", ""))
+                _rel_full      = str(rel.full_name)
+                _rel_name      = _html.escape(str(rel.table_name))
+                _rel_raw_badge = str(rel.relationship) if hasattr(rel, "relationship") else "Same schema"
                 _rel_badge = (
                     t("detail.same_schema") if _rel_raw_badge == "Same schema"
                     else t("detail.shared_column") if _rel_raw_badge == "Shared column"
@@ -575,10 +575,10 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             _cols = st.columns(min(3, n_related), gap="small")
             for i, rel in enumerate(related.itertuples(index=False)):
                 with _cols[i % 3]:
-                    _rel_full      = str(getattr(rel, "full_name", ""))
-                    _rel_name      = _html.escape(str(getattr(rel, "table_name", "")))
-                    _rel_sch       = _html.escape(f"{getattr(rel, 'catalog_name', '')}.{getattr(rel, 'schema_name', '')}")
-                    _rel_raw_badge = str(getattr(rel, "relationship", ""))
+                    _rel_full      = str(rel.full_name)
+                    _rel_name      = _html.escape(str(rel.table_name))
+                    _rel_sch       = _html.escape(f"{rel.catalog_name}.{rel.schema_name}")
+                    _rel_raw_badge = str(rel.relationship) if hasattr(rel, "relationship") else "Same schema"
                     _rel_badge = (
                         t("detail.same_schema") if _rel_raw_badge == "Same schema"
                         else t("detail.shared_column") if _rel_raw_badge == "Shared column"
@@ -593,7 +593,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                         unsafe_allow_html=True,
                     )
                     if st.button(t("detail.open_related"), key=f"rel_{_rel_full}", type="secondary", use_container_width=True):
-                        st.session_state["dd_search_override"] = str(getattr(rel, "table_name", ""))
+                        st.session_state["dd_search_override"] = str(rel.table_name)
                         st.session_state["dd_nav_select"] = _rel_full
                         st.rerun()
 
