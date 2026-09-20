@@ -123,3 +123,6 @@
 **Learning:** The root `src/api/main.py` FastAPI file lacked top-level testing for routing inclusion and CORS setup, leaving middleware and API routing configuration untested. Even simple router integrations in FastAPI applications should be explicitly tested to catch silent failures during app initialization.
 **Action:** Added `test_app_routing_and_cors` in `tests/test_api_main.py` to assert the app starts up with the correct lifespan context, explicitly tests CORS headers on an `OPTIONS` request, and verifies that the `live` health check router responds to `GET` requests.
 
+## 2024-05-24 - Coverage Gap in Batch Write Operations
+**Learning:** Missing test coverage on `executemany` database wrappers hides potential invalid input issues from the native database drivers (like `duckdb.InvalidInputException`).
+**Action:** Ensure all thread-safe data adapters and batch wrapper methods have comprehensive parameter and lock testing.

@@ -485,3 +485,57 @@ class TestWriteDuckdb:
         ).df()
         con.close()
         assert len(idx) >= 2, f"Expected indexes not found: {idx}"
+
+    def test_cursor_executemany_none_con(self):
+        # Arrange
+        import src.db.duckdb_adapter as _adapter
+        cur = _adapter._DuckDBCursor(None)
+
+        # Act
+        cur.executemany("INSERT INTO test VALUES (?)", [[1], [2]])
+
+        # Assert
+        assert cur._rel is None
+
+    def test_cursor_executemany(self, tmp_path):
+        # Arrange
+        import duckdb
+        import src.db.duckdb_adapter as _adapter
+        con = duckdb.connect(str(tmp_path / "cache.duckdb"))
+        cur = _adapter._DuckDBCursor(con)
+        cur.execute("CREATE TABLE test (a INTEGER)")
+
+        # Act
+        cur.executemany("INSERT INTO test VALUES (?)", [[1], [2], [3]])
+
+        # Assert
+        cur.execute("SELECT * FROM test ORDER BY a")
+        assert cur.fetchall() == [(1,), (2,), (3,)]
+
+    def test_cursor_executemany_no_params(self, tmp_path):
+        # Arrange
+        import pytest
+        import duckdb
+        import src.db.duckdb_adapter as _adapter
+        con = duckdb.connect(str(tmp_path / "cache.duckdb"))
+        cur = _adapter._DuckDBCursor(con)
+        cur.execute("CREATE TABLE test (a INTEGER)")
+
+        # Act & Assert
+        with pytest.raises(duckdb.InvalidInputException):
+            cur.executemany("INSERT INTO test VALUES (1)")
+
+    def test_cursor_executemany_write(self, tmp_path):
+        # Arrange
+        import duckdb
+        import src.db.duckdb_adapter as _adapter
+        con = duckdb.connect(str(tmp_path / "cache.duckdb"))
+        cur = _adapter._DuckDBCursor(con)
+        cur.execute("CREATE TABLE test (a INTEGER)")
+
+        # Act
+        cur.executemany_write("INSERT INTO test VALUES (?)", [[1], [2], [3]])
+
+        # Assert
+        cur.execute("SELECT * FROM test ORDER BY a")
+        assert cur.fetchall() == [(1,), (2,), (3,)]
