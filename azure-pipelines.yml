@@ -43,17 +43,11 @@ stages:
             displayName: Install dependencies
 
           - script: |
-              python -m pytest tests/ -q \
-                --ignore=tests/test_load_smoke.py \
-                --ignore=tests/test_wcag_axe.py \
-                --ignore=tests/test_nav_render.py \
-                --tb=short \
-                --junit-xml=test-results.xml
+              python scripts/auto_ci.py --junit-xml test-results.xml
             displayName: pytest
             env:
-              TENANT_ID: "test-tenant"
-              CLIENT_ID: "test-client"
-              DUCKDB_PATH: ":memory:"
+              ENABLE_MOCK_AUTH: "true"
+              ENVIRONMENT: development
 
           - task: PublishTestResults@2
             condition: always()

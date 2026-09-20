@@ -108,13 +108,10 @@ Add to VS Code `settings.json`:
 ## Testing
 
 ```bash
-pytest tests/ -q \
-  --ignore=tests/test_load_smoke.py \
-  --ignore=tests/test_wcag_axe.py \
-  --ignore=tests/test_nav_render.py
+python scripts/auto_ci.py
 ```
 
-The three excluded suites require a live app or Playwright (`playwright install chromium`) and run in CI separately.
+This shared CI entrypoint runs the standard pytest suite, excludes the three live-infra/browser suites, and verifies that generated HTML documentation is in sync. The excluded suites require a live app or Playwright (`playwright install chromium`).
 
 Key test files:
 
@@ -130,7 +127,7 @@ Key test files:
 
 ## Deployment (Azure DevOps → AKS)
 
-CI/CD is defined in [`azure-pipelines.yml`](azure-pipelines.yml) — three stages:
+CI/CD is defined in [`azure-pipelines.yml`](azure-pipelines.yml) and [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — both use `python scripts/auto_ci.py` for the shared repository checks before build/deploy stages:
 
 1. **Test** — `pytest` with JUnit output
 2. **Build** — multi-stage Docker build, push to ACR
