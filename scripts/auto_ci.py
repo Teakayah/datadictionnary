@@ -21,6 +21,7 @@ DEFAULT_TEST_ENV = {
     "DUCKDB_PATH": ":memory:",
 }
 PYTEST_IGNORES = (
+    "tests/load",
     "tests/test_load_smoke.py",
     "tests/test_wcag_axe.py",
     "tests/test_nav_render.py",
@@ -91,7 +92,15 @@ def run_pytest(*, env: dict[str, str], junit_xml: str | None = None) -> None:
 
 
 def docs_are_dirty(status_output: str) -> bool:
-    return any(".html" in line for line in status_output.splitlines())
+    for line in status_output.splitlines():
+        if not line.strip():
+            continue
+        path = line[3:].strip()
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1].strip()
+        if path.endswith(".html"):
+            return True
+    return False
 
 
 def check_docs_sync(*, env: dict[str, str]) -> None:

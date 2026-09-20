@@ -111,7 +111,7 @@ Add to VS Code `settings.json`:
 python scripts/auto_ci.py
 ```
 
-This shared CI entrypoint runs the standard pytest suite, excludes the three live-infra/browser suites, and verifies that generated HTML documentation is in sync. The excluded suites require a live app or Playwright (`playwright install chromium`).
+This shared CI entrypoint runs the standard pytest suite, excludes the load-test tooling plus the three live-infra/browser suites, and verifies that generated HTML documentation is in sync. The excluded suites require a live app or Playwright (`playwright install chromium`).
 
 Key test files:
 

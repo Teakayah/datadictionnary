@@ -44,7 +44,9 @@ def test_docs_are_dirty_only_for_html_changes():
     auto_ci = _load_module()
 
     assert auto_ci.docs_are_dirty(" M docs/architecture.html")
+    assert auto_ci.docs_are_dirty("R  docs/old.html -> docs/new.html")
     assert not auto_ci.docs_are_dirty(" M docs/adr/001-duckdb-local-cache.md")
+    assert not auto_ci.docs_are_dirty(" M docs/notes.html.txt")
 
 
 def test_main_runs_pytest_and_docs_sync(monkeypatch):
@@ -63,6 +65,7 @@ def test_main_runs_pytest_and_docs_sync(monkeypatch):
 
     assert exit_code == 0
     assert commands[0][0][:4] == [auto_ci.sys.executable, "-m", "pytest", "tests/"]
+    assert "--ignore=tests/load" in commands[0][0]
     assert "--ignore=tests/test_load_smoke.py" in commands[0][0]
     assert "--ignore=tests/test_wcag_axe.py" in commands[0][0]
     assert "--ignore=tests/test_nav_render.py" in commands[0][0]
