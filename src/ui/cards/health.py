@@ -180,16 +180,17 @@ def _render_priority_actions(undocumented: pd.DataFrame):
         if len(undocumented) > 50:
             st.info(t("health.showing_first_50", count=len(undocumented)))
             undocumented = undocumented.head(50)
-        for row in undocumented.itertuples(index=False):
+        # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration over pre-computed list of dicts
+        for row in undocumented.to_dict('records'):
             if st.button(
-                f"📄 {getattr(row, 'table_name', '')}",
-                key=f"health_fix_{getattr(row, 'full_name', '')}",
+                f"📄 {row.get('table_name', '')}",
+                key=f"health_fix_{row.get('full_name', '')}",
                 use_container_width=True,
                 help=t("help.btn_priority_fix"),
             ):
                 st.query_params["tab"] = "search"
-                st.session_state["dd_search_override"] = getattr(row, 'table_name', '')
-                st.session_state["dd_nav_select"] = getattr(row, 'full_name', '')
+                st.session_state["dd_search_override"] = row.get('table_name', '')
+                st.session_state["dd_nav_select"] = row.get('full_name', '')
                 st.rerun()
     else:
         st.success(t("health.all_documented"))
