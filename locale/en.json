@@ -280,7 +280,8 @@
     "updated": "Updated",
     "no_groups": "Your account is not associated with any data access groups. Contact your administrator to request access.",
     "updated_at": "Updated {time}",
-    "data_quality_grade": "Data quality grade {grade}"
+    "data_quality_grade": "Data quality grade {grade}",
+    "by_user": " · {user}"
   },
   "pipelines": {
     "title": "Data Pipelines",
