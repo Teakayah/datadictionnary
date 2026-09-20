@@ -53,6 +53,11 @@ def render_css() -> None:
         "var hdr=el.closest('[role=\"columnheader\"]')||el.parentElement;"
         "var txt=hdr?(hdr.innerText||hdr.textContent||'').split('\\n')[0].trim():'';"
         "el.setAttribute('aria-label',txt||'Column options');}});"
+        "doc.querySelectorAll('button').forEach(function(btn){"
+        "if(!btn.getAttribute('aria-label') || btn.getAttribute('aria-label') === ''){"
+        "var tooltip = btn.querySelector('[data-testid=\"stTooltipHoverTarget\"]') || btn;"
+        "if(tooltip.getAttribute('title')) btn.setAttribute('aria-label', tooltip.getAttribute('title'));"
+        "}});"
     )
 
     _patch_el = (
@@ -62,6 +67,11 @@ def render_css() -> None:
         "var hdr=el.closest('[role=\"columnheader\"]')||el.parentElement;"
         "var txt=hdr?(hdr.innerText||hdr.textContent||'').split('\\n')[0].trim():'';"
         "el.setAttribute('aria-label',txt||'Column options');}}"
+        "function _b(btn){"
+        "if(!btn.getAttribute('aria-label') || btn.getAttribute('aria-label') === ''){"
+        "var tooltip = btn.querySelector('[data-testid=\"stTooltipHoverTarget\"]') || btn;"
+        "if(tooltip.getAttribute('title')) btn.setAttribute('aria-label', tooltip.getAttribute('title'));"
+        "}}"
     )
     _observer_js = (
         _patch_el
@@ -73,6 +83,8 @@ def render_css() -> None:
         "if(n.nodeType!==1)return;"
         "if(n.matches&&n.matches('div[aria-haspopup]'))_p(n);"
         "n.querySelectorAll&&n.querySelectorAll('div[aria-haspopup]').forEach(_p);"
+        "if(n.matches&&n.matches('button'))_b(n);"
+        "n.querySelectorAll&&n.querySelectorAll('button').forEach(_b);"
         "});})"
         "}).observe(doc.body,{childList:true,subtree:true,"
         "attributes:true,attributeFilter:['aria-haspopup']});"
