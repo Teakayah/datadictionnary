@@ -55,7 +55,7 @@ def test_main_runs_pytest_and_docs_sync(monkeypatch):
 
     def fake_run_command(command, **kwargs):
         commands.append((list(command), kwargs))
-        if command[:3] == ["git", "status", "--porcelain"]:
+        if command[:4] == ["git", "status", "--porcelain", "--untracked-files=all"]:
             return CompletedProcess(command, 0, stdout="", stderr="")
         return CompletedProcess(command, 0)
 
@@ -71,14 +71,14 @@ def test_main_runs_pytest_and_docs_sync(monkeypatch):
     assert "--ignore=tests/test_nav_render.py" in commands[0][0]
     assert "--junit-xml=test-results.xml" in commands[0][0]
     assert commands[1][0] == [auto_ci.sys.executable, "scripts/md_to_html.py"]
-    assert commands[2][0] == ["git", "status", "--porcelain", "--", "docs"]
+    assert commands[2][0] == ["git", "status", "--porcelain", "--untracked-files=all", "--", "docs"]
 
 
 def test_check_docs_sync_raises_when_html_is_dirty(monkeypatch):
     auto_ci = _load_module()
 
     def fake_run_command(command, **kwargs):
-        if command[:3] == ["git", "status", "--porcelain"]:
+        if command[:4] == ["git", "status", "--porcelain", "--untracked-files=all"]:
             return CompletedProcess(command, 0, stdout=" M docs/architecture.html\n", stderr="")
         return CompletedProcess(command, 0)
 

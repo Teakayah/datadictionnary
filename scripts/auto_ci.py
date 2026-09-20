@@ -106,7 +106,7 @@ def docs_are_dirty(status_output: str) -> bool:
 def check_docs_sync(*, env: dict[str, str]) -> None:
     run_command([sys.executable, "scripts/md_to_html.py"], env=env)
     status = run_command(
-        ["git", "status", "--porcelain", "--", "docs"],
+        ["git", "status", "--porcelain", "--untracked-files=all", "--", "docs"],
         env=env,
         check=False,
         capture_output=True,
