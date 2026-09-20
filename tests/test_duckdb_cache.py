@@ -221,6 +221,46 @@ class TestDuckDBAdapter:
         df = cur.fetchall_as_pandas()
         assert df.iloc[0].iloc[0] == 2
 
+    def test_executemany_empty(self, tmp_path):
+        cur = self._cursor(str(tmp_path / "t.duckdb"))
+        with pytest.raises(duckdb.InvalidInputException):
+            cur.executemany("SELECT 1")
+        assert cur.fetchall() == []
+
+    def test_executemany_with_params(self, tmp_path):
+        db = str(tmp_path / "t.duckdb")
+        con = duckdb.connect(db)
+        con.execute("CREATE TABLE tbl (x INT)")
+        con.close()
+
+        cur = self._cursor(db)
+        # Note: duckdb executemany parameterizes via native list/tuples
+        cur.executemany("INSERT INTO tbl VALUES (?)", [[1], [2], [3]])
+
+        cur.execute("SELECT * FROM tbl ORDER BY x")
+        df = cur.fetchall_as_pandas()
+        assert df["x"].tolist() == [1, 2, 3]
+
+    def test_executemany_closed_conn(self, tmp_path):
+        db = str(tmp_path / "t.duckdb")
+        cur = self._cursor(db)
+        cur._con = None
+        cur.executemany("SELECT 1")
+        assert cur._rel is None
+
+    def test_executemany_write(self, tmp_path):
+        db = str(tmp_path / "t.duckdb")
+        con = duckdb.connect(db)
+        con.execute("CREATE TABLE tbl2 (y VARCHAR)")
+        con.close()
+
+        cur = self._cursor(db)
+        cur.executemany_write("INSERT INTO tbl2 VALUES (?)", [["a"], ["b"]])
+
+        cur.execute("SELECT * FROM tbl2 ORDER BY y")
+        df = cur.fetchall_as_pandas()
+        assert df["y"].tolist() == ["a", "b"]
+
     def test_duckconn_cursor_returns_cursor(self, tmp_path):
         db = str(tmp_path / "t.duckdb")
         user_db = str(tmp_path / "user.duckdb")
