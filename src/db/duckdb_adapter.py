@@ -73,7 +73,14 @@ def _to_duckdb_sql(sql: str, params: dict) -> tuple:
         else:
             converted[name] = value
     # Convert remaining pyformat placeholders to DuckDB named parameters.
-    # Regex breakdown:
+    #
+    # WHY IT EXISTS:
+    # The application codebase standardizes on pyformat (e.g., `%(param)s`) for SQL placeholders.
+    # DuckDB's Python API requires named parameters with a dollar sign prefix (e.g., `$param`).
+    # This regex ensures compatibility by translating standard pyformat placeholders into the DuckDB
+    # required format just before the query is executed.
+    #
+    # REGEX BREAKDOWN:
     # %\(        - Matches literal '%('
     # (\w+)      - Capturing group 1: Matches one or more word characters (the parameter name)
     # \)s        - Matches literal ')s'
