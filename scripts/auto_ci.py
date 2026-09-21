@@ -50,7 +50,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def build_environment(base_env: dict[str, str] | None = None) -> dict[str, str]:
-    env = dict(base_env or os.environ)
+    env = dict(base_env if base_env is not None else os.environ)
     for key, value in DEFAULT_TEST_ENV.items():
         if not env.get(key):
             env[key] = value
