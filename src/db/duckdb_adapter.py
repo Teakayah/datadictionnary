@@ -269,10 +269,14 @@ def _get_shared_duckdb_connection():
             safe_duckdb_path = DUCKDB_PATH.replace("\x00", "").replace("'", "''") if DUCKDB_PATH else ""
             safe_user_data_path = USER_DATA_PATH.replace("\x00", "").replace("'", "''") if USER_DATA_PATH else ""
 
+            import secrets
+            _tok1 = f"__{secrets.token_hex(8)}__"
+            _tok2 = f"__{secrets.token_hex(8)}__"
+
             # Attach the main read-only cache
-            con.execute(f"ATTACH '{safe_duckdb_path}' AS {_escape_id(CATALOG_CACHE)} (READ_ONLY)")
+            con.execute(f"ATTACH ${_tok1}${safe_duckdb_path}${_tok1}$ AS {_escape_id(CATALOG_CACHE)} (READ_ONLY)")
             # Attach the persistent user data database
-            con.execute(f"ATTACH IF NOT EXISTS '{safe_user_data_path}' AS {_escape_id('user_data')}")
+            con.execute(f"ATTACH IF NOT EXISTS ${_tok2}${safe_user_data_path}${_tok2}$ AS {_escape_id('user_data')}")
 
             _initialize_schema(con)
 
