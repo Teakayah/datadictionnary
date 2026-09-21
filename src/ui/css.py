@@ -53,6 +53,10 @@ def render_css() -> None:
         "var hdr=el.closest('[role=\"columnheader\"]')||el.parentElement;"
         "var txt=hdr?(hdr.innerText||hdr.textContent||'').split('\\n')[0].trim():'';"
         "el.setAttribute('aria-label',txt||'Column options');}});"
+        "doc.querySelectorAll('button:not([aria-label])').forEach(function(btn){"
+        "var tt=btn.querySelector('[data-testid=\"stTooltipHoverTarget\"]');"
+        "if(tt&&tt.title){btn.setAttribute('aria-label',tt.title);}"
+        "});"
     )
 
     _patch_el = (
@@ -63,8 +67,16 @@ def render_css() -> None:
         "var txt=hdr?(hdr.innerText||hdr.textContent||'').split('\\n')[0].trim():'';"
         "el.setAttribute('aria-label',txt||'Column options');}}"
     )
+    _patch_btn_el = (
+        "function _pb(btn){"
+        "if(!btn.getAttribute('aria-label')){"
+        "var tt=btn.querySelector('[data-testid=\"stTooltipHoverTarget\"]');"
+        "if(tt&&tt.title){btn.setAttribute('aria-label',tt.title);}"
+        "}}"
+    )
     _observer_js = (
         _patch_el
+        + _patch_btn_el
         + "try{new (win.MutationObserver)(function(ms){"
         "ms.forEach(function(m){"
         "if(m.type==='attributes'&&m.target&&m.target.nodeType===1){"
@@ -72,7 +84,9 @@ def render_css() -> None:
         "m.addedNodes&&m.addedNodes.forEach(function(n){"
         "if(n.nodeType!==1)return;"
         "if(n.matches&&n.matches('div[aria-haspopup]'))_p(n);"
+        "if(n.matches&&n.matches('button'))_pb(n);"
         "n.querySelectorAll&&n.querySelectorAll('div[aria-haspopup]').forEach(_p);"
+        "n.querySelectorAll&&n.querySelectorAll('button').forEach(_pb);"
         "});})"
         "}).observe(doc.body,{childList:true,subtree:true,"
         "attributes:true,attributeFilter:['aria-haspopup']});"
