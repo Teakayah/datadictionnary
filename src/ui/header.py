@@ -19,7 +19,7 @@ import json as _json
 import streamlit as st
 import streamlit.components.v1 as components
 
-from src.i18n import _ensure_locale, t, set_locale, get_current_locale
+from src.i18n import t, set_locale, get_current_locale
 
 # ── Logo & icon SVGs (inlined to avoid Streamlit static-file serving issues) ──
 

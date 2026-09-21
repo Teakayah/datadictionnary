@@ -1,10 +1,8 @@
-import pytest
 import pandas as pd
 from unittest.mock import patch, MagicMock
-from src.ui.cards.health import _render_priority_actions, render_health, HealthMetrics
+from src.ui.cards.health import _render_priority_actions, render_health
 
 def test_render_priority_actions_empty():
-    import streamlit as st
     with patch("src.ui.cards.health.st.markdown") as mock_md, \
          patch("src.ui.cards.health.st.success") as mock_success:
         df = pd.DataFrame()
@@ -12,7 +10,6 @@ def test_render_priority_actions_empty():
         mock_success.assert_called_once()
 
 def test_render_priority_actions_with_data():
-    import streamlit as st
     with patch("src.ui.cards.health.st.markdown") as mock_md, \
          patch("src.ui.cards.health.st.warning") as mock_warning, \
          patch("src.ui.cards.health.st.button") as mock_button:
@@ -74,7 +71,6 @@ def test_render_health_exception():
         mock_error.assert_called_once()
 
 def test_render_health_hero_metrics():
-    import streamlit as st
     with patch("src.ui.cards.health.st.columns") as mock_columns:
         mock_cols = [MagicMock(), MagicMock(), MagicMock()]
         mock_columns.return_value = mock_cols
@@ -100,14 +96,12 @@ def test_render_health_hero_metrics():
         assert len(mock_cols[2].mock_calls) > 0
 
 def test_render_schema_coverage_empty():
-    import streamlit as st
     with patch("src.ui.cards.health._render_empty_state") as mock_empty:
         from src.ui.cards.health import _render_schema_coverage
         _render_schema_coverage(pd.DataFrame())
         mock_empty.assert_called_once()
 
 def test_render_schema_coverage_with_data():
-    import streamlit as st
     with patch("src.ui.cards.health.st.dataframe") as mock_dataframe:
         from src.ui.cards.health import _render_schema_coverage
         df = pd.DataFrame({"schema_name": ["s1"], "total": [10], "described": [5]})
@@ -120,7 +114,6 @@ def test_render_zero_result_alerts_empty():
         _render_zero_result_alerts()
 
 def test_render_zero_result_alerts_with_data():
-    import streamlit as st
     with patch("src.analytics.get_zero_result_alerts", return_value=[{"query": "q", "search_count": 5, "first_seen": "2023-01-01", "last_seen": "2023-01-02"}]), \
          patch("src.ui.cards.health.st.dataframe") as mock_dataframe, \
          patch("src.ui.cards.health.st.markdown") as mock_markdown:
@@ -321,7 +314,6 @@ def test_priority_actions_button_click():
         calls = [c.args for c in mock_setitem.mock_calls]
 
 def test_priority_actions_more_than_50():
-    import streamlit as st
     with patch("src.ui.cards.health.st.markdown"), \
          patch("src.ui.cards.health.st.warning"), \
          patch("src.ui.cards.health.st.info") as mock_info, \
