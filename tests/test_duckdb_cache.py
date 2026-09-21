@@ -485,3 +485,56 @@ class TestWriteDuckdb:
         ).df()
         con.close()
         assert len(idx) >= 2, f"Expected indexes not found: {idx}"
+
+
+class TestExecutemany:
+    def test_cursor_executemany_none_con(self):
+        import src.db.duckdb_adapter as _adapter
+        cur = _adapter._DuckDBCursor(None)
+        cur.executemany("SELECT 1", [[1]])
+        assert cur._rel is None
+
+    def test_cursor_executemany_missing_params(self):
+        import src.db.duckdb_adapter as _adapter
+        import duckdb
+        con = duckdb.connect(":memory:")
+        cur = _adapter._DuckDBCursor(con)
+        with pytest.raises(duckdb.InvalidInputException, match="executemany requires a non-empty list of parameter sets"):
+            cur.executemany("SELECT 1")
+
+    def test_cursor_executemany_list_params(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        con = duckdb.connect(str(tmp_path / "cache.duckdb"))
+        cur = _adapter._DuckDBCursor(con)
+        cur.execute("CREATE TABLE test (a INTEGER)")
+        cur.executemany("INSERT INTO test VALUES (?)", [[2], [3]])
+        cur.execute("SELECT * FROM test ORDER BY a")
+        df = cur.fetchall_as_pandas()
+        assert len(df) == 2
+        assert df.iloc[0]["a"] == 2
+        assert df.iloc[1]["a"] == 3
+
+    def test_cursor_executemany_write(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        con = duckdb.connect(str(tmp_path / "cache.duckdb"))
+        cur = _adapter._DuckDBCursor(con)
+        cur.execute("CREATE TABLE test (a INTEGER)")
+        cur.executemany_write("INSERT INTO test VALUES (?)", [[3], [4]])
+        cur.execute("SELECT * FROM test ORDER BY a")
+        df = cur.fetchall_as_pandas()
+        assert len(df) == 2
+        assert df.iloc[0]["a"] == 3
+        assert df.iloc[1]["a"] == 4
+
+    def test_cursor_executemany_dict_params(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        import duckdb
+        con = duckdb.connect(str(tmp_path / "cache.duckdb"))
+        cur = _adapter._DuckDBCursor(con)
+        cur.execute("CREATE TABLE test (a INTEGER)")
+        cur.executemany("INSERT INTO test VALUES (%(val)s)", [{"val": 5}, {"val": 6}])
+        cur.execute("SELECT * FROM test ORDER BY a")
+        df = cur.fetchall_as_pandas()
+        assert len(df) == 2
+        assert df.iloc[0]["a"] == 5
+        assert df.iloc[1]["a"] == 6

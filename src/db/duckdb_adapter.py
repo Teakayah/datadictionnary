@@ -12,6 +12,7 @@ import os
 import re
 import logging
 import threading
+import duckdb
 
 import pandas as pd
 
@@ -327,7 +328,11 @@ class _DuckDBCursor:
             self._rel = None
             return
         if params is None:
-            self._rel = self._con.executemany(sql)
+            raise duckdb.InvalidInputException('executemany requires a non-empty list of parameter sets to be provided')
+        elif isinstance(params, list) and len(params) > 0 and isinstance(params[0], dict):
+            converted_sql, _ = _to_duckdb_sql(sql, params[0])
+            converted_params = [_to_duckdb_sql(sql, p)[1] for p in params]
+            self._rel = self._con.executemany(converted_sql, converted_params)
         else:
             self._rel = self._con.executemany(sql, params)
 

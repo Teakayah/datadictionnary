@@ -137,3 +137,7 @@ Assertion: Use `cur_mock = MagicMock(); conn.cursor.return_value.__enter__.retur
 Coverage Gap: The else branch inside `_render_notable_tab` prompting for user sign in was unreachable since an earlier statement would return early if `primary_group` was falsey.
 Learning: When addressing test coverage gaps involving missing lines, if analysis reveals the un-covered lines are logically unreachable dead code (e.g., statements following a branch with a guaranteed early-return), remove the dead code to satisfy the coverage metric instead of attempting to mock impossible test states.
 Assertion: Tested normal empty states and removed the unreachable dead code block.
+## 2023-10-24 - [Fix DuckDB executemany with missing parameters]
+Coverage Gap: `executemany` with `None` params threw `NameError: name 'duckdb' is not defined` and list of dicts threw `ParserException` due to pyformat params not being properly processed.
+Learning: In duckdb adapter, `executemany` had an unimported `duckdb` reference for its `InvalidInputException` which obscured the real failure, and `_to_duckdb_sql` translation was not being applied to dict parameters within lists (pyformat conversion logic).
+Assertion: Write explicit unit tests utilizing `executemany` with missing parameters (expecting DuckDB Exception) and a list-of-dicts parameter structure, verifying parameters are processed properly and `executemany_write` functions properly under concurrent access simulation.
