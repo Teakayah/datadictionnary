@@ -184,7 +184,10 @@ class TestPushToDatabricks:
         _push_to_databricks("AUDIT", None, payload)
         sql, bound = _push_cursor().execute.call_args.args
         assert "INSERT INTO data_governance.dictionary_cache.audit_log" in sql
-        assert bound is payload
+        import hashlib
+        expected_email = hashlib.sha256(b"alice@x.com").hexdigest()
+        assert bound["actor_email"] == expected_email
+        assert bound["event_id"] == payload["event_id"]
 
     def test_comment_inserts_into_catalog_comments(self, databricks_env):
         from src.sync.push import _push_to_databricks

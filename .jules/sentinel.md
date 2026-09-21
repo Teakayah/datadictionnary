@@ -54,3 +54,7 @@
 **Vulnerability:** SQL Injection via path breakout in DuckDB `ATTACH` queries using `$token$` quoting.
 **Learning:** DuckDB does not support standard parameterized queries (like `?`) for `ATTACH` statements. When using f-strings to format user-provided paths, dollar-quoting (`$token$`) is insecure if the token itself can be injected by the user to break out of the string literal.
 **Prevention:** Always use single quotes for string literals in dynamically constructed `ATTACH` statements and sanitize paths by doubling up single quotes (`replace("'", "''")`) to prevent string breakout.
+## 2024-05-24 - PII Exposure in Audit Logs
+**Vulnerability:** Audit log syncing (`src/sync/push.py`) exposes plain-text `actor_email` by directly writing it to the external Databricks repository.
+**Learning:** PII must be anonymized before leaving the system. Use hashing (e.g., SHA-256) instead of passing raw PII to an external Databricks table. Create shallow copies of payloads to avoid mutating caller dictionaries.
+**Prevention:** Always sanitize/hash PII fields such as `actor_email` before syncing records to external audit trails.

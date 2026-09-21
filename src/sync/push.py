@@ -233,10 +233,20 @@ def _push_to_databricks(sync_type: str, table_full_name: Optional[str], payload:
 
             elif sync_type == "AUDIT":
                 audit_tbl = f"{CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log"
+                import hashlib
+
+                # Create a shallow copy so we don't mutate the caller's payload scope
+                safe_payload = dict(payload)
+
+                # Anonymize actor_email via SHA-256 before pushing to Databricks
+                raw_email = safe_payload.get("actor_email") or ""
+                if raw_email:
+                    safe_payload["actor_email"] = hashlib.sha256(raw_email.encode("utf-8")).hexdigest()
+
                 cur.execute(
                     f"INSERT INTO {audit_tbl} (event_id, event_type, object_type, object_name, actor_email, old_value, new_value, created_at) "
                     f"VALUES (%(event_id)s, %(event_type)s, %(object_type)s, %(object_name)s, %(actor_email)s, %(old_value)s, %(new_value)s, current_timestamp())",
-                    payload
+                    safe_payload
                 )
 
             elif sync_type == "TABLE_BUSINESS_NAME":
