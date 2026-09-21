@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 import json
+import hashlib
 import logging
 import os
 import re
@@ -233,10 +234,13 @@ def _push_to_databricks(sync_type: str, table_full_name: Optional[str], payload:
 
             elif sync_type == "AUDIT":
                 audit_tbl = f"{CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log"
+                local_payload = dict(payload)
+                if local_payload.get("actor_email"):
+                    local_payload["actor_email"] = hashlib.sha256(local_payload["actor_email"].encode('utf-8')).hexdigest()
                 cur.execute(
                     f"INSERT INTO {audit_tbl} (event_id, event_type, object_type, object_name, actor_email, old_value, new_value, created_at) "
                     f"VALUES (%(event_id)s, %(event_type)s, %(object_type)s, %(object_name)s, %(actor_email)s, %(old_value)s, %(new_value)s, current_timestamp())",
-                    payload
+                    local_payload
                 )
 
             elif sync_type == "TABLE_BUSINESS_NAME":
@@ -293,10 +297,13 @@ def _push_to_databricks(sync_type: str, table_full_name: Optional[str], payload:
 
             elif sync_type == "COMMENT":
                 comm_tbl = f"{CATALOG_CACHE}.{SCHEMA_CACHE}.comments"
+                local_payload = dict(payload)
+                if local_payload.get("author_email"):
+                    local_payload["author_email"] = hashlib.sha256(local_payload["author_email"].encode('utf-8')).hexdigest()
                 cur.execute(
                     f"INSERT INTO {comm_tbl} (comment_id, object_type, object_name, comment_text, author_name, author_email, created_at, steward_email, parent_comment_id) "
                     f"VALUES (%(comment_id)s, %(object_type)s, %(object_name)s, %(comment_text)s, %(author_name)s, %(author_email)s, current_timestamp(), %(steward_email)s, %(parent_comment_id)s)",
-                    payload
+                    local_payload
                 )
 
             else:

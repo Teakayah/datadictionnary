@@ -184,7 +184,8 @@ class TestPushToDatabricks:
         _push_to_databricks("AUDIT", None, payload)
         sql, bound = _push_cursor().execute.call_args.args
         assert "INSERT INTO data_governance.dictionary_cache.audit_log" in sql
-        assert bound is payload
+        assert bound["actor_email"] == "9293c9abc55b4cebee3c8b7c134f2389e4fcef4d6cb0160997d0f36abd117c51"
+        assert bound is not payload
 
     def test_comment_inserts_into_catalog_comments(self, databricks_env):
         from src.sync.push import _push_to_databricks
@@ -197,7 +198,8 @@ class TestPushToDatabricks:
         _push_to_databricks("COMMENT", None, payload)
         sql, bound = _push_cursor().execute.call_args.args
         assert "INSERT INTO data_governance.dictionary_cache.comments" in sql
-        assert bound is payload
+        assert bound["author_email"] == "9293c9abc55b4cebee3c8b7c134f2389e4fcef4d6cb0160997d0f36abd117c51"
+        assert bound is not payload
 
     def test_unknown_sync_type_warns_and_skips_execute(self, databricks_env, caplog):
         from src.sync.push import _push_to_databricks
