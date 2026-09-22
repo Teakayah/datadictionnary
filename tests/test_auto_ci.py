@@ -26,8 +26,8 @@ def test_build_environment_sets_ci_defaults():
     assert env["ENABLE_MOCK_AUTH"] == "true"
     assert env["ENVIRONMENT"] == "development"
     assert env["DEMO_DATA"] == "true"
-    assert env["TENANT_ID"] == "test-tenant"
-    assert env["CLIENT_ID"] == "test-client"
+    assert env["TENANT_ID"] == "test-tenant-id"
+    assert env["CLIENT_ID"] == "test-client-id"
     assert env["DUCKDB_PATH"] == ":memory:"
 
 
