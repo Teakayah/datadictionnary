@@ -137,3 +137,7 @@ Assertion: Use `cur_mock = MagicMock(); conn.cursor.return_value.__enter__.retur
 Coverage Gap: The else branch inside `_render_notable_tab` prompting for user sign in was unreachable since an earlier statement would return early if `primary_group` was falsey.
 Learning: When addressing test coverage gaps involving missing lines, if analysis reveals the un-covered lines are logically unreachable dead code (e.g., statements following a branch with a guaranteed early-return), remove the dead code to satisfy the coverage metric instead of attempting to mock impossible test states.
 Assertion: Tested normal empty states and removed the unreachable dead code block.
+## 2026-09-22 - Fix short-circuit logic in build_environment
+Coverage Gap: The `test_build_environment_sets_ci_defaults` test failed when running in environments with pre-existing variables like `TENANT_ID` due to incorrect short-circuit evaluation.
+Learning: In Python, using short-circuit evaluation like `base_env or os.environ` treats an empty dictionary `{}` as falsy, which can cause unexpected fallbacks. If an empty dictionary is a valid, distinct state (e.g., indicating no environment variables), use an explicit `None` check: `base_env if base_env is not None else os.environ`.
+Assertion: Ensure `base_env if base_env is not None else os.environ` is used to differentiate between an explicitly passed empty dict and a missing argument.
