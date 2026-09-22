@@ -123,3 +123,6 @@
 **Learning:** The root `src/api/main.py` FastAPI file lacked top-level testing for routing inclusion and CORS setup, leaving middleware and API routing configuration untested. Even simple router integrations in FastAPI applications should be explicitly tested to catch silent failures during app initialization.
 **Action:** Added `test_app_routing_and_cors` in `tests/test_api_main.py` to assert the app starts up with the correct lifespan context, explicitly tests CORS headers on an `OPTIONS` request, and verifies that the `live` health check router responds to `GET` requests.
 
+## 2026-09-22 - Fix Flaky Auto CI Test
+**Learning:** Using short-circuit evaluation (`base_env or os.environ`) in Python treats an empty dictionary as falsy. This causes tests passing an empty dictionary `{}` to unexpectedly fall back to the system environment variables (`os.environ`), leading to flaky test failures when the host environment has conflicting variables set (like `TENANT_ID`).
+**Action:** When a dictionary argument can validly be empty but is distinct from being unspecified, explicitly check against `None` (e.g., `base_env if base_env is not None else os.environ`) to prevent unintended state bleeding from the environment.
