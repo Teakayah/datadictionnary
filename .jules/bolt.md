@@ -101,3 +101,6 @@
 **Learning:** Using `itertuples(index=False)` combined with `getattr()` to iterate over Pandas DataFrames in Streamlit UI rendering and CSV export is extremely slow due to generator overhead and repeated attribute lookups.
 **Action:** Extracted column series directly using `.tolist()` and iterated over them using `zip()`, which avoids generator/object instantiation overhead and reduces time significantly.
 
+## 2024-05-14 - Replace slow itertuples() inside Streamlit loops
+**Learning:** Using `itertuples()` combined with `getattr()` inside Streamlit UI rendering loops causes significant performance degradation because `getattr` adds runtime overhead on every iteration and tuple attributes in Pandas are slow to access dynamically.
+**Action:** When iterating over DataFrames in UI loops, use `df.to_dict('records')` first to pre-compute a list of native Python dictionaries, which allows fast, direct dictionary access (e.g. `row.get('col')`) without dynamic lookup overhead.
