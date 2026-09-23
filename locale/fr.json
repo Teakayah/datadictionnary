@@ -225,7 +225,7 @@
     "total_tables": "Total tables",
     "documented": "Documenté",
     "with_grants": "Avec permissions",
-    "last_sync": "Dernière synchro à 04:12 UTC",
+    "last_sync": "Dernière synchro à {time}",
     "table_coverage": "Couverture des tables",
     "column_coverage": "Couverture des colonnes",
     "freshness_index": "Indice de fraîcheur",

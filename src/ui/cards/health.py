@@ -132,7 +132,7 @@ def _render_health_hero_metrics(metrics: HealthMetrics):
         <div style="background:var(--paper); border-top:3px solid var(--ochre); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
             <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{_html.escape(t("health.freshness_index"))}</div>
             <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">A</div>
-            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{_html.escape(t("health.last_sync"))}</div>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{_html.escape(t("health.last_sync", time="04:12 UTC"))}</div>
         </div>
         ''', unsafe_allow_html=True)
 

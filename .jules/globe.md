@@ -51,3 +51,6 @@
 ## 2026-09-12 - Extract Missing Fallback Keys
 **Learning:** The i18n module gracefully falls back to the dotted key (e.g. `admin.sync_progress`) if a key is missing from the translation files, hiding the missing key problem by appearing as technical text. However, dynamically formatted fallback keys, especially those containing interpolated values, break completely because the template (`{pct}`) expects format strings which are absent in the raw fallback token.
 **Action:** Always ensure that dynamically formatted strings or any variants inside application source code actually exist in the respective `locale` dictionary to keep it correctly translatable and dynamic.
+## 2026-09-23 - Extract Hardcoded Sync Time in Health Metrics
+**Learning:** The string "Last sync at 04:12 UTC" was entirely hardcoded in the `en.json` file under `health.last_sync`. By defining `t("health.last_sync", time="04:12 UTC")` we enable translators to dynamically position the time format within different locales without having English-specific timestamps permanently baked into translation dictionaries.
+**Action:** Always extract hardcoded data (like time values or constants) from translation tokens and inject them via Python formatting arguments.
