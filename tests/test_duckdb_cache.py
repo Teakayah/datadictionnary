@@ -343,6 +343,38 @@ class TestDuckDBAdapter:
                 df = _adapter._run_duckdb_query("SELECT * FROM query_test")
                 assert len(df) == 1
                 assert df.iloc[0]["msg"] == 'hello'
+    def test_executemany_returns_none_if_con_is_none(self):
+        cur = self.h["_DuckDBCursor"](None)
+        assert cur.executemany("SELECT 1") is None
+        assert cur.executemany("SELECT 1", [{"x": 1}]) is None
+
+    def test_executemany(self, tmp_path):
+        db_path = str(tmp_path / "t.duckdb")
+        con = duckdb.connect(db_path)
+        cur = self.h["_DuckDBCursor"](con)
+        cur.execute("CREATE TABLE t (x INT, y INT)")
+        # Test without params (must raise exception as executemany needs params)
+        with pytest.raises(duckdb.InvalidInputException, match="executemany requires a non-empty list of parameter sets to be provided"):
+            cur.executemany("INSERT INTO t VALUES (1, 2), (3, 4)")
+
+        cur.execute("INSERT INTO t VALUES (1, 2), (3, 4)")
+
+        # Test with params
+        cur.executemany("INSERT INTO t VALUES ($x, $y)", [{"x": 5, "y": 6}, {"x": 7, "y": 8}])
+        cur.execute("SELECT * FROM t ORDER BY x")
+        assert cur.fetchall() == [(1, 2), (3, 4), (5, 6), (7, 8)]
+
+    def test_executemany_write(self, tmp_path):
+        db_path = str(tmp_path / "t.duckdb")
+        con = duckdb.connect(db_path)
+        cur = self.h["_DuckDBCursor"](con)
+        cur.execute("CREATE TABLE t (x INT, y INT)")
+
+        # Test executemany_write
+        cur.executemany_write("INSERT INTO t VALUES ($x, $y)", [{"x": 9, "y": 10}, {"x": 11, "y": 12}])
+        cur.execute("SELECT * FROM t ORDER BY x")
+        assert cur.fetchall() == [(9, 10), (11, 12)]
+
     def test_duckconn_open_property(self, tmp_path):
         db = str(tmp_path / "t.duckdb")
         user_db = str(tmp_path / "user.duckdb")
