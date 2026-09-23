@@ -53,6 +53,10 @@ def render_css() -> None:
         "var hdr=el.closest('[role=\"columnheader\"]')||el.parentElement;"
         "var txt=hdr?(hdr.innerText||hdr.textContent||'').split('\\n')[0].trim():'';"
         "el.setAttribute('aria-label',txt||'Column options');}});"
+        "doc.querySelectorAll('button').forEach(function(btn){"
+        "var tt=btn.closest('[data-testid=\"stTooltipHoverTarget\"]');"
+        "if(tt&&tt.getAttribute('title')){btn.setAttribute('aria-label',tt.getAttribute('title'));}"
+        "});"
     )
 
     _patch_el = (
@@ -62,20 +66,27 @@ def render_css() -> None:
         "var hdr=el.closest('[role=\"columnheader\"]')||el.parentElement;"
         "var txt=hdr?(hdr.innerText||hdr.textContent||'').split('\\n')[0].trim():'';"
         "el.setAttribute('aria-label',txt||'Column options');}}"
+        "function _pBtn(btn){"
+        "var tt=btn.closest('[data-testid=\"stTooltipHoverTarget\"]');"
+        "if(tt&&tt.getAttribute('title')){btn.setAttribute('aria-label',tt.getAttribute('title'));}}"
     )
     _observer_js = (
         _patch_el
         + "try{new (win.MutationObserver)(function(ms){"
         "ms.forEach(function(m){"
         "if(m.type==='attributes'&&m.target&&m.target.nodeType===1){"
-        "if(m.target.hasAttribute('aria-haspopup')){_p(m.target);}}"
+        "if(m.target.hasAttribute('aria-haspopup')){_p(m.target);}"
+        "if(m.target.tagName==='BUTTON'){_pBtn(m.target);}"
+        "if(m.target.getAttribute('data-testid')==='stTooltipHoverTarget'){var b=m.target.querySelector('button');if(b)_pBtn(b);}}"
         "m.addedNodes&&m.addedNodes.forEach(function(n){"
         "if(n.nodeType!==1)return;"
         "if(n.matches&&n.matches('div[aria-haspopup]'))_p(n);"
         "n.querySelectorAll&&n.querySelectorAll('div[aria-haspopup]').forEach(_p);"
+        "if(n.matches&&n.matches('button'))_pBtn(n);"
+        "n.querySelectorAll&&n.querySelectorAll('button').forEach(_pBtn);"
         "});})"
         "}).observe(doc.body,{childList:true,subtree:true,"
-        "attributes:true,attributeFilter:['aria-haspopup']});"
+        "attributes:true,attributeFilter:['aria-haspopup','title']});"
         "}catch(e){}"
     )
     _polling_js = (
