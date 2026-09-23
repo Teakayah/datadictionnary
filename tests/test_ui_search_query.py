@@ -278,20 +278,8 @@ def test_search_query_group_filter_nan_full_name():
 def test_search_results_with_nan_score():
     import pandas as pd
     import numpy as np
-    import streamlit as st
-    from src.pages.search import _render_detail_panel
-    from unittest.mock import patch
 
     # Arrange
-    row = pd.Series({
-        "catalog_name": "main",
-        "schema_name": "sales",
-        "table_name": "orders",
-        "full_name": "main.sales.orders",
-        "dq_score": np.nan,
-        "steward_email": "test@example.com"
-    })
-
     def run_detail_panel():
         import pandas as pd
         import numpy as np
@@ -332,7 +320,6 @@ def test_search_results_with_nan_score():
 
 def test_live_completeness_exception():
     def render_detail_panel():
-        import streamlit as st
         import pandas as pd
         from src.pages.search import _render_detail_panel
         row = pd.Series({
