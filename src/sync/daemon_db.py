@@ -15,6 +15,7 @@ import duckdb
 
 from src.config import CATALOG_CACHE, DUCKDB_PATH, USER_DATA_PATH
 from src.db.duckdb_adapter import _DuckDBCursor, _initialize_schema
+import secrets
 import contextlib
 
 log = logging.getLogger(__name__)
@@ -36,20 +37,21 @@ class DaemonConn:
         self._con = duckdb.connect(":memory:")
 
         # Sanitize paths to prevent SQL injection when using f-strings for ATTACH
-        safe_duckdb_path = DUCKDB_PATH.replace("\x00", "").replace("'", "''") if DUCKDB_PATH else ""
-        safe_user_data_path = USER_DATA_PATH.replace("\x00", "").replace("'", "''") if USER_DATA_PATH else ""
+        _token = secrets.token_hex(8)
+        safe_duckdb_path = DUCKDB_PATH.replace("\x00", "") if DUCKDB_PATH else ""
+        safe_user_data_path = USER_DATA_PATH.replace("\x00", "") if USER_DATA_PATH else ""
         safe_catalog_cache = CATALOG_CACHE.replace('"', '""')
 
         if DUCKDB_PATH and Path(DUCKDB_PATH).exists():
             self._con.execute(
-                f"ATTACH '{safe_duckdb_path}' AS \"{safe_catalog_cache}\" (READ_ONLY)"  # nosec B608
+                f"ATTACH $a{_token}a${safe_duckdb_path}$a{_token}a$ AS \"{safe_catalog_cache}\" (READ_ONLY)"  # nosec B608
             )
         else:
             log.info(
                 "Catalog file %s missing — daemon will run without DR resync from cache.",
                 DUCKDB_PATH,
             )
-        self._con.execute(f"ATTACH IF NOT EXISTS '{safe_user_data_path}' AS \"user_data\"")  # nosec B608
+        self._con.execute(f"ATTACH IF NOT EXISTS $a{_token}a${safe_user_data_path}$a{_token}a$ AS \"user_data\"")  # nosec B608
         _initialize_schema(self._con)
 
     def cursor(self) -> _DuckDBCursor:

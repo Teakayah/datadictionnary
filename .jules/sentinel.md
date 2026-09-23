@@ -54,3 +54,7 @@
 **Vulnerability:** SQL Injection via path breakout in DuckDB `ATTACH` queries using `$token$` quoting.
 **Learning:** DuckDB does not support standard parameterized queries (like `?`) for `ATTACH` statements. When using f-strings to format user-provided paths, dollar-quoting (`$token$`) is insecure if the token itself can be injected by the user to break out of the string literal.
 **Prevention:** Always use single quotes for string literals in dynamically constructed `ATTACH` statements and sanitize paths by doubling up single quotes (`replace("'", "''")`) to prevent string breakout.
+## 2026-09-23 - Prevent SQL Injection via Path Parameters in ATTACH
+**Vulnerability:** SQL injection vulnerability in DuckDB `ATTACH` query formatting where path parameters were escaped using standard string replacement instead of parameterized queries or cryptographically secure dollar quoting.
+**Learning:** Standard single-quote escaping (`replace("'", "''")`) is insufficient because DuckDB doesn't treat backslashes as escape characters, making string manipulation vulnerable if maliciously crafted. Parameterized queries aren't supported for the `ATTACH` command.
+**Prevention:** Use randomized dollar-quoted string literals with a cryptographically secure token (e.g., `f"ATTACH $a{secrets.token_hex(8)}a${path}$a{...}a$"`) for DuckDB configuration queries that do not support standard parameterization.

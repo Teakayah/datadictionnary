@@ -7,6 +7,7 @@ $name named-parameter style so no query code needs to change.
 """
 
 from __future__ import annotations
+import secrets
 
 import os
 import re
@@ -266,13 +267,14 @@ def _get_shared_duckdb_connection():
                 return '"' + val.replace('"', '""') + '"'
 
             # Sanitize paths to prevent SQL injection when using f-strings for ATTACH
-            safe_duckdb_path = DUCKDB_PATH.replace("\x00", "").replace("'", "''") if DUCKDB_PATH else ""
-            safe_user_data_path = USER_DATA_PATH.replace("\x00", "").replace("'", "''") if USER_DATA_PATH else ""
+            _token = secrets.token_hex(8)
+            safe_duckdb_path = DUCKDB_PATH.replace("\x00", "") if DUCKDB_PATH else ""
+            safe_user_data_path = USER_DATA_PATH.replace("\x00", "") if USER_DATA_PATH else ""
 
             # Attach the main read-only cache
-            con.execute(f"ATTACH '{safe_duckdb_path}' AS {_escape_id(CATALOG_CACHE)} (READ_ONLY)")
+            con.execute(f"ATTACH $a{_token}a${safe_duckdb_path}$a{_token}a$ AS {_escape_id(CATALOG_CACHE)} (READ_ONLY)")
             # Attach the persistent user data database
-            con.execute(f"ATTACH IF NOT EXISTS '{safe_user_data_path}' AS {_escape_id('user_data')}")
+            con.execute(f"ATTACH IF NOT EXISTS $a{_token}a${safe_user_data_path}$a{_token}a$ AS {_escape_id('user_data')}")
 
             _initialize_schema(con)
 
