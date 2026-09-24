@@ -160,7 +160,7 @@ class TestNotificationsAPI:
     @staticmethod
     def _seed(notification_id, user_oid, table_full_name, change_type, changed_by, summary):
         import streamlit as st
-        st.session_state.setdefault("_demo_notifications", []).append({
+        st.session_state.setdefault("_demo_notifications", {})[notification_id] = {
             "notification_id": notification_id,
             "user_oid": user_oid,
             "table_full_name": table_full_name,
@@ -169,7 +169,7 @@ class TestNotificationsAPI:
             "summary": summary,
             "created_at": datetime.now(),
             "read_at": None,
-        })
+        }
 
     def _make(self):
         self._seed("n1", "user-a", "cat.s.t", "TABLE_DESC", "editor@x.com", "Description updated")
@@ -366,10 +366,10 @@ class TestNotificationsDatabaseAPI:
         from src.notifications import mark_read
         import streamlit as st
         # Create an empty demo store
-        st.session_state["_demo_notifications"] = []
+        st.session_state["_demo_notifications"] = {}
         mark_read("n1")
         # Ensure it safely returns early
-        assert st.session_state["_demo_notifications"] == []
+        assert st.session_state["_demo_notifications"] == {}
 
 
 class TestNotificationsAPIDuckDB:

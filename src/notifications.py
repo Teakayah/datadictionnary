@@ -21,10 +21,10 @@ log = logging.getLogger(__name__)
 _DEMO_KEY = "_demo_notifications"
 
 
-def _demo_store() -> list[dict]:
+def _demo_store() -> dict[str, dict]:
     import streamlit as st
     if _DEMO_KEY not in st.session_state:
-        st.session_state[_DEMO_KEY] = []
+        st.session_state[_DEMO_KEY] = {}
     return st.session_state[_DEMO_KEY]
 
 
@@ -41,7 +41,7 @@ def get_unread_notifications(user_oid: str, limit: int = 20) -> list[dict]:
     if is_demo_mode():
         return [
             {k: v for k, v in n.items() if k not in ("user_oid", "read_at")}
-            for n in reversed(_demo_store())
+            for n in reversed(list(_demo_store().values()))
             if n["user_oid"] == user_oid and n["read_at"] is None
         ][:limit]
     try:
@@ -79,10 +79,9 @@ def get_unread_notifications(user_oid: str, limit: int = 20) -> list[dict]:
 def mark_read(notification_id: str) -> None:
     """Dismiss a single notification."""
     if is_demo_mode():
-        for n in _demo_store():
-            if n["notification_id"] == notification_id:
-                n["read_at"] = _now()
-                return
+        store = _demo_store()
+        if notification_id in store:
+            store[notification_id]["read_at"] = _now()
         return
     try:
         from src.db.duckdb_adapter import _db_write_lock
@@ -101,7 +100,7 @@ def mark_all_read(user_oid: str) -> None:
     """Dismiss all unread notifications for a user."""
     if is_demo_mode():
         now = _now()
-        for n in _demo_store():
+        for n in _demo_store().values():
             if n["user_oid"] == user_oid and n["read_at"] is None:
                 n["read_at"] = now
         return
