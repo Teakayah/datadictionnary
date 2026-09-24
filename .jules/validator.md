@@ -141,3 +141,7 @@ Assertion: Tested normal empty states and removed the unreachable dead code bloc
 Coverage Gap: The `get_authorized_table_names` and `get_authorized_tables` functions in `src/db/queries.py` lacked complete coverage, particularly for empty state handling and the demo mode branch logic, leading to missing assertions for authorization edge cases.
 Learning: Unmocked external cached responses in DB query tests can cause assertions to randomly fail if the shared cached singleton has expired or holds unexpected data. Furthermore, complex functions querying external data warehouses are notoriously flaky.
 Assertion: Ensure mocking targets explicitly return isolated, clean mock Pandas DataFrames to properly assert functionality strictly inside the target functions without touching backend databases or caches.
+## 2024-09-24 - Cover DuckDB Dictionary Parameter Conversion
+Coverage Gap: The parameter conversion logic for pyformat dictionaries in DuckDB's `executemany` method lacked testing, posing a risk to batch insert operations.
+Learning: Testing database adapter logic requires simulating the exact payload shapes (list of dictionaries with pyformat SQL strings) that the adapter is designed to intercept and transform into native dialect parameters.
+Assertion: Always supply the exact, expected upstream payload structure (e.g., `[{"col1": val1}, ...]`) alongside pyformat SQL (e.g., `%(col1)s`) to reliably test custom adapter parameter transformations.
