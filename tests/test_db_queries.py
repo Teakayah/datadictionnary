@@ -181,3 +181,69 @@ def test_search_keywords_glossary_unauthorized_table():
                     res = _search_keywords("test", ("group1",))
                     # Shouldn't include the glossary result
                     assert res is None or res.empty
+
+@patch("src.db.queries.get_authorized_tables")
+def test_get_authorized_table_names(mock_get_authorized_tables):
+    # Arrange
+    mock_get_authorized_tables.return_value = pd.DataFrame([{"full_name": "t1"}, {"full_name": "t2"}, {"full_name": "t1"}])
+    from src.db.queries import get_authorized_table_names
+
+    # Act
+    res = get_authorized_table_names(("group1",))
+
+    # Assert
+    assert res == {"t1", "t2"}
+
+@patch("src.db.queries.get_authorized_tables")
+def test_get_authorized_table_names_empty(mock_get_authorized_tables):
+    # Arrange
+    mock_get_authorized_tables.return_value = pd.DataFrame()
+    from src.db.queries import get_authorized_table_names
+
+    # Act
+    res = get_authorized_table_names(("group1",))
+
+    # Assert
+    assert res == set()
+
+@patch("src.db.queries.get_authorized_tables")
+def test_get_authorized_table_names_none(mock_get_authorized_tables):
+    # Arrange
+    mock_get_authorized_tables.return_value = None
+    from src.db.queries import get_authorized_table_names
+
+    # Act
+    res = get_authorized_table_names(("group1",))
+
+    # Assert
+    assert res == set()
+
+@patch("src.db.queries.is_demo_mode", return_value=True)
+@patch("src.db.queries._DEMO_TABLES", pd.DataFrame([{"full_name": "t1"}]))
+def test_get_authorized_tables_demo_mode(mock_demo_mode):
+    # Arrange
+    from src.db.queries import get_authorized_tables
+
+    # Act
+    res = get_authorized_tables(("group1",))
+
+    # Assert
+    assert not res.empty
+    assert res.iloc[0]["full_name"] == "t1"
+
+@patch("src.db.queries.is_demo_mode", return_value=False)
+@patch("src.db.queries._build_auth_filters", return_value=("%(group_0)s", {"group_0": "group1"}))
+@patch("src.db.queries._get_override_table_name", return_value="override_table")
+@patch("src.db.queries.run_query")
+def test_get_authorized_tables_db_mode(mock_run_query, mock_get_override_table_name, mock_build_auth_filters, mock_is_demo_mode):
+    # Arrange
+    mock_run_query.return_value = pd.DataFrame([{"full_name": "t1"}])
+    from src.db.queries import get_authorized_tables
+
+    # Act
+    res = get_authorized_tables(("group1",))
+
+    # Assert
+    assert not res.empty
+    assert res.iloc[0]["full_name"] == "t1"
+    mock_run_query.assert_called_once()
