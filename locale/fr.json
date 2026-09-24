@@ -280,7 +280,8 @@
     "updated": "Mis à jour",
     "no_groups": "Votre compte n'est associé à aucun groupe d'accès aux données. Contactez votre administrateur pour demander l'accès.",
     "updated_at": "Mis à jour le {time}",
-    "data_quality_grade": "Note de qualité des données {grade}"
+    "data_quality_grade": "Note de qualité des données {grade}",
+    "by_user": " · {user}"
   },
   "pipelines": {
     "title": "Pipelines de données",
