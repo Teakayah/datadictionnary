@@ -41,3 +41,7 @@
 **Learning:** Generic info blocks are sometimes still used instead of the shared empty state UI utility for empty states (e.g. data preview needs data).
 **Action:** Use the custom empty state component for data previews to standardize visuals and improve accessibility.
 
+## 2026-09-21 - Add aria-label to Streamlit tooltip buttons
+
+**Learning:** Streamlit's `st.button` and similar components do not natively support setting an `aria-label` for icon-only buttons. The tooltip text (set via the `help` parameter) is rendered nested inside `[data-testid="stTooltipHoverTarget"]` but is not announced effectively as the button's accessible name.
+**Action:** Use a JavaScript MutationObserver injected via frontend HTML/CSS components (e.g. `src/ui/css.py`) to parse the nested tooltip's `title` attribute and hoist it to the parent button's `aria-label` attribute, ensuring standard WCAG accessibility compliance for icon-only buttons without modifying core Streamlit rendering behavior.
