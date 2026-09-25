@@ -303,7 +303,7 @@ def test_priority_actions_button_click():
     with patch("src.ui.cards.health.st.markdown"), \
          patch("src.ui.cards.health.st.warning"), \
          patch("src.ui.cards.health.st.button", return_value=True), \
-         patch.object(st.session_state, '__setitem__') as mock_setitem, \
+         patch.object(st.session_state, '__setitem__'), \
          patch("src.ui.cards.health.st.rerun") as mock_rerun, \
          patch.object(st.query_params, '__setitem__'):
         from src.ui.cards.health import _render_priority_actions
