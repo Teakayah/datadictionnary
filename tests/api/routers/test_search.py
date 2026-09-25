@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from unittest.mock import AsyncMock, patch
 import pandas as pd
 from fastapi.testclient import TestClient
@@ -12,11 +13,16 @@ from src.api.deps import get_current_user
 def override_get_current_user():
     return AuthenticatedUser(oid="test-oid", email="test@test.com", name="Test User", groups=["test_group"])
 
-app.dependency_overrides[get_current_user] = override_get_current_user
 
-client = TestClient(app)
+@pytest.fixture()
+def client():
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    with TestClient(app) as c:
+        yield c
+    app.dependency_overrides.pop(get_current_user, None)
 
-def test_search_endpoint_success():
+
+def test_search_endpoint_success(client):
     # Arrange
     mock_data = pd.DataFrame([
         {
@@ -44,7 +50,7 @@ def test_search_endpoint_success():
         assert data[0]["name"] == "test_table"
         assert data[0]["full_name"] == "cat.schema.test_table"
 
-def test_search_endpoint_cache_hit():
+def test_search_endpoint_cache_hit(client):
     # Arrange
     cached_data = [{
         "full_name": "cached.schema.table",
@@ -65,14 +71,14 @@ def test_search_endpoint_cache_hit():
         assert response.status_code == 200
         assert response.json() == cached_data
 
-def test_search_endpoint_missing_query():
+def test_search_endpoint_missing_query(client):
     # Act
     response = client.get("/api/v1/search")
 
     # Assert
     assert response.status_code == 422
 
-def test_search_endpoint_empty_results():
+def test_search_endpoint_empty_results(client):
     # Arrange
     empty_data = pd.DataFrame()
 
@@ -86,7 +92,7 @@ def test_search_endpoint_empty_results():
         assert response.status_code == 200
         assert response.json() == []
 
-def test_search_endpoint_none_results():
+def test_search_endpoint_none_results(client):
     # Arrange
     with patch("src.api.routers.search.queries.search_metadata", return_value=None), \
          patch("src.api.routers.search.redis_cache.get", AsyncMock(return_value=None)), \
@@ -98,7 +104,7 @@ def test_search_endpoint_none_results():
         assert response.status_code == 200
         assert response.json() == []
 
-def test_search_query_too_short():
+def test_search_query_too_short(client):
     # Act
     response = client.get("/api/v1/search?q=")
 

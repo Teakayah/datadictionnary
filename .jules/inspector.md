@@ -126,3 +126,6 @@
 ## 2025-02-23 - Fix short-circuit logic treating empty dict as falsy in auto_ci
 **Learning:** Using `base_env or os.environ` in `scripts/auto_ci.py` treats an empty dictionary `{}` as falsy, which causes the CI to unexpectedly fallback to system environment variables even when explicitly given an empty dict (such as in tests). This leads to tests like `test_build_environment_sets_ci_defaults` unexpectedly reading system variables (like `TENANT_ID="test-tenant-id"`) and failing.
 **Action:** When short-circuiting optional dictionary arguments where `{}` is a valid and distinct state, always use explicit `is not None` checks like `base_env if base_env is not None else os.environ`.
+## 2024-12-05 - Fix FastAPI dependency_overrides mutating global state in tests
+**Learning:** When using `app.dependency_overrides` at the module level in FastAPI test files, it acts on the global application state. This causes intermittent 401 test failures when tests run concurrently or in batches, because other test files might call `app.dependency_overrides.clear()`, wiping out the required authentication overrides.
+**Action:** Always scope FastAPI `dependency_overrides` to a localized `pytest.fixture` (e.g., using `autouse=True` or explicitly yielding the client) that sets the override before testing and clears it afterward.
