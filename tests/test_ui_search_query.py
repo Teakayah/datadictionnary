@@ -276,8 +276,6 @@ def test_search_query_group_filter_nan_full_name():
         assert len(gview_btns) == 0
 
 def test_search_results_with_nan_score():
-    import pandas as pd
-    import numpy as np
 
     # Arrange
 
