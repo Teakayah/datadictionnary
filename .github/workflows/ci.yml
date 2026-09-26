@@ -1,0 +1,146 @@
+name: Auto-CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  lint-and-docs:
+    name: Lint & Docs Sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Run Ruff
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: check src/ scripts/ tests/ --ignore E501
+        continue-on-error: true
+
+      - name: Verify docs and HTML synchronization
+        run: python scripts/auto_ci.py --skip-tests
+
+  test:
+    name: Pytest Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run shared CI checks
+        run: python scripts/auto_ci.py --junit-xml test-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results
+          path: test-results.xml
+          if-no-files-found: ignore
+
+      - name: Publish test summary
+        if: always()
+        run: |
+          if [ ! -f test-results.xml ]; then
+            echo "## Pytest results" >> "$GITHUB_STEP_SUMMARY"
+            echo "JUnit results were not generated." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          python - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          root = ET.parse("test-results.xml").getroot()
+          suites = [root] if root.tag == "testsuite" else root.findall(".//testsuite")
+          totals = {key: sum(int(suite.get(key, "0")) for suite in suites)
+                    for key in ("tests", "failures", "errors", "skipped")}
+          summary = [
+              "## Pytest results",
+              "",
+              f"- Tests: {totals['tests']}",
+              f"- Passed: {totals['tests'] - totals['failures'] - totals['errors'] - totals['skipped']}",
+              f"- Failed: {totals['failures']}",
+              f"- Errors: {totals['errors']}",
+              f"- Skipped: {totals['skipped']}",
+          ]
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as report:
+              report.write("\n".join(summary) + "\n")
+          PY
+
+  detect-docker-changes:
+    name: Detect Docker build inputs
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      docker: ${{ steps.filter.outputs.docker }}
+    steps:
+      - name: Check changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            docker:
+              - 'Dockerfile'
+              - 'requirements.txt'
+              - 'scripts/**'
+
+  docker-validate:
+    name: Validate Docker Build
+    needs: detect-docker-changes
+    if: github.event_name == 'pull_request' && needs.detect-docker-changes.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image without pushing
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

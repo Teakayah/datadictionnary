@@ -142,7 +142,7 @@ APP_URL = os.getenv("LOAD_TEST_HOST", "http://localhost:8501")
 
 def _server_is_up() -> bool:
     try:
-        return requests.get(f"{APP_URL}/healthz", timeout=3).status_code == 200
+        return requests.get(f"{APP_URL}/_stcore/health", timeout=3).status_code == 200
     except requests.ConnectionError:
         return False
 
