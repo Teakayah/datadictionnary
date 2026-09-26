@@ -537,3 +537,22 @@ class TestWriteDuckdb:
         ).df()
         con.close()
         assert len(idx) >= 2, f"Expected indexes not found: {idx}"
+
+    def test_cursor_executemany_with_dict_params(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        # Arrange
+        con = duckdb.connect(str(tmp_path / "cache.duckdb"))
+        cur = _adapter._DuckDBCursor(con)
+        cur.execute("CREATE TABLE test (a INTEGER, b INTEGER)")
+
+        # Act
+        cur.executemany("INSERT INTO test VALUES (%(a)s, %(b)s)", [{"a": 1, "b": 2}, {"a": 3, "b": 4}])
+
+        # Assert
+        cur.execute("SELECT * FROM test")
+        df = cur.fetchall_as_pandas()
+        assert len(df) == 2
+        assert df.iloc[0]["a"] == 1
+        assert df.iloc[0]["b"] == 2
+        assert df.iloc[1]["a"] == 3
+        assert df.iloc[1]["b"] == 4
