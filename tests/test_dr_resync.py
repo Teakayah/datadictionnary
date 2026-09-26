@@ -107,3 +107,16 @@ def test_run_dr_resync_status_setter():
         assert res == "Error: DB Error"
         # Should be called with "Checking" and then the error string
         assert mock_setter.call_count == 2
+
+def test_merge_into_local_fallback_loop_no_executemany():
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    # Ensure it doesn't have _con
+    del mock_cur._con
+    del mock_cur.executemany_write
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+
+    df = pd.DataFrame({"id": [1, 2], "val": ["a", "b"]})
+    _merge_into_local(mock_conn, "comments", df)
+
+    assert mock_cur.execute_write.call_count == 2
