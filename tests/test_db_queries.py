@@ -10,9 +10,24 @@ from src.db.queries import (
     get_db_connection,
     run_query,
     search_all_metadata,
-    _search_keywords
+    _search_keywords,
+    _current_locale,
+    _get_override_table_name,
+    CATALOG_CACHE,
+    SCHEMA_CACHE
 )
 
+def test_current_locale_exception():
+    with patch("src.db.queries.get_current_locale", side_effect=Exception("Test Exception")):
+        assert _current_locale() == "en"
+
+def test_get_override_table_name_duckdb_available():
+    with patch("src.db.queries._duckdb_available", return_value=True):
+        assert _get_override_table_name("table_metadata") == "user_data.table_metadata_overrides"
+
+def test_get_override_table_name_duckdb_unavailable():
+    with patch("src.db.queries._duckdb_available", return_value=False):
+        assert _get_override_table_name("table_metadata") == f"{CATALOG_CACHE}.{SCHEMA_CACHE}.table_metadata_overrides"
 
 def test_fetch_metadata_for_fns_empty():
     df = _fetch_metadata_for_fns([], ("group1",))

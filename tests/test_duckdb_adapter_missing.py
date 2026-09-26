@@ -1,7 +1,22 @@
 import pytest
+import duckdb
 from unittest.mock import MagicMock
 from src.db.duckdb_adapter import _DuckDBCursor
-import duckdb
+
+def test_executemany_duckdb_invalid_input_exception():
+    con_mock = MagicMock()
+    con_mock.executemany.side_effect = duckdb.InvalidInputException('executemany requires a non-empty list of parameter sets to be provided')
+    cursor = _DuckDBCursor(con_mock)
+    with pytest.raises(duckdb.InvalidInputException):
+        cursor.executemany("SELECT * FROM t WHERE c = %(p)s", [])
+
+def test_executemany_duckdb_invalid_input_exception_no_pyformat():
+    con_mock = MagicMock()
+    con_mock.executemany.side_effect = duckdb.InvalidInputException('executemany requires a non-empty list of parameter sets to be provided')
+    cursor = _DuckDBCursor(con_mock)
+    with pytest.raises(duckdb.InvalidInputException):
+        cursor.executemany("SELECT * FROM t WHERE c = ?", [])
+
 
 def test_duckdb_adapter_executemany_valid_dict_conversion():
     con_mock = MagicMock()
