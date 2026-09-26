@@ -127,7 +127,7 @@ Key test files:
 
 ## Deployment (Azure DevOps → AKS)
 
-CI/CD is defined in [`azure-pipelines.yml`](azure-pipelines.yml) and [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — both use `python scripts/auto_ci.py` for the shared repository checks before build/deploy stages:
+GitHub Actions validation is defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml); [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) handles image publishing, Kubernetes deployment, and tagged releases. Azure DevOps continues to run the shared checks through [`azure-pipelines.yml`](azure-pipelines.yml):
 
 1. **Test** — `pytest` with JUnit output
 2. **Build** — multi-stage Docker build, push to ACR

@@ -1,0 +1,60 @@
+name: Accessibility Tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  accessibility:
+    name: Playwright and WCAG audits
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Install Chromium and system dependencies
+        run: python -m playwright install --with-deps chromium
+
+      - name: Start mock app and run browser tests
+        env:
+          ENABLE_MOCK_AUTH: "true"
+          ENVIRONMENT: development
+          DEMO_DATA: "true"
+          DUCKDB_PATH: ":memory:"
+        run: |
+          streamlit run app.py --server.headless=true --server.port=8501 > /tmp/streamlit.log 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
+
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:8501/_stcore/health >/dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 60 ]; then
+              cat /tmp/streamlit.log
+              exit 1
+            fi
+            sleep 2
+          done
+
+          python -m pytest tests/test_wcag_axe.py tests/test_nav_render.py -q
