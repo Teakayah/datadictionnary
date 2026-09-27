@@ -351,7 +351,7 @@ def _render_admin_search_analytics_section():
     """Render the zero-results search analytics table."""
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:32px;">'
-        f'<span class="dd-eyebrow">§ {t("admin.section_search_analytics")}</span>'
+        f'<span class="dd-eyebrow">§ {_html.escape(t("admin.section_search_analytics"))}</span>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -379,7 +379,7 @@ def _render_admin_search_analytics_section():
 def _render_admin_sync_section():
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:32px;">'
-        f'<span class="dd-eyebrow">§ {t("admin.sync_title")}</span></div>',
+        f'<span class="dd-eyebrow">§ {_html.escape(t("admin.sync_title"))}</span></div>',
         unsafe_allow_html=True,
     )
 
@@ -439,7 +439,7 @@ def _render_admin_comment_log_section():
     _cmt_h, _cmt_btn = st.columns([9, 1], gap="small")
     with _cmt_h:
         st.markdown(
-            f'<div class="dd-section-header"><span class="dd-eyebrow">§ {t("admin.comment_log_title")}</span></div>',
+            f'<div class="dd-section-header"><span class="dd-eyebrow">§ {_html.escape(t("admin.comment_log_title"))}</span></div>',
             unsafe_allow_html=True,
         )
     with _cmt_btn:
@@ -450,7 +450,7 @@ def _render_admin_comment_log_section():
 def _render_admin_editing_section():
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:32px;">'
-        f'<span class="dd-eyebrow">§ {t("admin.editing_title")}</span></div>',
+        f'<span class="dd-eyebrow">§ {_html.escape(t("admin.editing_title"))}</span></div>',
         unsafe_allow_html=True,
     )
     enabled = is_editing_enabled()
@@ -479,13 +479,13 @@ def _render_admin_groups_cache_section():
     """Admin tool: flush every user's cached Entra group membership."""
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:32px;">'
-        f'<span class="dd-eyebrow">§ {t("admin.groups_cache_title")}</span></div>',
+        f'<span class="dd-eyebrow">§ {_html.escape(t("admin.groups_cache_title"))}</span></div>',
         unsafe_allow_html=True,
     )
     st.markdown(
         f'<p style="font-family:var(--font-sans); font-size:13px; '
         f'color:var(--ink-60); line-height:1.5; margin:8px 0 12px;">'
-        f'{t("admin.groups_cache_subtitle")}</p>',
+        f'{_html.escape(t("admin.groups_cache_subtitle"))}</p>',
         unsafe_allow_html=True,
     )
     if st.button(
@@ -504,12 +504,12 @@ def _render_pending_reviews_section():
     import html as _html
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:32px;">'
-        f'<span class="dd-eyebrow">§ {t("admin.reviews_title")}</span></div>',
+        f'<span class="dd-eyebrow">§ {_html.escape(t("admin.reviews_title"))}</span></div>',
         unsafe_allow_html=True,
     )
     st.markdown(
         f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);'
-        f'line-height:1.5;margin:8px 0 12px;">{t("admin.reviews_subtitle")}</p>',
+        f'line-height:1.5;margin:8px 0 12px;">{_html.escape(t("admin.reviews_subtitle"))}</p>',
         unsafe_allow_html=True,
     )
     try:
@@ -599,12 +599,12 @@ def _render_pending_table_friendly_names_section():
     import html as _html
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:32px;">'
-        f'<span class="dd-eyebrow">§ {t("admin.table_friendly_reviews_title")}</span></div>',
+        f'<span class="dd-eyebrow">§ {_html.escape(t("admin.table_friendly_reviews_title"))}</span></div>',
         unsafe_allow_html=True,
     )
     st.markdown(
         f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);'
-        f'line-height:1.5;margin:8px 0 12px;">{t("admin.table_friendly_reviews_subtitle")}</p>',
+        f'line-height:1.5;margin:8px 0 12px;">{_html.escape(t("admin.table_friendly_reviews_subtitle"))}</p>',
         unsafe_allow_html=True,
     )
     try:
@@ -695,7 +695,7 @@ def render_admin_page():
     <div class="dd-search-hero">
       <div class="dd-eyebrow">{t("admin.title")}</div>
       <h1>{t("admin.hero_title")}</h1>
-      <p class="lead">{t("admin.subtitle")}</p>
+      <p class="lead">{_html.escape(t("admin.subtitle"))}</p>
     </div>
     ''', unsafe_allow_html=True)
 
