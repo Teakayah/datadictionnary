@@ -45,3 +45,6 @@
 
 **Learning:** Streamlit's `st.button` and similar components do not natively support setting an `aria-label` for icon-only buttons. The tooltip text (set via the `help` parameter) is rendered nested inside `[data-testid="stTooltipHoverTarget"]` but is not announced effectively as the button's accessible name.
 **Action:** Use a JavaScript MutationObserver injected via frontend HTML/CSS components (e.g. `src/ui/css.py`) to parse the nested tooltip's `title` attribute and hoist it to the parent button's `aria-label` attribute, ensuring standard WCAG accessibility compliance for icon-only buttons without modifying core Streamlit rendering behavior.
+## 2024-05-29 - Visual feedback for deletion actions
+**Learning:** Users lack immediate visual feedback when confirming a deletion within a dialog, as the page simply reloads and the item disappears silently.
+**Action:** Use `st.toast(t("common.deleted"))` immediately before `st.rerun()` when users confirm delete actions in dialogs to provide clear, non-blocking visual feedback.
