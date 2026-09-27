@@ -33,6 +33,12 @@ _SYNC_BATCH_SIZE = 25
 # [A-Za-z0-9_-]+   - Matches one or more allowed characters: letters, digits, _, -.
 # \Z               - Enforces matching strictly to the absolute end of the string
 #                    (ignoring trailing newlines, unlike $ which can be bypassed).
+# WHY IT EXISTS:
+# We must safely escape Unity Catalog identifiers (catalog, schema, table, column)
+# when dynamically generating Databricks SQL commands (e.g., ALTER TABLE) to prevent
+# SQL injection. This regex asserts that an identifier strictly contains alphanumeric
+# characters, underscores, or hyphens, thereby blocking malicious payloads (like
+# semicolons or quotes) from reaching the Databricks warehouse.
 _IDENT_RE = re.compile(r"^[A-Za-z0-9_-]+\Z")
 
 # Lightweight email syntax validator for the steward tag.

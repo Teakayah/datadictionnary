@@ -16,3 +16,6 @@
 ## 2024-11-20 - Adding "Why It Exists" to regex explainers
 **Learning:** Some regular expressions (e.g., regex used in parsing SQL placeholders in `src/db/duckdb_adapter.py`) include a breakdown of the match pattern but omit the necessary contextual "WHY IT EXISTS" explanation, making the underlying intent and business value of the translation obscured.
 **Action:** Always ensure that when documenting complex regular expressions with a "REGEX BREAKDOWN", it is accompanied by a "WHY IT EXISTS" section explaining the business context or problem it solves.
+## 2024-11-20 - Avoid Duplicating Existing Documentation
+**Learning:** When attempting to document complex logic or regexes (e.g., adding a "REGEX BREAKDOWN" for `_EMAIL_RE` in `src/sync/push.py`), it's crucial to inspect the immediately preceding context lines, as a breakdown or explanation may already exist. Blindly applying standard comment templates can result in redundant or noisy back-to-back documentation.
+**Action:** Always use `cat` or `grep -C` to read the full context surrounding the target code block *before* adding explanations, ensuring that new documentation strictly adds value and avoids duplicating what is already there.
