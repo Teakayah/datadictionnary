@@ -42,6 +42,9 @@
 **Action:** Use the custom empty state component for data previews to standardize visuals and improve accessibility.
 
 ## 2026-09-21 - Add aria-label to Streamlit tooltip buttons
-
 **Learning:** Streamlit's `st.button` and similar components do not natively support setting an `aria-label` for icon-only buttons. The tooltip text (set via the `help` parameter) is rendered nested inside `[data-testid="stTooltipHoverTarget"]` but is not announced effectively as the button's accessible name.
 **Action:** Use a JavaScript MutationObserver injected via frontend HTML/CSS components (e.g. `src/ui/css.py`) to parse the nested tooltip's `title` attribute and hoist it to the parent button's `aria-label` attribute, ensuring standard WCAG accessibility compliance for icon-only buttons without modifying core Streamlit rendering behavior.
+
+## 2026-09-28 - Missing feedback for destructive actions
+**Learning:** Destructive actions like deleting pipelines and CMS posts lack immediate visual confirmation before the page reloads, making the UI feel abrupt.
+**Action:** Add `st.toast()` with a success message immediately before `st.rerun()` when users perform delete operations to provide a smooth transition.
