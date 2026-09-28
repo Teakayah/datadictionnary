@@ -438,9 +438,10 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             if n_grants > 50:
                 st.info(t("detail.showing_first_50_grants", count=n_grants))
                 grants = grants.head(50)
-            for g in grants.itertuples(index=False):
-                principal = str(getattr(g, "principal", ""))
-                privilege = str(getattr(g, "privilege", ""))
+            # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
+            for g in grants.to_dict("records"):
+                principal = str(g.get("principal", ""))
+                privilege = str(g.get("privilege", ""))
                 st.markdown('<div style="border-top: 1px solid var(--ink-10); margin: 8px 0 4px 0;"></div>', unsafe_allow_html=True)
                 if principal == "SELECT_ALL_USERS":
                     if st.button(t("detail.browse_public_tables", privilege=privilege), key=f"grant_{full_name}_public_{privilege}", use_container_width=True):
@@ -537,10 +538,11 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                 (lnk["from"], lnk["to"]) if lnk["from"] < lnk["to"] else (lnk["to"], lnk["from"])
                 for lnk in graph_links
             }
-            for rel in related.itertuples(index=False):
-                _rel_full      = str(getattr(rel, "full_name", ""))
-                _rel_name      = _html.escape(str(getattr(rel, "table_name", "")))
-                _rel_raw_badge = str(getattr(rel, "relationship", ""))
+            # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
+            for rel in related.to_dict("records"):
+                _rel_full      = str(rel.get("full_name", ""))
+                _rel_name      = _html.escape(str(rel.get("table_name", "")))
+                _rel_raw_badge = str(rel.get("relationship", ""))
                 _rel_badge = (
                     t("detail.same_schema") if _rel_raw_badge == "Same schema"
                     else t("detail.shared_column") if _rel_raw_badge == "Shared column"
@@ -573,12 +575,13 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         if n_related > 0:
             st.markdown('<div style="margin-top: 16px;"></div>', unsafe_allow_html=True)
             _cols = st.columns(min(3, n_related), gap="small")
-            for i, rel in enumerate(related.itertuples(index=False)):
+            # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
+            for i, rel in enumerate(related.to_dict("records")):
                 with _cols[i % 3]:
-                    _rel_full      = str(getattr(rel, "full_name", ""))
-                    _rel_name      = _html.escape(str(getattr(rel, "table_name", "")))
-                    _rel_sch       = _html.escape(f"{getattr(rel, 'catalog_name', '')}.{getattr(rel, 'schema_name', '')}")
-                    _rel_raw_badge = str(getattr(rel, "relationship", ""))
+                    _rel_full      = str(rel.get("full_name", ""))
+                    _rel_name      = _html.escape(str(rel.get("table_name", "")))
+                    _rel_sch       = _html.escape(f"{rel.get('catalog_name', '')}.{rel.get('schema_name', '')}")
+                    _rel_raw_badge = str(rel.get("relationship", ""))
                     _rel_badge = (
                         t("detail.same_schema") if _rel_raw_badge == "Same schema"
                         else t("detail.shared_column") if _rel_raw_badge == "Shared column"
@@ -593,7 +596,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                         unsafe_allow_html=True,
                     )
                     if st.button(t("detail.open_related"), key=f"rel_{_rel_full}", type="secondary", use_container_width=True):
-                        st.session_state["dd_search_override"] = str(getattr(rel, "table_name", ""))
+                        st.session_state["dd_search_override"] = str(rel.get("table_name", ""))
                         st.session_state["dd_nav_select"] = _rel_full
                         st.rerun()
 

@@ -221,13 +221,13 @@ def get_column_overrides(table_full_name: str) -> dict:
             rows = cursor.fetchall_as_pandas()
             if rows is not None and not rows.empty:
                 return {
-                    str(getattr(r, "column_name", "")): {
-                        "business_name": str(getattr(r, "business_name", "") or ""),
-                        "definition":    str(getattr(r, "definition", "") or ""),
-                        "edited_by":     str(getattr(r, "edited_by", "")),
-                        "edited_at":     str(getattr(r, "edited_at", "")),
+                    str(r.get("column_name", "")): {
+                        "business_name": str(r.get("business_name", "") or ""),
+                        "definition":    str(r.get("definition", "") or ""),
+                        "edited_by":     str(r.get("edited_by", "")),
+                        "edited_at":     str(r.get("edited_at", "")),
                     }
-                    for r in rows.itertuples(index=False)
+                    for r in rows.to_dict("records")
                 }
     except Exception as exc:
         log.warning(
