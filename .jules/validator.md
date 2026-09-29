@@ -155,3 +155,8 @@ Assertion: Use `cursor = _DuckDBCursor(MagicMock())` to isolate and test cursor 
 Coverage Gap: The fallback loop inside `_merge_into_local` when `executemany_write` is unavailable on the cursor lacked test coverage (lines 100-101).
 Learning: By default, `MagicMock` returns true for `hasattr(mock, 'any_attribute')` because it dynamically creates attributes on access. To test branches that check `if hasattr(mock, 'some_method'):`, we must explicitly delete the attribute from the mock using `del mock_cur.some_method` before it is accessed.
 Assertion: Use `del mock_cur.executemany_write` to simulate older DuckDB adapters that lack the `executemany_write` method and verify the fallback iteration executes `execute_write` multiple times.
+
+## 2026-09-29 - [Cover ValueError and Exception handling in search UI]
+Coverage Gap: Missing test coverage for ValueError and generic Exception fallbacks when calling save_business_name in src.pages.search.
+Learning: To test try/except fallback logic properly, we must use unittest.mock.patch to target the specific function that raises the exception (e.g. src.pages.search.save_business_name) directly with a side_effect of the exception. Failure to mock the exact source function leaves the except blocks untested.
+Assertion: Use @patch("src.pages.search.save_business_name", side_effect=Exception("Error")) and assert that at.error is populated after the button click event.
