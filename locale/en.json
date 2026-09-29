@@ -396,7 +396,8 @@
     "beta": "Beta",
     "saving": "Saving...",
     "saved": "Changes saved.",
-    "deleting": "Deleting..."
+    "deleting": "Deleting...",
+    "deleted": "Deleted successfully."
   },
   "language": {
     "en": "EN",

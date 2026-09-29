@@ -396,7 +396,8 @@
     "beta": "Bêta",
     "saving": "Enregistrement...",
     "saved": "Changes saved.",
-    "deleting": "Suppression..."
+    "deleting": "Suppression...",
+    "deleted": "Supprimé avec succès."
   },
   "language": {
     "en": "EN",
