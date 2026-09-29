@@ -91,7 +91,9 @@ def _merge_into_local(local_conn, table: str, df: pd.DataFrame) -> None:
             placeholders = ", ".join("?" for _ in df.columns)
             sql = f"{verb} INTO user_data.{table} ({cols}) VALUES ({placeholders})"
             # Use executemany for bulk insertion which is significantly faster than a Python loop
-            params = list(df.itertuples(index=False, name=None))
+            # ⚡ Bolt: Use df.to_numpy().tolist() for faster conversion instead of itertuples generator
+            # to_numpy().tolist() leverages optimized C-level arrays
+            params = [tuple(x) for x in df.to_numpy().tolist()]
 
             # Since mock objects in tests might not have executemany_write yet, we check
             if hasattr(cur, 'executemany_write'):
