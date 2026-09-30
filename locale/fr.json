@@ -50,7 +50,8 @@
     "no_access": "Vous n'avez pas encore accès à des tables. Contactez votre administrateur pour demander l'accès.",
     "results_count_zero": "Aucun résultat",
     "results_count_one": "1 résultat",
-    "results_count_other": "{count} résultats"
+    "results_count_other": "{count} résultats",
+    "showing_first_50": "Affichage des 50 premiers résultats sur {count}."
   },
   "catalog": {
     "eyebrow": "§ Navigateur de catalogue",
