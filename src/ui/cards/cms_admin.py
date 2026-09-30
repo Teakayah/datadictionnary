@@ -27,6 +27,7 @@ def _show_delete_cms_dialog(post_id: str):
         if st.button(t("cms.confirm_delete_button"), help=t("help.btn_confirm_delete_post"), type="primary", use_container_width=True):
             with st.spinner(t("common.deleting")):
                 delete_post(post_id)
+                st.toast(t("common.deleted"))
             st.rerun()
     with _c:
         if st.button(t("common.cancel"), help=t("help.btn_common_cancel"), use_container_width=True):
