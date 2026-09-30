@@ -104,3 +104,7 @@
 ## 2026-09-26 - Avoid itertuples() with getattr() in Streamlit UI loops
 **Learning:** Using `itertuples()` with `getattr()` to iterate over Pandas DataFrames in Streamlit UI rendering loops causes severe performance degradation.
 **Action:** Pre-compute a list of dictionaries using `df.to_dict('records')` and use native dictionary access (`.get('col')`) instead when rendering UI elements from DataFrames.
+
+## 2024-09-30 - Optimize Pandas boolean masking array alignment
+**Learning:** Using sequential boolean mask indexing on Pandas Series directly incurs significant index alignment and object overhead. Casting the Series to a numpy array via `.to_numpy()` before boolean evaluation avoids this overhead while still supporting vectorization.
+**Action:** Always prefer casting Pandas Series to numpy arrays using `.to_numpy()` prior to boolean mask evaluations to skip Pandas index alignment overhead.
