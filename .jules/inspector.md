@@ -135,3 +135,7 @@
 ## 2024-12-06 - Missing DB Queries Exception Coverage
 **Learning:** Utilities in `src/db/queries.py` such as `_current_locale` and `_get_override_table_name` contain `try/except` and `if/else` fallback paths for missing session states or unavailable duckdb dependencies. These lines were missed in coverage because `test_table_friendly_names.py` tested the locale wrapper instead of the direct db helper, and duckdb override path tests were completely missing in `test_db_queries.py`.
 **Action:** When adding or maintaining db utilities in `src/db/queries.py`, always ensure `test_db_queries.py` includes patched exception and toggle tests (e.g., patching `get_current_locale` to throw exceptions and patching `_duckdb_available` to return `False`) to fully test fallback mechanisms.
+
+## 2023-10-31 - Coverage of error UI components requires dedicated mock tests
+**Learning:** Testing UI exception paths in Streamlit apps (like triggering `st.error` on a failed database write) requires specific mocking of the write function to simulate the error. Without it, the exception handling branch in the UI is not covered, and regressions could silently hide internal error stacks from users.
+**Action:** When adding or modifying UI components that perform state-altering operations (like saves), always add a companion test that uses `@patch` with `side_effect=Exception(...)` on the target logic function to verify the UI fails gracefully.
