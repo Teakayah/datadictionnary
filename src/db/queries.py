@@ -495,8 +495,9 @@ def _search_keywords(query: str, groups: tuple):
             query_lower, regex=False, na=False
         )
         glossary_df = _DEMO_GLOSSARY[mask]
-        for row in glossary_df.itertuples(index=False):
-            related_tables = getattr(row, "related_tables", [])
+        # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
+        for row in glossary_df.to_dict("records"):
+            related_tables = row.get("related_tables", [])
             target_table = related_tables[0] if related_tables else ""
             if target_table and target_table not in _allowed_fns:
                 continue

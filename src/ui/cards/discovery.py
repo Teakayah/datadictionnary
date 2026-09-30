@@ -414,11 +414,11 @@ def _get_recommended_tables(authorized_full_names: set, top_n: int = 10) -> list
         recent = set(st.session_state.get("recent_views", [])[:5])
         # ⚡ Bolt: Removed redundant and slow string split/join operations on object_name
         return [
-            str(r.object_name)
-            for r in result.itertuples(index=False)
-            if str(r.object_name) in authorized_full_names
-            and str(r.object_name) not in recent
-        ][:top_n]
+            str(r.get("object_name", ""))
+            for r in result.to_dict("records")
+            if str(r.get("object_name", "")) in authorized_full_names
+            and str(r.get("object_name", "")) not in recent
+            ][:top_n]
     except Exception as exc:
         logging.warning("Recommended tab query failed: %s", exc)
         return []
