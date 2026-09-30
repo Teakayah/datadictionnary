@@ -51,3 +51,6 @@
 ## 2026-09-12 - Extract Missing Fallback Keys
 **Learning:** The i18n module gracefully falls back to the dotted key (e.g. `admin.sync_progress`) if a key is missing from the translation files, hiding the missing key problem by appearing as technical text. However, dynamically formatted fallback keys, especially those containing interpolated values, break completely because the template (`{pct}`) expects format strings which are absent in the raw fallback token.
 **Action:** Always ensure that dynamically formatted strings or any variants inside application source code actually exist in the respective `locale` dictionary to keep it correctly translatable and dynamic.
+## 2024-08-25 - Extracted missing search.showing_first_50 localization key
+**Learning:** Found a dynamically formatted string `search.showing_first_50` missing from the translation files that caused hardcoded language strings to appear or silent fallbacks. The key was requested by `src/pages/search.py` via `t("search.showing_first_50")` and `src/ui/cards/admin.py` but was not present in the locale dictionaries, despite a similar `showing_first_50` key existing under `health`.
+**Action:** Always ensure that interpolated text or variants inside application source code exist in the respective `locale` dictionary to keep it dynamic.
