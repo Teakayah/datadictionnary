@@ -534,8 +534,9 @@ def _search_keywords(query: str, groups: tuple):
     combined = combined.copy()
 
     # Safely convert to string and lower
-    names = combined["name"].fillna("").astype(str).str.lower()
-    mtypes = combined["match_type"].fillna("").astype(str)
+    # ⚡ Bolt: Use .to_numpy() array casting before boolean evaluation to avoid Pandas index alignment overhead
+    names = combined["name"].fillna("").astype(str).str.lower().to_numpy()
+    mtypes = combined["match_type"].fillna("").astype(str).to_numpy()
 
     # Initialize scores with default Glossary value
     scores = np.where(mtypes == "Glossary", 1, 0)
@@ -548,8 +549,8 @@ def _search_keywords(query: str, groups: tuple):
         scores[table_mask] = np.where(
             table_names == q_lower, 5,
             np.where(
-                table_names.str.startswith(q_lower), 4,
-                np.where(table_names.str.contains(q_lower, regex=False), 3, 2)
+                np.char.startswith(table_names.astype(str), q_lower), 4,
+                np.where(np.char.find(table_names.astype(str), q_lower) != -1, 3, 2)
             )
         )
 
@@ -559,7 +560,7 @@ def _search_keywords(query: str, groups: tuple):
         col_names = names[col_mask]
         scores[col_mask] = np.where(
             col_names == q_lower, 2,
-            np.where(col_names.str.startswith(q_lower), 1, 0)
+            np.where(np.char.startswith(col_names.astype(str), q_lower), 1, 0)
         )
 
     combined["_score"] = scores
