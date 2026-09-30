@@ -332,3 +332,59 @@ class TestRenderDataSample:
 
         assert len(at.error) > 0
         assert at.error[0].value == en_locale["detail"]["preview_error"]
+
+def test_save_table_metadata_exception():
+    import streamlit as st
+    import pandas as pd
+    from streamlit.testing.v1 import AppTest
+    from unittest.mock import patch
+
+    def render_editor():
+        import streamlit as st
+        from src.ui.cards.detail import render_table_metadata_editor
+
+        st.session_state["user_email"] = "test@example.com"
+        render_table_metadata_editor("main.sales.orders", "Current description", "steward@example.com")
+
+    at = AppTest.from_function(render_editor)
+
+    with patch("src.ui.cards.detail.save_table_metadata", side_effect=Exception("Save Exception")), \
+         patch("src.ui.cards.detail.t", side_effect=lambda k, **kw: k), \
+         patch("src.auth.is_admin", return_value=True):
+
+        at.run()
+
+        save_button = [b for b in at.button if b.label == "common.save"][0]
+        save_button.click().run()
+
+        assert not at.exception
+        assert len(at.error) > 0
+        assert at.error[0].value == "common.error"
+
+def test_save_table_business_name_exception():
+    import streamlit as st
+    import pandas as pd
+    from streamlit.testing.v1 import AppTest
+    from unittest.mock import patch
+
+    def render_editor():
+        import streamlit as st
+        from src.ui.cards.detail import render_table_business_name_editor
+
+        st.session_state["user_email"] = "test@example.com"
+        render_table_business_name_editor("main.sales.orders", "En Name", "Fr Name", "En Def", "Fr Def")
+
+    at = AppTest.from_function(render_editor)
+
+    with patch("src.ui.cards.detail.save_table_business_name", side_effect=Exception("Save Exception")), \
+         patch("src.ui.cards.detail.t", side_effect=lambda k, **kw: k), \
+         patch("src.auth.is_admin", return_value=True):
+
+        at.run()
+
+        save_button = [b for b in at.button if b.label == "common.save"][0]
+        save_button.click().run()
+
+        assert not at.exception
+        assert len(at.error) > 0
+        assert at.error[0].value == "common.error"
