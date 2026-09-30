@@ -569,13 +569,6 @@ def _rand_ts(rng: random.Random, days_back: int = 730) -> str:
     return (base + delta).strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _rand_email(rng: random.Random, dept: str) -> str:
-    names = ["sarah.okonkwo", "marc.tremblay", "priya.nair", "james.whitfield",
-             "liu.wei", "amara.diallo", "finn.berg", "caroline.leblanc",
-             "reza.tehrani", "sofia.bertrand", "kwame.asante", "eva.lindqvist"]
-    return f"{rng.choice(names)}@research-org.ca"
-
-
 def _dq_score(rng: random.Random, n_cols_with_desc: int, n_total_cols: int) -> tuple[str, str, str]:
     """Completeness = % of ALL columns (any type) that have a definition."""
     col_coverage = n_cols_with_desc / n_total_cols if n_total_cols > 0 else 0
