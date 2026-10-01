@@ -216,7 +216,11 @@
     "sync_done": "{count} terminés",
     "sync_failed": "{count} échoués",
     "sync_self_healing": "Démon d'auto-réparation",
-    "sync_worker_heartbeat": "Battement de cœur du worker"
+    "sync_worker_heartbeat": "Battement de cœur du worker",
+    "reviews_approved_toast": "Approuvé '{col}'.",
+    "reviews_rejected_toast": "Rejeté '{col}'.",
+    "table_friendly_approved_toast": "Nom convivial approuvé pour '{table}'.",
+    "table_friendly_rejected_toast": "Nom convivial rejeté pour '{table}'."
   },
   "health": {
     "title": "§ Santé du catalogue",
