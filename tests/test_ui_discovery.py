@@ -428,7 +428,7 @@ def test_discovery_recent_exception_fallback(m1, m2):
             raise Exception("DB ERROR")
         from unittest.mock import patch
         from src.ui.cards.discovery import render_discovery
-        with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=fail_auth_tables):
+        with patch("src.ui.cards.discovery.get_authorized_table_names", side_effect=fail_auth_tables):
             render_discovery(["finance", "sales"])
 
     at = AppTest.from_function(app_wrapper).run()
@@ -448,7 +448,7 @@ def test_discovery_bookmarks_exception_fallback(m1, m2):
             raise Exception("DB ERROR")
         from unittest.mock import patch
         from src.ui.cards.discovery import render_discovery
-        with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=fail_auth_tables):
+        with patch("src.ui.cards.discovery.get_authorized_table_names", side_effect=fail_auth_tables):
             render_discovery(["finance", "sales"])
 
     at = AppTest.from_function(app_wrapper).run()
@@ -468,7 +468,7 @@ def test_discovery_notable_exception_fallback(m1, m2):
             raise Exception("DB ERROR")
         from unittest.mock import patch
         from src.ui.cards.discovery import render_discovery
-        with patch("src.ui.cards.discovery.get_authorized_tables", side_effect=fail_auth_tables):
+        with patch("src.ui.cards.discovery.get_authorized_table_names", side_effect=fail_auth_tables):
             render_discovery(["finance", "sales"])
 
     at = AppTest.from_function(app_wrapper).run()

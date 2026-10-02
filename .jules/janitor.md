@@ -24,3 +24,6 @@
 ## 2024-05-24 - Remove unused imports and variables
 **Learning:** Found multiple unused variables (`F841`) and unused imports (`F401`) throughout the tests using Ruff. Streamlit imports (`import streamlit as st`) are frequently imported inside functions without actually being used. Unused variable assignments (`mock_md`, `mock_markdown`, `calls`, `row`) are also common in testing files.
 **Action:** Use `ruff check . --select F401,F841 --fix` (with `--unsafe-fixes` where safe, like simple assignments) to aggressively clean up unused variables and unused imports, particularly those hidden inside function scopes in tests.
+## 2026-10-24 - Unnecessary complex operation over DataFrame for set extraction
+**Learning:** Found `set(all_tables["full_name"].unique().tolist())` which unnecessarily downloads all table columns into a pandas dataframe then does a complex transformation, when a simpler optimized `get_authorized_table_names(groups)` which returns the set directly is available.
+**Action:** Replaced the unoptimized extraction with the optimized `get_authorized_table_names(groups)` in `src/ui/cards/discovery.py`.
