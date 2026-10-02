@@ -62,3 +62,46 @@ def test_search_downstream_critical():
                 found = True
 
         assert found is True, f"Critical warning not found. Markdowns: {[m.value for m in at.markdown]}"
+import pandas as pd
+from unittest.mock import patch
+from streamlit.testing.v1 import AppTest
+
+def test_search_downstream_exception():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["dd_nav_select"] = "main.sales.orders"
+
+        if "catalog_search" not in st.session_state:
+            st.session_state["catalog_search"] = "orders"
+
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "dq_score": 100,
+        "match_type": "Table",
+        "description": "desc"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_authorized), \
+         patch("src.pages.search.get_multi_hop_lineage", side_effect=Exception("Database error")), \
+         patch("src.pages.search._build_lineage_graph", return_value=([], [])), \
+         patch("src.pages.search.get_table_columns", return_value=pd.DataFrame([{"column_name": "id", "data_type": "int", "comment": ""}])), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame([{"grant_group_0": "group1", "principal": "user", "privilege": "SELECT"}])), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.components.html"), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+        assert not at.exception
