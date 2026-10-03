@@ -19,3 +19,6 @@
 ## 2024-11-20 - Avoid Duplicating Existing Documentation
 **Learning:** When attempting to document complex logic or regexes (e.g., adding a "REGEX BREAKDOWN" for `_EMAIL_RE` in `src/sync/push.py`), it's crucial to inspect the immediately preceding context lines, as a breakdown or explanation may already exist. Blindly applying standard comment templates can result in redundant or noisy back-to-back documentation.
 **Action:** Always use `cat` or `grep -C` to read the full context surrounding the target code block *before* adding explanations, ensuring that new documentation strictly adds value and avoids duplicating what is already there.
+## 2024-10-01 - Documenting PyFormat SQL Injection Patterns
+**Learning:** Reusable architectural patterns like dynamic pyformat SQL parameter mappings (e.g. `%(group_i)s`) are common knowledge silos. They act as fundamental security/authorization filters but often lack explicit `Args`/`Returns` typing contexts, making it difficult for new contributors to understand how to correctly supply parameters.
+**Action:** Thoroughly document utility functions that generate parameterized queries or handle complex SQL dynamic mappings by explaining the "Why" (security/authorization purpose) and clearly typing the dynamic data structures returned (e.g. `tuple[str, dict]`).

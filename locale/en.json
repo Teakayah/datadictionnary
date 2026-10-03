@@ -216,7 +216,11 @@
     "sync_done": "{count} done",
     "sync_failed": "{count} failed",
     "sync_self_healing": "Self-healing daemon",
-    "sync_worker_heartbeat": "Worker heartbeat"
+    "sync_worker_heartbeat": "Worker heartbeat",
+    "reviews_approved_toast": "Approved '{col}'.",
+    "reviews_rejected_toast": "Rejected '{col}'.",
+    "table_friendly_approved_toast": "Approved friendly name for '{table}'.",
+    "table_friendly_rejected_toast": "Rejected friendly name for '{table}'."
   },
   "health": {
     "title": "§ Catalog health",

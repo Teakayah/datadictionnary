@@ -54,6 +54,7 @@
 ## 2024-08-25 - Extracted missing search.showing_first_50 localization key
 **Learning:** Found a dynamically formatted string `search.showing_first_50` missing from the translation files that caused hardcoded language strings to appear or silent fallbacks. The key was requested by `src/pages/search.py` via `t("search.showing_first_50")` and `src/ui/cards/admin.py` but was not present in the locale dictionaries, despite a similar `showing_first_50` key existing under `health`.
 **Action:** Always ensure that interpolated text or variants inside application source code exist in the respective `locale` dictionary to keep it dynamic.
-## 2024-10-03 - Avoid formatting translated strings manually
-**Learning:** `t()` returns strings that can crash or fail when `.format()` is called directly on them, especially if a translation key has dynamically formatted placeholders missing in the translated language.
-**Action:** Always use keyword arguments in `t('key', var=val)` instead of `.format()` to allow `t()` to handle interpolation safely.
+
+## 2026-10-25 - Missing dynamically formatted fallback keys
+**Learning:** Dynamically formatted keys (e.g. `t("admin.reviews_approved_toast", col=col)`) must exist in the locale dictionaries. If they are missing, the i18n module falls back to the dotted key name. However, since the fallback token does not contain format string placeholders (like `{col}`), the string formatting step crashes or drops the dynamic value.
+**Action:** Always ensure that dynamically formatted strings exist in the respective `locale` dictionary to keep it correctly translatable and dynamic.
