@@ -164,3 +164,12 @@ Assertion: Use @patch("src.pages.search.save_business_name", side_effect=Excepti
 Coverage Gap: Missing test coverage for ValueError, PermissionError and generic Exception fallbacks when calling save_table_business_name in src.ui.cards.detail, as well as render_data_sample authorization checks.
 Learning: To test try/except fallback logic properly in Streamlit components, we must use unittest.mock.patch to target the specific function that raises the exception (e.g. src.ui.cards.detail.save_table_business_name) directly with a side_effect of the exception. Failure to mock the exact source function leaves the except blocks untested.
 Assertion: Use @patch("src.ui.cards.detail.save_table_business_name", side_effect=ValueError("Invalid Input")) and assert that at.error is populated after the button click event.
+
+## 2026-10-02 - UI Search Pagination Edge Cases
+Coverage Gap: The warning messages indicating that only the first 50 columns or grants are shown in the data catalog detail panel were completely untested.
+Learning: Testing Streamlit applications requires accurately simulating complex session states (like `_dd_sticky_nav`) directly before evaluating the specific UI components (like `st.info`) that are rendered.
+Assertion: When adding logic that conditionally limits or modifies the rendering loop of elements based on length, explicitly supply a mock array that exceeds that limit and verify the presence of the corresponding UI banner or message using `at.info` or similar selectors.
+## 2026-10-02 - Cover Search Pagination Message Edge Cases
+Coverage Gap: The explicit warnings that detail tables will truncate lists greater than 50 (like `showing_first_50_columns` and `showing_first_50_grants`) in `src/pages/search.py` lacked test coverage, leaving the >50 bounds logic untested.
+Learning: Testing Streamlit message outputs in truncated or conditionally visible views requires explicitly supplying mock datasets that breach the exact array length boundaries so that UI warning components like `st.info` are rendered and queryable inside AppTest. Also, always make sure to encapsulate standard framework imports (like pandas) correctly inside the test method when writing AppTest mocks to avoid global scope contamination that breaks adjacent tests.
+Assertion: When testing >50 truncation paths, verify `at.info` presence containing the specific truncation message substrings alongside a mock array initialization of size 55.

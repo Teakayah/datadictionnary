@@ -324,11 +324,16 @@ def _render_bookmarks_tab(groups):
         _render_empty_state("★", t("personalization.no_bookmarks"))
     else:
         try:
-            all_tables = get_authorized_tables(groups)
-            if all_tables is None or all_tables.empty:
+            authorized_fns = get_authorized_table_names(groups)
+            if not authorized_fns:
                 _render_empty_state("★", t("personalization.no_bookmarks"))
             else:
-                bk_df = all_tables[all_tables["full_name"].isin(bookmarks)]
+                valid_bookmarks = [bk for bk in bookmarks if bk in authorized_fns]
+                if not valid_bookmarks:
+                    _render_empty_state("★", t("personalization.no_bookmarks"))
+                    return
+                all_tables = get_authorized_tables(groups)
+                bk_df = all_tables[all_tables["full_name"].isin(valid_bookmarks)]
                 if bk_df.empty:
                     _render_empty_state("★", t("personalization.no_bookmarks"))
                 else:
@@ -436,15 +441,15 @@ def _render_recommended_tab(groups):
         unsafe_allow_html=True,
     )
     try:
-        all_tables = get_authorized_tables(groups)
-        if all_tables is None or all_tables.empty:
+        authorized_fns = get_authorized_table_names(groups)
+        if not authorized_fns:
             _render_empty_state("💡", t("personalization.recommended_empty"))
             return
-        authorized_fns = set(all_tables["full_name"].unique().tolist())
         recommended_fns = _get_recommended_tables(authorized_fns)
         if not recommended_fns:
             _render_empty_state("💡", t("personalization.recommended_empty"))
             return
+        all_tables = get_authorized_tables(groups)
         rec_df = all_tables[all_tables["full_name"].isin(recommended_fns)].copy()
         # ⚡ Bolt: Replace .map() ordering with pd.Categorical for faster sorting and to avoid creating/dropping temp columns
         rec_df["full_name"] = pd.Categorical(rec_df["full_name"], categories=recommended_fns, ordered=True)
@@ -468,11 +473,16 @@ def _render_recent_tab(groups):
         _render_empty_state("⏱", t("personalization.no_recent"))
     else:
         try:
-            all_tables = get_authorized_tables(groups)
-            if all_tables is None or all_tables.empty:
+            authorized_fns = get_authorized_table_names(groups)
+            if not authorized_fns:
                 _render_empty_state("⏱", t("personalization.no_recent"))
                 return
-            rv_df = all_tables[all_tables["full_name"].isin(recent_views)].copy()
+            valid_recent = [rv for rv in recent_views if rv in authorized_fns]
+            if not valid_recent:
+                _render_empty_state("⏱", t("personalization.no_recent"))
+                return
+            all_tables = get_authorized_tables(groups)
+            rv_df = all_tables[all_tables["full_name"].isin(valid_recent)].copy()
             # ⚡ Bolt: Replace .map() ordering with pd.Categorical for faster sorting and to avoid creating/dropping temp columns
             rv_df["full_name"] = pd.Categorical(rv_df["full_name"], categories=recent_views, ordered=True)
             rv_df = rv_df.sort_values("full_name")
