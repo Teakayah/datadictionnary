@@ -139,3 +139,7 @@
 ## 2023-10-31 - Coverage of error UI components requires dedicated mock tests
 **Learning:** Testing UI exception paths in Streamlit apps (like triggering `st.error` on a failed database write) requires specific mocking of the write function to simulate the error. Without it, the exception handling branch in the UI is not covered, and regressions could silently hide internal error stacks from users.
 **Action:** When adding or modifying UI components that perform state-altering operations (like saves), always add a companion test that uses `@patch` with `side_effect=Exception(...)` on the target logic function to verify the UI fails gracefully.
+## 2026-10-03 - Streamlit query_params API Change
+Coverage Gap: `st.query_params` returns a string or list of strings depending on the Streamlit version and how it's used. In newer versions, it acts more like a dictionary returning a string.
+Learning: When testing Streamlit's `at.query_params`, use `in` operator (e.g. `assert at.query_params["tab"] in ("search", ["search"])` or `assert "search" in at.query_params["tab"]`) or just check for the string if we are setting it directly. We should be robust to both single string and list of strings.
+Assertion: `assert "search" in at.query_params["tab"]` or `assert at.query_params["tab"] == "search"`
