@@ -853,3 +853,68 @@ class TestBusinessNameSync:
 
         sqls = [c[0][0] for c in mock_cursor.execute.call_args_list]
         assert not any("ALTER TABLE" in s.upper() for s in sqls)
+
+def test_render_table_business_name_editor_exceptions():
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+
+    def render_editor():
+        import streamlit as st
+        from src.ui.cards.detail import render_table_business_name_editor
+
+        render_table_business_name_editor(
+            "main.public.test",
+            "Test En",
+            "Test Fr",
+            "Def En",
+            "Def Fr",
+        )
+
+    at = AppTest.from_function(render_editor)
+
+    # Test ValueError
+    with patch("src.ui.cards.detail.save_table_business_name", side_effect=ValueError("Invalid Input")):
+        at.run()
+        assert len(at.button) > 0
+        at.button[0].click().run()
+        assert len(at.error) > 0
+
+    # Test Generic Exception
+    with patch("src.ui.cards.detail.save_table_business_name", side_effect=Exception("DB Failure")):
+        at.run()
+        assert len(at.button) > 0
+        at.button[0].click().run()
+        assert len(at.error) > 0
+
+    # Test PermissionError
+    with patch("src.ui.cards.detail.save_table_business_name", side_effect=PermissionError("Forbidden")):
+        at.run()
+        assert len(at.button) > 0
+        at.button[0].click().run()
+        assert len(at.error) > 0
+
+def test_render_data_sample():
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+
+    def render_sample():
+        import streamlit as st
+        from src.ui.cards.detail import render_data_sample
+
+        st.session_state["user_groups"] = ["admin"]
+        render_data_sample("main.public.test")
+
+    # Test Authorized (Demo Mode)
+    at = AppTest.from_function(render_sample)
+    with patch("src.ui.cards.detail.get_authorized_table_names", return_value=["main.public.test"]):
+        with patch("src.ui.cards.detail.is_demo_mode", return_value=True):
+            at.run()
+            assert not at.exception
+            assert len(at.dataframe) > 0
+
+    # Test Unauthorized
+    at = AppTest.from_function(render_sample)
+    with patch("src.ui.cards.detail.get_authorized_table_names", return_value=[]):
+        at.run()
+        assert not at.exception
+        assert len(at.error) > 0

@@ -160,3 +160,7 @@ Assertion: Use `del mock_cur.executemany_write` to simulate older DuckDB adapter
 Coverage Gap: Missing test coverage for ValueError and generic Exception fallbacks when calling save_business_name in src.pages.search.
 Learning: To test try/except fallback logic properly, we must use unittest.mock.patch to target the specific function that raises the exception (e.g. src.pages.search.save_business_name) directly with a side_effect of the exception. Failure to mock the exact source function leaves the except blocks untested.
 Assertion: Use @patch("src.pages.search.save_business_name", side_effect=Exception("Error")) and assert that at.error is populated after the button click event.
+## 2026-10-03 - [Cover ValueError and Exception handling in detail UI]
+Coverage Gap: Missing test coverage for ValueError, PermissionError and generic Exception fallbacks when calling save_table_business_name in src.ui.cards.detail, as well as render_data_sample authorization checks.
+Learning: To test try/except fallback logic properly in Streamlit components, we must use unittest.mock.patch to target the specific function that raises the exception (e.g. src.ui.cards.detail.save_table_business_name) directly with a side_effect of the exception. Failure to mock the exact source function leaves the except blocks untested.
+Assertion: Use @patch("src.ui.cards.detail.save_table_business_name", side_effect=ValueError("Invalid Input")) and assert that at.error is populated after the button click event.
