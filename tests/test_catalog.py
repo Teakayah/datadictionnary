@@ -129,4 +129,4 @@ def test_catalog_browser_button_click(mock_get_tables):
     # Assert: Session state and query params are updated
     assert at.session_state["dd_search_override"] == "users"
     assert at.session_state["dd_nav_select"] == "main.public.users"
-    assert at.query_params["tab"] == ["search"]
+    assert at.query_params["tab"] == "search"
