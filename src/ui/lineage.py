@@ -128,7 +128,7 @@ def render_lineage_fullscreen(graph_nodes: list, graph_links: list, full_name: s
         None
     """
     st.markdown(VIS_WIDE_CSS, unsafe_allow_html=True)
-    st.markdown(f"**{full_name}** — {t('detail.lineage_graph_subtitle').format(table=full_name.split('.')[-1])}")
+    st.markdown(f"**{full_name}** — {t('detail.lineage_graph_subtitle', table=full_name.split('.')[-1])}")
     _graph_h = 1800
     graph_html = _lineage_vis_html(graph_nodes, graph_links, height=_graph_h, container_id="mynetwork_full", spring_length=220)
     components.html(graph_html, height=_graph_h + 20, scrolling=False)
