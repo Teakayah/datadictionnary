@@ -635,3 +635,55 @@ def test_discovery_col_bookmark_invalid_and_unauthorized(mock_get_posts, mock_se
     html = [m.value for m in at.markdown]
     assert not any("invalid_bookmark_format" in val for val in html)
     assert not any("unauthorized" in val for val in html)
+
+@patch("src.ui.cards.discovery.st.segmented_control")
+@patch("src.ui.cards.discovery.get_active_posts")
+@patch("src.ui.cards.discovery.get_authorized_table_names")
+@patch("src.ui.cards.discovery.get_authorized_tables")
+def test_discovery_bookmarks_tab_missing_metadata(mock_get_tables, mock_get_names, mock_get_posts, mock_seg_ctrl):
+    import pandas as pd
+    import json
+
+    with open("locale/en.json") as f:
+        en_locale = json.load(f)
+
+    mock_get_posts.return_value = []
+    mock_seg_ctrl.return_value = "bookmarks"
+    mock_get_names.return_value = {"main.finance.ledger"}
+    mock_get_tables.return_value = pd.DataFrame(columns=["full_name"])
+
+    def app_wrapper():
+        from src.ui.cards.discovery import render_discovery
+        import streamlit as st
+        st.session_state["user_oid"] = "test_user"
+        st.session_state["bookmarks"] = {"main.finance.ledger"}
+        render_discovery(["finance"])
+
+    at = AppTest.from_function(app_wrapper).run()
+    assert any(en_locale["personalization"]["no_bookmarks"] in m.value for m in at.markdown)
+
+@patch("src.ui.cards.discovery.st.segmented_control")
+@patch("src.ui.cards.discovery.get_active_posts")
+@patch("src.ui.cards.discovery.get_authorized_table_names")
+@patch("src.ui.cards.discovery.get_authorized_tables")
+def test_discovery_recent_tab_missing_metadata(mock_get_tables, mock_get_names, mock_get_posts, mock_seg_ctrl):
+    import pandas as pd
+    import json
+
+    with open("locale/en.json") as f:
+        en_locale = json.load(f)
+
+    mock_get_posts.return_value = []
+    mock_seg_ctrl.return_value = "recent"
+    mock_get_names.return_value = {"main.finance.ledger"}
+    mock_get_tables.return_value = pd.DataFrame(columns=["full_name"])
+
+    def app_wrapper():
+        from src.ui.cards.discovery import render_discovery
+        import streamlit as st
+        st.session_state["user_oid"] = "test_user"
+        st.session_state["recent_views"] = ["main.finance.ledger"]
+        render_discovery(["finance"])
+
+    at = AppTest.from_function(app_wrapper).run()
+    assert any(en_locale["personalization"]["no_recent"] in m.value for m in at.markdown)
