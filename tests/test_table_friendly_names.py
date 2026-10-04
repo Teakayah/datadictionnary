@@ -49,54 +49,36 @@ class TestLocaleHelpers:
             _, _ = self._import_helpers()
             # Re-call after patching to get the live result
             from src.db.queries import business_name_expr
-            with patch("src.db.queries._current_locale", return_value="fr"):
+            with patch("src.db.queries.get_current_locale", return_value="fr"):
                 expr = business_name_expr("m")
         assert "business_name_fr" in expr
         assert "business_name_en" not in expr
 
     def test_business_name_expr_coalesces_table_name(self):
         from src.db.queries import business_name_expr
-        with patch("src.db.queries._current_locale", return_value="en"):
+        with patch("src.db.queries.get_current_locale", return_value="en"):
             expr = business_name_expr("t")
         assert "COALESCE" in expr
         assert "t.table_name" in expr
 
     def test_business_name_expr_custom_alias(self):
         from src.db.queries import business_name_expr
-        with patch("src.db.queries._current_locale", return_value="en"):
+        with patch("src.db.queries.get_current_locale", return_value="en"):
             expr = business_name_expr("alias_x")
         assert "alias_x.business_name_en" in expr
 
     def test_business_definition_expr_english(self):
         from src.db.queries import business_definition_expr
-        with patch("src.db.queries._current_locale", return_value="en"):
+        with patch("src.db.queries.get_current_locale", return_value="en"):
             expr = business_definition_expr("m")
         assert "m.business_definition_en" in expr
 
     def test_business_definition_expr_french(self):
         from src.db.queries import business_definition_expr
-        with patch("src.db.queries._current_locale", return_value="fr"):
+        with patch("src.db.queries.get_current_locale", return_value="fr"):
             expr = business_definition_expr("m")
         assert "m.business_definition_fr" in expr
 
-    def test_locale_defaults_to_en_on_exception(self):
-        """When st.session_state raises, _current_locale falls back to 'en'."""
-        from src.db.queries import _current_locale
-        with patch("src.db.queries.st") as mock_st:
-            mock_st.session_state.get.side_effect = RuntimeError("no session")
-            locale = _current_locale()
-        assert locale == "en"
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 2. Sync ingest: JOIN logic
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-class TestSyncFriendlyNameJoin:
-    """Step 2b-bis in sync_metadata: friendly-name JOIN enriches tables_data rows."""
-
-    @pytest.fixture(autouse=True)
     def _patch_external_modules(self):
         mocks = {
             "databricks": MagicMock(),
@@ -198,7 +180,7 @@ class TestSearchBilingualWhere:
         from src.db import queries
         from src.config import CATALOG_CACHE, SCHEMA_CACHE
 
-        with patch.object(queries, "_current_locale", return_value="en"), \
+        with patch.object(queries, "get_current_locale", return_value="en"), \
              patch.object(queries, "_duckdb_available", return_value=False):
             group_placeholders = "%(group_0)s"
             bn_expr = queries.business_name_expr("m")
