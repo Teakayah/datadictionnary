@@ -67,6 +67,11 @@ def business_definition_expr(table_alias: str = "m") -> str:
 def _build_auth_filters(groups: list | tuple) -> tuple[str, dict]:
     """Helper to build authorization SQL and params for queries.
 
+    WHY IT EXISTS:
+    This allows secure, parameterized filtering of Unity Catalog metadata against
+    the user's group memberships in SQL queries, preventing SQL injection vulnerabilities
+    by abstracting group filtering from raw strings to dynamically generated parameterized statements.
+
     Creates a dynamic number of pyformat parameter placeholders (e.g., `%(group_0)s`)
     and maps them to the provided AD groups. This allows secure, parameterized
     filtering of Unity Catalog metadata against the user's group memberships.

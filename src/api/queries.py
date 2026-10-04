@@ -14,7 +14,23 @@ from src.db.queries import _base_run_query
 
 
 def _group_clause(groups: tuple[str, ...]) -> tuple[str, dict]:
-    """Return (SQL IN clause, params dict) for a groups tuple."""
+    """Return (SQL IN clause, params dict) for a groups tuple.
+
+    Creates a dynamic number of pyformat parameter placeholders (e.g., `%(group_0)s`)
+    and maps them to the provided AD groups.
+
+    WHY IT EXISTS:
+    This allows secure, parameterized filtering of Unity Catalog metadata against
+    the user's group memberships in SQL queries, preventing SQL injection vulnerabilities.
+
+    Args:
+        groups (tuple[str, ...]): A tuple of string group IDs the user belongs to.
+
+    Returns:
+        tuple[str, dict]: A tuple containing:
+            1. The comma-separated pyformat placeholders string
+            2. A dictionary mapping placeholder names to group string values
+    """
     if not groups:
         return "'__no_match__'", {}
     placeholders = ", ".join(f"%(group_{i})s" for i in range(len(groups)))

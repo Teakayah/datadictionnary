@@ -22,3 +22,6 @@
 ## 2024-10-01 - Documenting PyFormat SQL Injection Patterns
 **Learning:** Reusable architectural patterns like dynamic pyformat SQL parameter mappings (e.g. `%(group_i)s`) are common knowledge silos. They act as fundamental security/authorization filters but often lack explicit `Args`/`Returns` typing contexts, making it difficult for new contributors to understand how to correctly supply parameters.
 **Action:** Thoroughly document utility functions that generate parameterized queries or handle complex SQL dynamic mappings by explaining the "Why" (security/authorization purpose) and clearly typing the dynamic data structures returned (e.g. `tuple[str, dict]`).
+## 2024-11-20 - Documenting PyFormat SQL Injection Patterns
+**Learning:** Reusable architectural patterns like dynamic pyformat SQL parameter mappings (e.g. `%(group_i)s`) are common knowledge silos. They act as fundamental security/authorization filters but often lack explicit `Args`/`Returns` typing contexts, making it difficult for new contributors to understand how to correctly supply parameters.
+**Action:** Thoroughly document utility functions that generate parameterized queries or handle complex SQL dynamic mappings by explaining the "Why" (security/authorization purpose) and clearly typing the dynamic data structures returned (e.g. `tuple[str, dict]`).
