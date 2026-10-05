@@ -141,7 +141,7 @@ def render_glossary(query_groups) -> None:
     _render_hero_and_help()
 
     # Term Selection (Autocomplete)
-    all_terms = _DEMO_GLOSSARY["term"].tolist()
+    all_terms = _DEMO_GLOSSARY["term"].to_numpy().tolist()
     selected_term = st.selectbox(
         t("glossary.search_placeholder"),
         options=all_terms,

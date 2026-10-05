@@ -196,7 +196,7 @@ def run_query(query, params=None):
 def get_authorized_table_names(groups):
     """Retrieve a set of full names for tables the user is authorized to access."""
     df = get_authorized_tables(groups)
-    return set(df["full_name"].unique().tolist()) if df is not None and not df.empty else set()
+    return set(df["full_name"].unique()) if df is not None and not df.empty else set()
 
 
 @st.cache_data(ttl="1h", show_spinner=False)
