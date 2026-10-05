@@ -13,14 +13,14 @@ metadata:
     # Update this tag and roll the deployment when publishing a new image
     deployment.kubernetes.io/image: ghcr.io/org/data-dictionary:${IMAGE_TAG}
 spec:
+  # Singleton — DuckDB only allows one writer per file. Scaling beyond 1
+  # causes file locks and data corruption.
+  replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: dd-app
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
   template:
     metadata:
       labels:
