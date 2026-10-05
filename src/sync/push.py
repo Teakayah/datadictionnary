@@ -20,25 +20,20 @@ _SYNC_BATCH_SIZE = 25
 # Unity Catalog identifier validator.
 #
 # WHY IT EXISTS:
-# We dynamically build SQL strings (e.g., ALTER TABLE, COMMENT ON) using identifiers
-# fetched from user input or external databases. Databricks Unity Catalog limits
-# valid identifiers strictly to alphanumeric characters, underscores, and hyphens.
-# Rather than attempting complex and error-prone backtick-escaping for arbitrary
-# strings, we defensively reject any identifier containing disallowed characters.
-# This acts as an absolute safeguard against SQL injection vectors embedded within
-# table or column names (e.g., "my_table`; DROP TABLE foo;").
+# We must safely escape Unity Catalog identifiers (catalog, schema, table, column)
+# when dynamically generating Databricks SQL commands (e.g., ALTER TABLE) to prevent
+# SQL injection. Databricks Unity Catalog limits valid identifiers strictly to
+# alphanumeric characters, underscores, and hyphens. Rather than attempting complex
+# and error-prone backtick-escaping for arbitrary strings, we defensively reject
+# any identifier containing disallowed characters. This acts as an absolute
+# safeguard against SQL injection vectors embedded within table or column names
+# (e.g., "my_table`; DROP TABLE foo;").
 #
 # REGEX BREAKDOWN:
 # ^                - Enforces matching strictly from the start of the string.
 # [A-Za-z0-9_-]+   - Matches one or more allowed characters: letters, digits, _, -.
 # \Z               - Enforces matching strictly to the absolute end of the string
 #                    (ignoring trailing newlines, unlike $ which can be bypassed).
-# WHY IT EXISTS:
-# We must safely escape Unity Catalog identifiers (catalog, schema, table, column)
-# when dynamically generating Databricks SQL commands (e.g., ALTER TABLE) to prevent
-# SQL injection. This regex asserts that an identifier strictly contains alphanumeric
-# characters, underscores, or hyphens, thereby blocking malicious payloads (like
-# semicolons or quotes) from reaching the Databricks warehouse.
 _IDENT_RE = re.compile(r"^[A-Za-z0-9_-]+\Z")
 
 # Lightweight email syntax validator for the steward tag.
