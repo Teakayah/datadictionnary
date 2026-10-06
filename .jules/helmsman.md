@@ -101,3 +101,7 @@
 **Cluster Quirk:** The Kubernetes manifests use a query parameter in health checks (e.g. `/healthz?probe=liveness`) to identify probe types, but the application's simple HTTP server strictly checks for exactly `/healthz`. This strict check causes `404` errors in Kubernetes, leading to infinite restart loops for the pod.
 **Learning:** Hardcoded full-path checks in basic HTTP servers break when orchestration systems append diagnostic query string parameters to probe endpoints. When we don't control the application logic or need a quick infrastructure-level fix, we must adjust the manifest to match the application's exact requirements.
 **Resilience:** Removed the `?probe=...` query parameters from the `livenessProbe` and `readinessProbe` paths in the `dd-sync-worker` deployment manifest to ensure they match the application's strict `/healthz` route.
+## 2024-05-18 - DuckDB Singleton Deadlock Avoidance
+**Cluster Quirk:** The `dd-app` Streamlit workload uses DuckDB for persistent data. DuckDB strictly requires a single writer per file.
+**Learning:** Attempting to scale DuckDB writers dynamically with an HPA or using RollingUpdates causes locking and data corruption. Also, PDBs on a single replica block node drains indefinitely.
+**Resilience:** Replicas must be pinned to 1, with `strategy: Recreate`. The HPA and PDB must be removed for this workload.
