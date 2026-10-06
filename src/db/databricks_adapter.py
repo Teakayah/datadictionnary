@@ -1,4 +1,3 @@
-from __future__ import annotations
 """Databricks SQL Warehouse adapter — read path only.
 
 Writes from Streamlit pods are no longer made directly to Databricks. Per
@@ -9,6 +8,7 @@ helper was a per-call ``sql.connect()`` and is now removed — its only
 callers were the dead ``Databricks*`` storage fallbacks, which were
 deleted alongside it.
 """
+from __future__ import annotations
 
 
 import os
@@ -18,6 +18,15 @@ from databricks import sql
 
 
 def _get_databricks_connection():
+    """Create a new connection to the Databricks SQL Warehouse.
+
+    WHY IT EXISTS:
+    We construct a new `databricks.sql.connect` instance for each query rather than
+    using a global connection pool because Databricks SQL Warehouse connections can
+    time out or become invalidated by server-side scaling. By creating short-lived
+    connections per operation, we avoid "connection closed" errors in the Streamlit
+    pods while relying on Streamlit's `@st.cache_data` to minimize actual network calls.
+    """
     return sql.connect(
         server_hostname=os.getenv("DATABRICKS_HOST"),
         http_path=os.getenv("DATABRICKS_HTTP_PATH"),
