@@ -114,5 +114,6 @@
 **Action:** Always prefer `df.to_numpy().tolist()` over `df.itertuples()` when bulk converting a DataFrame into a list of tuples for DuckDB `executemany` parameters.
 
 ## 2024-09-30 - Optimize Pandas boolean masking array alignment
-**Learning:** Using sequential boolean mask indexing on Pandas Series directly incurs significant index alignment and object overhead. Casting the Series to a numpy array via `.to_numpy()` before boolean evaluation avoids this overhead while still supporting vectorization.
-**Action:** Always prefer casting Pandas Series to numpy arrays using `.to_numpy()` prior to boolean mask evaluations to skip Pandas index alignment overhead.
+## 2024-10-08 - Use `to_dict("records")` instead of `iterrows()` for faster iteration
+**Learning:** `df.iterrows()` generates pandas Series on the fly which adds significant Python object overhead. Iterating over `df.to_dict("records")` is significantly faster because it leverages optimized native dictionaries.
+**Action:** Always replace `iterrows()` with native dictionary iteration (`to_dict("records")`) when looping over pandas dataframes in Python, especially in bulk data processing scripts or UI render loops. Do NOT replace `itertuples()` as it is highly optimized and memory efficient.
