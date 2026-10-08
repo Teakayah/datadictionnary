@@ -468,10 +468,9 @@ class TestCheckAuth:
     @patch("src.auth.time")
     @patch("src.auth._try_silent_refresh")
     @patch("src.auth._clear_auth_session")
-    @patch("src.auth.render_signin_page")
     @patch("src.auth.st.rerun")
     @patch("src.auth.st.query_params")
-    def test_expired_session_silent_refresh_fail(self, mock_qp, mock_rerun, mock_render, mock_clear, mock_refresh, mock_time, monkeypatch):
+    def test_expired_session_silent_refresh_fail(self, mock_qp, mock_rerun, mock_clear, mock_refresh, mock_time, monkeypatch):
         from src.auth import check_auth
 
         session = MockSessionState({"auth_token": "token", "token_expires_at": 1000})
@@ -490,11 +489,10 @@ class TestCheckAuth:
     @patch("src.auth_graph.clear_groups_cache")
     @patch("src.auth.time")
     @patch("src.auth._resolve_user_groups")
-    @patch("src.auth.render_signin_page")
     @patch("src.auth.get_msal_app")
     @patch("src.auth.st.rerun")
     @patch("src.auth.st.query_params")
-    def test_oidc_callback_success(self, mock_qp, mock_rerun, mock_get_msal, mock_render, mock_resolve_groups, mock_time, mock_clear_cache, monkeypatch):
+    def test_oidc_callback_success(self, mock_qp, mock_rerun, mock_get_msal, mock_resolve_groups, mock_time, mock_clear_cache, monkeypatch):
         from src.auth import check_auth
 
         session = MockSessionState({
@@ -543,10 +541,9 @@ class TestCheckAuth:
 
 
     @patch("src.auth.get_msal_app")
-    @patch("src.auth.render_signin_page")
     @patch("src.auth.st.error")
     @patch("src.auth.st.query_params")
-    def test_oidc_callback_state_mismatch(self, mock_qp, mock_error, mock_render, mock_get_msal, monkeypatch):
+    def test_oidc_callback_state_mismatch(self, mock_qp, mock_error, mock_get_msal, monkeypatch):
         from src.auth import check_auth
         import pytest
 
@@ -569,10 +566,9 @@ class TestCheckAuth:
         mock_error.assert_called_once()
 
     @patch("src.auth.get_msal_app")
-    @patch("src.auth.render_signin_page")
     @patch("src.auth.st.error")
     @patch("src.auth.st.query_params")
-    def test_oidc_callback_failed_token(self, mock_qp, mock_error, mock_render, mock_get_msal, monkeypatch):
+    def test_oidc_callback_failed_token(self, mock_qp, mock_error, mock_get_msal, monkeypatch):
         from src.auth import check_auth
         import pytest
 
@@ -599,10 +595,9 @@ class TestCheckAuth:
         mock_error.assert_called_once()
 
     @patch("src.auth.get_msal_app")
-    @patch("src.auth.render_signin_page")
     @patch("src.auth.st.error")
     @patch("src.auth.st.query_params")
-    def test_oidc_callback_nonce_mismatch(self, mock_qp, mock_error, mock_render, mock_get_msal, monkeypatch):
+    def test_oidc_callback_nonce_mismatch(self, mock_qp, mock_error, mock_get_msal, monkeypatch):
         from src.auth import check_auth
         import pytest
 
