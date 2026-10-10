@@ -119,7 +119,6 @@ def enqueue_sync(sync_type: str, table_full_name: Optional[str], payload: dict, 
     with conn.cursor() as cursor:
         # For metadata types, we upsert to avoid duplicate pending work for the same object
         if sync_type in ("COLUMN_DEF", "TABLE_DESC", "STEWARD", "TABLE_BUSINESS_NAME"):
-            _key_col = "payload_json->>'column_name'" if sync_type == "COLUMN_DEF" else "NULL"
             _match_val = payload.get("column_name") if sync_type == "COLUMN_DEF" else None
 
             # Simple cleanup of previous pending items for the same target
