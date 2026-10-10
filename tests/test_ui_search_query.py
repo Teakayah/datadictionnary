@@ -541,3 +541,69 @@ def test_missing_coverage():
 
         assert found_col_msg
         assert found_grant_msg
+
+
+
+
+
+def test_save_business_name_exceptions():
+    import streamlit as st
+    import pandas as pd
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+
+    def render_detail_panel_wrapper():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com"
+        })
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["dd_user_groups"] = ["finance_dept_id"]
+
+        # Make sure edit mode starts immediately to bypass button clicks that can be tricky to mock
+        st.session_state["dd_col_edit_mode"] = "main.sales.orders__col_1"
+
+        _render_detail_panel(row, "main.sales.orders", ("finance_dept_id",))
+
+    at = AppTest.from_function(render_detail_panel_wrapper)
+
+    mock_cols = pd.DataFrame([
+        {"column_name": "col_1", "data_type": "int", "comment": ""}
+    ])
+
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        assert len([b for b in at.button if b.key == "col_biz_save_main.sales.orders__col_1"]) == 1
+
+        with patch("src.pages.search.save_business_name", side_effect=ValueError("Validation Failed")):
+            at.button(key="col_biz_save_main.sales.orders__col_1").click().run()
+            assert any("common.error" in e.value for e in at.error)
+
+        at.session_state["dd_col_edit_mode"] = "main.sales.orders__col_1"
+        at.run()
+        with patch("src.pages.search.save_business_name", side_effect=Exception("Save Failed")):
+            at.button(key="col_biz_save_main.sales.orders__col_1").click().run()
+            assert any("common.error" in e.value for e in at.error)
+
+        at.session_state["dd_col_edit_mode"] = "main.sales.orders__col_1"
+        at.run()
+        with patch("src.pages.search.save_business_name", side_effect=PermissionError("Permission Denied")):
+            at.button(key="col_biz_save_main.sales.orders__col_1").click().run()
+            assert any("editor.permission_error" in e.value for e in at.error)
