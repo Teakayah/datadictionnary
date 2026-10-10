@@ -422,7 +422,7 @@ def sync():
                 )
                 bn_df = cursor.fetchall_as_pandas()
         bn_map = {
-            str(r["full_name"]): r for _, r in bn_df.iterrows()
+            str(r["full_name"]): r for r in bn_df.to_dict("records")
         } if bn_df is not None and not bn_df.empty else {}
         for row in tables_data:
             match = bn_map.get(row["full_name"])
