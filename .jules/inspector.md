@@ -143,3 +143,8 @@
 Coverage Gap: `st.query_params` returns a string or list of strings depending on the Streamlit version and how it's used. In newer versions, it acts more like a dictionary returning a string.
 Learning: When testing Streamlit's `at.query_params`, use `in` operator (e.g. `assert at.query_params["tab"] in ("search", ["search"])` or `assert "search" in at.query_params["tab"]`) or just check for the string if we are setting it directly. We should be robust to both single string and list of strings.
 Assertion: `assert "search" in at.query_params["tab"]` or `assert at.query_params["tab"] == "search"`
+## 2023-10-24 - Handle Streamlit Empty Search State Exception Fallbacks
+
+**Learning:** When writing tests for UI components that conditionally render based on edge cases (like empty `pandas` DataFrames, or `None` returned from mocked database queries), it's crucial to explicitly simulate both structural edges (e.g. empty frames with required columns) and true `None` return values. Also, when an external API might return a raw boolean or a missing structure instead of a proper object in the UI template, we can face trace errors (e.g., `AttributeError` when using `results.empty` instead of checking `results is None or results.empty`).
+
+**Action:** Ensure that conditionally rendered empty states have test coverage by injecting completely empty DataFrame objects (`pd.DataFrame(columns=[...])`) as well as null objects (`None`) through dependency mocking. I created tests that trigger the empty state rendering and strictly validated the output via Streamlit's `AppTest` API.
