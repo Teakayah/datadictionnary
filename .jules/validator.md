@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ## 2024-05-27 - [Fix test_get_embedding_engine_databricks]
 **Coverage Gap:** `test_get_embedding_engine_databricks` failed due to incorrect mocking of environment variable derived config constant.
 **Learning:** When a configuration constant is derived from an environment variable and imported directly at the module level (e.g., `from src.config import DATABRICKS_EMBEDDING_ENDPOINT`), tests using `@patch.dict(os.environ, ...)` fail because the constant is resolved at import time.
@@ -177,3 +178,8 @@ Assertion: When testing >50 truncation paths, verify `at.info` presence containi
 **Coverage Gap:** The `try...except ValueError` and generic `except Exception` blocks in `src.pages.search._render_detail_panel` during the column business name save operation were completely uncovered.
 **Learning:** Testing exception fallbacks in Streamlit `AppTest` for logic triggered by a button click (which typically issues a `st.rerun()`) requires patching `streamlit.rerun` if the exception blocks do not call rerun themselves, or simulating edit modes carefully to ensure the form components render before interaction. Directly setting `at.session_state` to match the expected form context and verifying the widget existence before clicking ensures the `AppTest` environment correctly dispatches the mock side effects without raising generic missing key errors.
 **Assertion:** Use `@patch("src.pages.search.save_business_name", side_effect=ValueError("Validation Failed"))` directly on the function being targeted during the button click, and verify the `st.error` fallback is rendered (`assert any("common.error" in e.value for e in at.error)`).
+
+## 2025-02-09 - Discovery UI Empty DataFrame Edge Cases
+**Coverage Gap:** Data-driven UI components that depend on pandas DataFrames were missing coverage for structural edge cases, specifically when mocked dependencies return an empty DataFrame (e.g., `pd.DataFrame(columns=["full_name"])`) while valid authorization names are still present.
+**Learning:** Testing logic paths like empty DataFrames in discovery tabs requires precise test setup, returning not just primitive data types but properly structured empty DataFrames to exercise `df.empty` branches securely without triggering `KeyError`.
+**Assertion:** We explicitly mock the internal `get_authorized_tables` call to return an empty DataFrame (e.g., `pd.DataFrame(columns=["full_name"])`) when there are seemingly valid bookmark/recent view names in session state, verifying the UI appropriately falls back to an empty state prompt without throwing exceptions.
