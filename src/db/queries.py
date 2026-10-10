@@ -32,16 +32,7 @@ from src.db.duckdb_adapter import _duckdb_available, _DuckDBConn, _run_duckdb_qu
 from src.db.databricks_adapter import _run_databricks_query
 
 
-def _current_locale() -> str:
-    """Return the active Streamlit locale ('en' or 'fr'), defaulting to 'en'.
 
-    Read inline (not module-level) so locale switches mid-session are picked up
-    by the next query without a process restart.
-    """
-    try:
-        return get_current_locale()
-    except Exception:
-        return "en"
 
 
 def business_name_expr(table_alias: str = "m") -> str:
@@ -51,7 +42,7 @@ def business_name_expr(table_alias: str = "m") -> str:
     so every read surfaces the friendly name when present and the technical
     name otherwise. Use as a SELECT expression — caller adds the column alias.
     """
-    col = "business_name_fr" if _current_locale() == "fr" else "business_name_en"
+    col = "business_name_fr" if get_current_locale() == "fr" else "business_name_en"
     return f"COALESCE({table_alias}.{col}, {table_alias}.table_name)"
 
 
@@ -59,7 +50,7 @@ def business_definition_expr(table_alias: str = "m") -> str:
     """Locale-aware SQL expression for the friendly definition (no fallback —
     callers chain their own COALESCE if they also want the technical comment).
     """
-    col = "business_definition_fr" if _current_locale() == "fr" else "business_definition_en"
+    col = "business_definition_fr" if get_current_locale() == "fr" else "business_definition_en"
     return f"{table_alias}.{col}"
 
 
