@@ -287,7 +287,20 @@ _HYBRID_KEYWORD_WEIGHT = 0.7
 _HYBRID_SEMANTIC_WEIGHT = 0.3
 
 
-def _drop_score_cols(df):
+def _drop_score_cols(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove internal scoring columns from search results before returning.
+
+    Search queries generate intermediate `_score` (keyword relevance) and
+    `_hybrid_score` (combined keyword + semantic relevance) columns for sorting.
+    This helper cleans up the DataFrame to prevent leaking internal metrics
+    to the UI and breaking structural assumptions in downstream rendering components.
+
+    Args:
+        df (pd.DataFrame): The search results DataFrame potentially containing score columns.
+
+    Returns:
+        pd.DataFrame: A cleaned DataFrame with score columns removed and index reset.
+    """
     cols = [c for c in ("_score", "_hybrid_score") if c in df.columns]
     return df.drop(columns=cols).reset_index(drop=True) if cols else df
 
