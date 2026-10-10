@@ -124,3 +124,6 @@
 ## 2024-10-08 - Use `to_dict("records")` instead of `iterrows()` for faster iteration
 **Learning:** `df.iterrows()` generates pandas Series on the fly which adds significant Python object overhead. Iterating over `df.to_dict("records")` is significantly faster because it leverages optimized native dictionaries.
 **Action:** Always replace `iterrows()` with native dictionary iteration (`to_dict("records")`) when looping over pandas dataframes in Python, especially in bulk data processing scripts or UI render loops. Do NOT replace `itertuples()` as it is highly optimized and memory efficient.
+## 2026-10-10 - Avoid .unique().tolist() in Pandas when .unique() is sufficient
+**Learning:** In Pandas, calling `df["column"].unique().tolist()` involves an unnecessary conversion to a Python list. If the goal is to create a set, calling `set(df["column"].unique())` is significantly faster because it avoids allocating a new list and iterating over the numpy array elements in Python before constructing the set.
+**Action:** When building sets from Pandas DataFrame columns, pass the numpy array returned by `.unique()` directly into `set()`, avoiding `.tolist()` entirely.
