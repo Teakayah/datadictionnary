@@ -14,7 +14,20 @@ from src.db.queries import _base_run_query
 
 
 def _group_clause(groups: tuple[str, ...]) -> tuple[str, dict]:
-    """Return (SQL IN clause, params dict) for a groups tuple."""
+    """Return (SQL IN clause, params dict) for a groups tuple.
+
+    WHY IT EXISTS:
+    Acts as a fundamental security/authorization filter by generating parameterized
+    queries with pyformat placeholders (e.g., `%(group_0)s`). This allows secure,
+    dynamic mapping of Entra ID groups without exposing the query to SQL injection.
+
+    Args:
+        groups: A tuple of Entra ID group object IDs for the user.
+
+    Returns:
+        A tuple containing the comma-separated pyformat placeholders string
+        and a dictionary mapping placeholder names to group string values.
+    """
     if not groups:
         return "'__no_match__'", {}
     placeholders = ", ".join(f"%(group_{i})s" for i in range(len(groups)))
