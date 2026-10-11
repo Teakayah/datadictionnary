@@ -44,6 +44,9 @@ def _build_lang_toggle(locale: str) -> str:
     en_active = "dd-lang-active" if locale == "en" else ""
     fr_active = "dd-lang-active" if locale == "fr" else ""
 
+    aria_en = ' aria-current="true"' if locale == "en" else ""
+    aria_fr = ' aria-current="true"' if locale == "fr" else ""
+
     title_en = t("language.switch_to_en")
     title_fr = t("language.switch_to_fr")
     aria_lang = t("nav.aria_language_selector")
@@ -51,9 +54,9 @@ def _build_lang_toggle(locale: str) -> str:
     return (
         f'<span class="dd-nav-sep"></span>'
         f'<span class="dd-lang-toggle" aria-label="{aria_lang}">'
-        f'<a href="#" data-lang="en" class="dd-lang-opt {en_active}" title="{title_en}">EN</a>'
+        f'<a href="#" data-lang="en" class="dd-lang-opt {en_active}" title="{title_en}"{aria_en}>EN</a>'
         f'<span class="dd-lang-sep">/</span>'
-        f'<a href="#" data-lang="fr" class="dd-lang-opt {fr_active}" title="{title_fr}">FR</a>'
+        f'<a href="#" data-lang="fr" class="dd-lang-opt {fr_active}" title="{title_fr}"{aria_fr}>FR</a>'
         f'</span>'
     )
 
@@ -149,7 +152,8 @@ def render_header(
 
     def link(label: str, tab_id: str) -> str:
         active = "active" if active_tab == tab_id else ""
-        return f'<a href="#" data-tab="{tab_id}" class="dd-nav-tab {active}">{label}</a>'
+        aria_curr = ' aria-current="page"' if active_tab == tab_id else ""
+        return f'<a href="#" data-tab="{tab_id}" class="dd-nav-tab {active}"{aria_curr}>{label}</a>'
 
     admin_link = link(t("nav.admin"), "admin") if show_admin else ""
     pipelines_link = link(t("nav.pipelines"), "pipelines") if show_pipelines else ""
