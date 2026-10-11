@@ -859,7 +859,6 @@ def test_render_table_business_name_editor_exceptions():
     from streamlit.testing.v1 import AppTest
 
     def render_editor():
-        import streamlit as st
         from src.ui.cards.detail import render_table_business_name_editor
 
         render_table_business_name_editor(
