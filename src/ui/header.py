@@ -149,7 +149,8 @@ def render_header(
 
     def link(label: str, tab_id: str) -> str:
         active = "active" if active_tab == tab_id else ""
-        return f'<a href="#" data-tab="{tab_id}" class="dd-nav-tab {active}">{label}</a>'
+        aria_current = ' aria-current="page"' if active_tab == tab_id else ""
+        return f'<a href="#" data-tab="{tab_id}" class="dd-nav-tab {active}"{aria_current}>{label}</a>'
 
     admin_link = link(t("nav.admin"), "admin") if show_admin else ""
     pipelines_link = link(t("nav.pipelines"), "pipelines") if show_pipelines else ""

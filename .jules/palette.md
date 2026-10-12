@@ -48,3 +48,7 @@
 ## 2023-10-27 - Toast Notifications Before Rerun
 **Learning:** In Streamlit applications, providing non-blocking visual feedback for actions that trigger immediate page reloads (e.g., confirming a deletion in a dialog) by calling `st.toast()` immediately before `st.rerun()` prevents the action from appearing silent and abrupt.
 **Action:** Always add a success or status toast prior to calling `st.rerun()` for mutating actions, especially destructive ones like deletions, to assure users the action completed.
+
+## 2024-05-18 - Add aria-current to custom Streamlit navigation tabs
+**Learning:** When building custom HTML navigation components in Streamlit bypassing standard `st.navigation`, visual active states via CSS classes (e.g. `active`) are not announced by screen readers.
+**Action:** Always ensure custom HTML tabs programmatically inject `aria-current="page"` when their state matches the active selection to comply with WCAG accessibility guidelines.
