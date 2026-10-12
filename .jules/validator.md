@@ -183,3 +183,7 @@ Assertion: When testing >50 truncation paths, verify `at.info` presence containi
 **Coverage Gap:** Data-driven UI components that depend on pandas DataFrames were missing coverage for structural edge cases, specifically when mocked dependencies return an empty DataFrame (e.g., `pd.DataFrame(columns=["full_name"])`) while valid authorization names are still present.
 **Learning:** Testing logic paths like empty DataFrames in discovery tabs requires precise test setup, returning not just primitive data types but properly structured empty DataFrames to exercise `df.empty` branches securely without triggering `KeyError`.
 **Assertion:** We explicitly mock the internal `get_authorized_tables` call to return an empty DataFrame (e.g., `pd.DataFrame(columns=["full_name"])`) when there are seemingly valid bookmark/recent view names in session state, verifying the UI appropriately falls back to an empty state prompt without throwing exceptions.
+## 2026-10-12 - [Discovery UI Unreachable Dead Code]
+**Coverage Gap:** The else branch inside `_render_notable_tab` prompting for user sign in was unreachable since an earlier statement would return early if `primary_group` was falsey.
+**Learning:** When addressing test coverage gaps involving missing lines, if analysis reveals the un-covered lines are logically unreachable dead code (e.g., statements following a branch with a guaranteed early-return), remove the dead code to satisfy the coverage metric instead of attempting to mock impossible test states.
+**Assertion:** Removed the unreachable dead code block.
