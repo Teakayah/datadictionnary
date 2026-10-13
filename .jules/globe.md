@@ -58,3 +58,6 @@
 ## 2026-10-25 - Missing dynamically formatted fallback keys
 **Learning:** Dynamically formatted keys (e.g. `t("admin.reviews_approved_toast", col=col)`) must exist in the locale dictionaries. If they are missing, the i18n module falls back to the dotted key name. However, since the fallback token does not contain format string placeholders (like `{col}`), the string formatting step crashes or drops the dynamic value.
 **Action:** Always ensure that dynamically formatted strings exist in the respective `locale` dictionary to keep it correctly translatable and dynamic.
+## 2025-03-01 - Avoid Concatenating Icons with Localized Text
+**Learning:** Hardcoding string concatenations like `f"← {t('common.back')}"` forces a specific English-centric layout (icon on the left) that breaks RTL languages and prevents translators from adapting the button layout naturally.
+**Action:** Extract the entire string, including formatting templates like icons and arrows, into a unified translation key (e.g., `common.back_btn`: `"← Back"`) to give full control back to the translation dictionary.

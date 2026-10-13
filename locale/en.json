@@ -51,7 +51,9 @@
     "results_count_zero": "No results",
     "results_count_one": "1 result",
     "results_count_other": "{count} results",
-    "showing_first_50": "Showing first 50 results out of {count}."
+    "showing_first_50": "Showing first 50 results out of {count}.",
+    "view_details_btn": "View details →",
+    "back_to_results_btn": "← Back to results"
   },
   "catalog": {
     "eyebrow": "§ Catalog browser",
@@ -124,7 +126,9 @@
     "no_columns": "No columns recorded.",
     "export_dictionary_help": "Download schema dictionary as CSV",
     "placeholder_desc": "Describe the table's contents, grain, and common use cases...",
-    "placeholder_steward": "e.g. data.steward@example.com"
+    "placeholder_steward": "e.g. data.steward@example.com",
+    "edit_table_btn": "✎ Edit table metadata",
+    "edit_friendly_name_btn": "✎ Edit friendly name"
   },
   "editor": {
     "save": "Save",
@@ -402,7 +406,8 @@
     "saving": "Saving...",
     "saved": "Changes saved.",
     "deleting": "Deleting...",
-    "deleted": "Deleted successfully."
+    "deleted": "Deleted successfully.",
+    "back_btn": "← Back"
   },
   "language": {
     "en": "EN",
