@@ -127,3 +127,6 @@
 ## 2026-10-10 - Avoid .unique().tolist() in Pandas when .unique() is sufficient
 **Learning:** In Pandas, calling `df["column"].unique().tolist()` involves an unnecessary conversion to a Python list. If the goal is to create a set, calling `set(df["column"].unique())` is significantly faster because it avoids allocating a new list and iterating over the numpy array elements in Python before constructing the set.
 **Action:** When building sets from Pandas DataFrame columns, pass the numpy array returned by `.unique()` directly into `set()`, avoiding `.tolist()` entirely.
+## 2023-10-24 - Faster Pandas Boolean Indexing
+**Learning:** Direct boolean indexing on a Pandas Series (e.g., `df[df["col"] == val]`) incurs significant index alignment overhead.
+**Action:** Use `.to_numpy()` on the Series before equality evaluation (e.g., `df[df["col"].to_numpy() == val]`) to drop index overhead and maintain fast vectorized array operations, particularly useful for high-frequency search filtering or UI rendering.

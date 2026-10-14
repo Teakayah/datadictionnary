@@ -125,9 +125,11 @@ async def list_tables(
         return json.dumps([])
 
     if catalog:
-        df = df[df["catalog_name"] == catalog]
+        # ⚡ Bolt: Use .to_numpy() to skip index alignment overhead
+        df = df[df["catalog_name"].to_numpy() == catalog]
     if schema:
-        df = df[df["schema_name"] == schema]
+        # ⚡ Bolt: Use .to_numpy() to skip index alignment overhead
+        df = df[df["schema_name"].to_numpy() == schema]
 
     results = df.to_dict(orient="records")
     await redis_cache.set(ck, results, ttl=600)
