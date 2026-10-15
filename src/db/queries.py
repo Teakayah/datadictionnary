@@ -179,7 +179,8 @@ def run_query(query, params=None):
                 fn, pd.DataFrame(columns=["column_name", "data_type", "comment"])
             )
         if "tables_metadata" in query:
-            return _DEMO_TABLES[_DEMO_TABLES["full_name"] == fn]
+            # ⚡ Bolt: Use .to_numpy() to skip index alignment overhead
+            return _DEMO_TABLES[_DEMO_TABLES["full_name"].to_numpy() == fn]
 
         return _DEMO_GRANTS.get(fn, pd.DataFrame(columns=["principal", "privilege"]))
 

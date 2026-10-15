@@ -462,7 +462,8 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         try:
             _downstream = get_multi_hop_lineage(full_name, depth=2)
             _ds_rows = (
-                _downstream[_downstream["direction"] == "downstream"]
+                # ⚡ Bolt: Use .to_numpy() to skip index alignment overhead
+                _downstream[_downstream["direction"].to_numpy() == "downstream"]
                 if _downstream is not None and not _downstream.empty and "direction" in _downstream.columns
                 else None
             )
@@ -738,7 +739,8 @@ def render_search_page(query_groups: tuple) -> None:
                 logging.warning("Failed to track search analytics: %s", ae)
 
             if results is not None and not results.empty:
-                _table_results = results[results["match_type"] == "Table"] if "match_type" in results.columns else results
+                # ⚡ Bolt: Use .to_numpy() to skip index alignment overhead
+                _table_results = results[results["match_type"].to_numpy() == "Table"] if "match_type" in results.columns else results
                 _table_names   = _table_results["table_name"].tolist()
                 _nav_target    = st.session_state.get("_dd_sticky_nav")
                 _nav_idx       = None
@@ -778,7 +780,8 @@ def render_search_page(query_groups: tuple) -> None:
                         st.markdown('<div style="margin-bottom:8px;"></div>', unsafe_allow_html=True)
 
                 if _nav_idx is not None:
-                    _row     = _table_results[_table_results["table_name"] == _table_names[_nav_idx]].iloc[0]
+                    # ⚡ Bolt: Use .to_numpy() to skip index alignment overhead
+                    _row     = _table_results[_table_results["table_name"].to_numpy() == _table_names[_nav_idx]].iloc[0]
                     full_name = f"{_row['catalog_name']}.{_row['schema_name']}.{_row['table_name']}"
                     if st.button(t('search.back_to_results_btn'), key="search_back", help=t("search.back_to_results_help")):
                         st.session_state.pop("_dd_sticky_nav", None)

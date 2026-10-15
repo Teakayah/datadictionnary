@@ -130,3 +130,7 @@
 ## 2026-10-15 - Optimize boolean array indexing
 **Learning:** Using sequential boolean mask indexing on a Pandas Series directly incurs significant index alignment and object overhead. Casting the Series to a numpy array via `.to_numpy()` before boolean evaluation avoids this overhead while still supporting vectorization.
 **Action:** Always prefer casting Pandas Series to numpy arrays using `.to_numpy()` prior to boolean mask evaluations to skip Pandas index alignment overhead.
+
+## 2023-10-24 - Faster Pandas Boolean Indexing
+**Learning:** Direct boolean indexing on a Pandas Series (e.g., `df[df["col"] == val]`) incurs significant index alignment overhead.
+**Action:** Use `.to_numpy()` on the Series before equality evaluation (e.g., `df[df["col"].to_numpy() == val]`) to drop index overhead and maintain fast vectorized array operations, particularly useful for high-frequency search filtering or UI rendering.

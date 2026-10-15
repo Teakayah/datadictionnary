@@ -153,7 +153,8 @@ def render_glossary(query_groups) -> None:
     )
 
     if selected_term:
-        term_row = _DEMO_GLOSSARY[_DEMO_GLOSSARY["term"] == selected_term].iloc[0]
+        # ⚡ Bolt: Use .to_numpy() to skip index alignment overhead
+        term_row = _DEMO_GLOSSARY[_DEMO_GLOSSARY["term"].to_numpy() == selected_term].iloc[0]
 
         col_main, col_side = st.columns([7, 5], gap="large")
 
