@@ -105,3 +105,7 @@
 **Cluster Quirk:** The `dd-app` deployment uses a DuckDB file, which only allows a single writer, but the Kubernetes manifest was configured with a `RollingUpdate` strategy, HPA scaling, and a PDB with `minAvailable: 1`.
 **Learning:** DuckDB requires strict singleton access. Scaling beyond 1 replica or using `RollingUpdate` (which creates a second pod before terminating the first) causes file locks and data corruption. Furthermore, a PDB with `minAvailable: 1` on a singleton deployment permanently deadlocks node drains.
 **Resilience:** Reconfigured `dd-app` to strictly `replicas: 1` with `strategy: Recreate`. Removed its HPA and PDB configurations to ensure it remains a safe singleton.
+## 2024-10-14 - Removed Useless ReadinessProbe on Daemon
+**Cluster Quirk:** The `dd-sync-worker` deployment, a background daemon with no Service, had a `readinessProbe` identical to its `livenessProbe`.
+**Learning:** Background workers and daemons that do not serve network traffic via a Kubernetes Service do not benefit from a `readinessProbe`. Having an identical readiness probe just wastes kubelet resources and triggers false-positive failure cascades if the single endpoint responds slowly.
+**Resilience:** Removed the `readinessProbe` from `dd-sync-worker` entirely, relying solely on the `livenessProbe` to restart the daemon if the internal loop deadlocks.
