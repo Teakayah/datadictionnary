@@ -682,7 +682,6 @@ def test_discovery_notable_no_group(m1, m2):
     m2.return_value = "notable"
 
     def app_wrapper():
-        from unittest.mock import patch
         from src.ui.cards.discovery import render_discovery
 
         # We need groups to have an element so the earlier check `if not primary_group or primary_group == "none"` passes but we need to cover `else:` corresponding to `if primary_group:`.
