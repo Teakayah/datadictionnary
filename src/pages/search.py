@@ -188,10 +188,10 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         if is_power_user():
             _c_em, _c_efn = st.columns([1, 1], gap="small")
             with _c_em:
-                if st.button(f"✎ {t('detail.edit_table')}", key=f"edit_tbl_{full_name}", help=t("detail.edit_table_help"), type="secondary", use_container_width=True):
+                if st.button(t('detail.edit_table_btn'), key=f"edit_tbl_{full_name}", help=t("detail.edit_table_help"), type="secondary", use_container_width=True):
                     render_table_metadata_editor(full_name, _raw_desc, _steward)
             with _c_efn:
-                if st.button(f"✎ {t('detail.edit_friendly_name')}", key=f"edit_friendly_{full_name}", help=t("detail.edit_friendly_name_help"), type="secondary", use_container_width=True):
+                if st.button(t('detail.edit_friendly_name_btn'), key=f"edit_friendly_{full_name}", help=t("detail.edit_friendly_name_help"), type="secondary", use_container_width=True):
                     render_table_business_name_editor(
                         full_name,
                         current_name_en=str(row.get("business_name_en", "") or ""),
@@ -648,7 +648,7 @@ def render_search_page(query_groups: tuple) -> None:
             else:
                 st.info(t("search.group_filter_active", group=active_group))
         with c2:
-            if st.button(f"← {t('common.back')}", help=t("help.btn_common_back"), use_container_width=True, type="secondary"):
+            if st.button(t('common.back_btn'), help=t("help.btn_common_back"), use_container_width=True, type="secondary"):
                 st.session_state.pop("group_filter", None)
                 st.rerun()
 
@@ -712,7 +712,7 @@ def render_search_page(query_groups: tuple) -> None:
             with _gc:
                 _render_result_card(_fn, str(_row.get("name") or _row.get("table_name", "")), str(_row.get("description") or ""), "Table", str(_row.get("dq_score") or ""))
             with _gb:
-                if st.button(f"{t('search.view_details')} →", key=f"gview_{_fn}_{_i}", help=t("search.view_details_help"), use_container_width=True):
+                if st.button(t('search.view_details_btn'), key=f"gview_{_fn}_{_i}", help=t("search.view_details_help"), use_container_width=True):
                     if _fn in _auth_full_names:
                         st.session_state["dd_search_override"] = str(_row.get("name") or _row.get("table_name", ""))
                         st.session_state["dd_nav_select"] = _fn
@@ -769,7 +769,7 @@ def render_search_page(query_groups: tuple) -> None:
                         with _card_col:
                             _render_result_card(_fn, _s(_sr.get("name")), _s(_sr.get("description")), _s(_sr.get("match_type")), _s(_sr.get("dq_score", "")))
                         with _btn_col:
-                            if st.button(f"{t('search.view_details')} →", key=f"view_{_fn}_{_sr_i}", help=t("search.view_details_help"), use_container_width=True):
+                            if st.button(t('search.view_details_btn'), key=f"view_{_fn}_{_sr_i}", help=t("search.view_details_help"), use_container_width=True):
                                 if _fn in _auth_full_names:
                                     st.session_state["_dd_sticky_nav"] = _fn
                                     st.rerun()
@@ -780,7 +780,7 @@ def render_search_page(query_groups: tuple) -> None:
                 if _nav_idx is not None:
                     _row     = _table_results[_table_results["table_name"] == _table_names[_nav_idx]].iloc[0]
                     full_name = f"{_row['catalog_name']}.{_row['schema_name']}.{_row['table_name']}"
-                    if st.button(f"← {t('search.back_to_results')}", key="search_back", help=t("search.back_to_results_help")):
+                    if st.button(t('search.back_to_results_btn'), key="search_back", help=t("search.back_to_results_help")):
                         st.session_state.pop("_dd_sticky_nav", None)
                         st.rerun()
                     _render_detail_panel(_row, full_name, query_groups)

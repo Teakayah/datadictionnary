@@ -51,7 +51,9 @@
     "results_count_zero": "Aucun résultat",
     "results_count_one": "1 résultat",
     "results_count_other": "{count} résultats",
-    "showing_first_50": "Affichage des 50 premiers résultats sur {count}."
+    "showing_first_50": "Affichage des 50 premiers résultats sur {count}.",
+    "view_details_btn": "Voir les détails →",
+    "back_to_results_btn": "← Retour aux résultats"
   },
   "catalog": {
     "eyebrow": "§ Navigateur de catalogue",
@@ -124,7 +126,9 @@
     "placeholder_desc": "Describe the table's contents, grain, and common use cases...",
     "placeholder_steward": "e.g. data.steward@example.com",
     "showing_first_50_columns": "Affichage des 50 premières colonnes sur {count}.",
-    "showing_first_50_grants": "Affichage des 50 premières permissions sur {count}."
+    "showing_first_50_grants": "Affichage des 50 premières permissions sur {count}.",
+    "edit_table_btn": "✎ Modifier les métadonnées de la table",
+    "edit_friendly_name_btn": "✎ Modifier le nom usuel"
   },
   "editor": {
     "save": "Enregistrer",
@@ -402,7 +406,8 @@
     "saving": "Enregistrement...",
     "saved": "Changes saved.",
     "deleting": "Suppression...",
-    "deleted": "Supprimé avec succès."
+    "deleted": "Supprimé avec succès.",
+    "back_btn": "← Retour"
   },
   "language": {
     "en": "EN",
