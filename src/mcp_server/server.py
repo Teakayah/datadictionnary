@@ -124,10 +124,15 @@ async def list_tables(
     if df is None or df.empty:
         return json.dumps([])
 
-    if catalog:
-        df = df[df["catalog_name"] == catalog]
-    if schema:
-        df = df[df["schema_name"] == schema]
+    if catalog and schema:
+        # ⚡ Bolt: Replace sequential boolean mask indexing with vectorized numpy evaluation
+        df = df[(df["catalog_name"].to_numpy() == catalog) & (df["schema_name"].to_numpy() == schema)]
+    elif catalog:
+        # ⚡ Bolt: Use .to_numpy() for faster boolean evaluation
+        df = df[df["catalog_name"].to_numpy() == catalog]
+    elif schema:
+        # ⚡ Bolt: Use .to_numpy() for faster boolean evaluation
+        df = df[df["schema_name"].to_numpy() == schema]
 
     results = df.to_dict(orient="records")
     await redis_cache.set(ck, results, ttl=600)
