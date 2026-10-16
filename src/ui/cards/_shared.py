@@ -63,11 +63,11 @@ def _compute_live_completeness(table_full_name: str) -> float:
         "COUNT(CASE WHEN (cm.comment IS NOT NULL AND cm.comment != '') "
         "           OR  (bno.definition IS NOT NULL AND bno.definition != '') "
         "           THEN 1 END) AS defined "
-        "FROM {0}.{1}.columns_metadata cm "
-        "LEFT JOIN {2} bno "
+        f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata cm "
+        f"LEFT JOIN {bno_tbl} bno "
         "  ON cm.table_full_name = bno.table_full_name AND cm.column_name = bno.column_name "
         "WHERE cm.table_full_name = %(fn)s"
-    ).format(CATALOG_CACHE, SCHEMA_CACHE, bno_tbl)
+    )
     try:
         result = run_query(q, {"fn": table_full_name})
         if result is None or result.empty:

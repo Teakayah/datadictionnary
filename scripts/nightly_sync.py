@@ -92,9 +92,8 @@ def _push(table_full_name: str, column_name: str, definition: str) -> None:
         server_hostname=host,
         http_path=http_path,
         access_token=token,
-    ) as conn:
-        with conn.cursor() as cur:
-            cur.execute(alter_sql, {"comment": definition or ""})
+    ) as conn, conn.cursor() as cur:
+        cur.execute(alter_sql, {"comment": definition or ""})
 
     log.info("✓  %s . %s", table_full_name, column_name)
 

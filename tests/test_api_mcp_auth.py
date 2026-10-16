@@ -6,9 +6,8 @@ from src.api.main import app, _MCPAuthMiddleware
 
 @pytest.fixture
 def client():
-    with patch("src.api.main._validate_auth_config"):
-        with TestClient(app) as client:
-            yield client
+    with patch("src.api.main._validate_auth_config"), TestClient(app) as client:
+        yield client
 
 def test_mcp_auth_middleware_no_auth(client):
     response = client.post("/mcp")

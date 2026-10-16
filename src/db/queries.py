@@ -215,7 +215,7 @@ def get_authorized_tables(groups):
     _table_overrides_tbl = _get_override_table_name("table_metadata")
 
     sql_query = (
-        """
+        f"""
         SELECT DISTINCT
             m.full_name,
             m.catalog_name,
@@ -226,16 +226,16 @@ def get_authorized_tables(groups):
             m.updated_at,
             COALESCE(dq.dq_score, '') AS dq_score,
             COALESCE(dq.last_run_status, '') AS dq_status
-        FROM {0}.{1}.tables_metadata m
-        JOIN {0}.{1}.permissions_cache p
+        FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata m
+        JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p
           ON m.full_name = p.table_full_name
-        LEFT JOIN {3} o
+        LEFT JOIN {_table_overrides_tbl} o
           ON m.full_name = o.table_full_name
-        LEFT JOIN {0}.{1}.data_quality_cache dq
+        LEFT JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.data_quality_cache dq
           ON m.full_name = dq.table_full_name
-        WHERE (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS')
+        WHERE (p.principal IN ({group_placeholders}) OR p.principal = 'SELECT_ALL_USERS')
     """
-    ).format(CATALOG_CACHE, SCHEMA_CACHE, group_placeholders, _table_overrides_tbl)  # nosec B608
+    )  # nosec B608
     return run_query(sql_query, params)
 
 
@@ -251,7 +251,7 @@ def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
         pd.DataFrame: A pandas DataFrame containing lineage edges with columns for direction, entity name, entity type, and depth.
     """
     sql_query = (
-        """
+        f"""
         WITH RECURSIVE lineage_cte AS (
             SELECT
                 table_full_name,
@@ -259,7 +259,7 @@ def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
                 entity_full_name,
                 entity_type,
                 1 AS depth
-            FROM {0}.{1}.lineage_cache
+            FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache
             WHERE table_full_name = %(fn)s
 
             UNION ALL
@@ -270,7 +270,7 @@ def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
                 lc.entity_full_name,
                 lc.entity_type,
                 cte.depth + 1
-            FROM {0}.{1}.lineage_cache lc
+            FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache lc
             JOIN lineage_cte cte
               ON lc.table_full_name = cte.entity_full_name
              AND lc.direction = cte.direction
@@ -278,7 +278,7 @@ def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
         )
         SELECT * FROM lineage_cte
     """
-    ).format(CATALOG_CACHE, SCHEMA_CACHE)  # nosec B608
+    )  # nosec B608
 
     return run_query(sql_query, {"fn": table_full_name, "depth": depth})
 

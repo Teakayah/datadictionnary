@@ -398,7 +398,7 @@ def _read_app_source() -> str:
 
 def _get_all_locale_strings(d: dict) -> list[str]:
     strings = []
-    for k, v in d.items():
+    for v in d.values():
         if isinstance(v, dict):
             strings.extend(_get_all_locale_strings(v))
         elif isinstance(v, str):

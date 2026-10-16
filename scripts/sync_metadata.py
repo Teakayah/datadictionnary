@@ -157,37 +157,35 @@ def setup_cache_tables():
 def push_business_name_overrides():
     """Write column business name overrides back to Unity Catalog as column comments."""
     print("📝 Pushing business name overrides to Unity Catalog...")
-    with get_sql_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                f"SELECT table_full_name, column_name, business_name, definition "
-                f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
-            )
-            overrides = cursor.fetchall_as_pandas()
+    with get_sql_connection() as conn, conn.cursor() as cursor:
+        cursor.execute(
+            f"SELECT table_full_name, column_name, business_name, definition "
+            f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.business_name_overrides"
+        )
+        overrides = cursor.fetchall_as_pandas()
 
     if overrides is None or overrides.empty:
         print("  No overrides to push.")
         return
 
-    with get_sql_connection() as conn:
-        with conn.cursor() as cursor:
-            for row in overrides.itertuples(index=False):
-                raw_full_name = str(getattr(row, "table_full_name", ""))
-                raw_col_name  = str(getattr(row, "column_name", ""))
-                raw_biz_name  = str(getattr(row, "business_name", ""))
-                full_name_q = ".".join(
-                    f"`{p.replace('`', '``')}`" for p in raw_full_name.split(".")
+    with get_sql_connection() as conn, conn.cursor() as cursor:
+        for row in overrides.itertuples(index=False):
+            raw_full_name = str(getattr(row, "table_full_name", ""))
+            raw_col_name  = str(getattr(row, "column_name", ""))
+            raw_biz_name  = str(getattr(row, "business_name", ""))
+            full_name_q = ".".join(
+                f"`{p.replace('`', '``')}`" for p in raw_full_name.split(".")
+            )
+            col_name_q = f"`{raw_col_name.replace('`', '``')}`"
+            try:
+                cursor.execute(
+                    f"ALTER TABLE {full_name_q} "
+                    f"ALTER COLUMN {col_name_q} SET COMMENT %(comment)s",
+                    {"comment": raw_biz_name},
                 )
-                col_name_q = f"`{raw_col_name.replace('`', '``')}`"
-                try:
-                    cursor.execute(
-                        f"ALTER TABLE {full_name_q} "
-                        f"ALTER COLUMN {col_name_q} SET COMMENT %(comment)s",
-                        {"comment": raw_biz_name},
-                    )
-                    print(f"  ✓ {raw_full_name}.{raw_col_name}")
-                except Exception as e:
-                    print(f"  ✗ {raw_full_name}.{raw_col_name}: {e}")
+                print(f"  ✓ {raw_full_name}.{raw_col_name}")
+            except Exception as e:
+                print(f"  ✗ {raw_full_name}.{raw_col_name}: {e}")
 
 
 def enrich_dq_from_monitoring(cursor, table_full_names: list, tag_dq: list) -> list:
@@ -212,7 +210,7 @@ def enrich_dq_from_monitoring(cursor, table_full_names: list, tag_dq: list) -> l
         for row in cursor.fetchall_as_pandas().itertuples(index=False):
             monitoring_dq[str(row.table_name)] = {
                 "table_full_name": str(row.table_name),
-                "dq_score":        str(int(round(float(row.dq_score or 0)))),
+                "dq_score":        str(round(float(row.dq_score or 0))),
                 "last_run_status": str(row.last_run_status or ""),
                 "freshness":       str(row.freshness or ""),
             }
@@ -410,17 +408,16 @@ def sync():
             BUSINESS_NAMES_COL_DEF_EN,
             BUSINESS_NAMES_COL_DEF_FR,
         )
-        with get_sql_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    f"SELECT {BUSINESS_NAMES_COL_FULL_NAME} AS full_name, "
-                    f"       {BUSINESS_NAMES_COL_NAME_EN} AS name_en, "
-                    f"       {BUSINESS_NAMES_COL_NAME_FR} AS name_fr, "
-                    f"       {BUSINESS_NAMES_COL_DEF_EN}  AS def_en, "
-                    f"       {BUSINESS_NAMES_COL_DEF_FR}  AS def_fr "
-                    f"FROM {BUSINESS_NAMES_TABLE}"
-                )
-                bn_df = cursor.fetchall_as_pandas()
+        with get_sql_connection() as conn, conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT {BUSINESS_NAMES_COL_FULL_NAME} AS full_name, "
+                f"       {BUSINESS_NAMES_COL_NAME_EN} AS name_en, "
+                f"       {BUSINESS_NAMES_COL_NAME_FR} AS name_fr, "
+                f"       {BUSINESS_NAMES_COL_DEF_EN}  AS def_en, "
+                f"       {BUSINESS_NAMES_COL_DEF_FR}  AS def_fr "
+                f"FROM {BUSINESS_NAMES_TABLE}"
+            )
+            bn_df = cursor.fetchall_as_pandas()
         bn_map = {
             str(r["full_name"]): r for r in bn_df.to_dict("records")
         } if bn_df is not None and not bn_df.empty else {}
@@ -506,12 +503,11 @@ def sync():
     # Fetch audit_log for DuckDB export (rebuild from Databricks each sync)
     audit_log_data = []
     try:
-        with get_sql_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(f"SELECT * FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log")
-                audit_df = cursor.fetchall_as_pandas()
-                if audit_df is not None and not audit_df.empty:
-                    audit_log_data = audit_df.to_dict(orient="records")
+        with get_sql_connection() as conn, conn.cursor() as cursor:
+            cursor.execute(f"SELECT * FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.audit_log")
+            audit_df = cursor.fetchall_as_pandas()
+            if audit_df is not None and not audit_df.empty:
+                audit_log_data = audit_df.to_dict(orient="records")
     except Exception as e:
         print(f"  ⚠  Could not fetch audit_log for DuckDB: {e}")
 

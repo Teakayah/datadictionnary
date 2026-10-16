@@ -69,7 +69,7 @@ def _ensure_locale() -> None:
         st.session_state["locale"] = get_locale()
 
 
-def format_number(val: int | float) -> str:
+def format_number(val: float) -> str:
     """Format a number according to the active locale.
 
     Args:

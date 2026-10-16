@@ -128,7 +128,7 @@ def process_file(filename):
             sub_parts = re.split(r'(<aside[^>]*>.*?</aside>|<nav[^>]*>.*?</nav>|<[^>]+>)', part, flags=re.DOTALL)
             processed_sub_parts = []
             for sub_part in sub_parts:
-                if sub_part.startswith('<aside') or sub_part.startswith('<nav'):
+                if sub_part.startswith(('<aside', '<nav')):
                     processed_sub_parts.append(sub_part) # Skip sidebar/nav
                 elif sub_part.startswith('<'):
                     processed_sub_parts.append(sub_part)

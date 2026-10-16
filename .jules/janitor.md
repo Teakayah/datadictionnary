@@ -30,3 +30,6 @@
 ## 2025-02-27 - [Suppressing Linter Warnings for Dynamic Imports]
 **Learning:** When resolving linter warnings for unused imports, running `ruff check . --fix` can aggressively remove seemingly "unused" local imports (e.g., `import streamlit as st` inside test wrapper functions) that are actually required for dynamic execution or framework wrappers like `AppTest`.
 **Action:** Do not use `--fix` blindly on test files, or ensure you manually restore required local imports with `# noqa: F401` to prevent test suite regressions while satisfying the linter.
+## 2025-02-27 - Automated safe tech debt cleanups
+**Learning:** Found an opportunity to automate and safely perform multiple tech-debt enhancements across the test files by addressing code lint issues with tool autofixes.
+**Action:** Used `ruff check . --select C408,SIM118,PERF402,PIE810,SIM102,SIM401,RUF015,PERF102,SIM115,RUF046,RET501,UP028,UP030,UP032,UP035,UP037,PYI034,PYI041,PLW1510,PLR0402,SIM117 --fix` which resulted in 26 fixes (such as Unnecessary tuple() call rewrites, Combine with statements, Dictionary iteration rewrite).

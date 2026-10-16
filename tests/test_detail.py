@@ -352,7 +352,7 @@ def test_save_table_metadata_exception():
 
         at.run()
 
-        save_button = [b for b in at.button if b.label == "common.save"][0]
+        save_button = next(b for b in at.button if b.label == "common.save")
         save_button.click().run()
 
         assert not at.exception
@@ -378,7 +378,7 @@ def test_save_table_business_name_exception():
 
         at.run()
 
-        save_button = [b for b in at.button if b.label == "common.save"][0]
+        save_button = next(b for b in at.button if b.label == "common.save")
         save_button.click().run()
 
         assert not at.exception
