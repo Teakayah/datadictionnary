@@ -13,7 +13,7 @@ def test_sql_inject(tmp_path):
     duckdb.connect(evil_path).close()
 
     with patch.dict(os.environ, {"DUCKDB_PATH": evil_path}):
-        import src.config as config
+        from src import config
         import importlib
         importlib.reload(config)
 
@@ -26,9 +26,9 @@ def test_sql_inject(tmp_path):
 
         # Test daemon_db (with a separate mock so we don't conflict the user_data detachment)
     with patch.dict(os.environ, {"DUCKDB_PATH": str(tmp_path / "evil'path2.duckdb")}):
-        import src.config as config
+        from src import config
         importlib.reload(config)
-        import src.sync.daemon_db as daemon_db
+        from src.sync import daemon_db
         importlib.reload(daemon_db)
 
         # create the file

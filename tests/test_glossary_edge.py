@@ -17,7 +17,7 @@ def test_glossary_unauthorized_table(mock_auth):
     ])
     with patch("src.pages.glossary._DEMO_GLOSSARY", mock_demo):
         def app():
-            import src.pages.glossary as glossary
+            from src.pages import glossary
             glossary.render_glossary(["group1"])
 
         at = AppTest.from_function(app).run()
@@ -51,7 +51,7 @@ def test_glossary_bookmarks(mock_del, mock_upsert, mock_auth):
             import streamlit as st
             if "bookmarks" not in st.session_state:
                 st.session_state.bookmarks = set()
-            import src.pages.glossary as glossary
+            from src.pages import glossary
             glossary.render_glossary(["group1"])
 
         at = AppTest.from_function(app).run()

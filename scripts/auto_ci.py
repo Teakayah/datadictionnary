@@ -9,7 +9,7 @@ import shlex
 import subprocess
 import sys
 from pathlib import Path
-from typing import Sequence
+from collections.abc import Sequence
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_TEST_ENV = {

@@ -266,7 +266,7 @@ def md_to_html(md_content, filename):
             b = b.strip()
             if not b: continue
             
-            if b.startswith('<') or b.startswith('###') or b.startswith('<hr'):
+            if b.startswith(('<', '###', '<hr')):
                 res.append(b)
             else:
                 res.append(f'<p>{b}</p>')

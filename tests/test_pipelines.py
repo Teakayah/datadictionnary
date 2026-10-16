@@ -78,13 +78,13 @@ class TestIsPipelineUser:
 def demo_pipelines():
     """Route src.pipelines through the demo (session-state) path, clean slate."""
     import streamlit as st
-    stale = [k for k in st.session_state.keys()
+    stale = [k for k in st.session_state
              if k == "_demo_pipelines" or str(k).startswith("_demo_run_")]
     for k in stale:
         st.session_state.pop(k, None)
     with patch("src.pipelines.is_demo_mode", return_value=True):
         yield st.session_state
-    stale = [k for k in st.session_state.keys()
+    stale = [k for k in st.session_state
              if k == "_demo_pipelines" or str(k).startswith("_demo_run_")]
     for k in stale:
         st.session_state.pop(k, None)

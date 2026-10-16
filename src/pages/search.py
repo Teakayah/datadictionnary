@@ -101,7 +101,7 @@ def _render_result_card(full_name: str, name: str, desc: str, match_type: str, d
     </div>''', unsafe_allow_html=True)
 
 
-def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple) -> None:
+def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -> None:
     """Render the two-column table detail panel (main + side)."""
     col_main, col_side = st.columns([7, 5], gap="large")
 
@@ -420,11 +420,11 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         for _i, _g in enumerate(query_groups):
             grants_params[f"grant_group_{_i}"] = _g
         grants_query = (
-            "SELECT DISTINCT principal, privilege FROM {0}.{1}.permissions_cache "
+            f"SELECT DISTINCT principal, privilege FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache "
             "WHERE table_full_name = %(table_full_name)s "
-            "AND (principal IN ({2}) OR principal = 'SELECT_ALL_USERS') "
+            f"AND (principal IN ({_placeholders}) OR principal = 'SELECT_ALL_USERS') "
             "ORDER BY principal"
-        ).format(CATALOG_CACHE, SCHEMA_CACHE, _placeholders)  # nosec B608
+        )  # nosec B608
         grants   = run_query(grants_query, grants_params)
         n_grants = len(grants) if grants is not None and not grants.empty else 0
         st.markdown(
@@ -518,17 +518,17 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             rel_params[f"group_{i}"] = group
         related_query = (
             "SELECT t.full_name, t.table_name, t.catalog_name, t.schema_name, 'Same schema' AS relationship "
-            "FROM {0}.{1}.tables_metadata t JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name "
+            f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata t JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p ON t.full_name = p.table_full_name "
             "WHERE t.catalog_name = %(catalog_name)s AND t.schema_name = %(schema_name)s "
-            "AND t.full_name != %(full_name)s AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS') "
+            f"AND t.full_name != %(full_name)s AND (p.principal IN ({rel_placeholders}) OR p.principal = 'SELECT_ALL_USERS') "
             "UNION "
             "SELECT DISTINCT t.full_name, t.table_name, t.catalog_name, t.schema_name, 'Shared column' AS relationship "
-            "FROM {0}.{1}.columns_metadata c1 JOIN {0}.{1}.columns_metadata c2 ON c1.column_name = c2.column_name "
-            "JOIN {0}.{1}.tables_metadata t ON c2.table_full_name = t.full_name "
-            "JOIN {0}.{1}.permissions_cache p ON t.full_name = p.table_full_name "
+            f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata c1 JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata c2 ON c1.column_name = c2.column_name "
+            f"JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.tables_metadata t ON c2.table_full_name = t.full_name "
+            f"JOIN {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p ON t.full_name = p.table_full_name "
             "WHERE c1.table_full_name = %(full_name)s AND c2.table_full_name != %(full_name)s "
-            "AND (p.principal IN ({2}) OR p.principal = 'SELECT_ALL_USERS') LIMIT 12"
-        ).format(CATALOG_CACHE, SCHEMA_CACHE, rel_placeholders)  # nosec B608
+            f"AND (p.principal IN ({rel_placeholders}) OR p.principal = 'SELECT_ALL_USERS') LIMIT 12"
+        )  # nosec B608
         related  = run_query(related_query, rel_params)
         n_related = len(related) if related is not None and not related.empty else 0
 

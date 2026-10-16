@@ -201,9 +201,9 @@ def get_table_columns(table_full_name: str) -> pd.DataFrame:
     """Return the columns_metadata rows for a table (demo-aware via run_query)."""
     cols_query = (
         "SELECT column_name, data_type, comment "
-        "FROM {0}.{1}.columns_metadata "
+        f"FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.columns_metadata "
         "WHERE table_full_name = %(table_full_name)s ORDER BY column_name"
-    ).format(CATALOG_CACHE, SCHEMA_CACHE)
+    )
     return run_query(cols_query, {"table_full_name": table_full_name})
 
 

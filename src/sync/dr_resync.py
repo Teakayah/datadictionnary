@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import Callable, Optional
+from typing import Optional
+from collections.abc import Callable
 """Disaster-recovery resync — pull recent rows from Databricks back into the
 local DuckDB user_data file.
 

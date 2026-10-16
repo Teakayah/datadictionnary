@@ -626,7 +626,7 @@ def test_record_heartbeat_error_does_not_crash():
     # Arrange
     import pytest
     from src.sync.daemon import _record_heartbeat
-    import src.sync.daemon as daemon
+    from src.sync import daemon
     from unittest.mock import MagicMock, patch
 
     mock_conn = MagicMock()
