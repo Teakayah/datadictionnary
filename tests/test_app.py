@@ -753,8 +753,8 @@ class TestGlossary:
         assert "Jane Doe (Marketing)" in html
 
         buttons = [b.label for b in at.button]
-        assert "→ customers" in buttons
-        assert "→ orders" in buttons
+        assert "Explore customers →" in buttons
+        assert "Explore orders →" in buttons
 
     def test_glossary_linked_table_button_click(self):
         """Clicking a linked table button should navigate to the search tab for that table."""
@@ -765,7 +765,7 @@ class TestGlossary:
         at.selectbox[0].select("Churn Rate").run()
 
         for i, b in enumerate(at.button):
-            if b.label == "→ customers":
+            if b.label == "Explore customers →":
                 at.button[i].click().run()
                 break
 

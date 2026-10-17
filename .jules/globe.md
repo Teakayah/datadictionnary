@@ -61,3 +61,6 @@
 ## 2025-03-01 - Avoid Concatenating Icons with Localized Text
 **Learning:** Hardcoding string concatenations like `f"← {t('common.back')}"` forces a specific English-centric layout (icon on the left) that breaks RTL languages and prevents translators from adapting the button layout naturally.
 **Action:** Extract the entire string, including formatting templates like icons and arrows, into a unified translation key (e.g., `common.back_btn`: `"← Back"`) to give full control back to the translation dictionary.
+## 2024-11-20 - Extracting Hardcoded Navigation Button Strings
+**Learning:** Hardcoding string concatenations like `f"→ {table_name}"` bypasses localization and enforces a layout (e.g. icon on the left) that breaks RTL languages.
+**Action:** Extract the entire string, including formatting templates like icons and arrows, into a unified translation key (e.g. `t("discovery.explore_button", name=table_name)`) to give full control back to the translation dictionary.

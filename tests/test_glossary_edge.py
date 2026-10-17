@@ -24,11 +24,11 @@ def test_glossary_unauthorized_table(mock_auth):
         at.selectbox(key="glossary_search").set_value("Test Term").run()
 
         # "catalog.schema.visible" should be rendered
-        buttons = [b for b in at.button if b.label == "→ visible"]
+        buttons = [b for b in at.button if b.label == "Explore visible →"]
         assert len(buttons) == 1
 
         # "catalog.schema.hidden" should NOT be rendered
-        hidden_buttons = [b for b in at.button if b.label == "→ hidden"]
+        hidden_buttons = [b for b in at.button if b.label == "Explore hidden →"]
         assert len(hidden_buttons) == 0
 
 @patch("src.pages.glossary._cached_get_authorized_table_names", return_value={"catalog.schema.visible"})
