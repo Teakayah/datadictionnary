@@ -187,3 +187,8 @@ Assertion: When testing >50 truncation paths, verify `at.info` presence containi
 **Coverage Gap:** The else branch inside `_render_notable_tab` prompting for user sign in was unreachable since an earlier statement would return early if `primary_group` was falsey.
 **Learning:** When addressing test coverage gaps involving missing lines, if analysis reveals the un-covered lines are logically unreachable dead code (e.g., statements following a branch with a guaranteed early-return), remove the dead code to satisfy the coverage metric instead of attempting to mock impossible test states.
 **Assertion:** Removed the unreachable dead code block.
+
+## 2024-10-17 - Missing Branch Coverage in List Tables
+**Coverage Gap:** The `schema`-only filtering logic in the `list_tables` MCP tool lacked branch coverage, silently leaving the conditional branch untested.
+**Learning:** Conditional filters with multiple combinations (e.g. `catalog and schema`, `catalog` only, `schema` only) are prone to partial coverage if tests only check the primary happy paths.
+**Assertion:** Wrote a test to mock the database query and explicitly pass only the `schema` argument, asserting that the result correctly filters the mocked dataframe down to the matching schemas.
