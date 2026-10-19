@@ -25,3 +25,6 @@
 ## 2024-11-20 - Documenting Databricks Connection Strategy
 **Learning:** The application uses short-lived, per-query Databricks SQL Warehouse connections rather than a global connection pool to avoid "connection closed" errors caused by server-side scaling and timeouts. This crucial architectural decision was undocumented, making it unclear why a seemingly inefficient per-query connection model was chosen over standard pooling techniques.
 **Action:** Ensure that connection handling logic, particularly workarounds for cloud warehouse limitations (like avoiding connection pooling due to timeouts), is explicitly documented with a "WHY IT EXISTS" section so future contributors understand the architectural constraint.
+## 2024-11-20 - Adding "Why It Exists" to regex explainers
+**Learning:** Security gates and authentication dependencies (like `get_current_user` in FastAPI) require complete docstrings explaining not just their arguments and returns, but also the specific HTTP exceptions they raise to prevent developers from mishandling auth failures or returning incorrect status codes.
+**Action:** Always ensure that when documenting FastAPI security dependencies, the docstring includes a detailed "Raises" section clearly mapping exception types to HTTP status codes (e.g., 401 Unauthorized, 500 Internal Server Error).
