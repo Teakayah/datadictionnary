@@ -193,6 +193,25 @@ def test_search_keywords_glossary_unauthorized_table():
                     # Shouldn't include the glossary result
                     assert res is None or res.empty
 
+
+def test_search_keywords_glossary_authorized_table_populates_name_and_description():
+    with patch("src.db.queries._base_run_query") as mock_run:
+        mock_run.return_value = pd.DataFrame(columns=["full_name", "name", "match_type", "description", "table_description", "catalog_name", "schema_name", "table_name"])
+
+        with patch("src.db.queries._DEMO_GLOSSARY", pd.DataFrame({
+            "term": ["Churn Rate"],
+            "definition": ["Percentage of customers lost over a period"],
+            "related_tables": [["cat.schema.tab"]]
+        })):
+            with patch("src.db.queries.get_authorized_table_names", return_value={"cat.schema.tab"}):
+                with patch("src.db.queries.is_demo_mode", return_value=False):
+                    res = _search_keywords("churn", ("group1",))
+                    assert res is not None and not res.empty
+                    row = res.iloc[0]
+                    assert row["match_type"] == "Glossary"
+                    assert row["name"] == "Churn Rate"
+                    assert row["description"] == "Percentage of customers lost over a period"
+
 @patch("src.db.queries.get_authorized_tables")
 def test_get_authorized_table_names(mock_get_authorized_tables):
     # Arrange

@@ -224,6 +224,17 @@ class TestGetLineage:
         passed_depth = mock_q.call_args[0][1] if len(mock_q.call_args[0]) > 1 else 1
         assert passed_depth <= 5
 
+    def test_raises_without_user_in_context(self):
+        with pytest.raises(RuntimeError, match="No authenticated user"):
+            _run_no_user(get_lineage("c.s.t"))
+
+    def test_passes_groups_from_context_user(self):
+        user = AuthenticatedUser(oid="u2", email="e@e.com", name="U", groups=["grp-lineage"])
+        with patch("src.mcp_server.server.queries.get_lineage", return_value=pd.DataFrame()) as mock_q, \
+             _no_cache():
+            _run_with_user(get_lineage("c.s.t", depth=2), user=user)
+        mock_q.assert_called_once_with("c.s.t", 2, ("grp-lineage",))
+
 class TestGetTableDetailsCache:
     def test_returns_cached_json_without_db_call(self):
         cached = {"full_name": "cached.s.t", "columns": [{"column_name": "c1", "data_type": "STRING", "description": "desc"}]}

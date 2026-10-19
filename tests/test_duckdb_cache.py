@@ -409,6 +409,28 @@ class TestDuckDBAdapter:
             conn_present = self.h["_DuckDBConn"](db)
             assert conn_present.open is True
 
+    def test_ensure_user_data_attached_read_only(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        _adapter._clear_shared_duckdb_connection()
+        db = str(tmp_path / "cache.duckdb")
+        user_db = str(tmp_path / "user_data.duckdb")
+        duckdb.connect(db).close()
+        # Pre-initialize user_db so it exists on disk with schema
+        con_init = duckdb.connect(":memory:")
+        con_init.execute(f'ATTACH \'{user_db}\' AS "user_data"')
+        _adapter._initialize_schema(con_init)
+        con_init.close()
+
+        with patch.object(_adapter, "DUCKDB_PATH", db), \
+             patch.object(_adapter, "USER_DATA_PATH", user_db):
+            conn_ro = _adapter._DuckDBConn(db, read_only=True)
+            assert conn_ro.open is True
+            assert conn_ro._read_only is True
+            # Verify writing to user_data fails because it is attached READ_ONLY
+            with pytest.raises(Exception):
+                conn_ro.execute("INSERT INTO user_data.site_settings (key, value) VALUES ('k', 'v')")
+        _adapter._clear_shared_duckdb_connection()
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # _duckdb_available

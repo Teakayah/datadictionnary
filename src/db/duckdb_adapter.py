@@ -250,7 +250,23 @@ def _initialize_schema(con):
     con.execute(";\n".join(_SCHEMA_STATEMENTS))
 
 
-def _get_shared_duckdb_connection():
+def _ensure_user_data_attached(con, safe_user_data_path: str, read_only: bool = False) -> None:
+    """Attach the persistent user_data DuckDB database.
+
+    When ``read_only`` is True and the user_data file already exists on disk,
+    attaches with ``(READ_ONLY)`` so multi-worker / multi-pod read-only
+    processes (such as ``dd-api``) do not collide on exclusive DuckDB file
+    locks. When ``read_only`` is False (or the file does not exist yet),
+    attaches read-write and initializes the schema.
+    """
+    if read_only and safe_user_data_path and os.path.exists(USER_DATA_PATH):
+        con.execute(f'ATTACH IF NOT EXISTS \'{safe_user_data_path}\' AS "user_data" (READ_ONLY)')
+    else:
+        con.execute(f'ATTACH IF NOT EXISTS \'{safe_user_data_path}\' AS "user_data"')
+        _initialize_schema(con)
+
+
+def _get_shared_duckdb_connection(read_only: bool | None = None):
     """Singleton connection shared across all Streamlit sessions/threads.
 
     Uses double-checked locking so the connection is created once and reused.
@@ -262,6 +278,8 @@ def _get_shared_duckdb_connection():
         return _shared_connection
     if not _duckdb_available():
         return None
+    if read_only is None:
+        read_only = os.getenv("DUCKDB_READ_ONLY", "false").lower() in ("1", "true", "yes")
     with _db_write_lock:
         if _shared_connection is not None:  # re-check after acquiring lock
             return _shared_connection
@@ -279,9 +297,7 @@ def _get_shared_duckdb_connection():
             # Attach the main read-only cache
             con.execute(f"ATTACH '{safe_duckdb_path}' AS {_escape_id(CATALOG_CACHE)} (READ_ONLY)")
             # Attach the persistent user data database
-            con.execute(f"ATTACH IF NOT EXISTS '{safe_user_data_path}' AS {_escape_id('user_data')}")
-
-            _initialize_schema(con)
+            _ensure_user_data_attached(con, safe_user_data_path, read_only=read_only)
 
             _shared_connection = con
             return con
@@ -381,8 +397,17 @@ class _DuckDBConn:
     connection so it remains available for subsequent queries.
     """
 
-    def __init__(self, path: str):
-        self._con = _get_shared_duckdb_connection()
+    def __init__(self, path: str, read_only: bool | None = None):
+        if read_only is None:
+            read_only = os.getenv("DUCKDB_READ_ONLY", "false").lower() in ("1", "true", "yes")
+        self._read_only = read_only
+        self._con = _get_shared_duckdb_connection(read_only=read_only)
+
+    def _ensure_user_data_attached(self) -> None:
+        if self._con is None:
+            return
+        safe_user_data_path = USER_DATA_PATH.replace("\x00", "").replace("'", "''") if USER_DATA_PATH else ""
+        _ensure_user_data_attached(self._con, safe_user_data_path, read_only=self._read_only)
 
     def cursor(self):
         """Returns a new wrapper cursor that shares the singleton connection to prevent file-locking errors."""

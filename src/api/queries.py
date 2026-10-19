@@ -156,24 +156,66 @@ def search_metadata(query: str, groups: tuple[str, ...]) -> pd.DataFrame:
     return _base_run_query(sql, params)
 
 
-def get_lineage(table_full_name: str, depth: int = 1) -> pd.DataFrame:
+def get_lineage(
+    table_full_name: str,
+    depth: int = 1,
+    groups: tuple[str, ...] | list[str] | None = None,
+    *,
+    user_groups: tuple[str, ...] | list[str] | None = None,
+) -> pd.DataFrame:
     """Fetch multi-hop lineage edges up to a given depth.
 
     Uses a recursive CTE to traverse upstream and downstream lineage edges
-    starting from the specified table.
+    starting from the specified table. When ``groups`` (or ``user_groups``)
+    is provided, both the root table and every traversed lineage hop are
+    filtered against ``permissions_cache``.
 
     Args:
         table_full_name (str): The Unity Catalog full name of the table to trace.
         depth (int, optional): The maximum number of hops to traverse. Defaults to 1.
+        groups (tuple[str, ...] | list[str] | None, optional): Entra ID group IDs for authorization filtering.
+        user_groups (tuple[str, ...] | list[str] | None, optional): Alias for ``groups``.
 
     Returns:
-        pd.DataFrame: A pandas DataFrame containing lineage edges.
+        pd.DataFrame: A pandas DataFrame containing authorized lineage edges.
     """
+    effective_groups = user_groups if user_groups is not None else groups
+    if effective_groups is None:
+        sql = f"""
+            WITH RECURSIVE lineage_cte AS (
+                SELECT table_full_name, direction, entity_full_name, entity_type, 1 AS depth
+                FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache
+                WHERE table_full_name = %(fn)s
+
+                UNION ALL
+
+                SELECT lc.table_full_name, lc.direction, lc.entity_full_name, lc.entity_type,
+                       cte.depth + 1
+                FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache lc
+                JOIN lineage_cte cte
+                  ON lc.table_full_name = cte.entity_full_name
+                 AND lc.direction = cte.direction
+                WHERE cte.depth < %(depth)s
+            )
+            SELECT * FROM lineage_cte
+        """  # nosec B608
+        return _base_run_query(sql, {"fn": table_full_name, "depth": depth})
+
+    ph, params = _group_clause(tuple(effective_groups))
+    params["fn"] = table_full_name
+    params["depth"] = depth
     sql = f"""
-        WITH RECURSIVE lineage_cte AS (
-            SELECT table_full_name, direction, entity_full_name, entity_type, 1 AS depth
-            FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache
-            WHERE table_full_name = %(fn)s
+        WITH RECURSIVE authorized_tables AS (
+            SELECT DISTINCT p.table_full_name AS full_name
+            FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.permissions_cache p
+            WHERE (p.principal IN ({ph}) OR p.principal = 'SELECT_ALL_USERS')
+        ),
+        lineage_cte AS (
+            SELECT lc.table_full_name, lc.direction, lc.entity_full_name, lc.entity_type, 1 AS depth
+            FROM {CATALOG_CACHE}.{SCHEMA_CACHE}.lineage_cache lc
+            JOIN authorized_tables at_src ON lc.table_full_name = at_src.full_name
+            JOIN authorized_tables at_dst ON lc.entity_full_name = at_dst.full_name
+            WHERE lc.table_full_name = %(fn)s
 
             UNION ALL
 
@@ -183,8 +225,9 @@ def get_lineage(table_full_name: str, depth: int = 1) -> pd.DataFrame:
             JOIN lineage_cte cte
               ON lc.table_full_name = cte.entity_full_name
              AND lc.direction = cte.direction
+            JOIN authorized_tables at_dst ON lc.entity_full_name = at_dst.full_name
             WHERE cte.depth < %(depth)s
         )
         SELECT * FROM lineage_cte
     """  # nosec B608
-    return _base_run_query(sql, {"fn": table_full_name, "depth": depth})
+    return _base_run_query(sql, params)

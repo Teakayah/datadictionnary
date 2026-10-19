@@ -151,12 +151,14 @@ async def get_lineage(table_full_name: str, depth: int = 1) -> str:
         str: JSON array of lineage edges with direction (upstream|downstream),
         entity_full_name, entity_type, and depth.
     """
+    user = _require_user()
+    groups = tuple(user.groups)
     depth = max(1, min(depth, 5))
-    ck = redis_cache.cache_key("mcp_lineage", table_full_name, depth)
+    ck = redis_cache.cache_key("mcp_lineage", table_full_name, depth, groups)
     if (cached := await redis_cache.get(ck)) is not None:
         return json.dumps(cached)
 
-    df = await asyncio.to_thread(queries.get_lineage, table_full_name, depth)
+    df = await asyncio.to_thread(queries.get_lineage, table_full_name, depth, groups)
     results = df.to_dict(orient="records") if df is not None and not df.empty else []
     await redis_cache.set(ck, results, ttl=300)
     return json.dumps(results, default=str)

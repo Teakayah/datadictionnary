@@ -210,10 +210,11 @@ def test_lineage_rejects_depth_above_5(client):
 
 
 def test_lineage_accepts_depth_5(client):
-    with patch("src.api.routers.lineage.queries.get_lineage", return_value=pd.DataFrame()), \
+    with patch("src.api.routers.lineage.queries.get_lineage", return_value=pd.DataFrame()) as mock_q, \
          _no_cache():
         resp = client.get("/api/v1/lineage/cat/schema/orders?depth=5")
     assert resp.status_code == 200
+    mock_q.assert_called_once_with("cat.schema.orders", 5, ("group-a",))
 
 
 # ── Coverage gaps ─────────────────────────────────────────────────────────────

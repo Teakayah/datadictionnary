@@ -208,6 +208,24 @@ class TestGetLineage:
         _, params = mock_q.call_args[0]
         assert params["depth"] == 1
 
+    def test_filters_by_groups_when_provided(self):
+        with patch("src.api.queries._base_run_query", return_value=pd.DataFrame()) as mock_q:
+            get_lineage("c.s.t", depth=2, groups=("grp-finance",))
+        sql, params = mock_q.call_args[0]
+        assert "permissions_cache" in sql
+        assert "SELECT_ALL_USERS" in sql
+        assert params["group_0"] == "grp-finance"
+        assert params["fn"] == "c.s.t"
+        assert params["depth"] == 2
+
+    def test_empty_groups_blocks_unauthorized_lineage(self):
+        with patch("src.api.queries._base_run_query", return_value=pd.DataFrame()) as mock_q:
+            get_lineage("c.s.t", depth=1, user_groups=[])
+        sql, params = mock_q.call_args[0]
+        assert "__no_match__" in sql
+        assert "permissions_cache" in sql
+        assert params == {"fn": "c.s.t", "depth": 1}
+
 
 # ── _overrides_tables ─────────────────────────────────────────────────────────
 

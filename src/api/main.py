@@ -28,6 +28,9 @@ from src.api.auth import _validate_auth_config, validate_token
 from src.api.routers import health, lineage, search, tables
 from src.mcp_server.server import _current_user, mcp
 
+# Ensure multi-worker / multi-pod API instances attach user_data in read-only mode by default.
+os.environ.setdefault("DUCKDB_READ_ONLY", "true")
+
 logger = logging.getLogger(__name__)
 
 

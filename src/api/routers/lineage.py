@@ -22,11 +22,12 @@ async def get_lineage(
 ):
     """Return upstream and downstream lineage edges for a table."""
     full_name = f"{catalog}.{schema}.{table}"
-    ck = redis_cache.cache_key("api_lineage", full_name, depth)
+    groups = tuple(user.groups)
+    ck = redis_cache.cache_key("api_lineage", full_name, depth, groups)
     if (cached := await redis_cache.get(ck)) is not None:
         return cached
 
-    df = await asyncio.to_thread(queries.get_lineage, full_name, depth)
+    df = await asyncio.to_thread(queries.get_lineage, full_name, depth, groups)
     result = df.to_dict(orient="records") if df is not None and not df.empty else []
     await redis_cache.set(ck, result, ttl=300)
     return result

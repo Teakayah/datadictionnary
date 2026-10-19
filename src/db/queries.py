@@ -518,7 +518,7 @@ def _search_keywords(query: str, groups: tuple):
         glossary_df = _DEMO_GLOSSARY[mask]
         # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
         for row in glossary_df.to_dict("records"):
-            related_tables = row.get("related_tables", [])
+            related_tables = row.get("related_tables", []) if isinstance(row, dict) else getattr(row, "related_tables", [])
             target_table = related_tables[0] if related_tables else ""
             if target_table and target_table not in _allowed_fns:
                 continue
@@ -526,9 +526,9 @@ def _search_keywords(query: str, groups: tuple):
             term_matches.append(
                 {
                     "full_name": target_table,
-                    "name": getattr(row, "term", ""),
+                    "name": row.get("term", "") if isinstance(row, dict) else getattr(row, "term", ""),
                     "match_type": "Glossary",
-                    "description": getattr(row, "definition", ""),
+                    "description": row.get("definition", "") if isinstance(row, dict) else getattr(row, "definition", ""),
                     "table_description": "",
                     "catalog_name": parts[0] if len(parts) == 3 else "",
                     "schema_name": parts[1] if len(parts) == 3 else "",
