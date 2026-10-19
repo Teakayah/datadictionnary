@@ -61,3 +61,6 @@
 ## 2025-03-01 - Avoid Concatenating Icons with Localized Text
 **Learning:** Hardcoding string concatenations like `f"← {t('common.back')}"` forces a specific English-centric layout (icon on the left) that breaks RTL languages and prevents translators from adapting the button layout naturally.
 **Action:** Extract the entire string, including formatting templates like icons and arrows, into a unified translation key (e.g., `common.back_btn`: `"← Back"`) to give full control back to the translation dictionary.
+## 2023-10-19 - Extract hardcoded static values from translation keys
+**Learning:** Translation keys contained hardcoded dynamic values (like time), violating localization best practices.
+**Action:** Extract these values into placeholders within the translation files and pass them as dynamic parameters from the UI code using the translation function (`t()`).
