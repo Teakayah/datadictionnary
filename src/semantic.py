@@ -135,6 +135,13 @@ def semantic_search(query: str, top_n: int = 10) -> List[str]:
             return []
 
         # 4. Perform vector similarity search using dynamic type-casting for the vector length!
+        #
+        # WHY IT EXISTS:
+        # DuckDB's `array_cosine_similarity` strictly requires both array arguments to have the
+        # exact same fixed dimension type. Since the embedding vector dimension size can vary
+        # between environments (e.g. mock 384-dim vectors vs real Databricks embeddings),
+        # injecting the exact dimension into the type cast (`FLOAT[{len(vector)}]`) prevents
+        # DuckDB from throwing a type mismatch error.
         sql = f"SELECT table_full_name FROM tables_embedding_cache ORDER BY array_cosine_similarity(embedding, ?::FLOAT[{len(vector)}]) DESC LIMIT ?"
         df = run_query(sql, (vector, top_n))
         
