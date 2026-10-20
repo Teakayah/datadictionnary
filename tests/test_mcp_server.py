@@ -177,6 +177,14 @@ class TestListTables:
         assert len(data) == 1
         assert data[0]["full_name"] == "prod.sales.orders"
 
+    def test_filters_by_schema(self):
+        with patch("src.mcp_server.server.queries.get_authorized_tables", return_value=MULTI_CATALOG_DF), \
+             _no_cache():
+            result = _run_with_user(list_tables(schema="sales"))
+        data = json.loads(result)
+        assert all(r["schema_name"] == "sales" for r in data)
+        assert len(data) == 2
+
     def test_returns_empty_list_when_no_tables(self):
         with patch("src.mcp_server.server.queries.get_authorized_tables", return_value=pd.DataFrame()), \
              _no_cache():

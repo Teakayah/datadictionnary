@@ -187,3 +187,7 @@ Assertion: When testing >50 truncation paths, verify `at.info` presence containi
 **Coverage Gap:** The else branch inside `_render_notable_tab` prompting for user sign in was unreachable since an earlier statement would return early if `primary_group` was falsey.
 **Learning:** When addressing test coverage gaps involving missing lines, if analysis reveals the un-covered lines are logically unreachable dead code (e.g., statements following a branch with a guaranteed early-return), remove the dead code to satisfy the coverage metric instead of attempting to mock impossible test states.
 **Assertion:** Removed the unreachable dead code block.
+## 2025-02-23 - MCP Server Schema Filter
+**Coverage Gap:** The `list_tables` method in the MCP server lacked branch coverage for filtering tables exclusively by schema without a catalog.
+**Learning:** It is easy to miss branch coverage on isolated `elif` statements when dealing with multiple query parameters.
+**Assertion:** Ensure test suites cover all combinations of optional parameters to guarantee proper filtering behavior.
