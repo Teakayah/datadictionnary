@@ -105,6 +105,16 @@ def _append_audit_event(event: dict) -> None:
         log.warning("Audit logging failed for %s: %s", event.get("event_id"), exc)
 
 
+def _checkpoint_user_data() -> None:
+    """Run CHECKPOINT on user_data safely."""
+    if _duckdb_available():
+        try:
+            with _db_write_lock:
+                _get_shared_duckdb_connection().execute("CHECKPOINT user_data")
+        except Exception:
+            pass
+
+
 def log_audit_event(
     event_type: str,
     object_type: str,
@@ -178,11 +188,7 @@ def save_table_metadata(
             enqueue_sync("STEWARD", table_full_name, {"steward_email": steward_email}, user_name)
             log_audit_event("table_steward_change", "TABLE", table_full_name, "N/A", steward_email)
 
-        try:
-            with _db_write_lock:
-                _get_shared_duckdb_connection().execute("CHECKPOINT user_data")
-        except Exception:
-            pass
+        _checkpoint_user_data()
 
     search_all_metadata.clear()
     get_authorized_tables.clear()
@@ -405,12 +411,8 @@ def save_business_name(
     )
     _upsert_column_override(override)
 
+    _checkpoint_user_data()
     if _duckdb_available():
-        try:
-            with _db_write_lock:
-                _get_shared_duckdb_connection().execute("CHECKPOINT user_data")
-        except Exception:
-            pass
         if _admin:
             enqueue_column_sync(table_full_name, column_name, definition, user_name)
 
@@ -437,11 +439,7 @@ def approve_business_name(table_full_name: str, column_name: str) -> None:
     user_name = st.session_state.get("user_name", "unknown")
     if _duckdb_available():
         enqueue_column_sync(table_full_name, column_name, item.get("definition", ""), user_name)
-        try:
-            with _db_write_lock:
-                _get_shared_duckdb_connection().execute("CHECKPOINT user_data")
-        except Exception:
-            pass
+    _checkpoint_user_data()
     search_all_metadata.clear()
 
 
@@ -665,12 +663,8 @@ def save_table_business_name(
     )
     _upsert_table_business_name_override(override)
 
+    _checkpoint_user_data()
     if _duckdb_available():
-        try:
-            with _db_write_lock:
-                _get_shared_duckdb_connection().execute("CHECKPOINT user_data")
-        except Exception:
-            pass
         if _admin:
             enqueue_table_business_name_sync(
                 table_full_name,
@@ -708,11 +702,7 @@ def approve_table_business_name(table_full_name: str) -> None:
             published.get("business_definition_fr", ""),
             user_name,
         )
-        try:
-            with _db_write_lock:
-                _get_shared_duckdb_connection().execute("CHECKPOINT user_data")
-        except Exception:
-            pass
+        _checkpoint_user_data()
     search_all_metadata.clear()
 
 
