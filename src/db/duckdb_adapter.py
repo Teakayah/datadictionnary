@@ -395,6 +395,14 @@ class _DuckDBConn:
     This wrapper shares a single underlying DuckDB connection across all
     Streamlit sessions. The __exit__ method deliberately skips closing the
     connection so it remains available for subsequent queries.
+
+    WHY IT EXISTS:
+    DuckDB only allows a single process to hold a write lock on a database file.
+    In a Streamlit environment, multiple threads (representing user sessions) might
+    attempt to write to the `user_data` database simultaneously. By forcing all threads
+    to use a shared singleton connection protected by a thread lock (`_db_write_lock`),
+    we prevent concurrency errors and file-lock contention while avoiding the overhead
+    of constantly reopening the database.
     """
 
     def __init__(self, path: str, read_only: bool | None = None):
