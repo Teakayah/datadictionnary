@@ -187,3 +187,8 @@ Assertion: When testing >50 truncation paths, verify `at.info` presence containi
 **Coverage Gap:** The else branch inside `_render_notable_tab` prompting for user sign in was unreachable since an earlier statement would return early if `primary_group` was falsey.
 **Learning:** When addressing test coverage gaps involving missing lines, if analysis reveals the un-covered lines are logically unreachable dead code (e.g., statements following a branch with a guaranteed early-return), remove the dead code to satisfy the coverage metric instead of attempting to mock impossible test states.
 **Assertion:** Removed the unreachable dead code block.
+
+## 2026-10-21 - Cover single parameter schema filtering in MCP list_tables
+**Coverage Gap:** The `list_tables` tool in `src/mcp_server/server.py` lacked branch coverage when only the `schema` parameter was provided, leaving the vectorized filtering on `schema_name` untested.
+**Learning:** Even simple boolean evaluations on optional parameters need dedicated unit tests to ensure that all logical branches are covered, preventing regressions if the signature or filtering logic changes.
+**Assertion:** Added a specific test case that supplies only the `schema` parameter and asserts that the resulting dataframe is correctly filtered to match the requested schema.
