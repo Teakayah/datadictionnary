@@ -169,6 +169,14 @@ class TestListTables:
         assert all(r["catalog_name"] == "prod" for r in data)
         assert len(data) == 2
 
+    def test_filters_by_schema(self):
+        with patch("src.mcp_server.server.queries.get_authorized_tables", return_value=MULTI_CATALOG_DF), \
+             _no_cache():
+            result = _run_with_user(list_tables(schema="sales"))
+        data = json.loads(result)
+        assert all(r["schema_name"] == "sales" for r in data)
+        assert len(data) == 2
+
     def test_filters_by_catalog_and_schema(self):
         with patch("src.mcp_server.server.queries.get_authorized_tables", return_value=MULTI_CATALOG_DF), \
              _no_cache():
