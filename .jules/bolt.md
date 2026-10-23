@@ -134,3 +134,6 @@
 ## 2023-10-24 - Faster Pandas Boolean Indexing
 **Learning:** Direct boolean indexing on a Pandas Series (e.g., `df[df["col"] == val]`) incurs significant index alignment overhead.
 **Action:** Use `.to_numpy()` on the Series before equality evaluation (e.g., `df[df["col"].to_numpy() == val]`) to drop index overhead and maintain fast vectorized array operations, particularly useful for high-frequency search filtering or UI rendering.
+## 2026-10-23 - Remove redundant Streamlit cache wrappers
+**Learning:** Redundant `@st.cache_data` wrappers locally within UI components around database or backend functions that are already cached at their source (e.g., in `src/db/queries.py`) create duplicate caching layers and unnecessary memory overhead.
+**Action:** Import and use the base function directly to prevent duplicate caching layers and unnecessary memory overhead.
