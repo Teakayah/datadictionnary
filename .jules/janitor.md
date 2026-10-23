@@ -30,3 +30,7 @@
 ## 2025-02-27 - [Suppressing Linter Warnings for Dynamic Imports]
 **Learning:** When resolving linter warnings for unused imports, running `ruff check . --fix` can aggressively remove seemingly "unused" local imports (e.g., `import streamlit as st` inside test wrapper functions) that are actually required for dynamic execution or framework wrappers like `AppTest`.
 **Action:** Do not use `--fix` blindly on test files, or ensure you manually restore required local imports with `# noqa: F401` to prevent test suite regressions while satisfying the linter.
+
+## 2025-02-18 - [Fix Duplicate Test Functions]
+**Learning:** Found multiple duplicate definitions of the same test functions (`test_discovery_bookmarks_tab_df_empty`, `test_discovery_recent_tab_df_empty`, `test_discovery_notable_dq_score_none`, `test_discovery_notable_exception_fallback_get_authorized_tables`) in `tests/test_ui_discovery.py`, and bad import ordering / redundant imports in `tests/test_ui_search_downstream.py` which led to 226 `ruff` errors.
+**Action:** Applied fix by deleting trailing duplicate lines (and fixed imports with ruff). When editing files, especially via `patch` or `sed` appending, ensure idempotency so repeated test generation doesn't bloat the test file.
