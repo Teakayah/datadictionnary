@@ -452,9 +452,12 @@ def _render_recommended_tab(groups):
         # ⚡ Bolt: Replace .map() ordering with pd.Categorical for faster sorting and to avoid creating/dropping temp columns
         rec_df["full_name"] = pd.Categorical(rec_df["full_name"], categories=recommended_fns, ordered=True)
         rec_df = rec_df.sort_values("full_name")
-        # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
-        for row_dict in rec_df.to_dict("records"):
-            _render_table_card(row_dict, "rec")
+        if rec_df.empty:
+            _render_empty_state("💡", t("personalization.recommended_empty"))
+        else:
+            # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
+            for row_dict in rec_df.to_dict("records"):
+                _render_table_card(row_dict, "rec")
     except Exception as e:
         logging.error("Error loading recommendations: %s", e)
         st.error(t("discovery.load_error"))
