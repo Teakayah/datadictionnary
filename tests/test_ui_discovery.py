@@ -979,3 +979,21 @@ def test_discovery_notable_dq_score_none(m1, m2):
 
     at = AppTest.from_function(app_wrapper).run()
     assert not at.exception
+
+@patch("src.ui.cards.discovery.st.segmented_control")
+@patch("src.ui.cards.discovery.get_active_posts")
+def test_discovery_recommended_tab_df_empty(m1, m2):
+    m1.return_value = []
+    m2.return_value = "recommended"
+
+    def app_wrapper():
+        from unittest.mock import patch
+        import pandas as pd
+        from src.ui.cards.discovery import render_discovery
+        with patch("src.ui.cards.discovery.get_authorized_table_names", return_value=["test_table"]), \
+             patch("src.ui.cards.discovery._get_recommended_tables", return_value=["test_table"]), \
+             patch("src.ui.cards.discovery.get_authorized_tables", return_value=pd.DataFrame(columns=["full_name"])):
+            render_discovery(["finance"])
+
+    at = AppTest.from_function(app_wrapper).run()
+    assert not at.exception
