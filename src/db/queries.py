@@ -308,7 +308,20 @@ def _drop_score_cols(df: pd.DataFrame) -> pd.DataFrame:
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def search_all_metadata(query: str, groups: tuple):
-    """Hybrid search: keyword-based (BM25) + semantic vector similarity."""
+    """Hybrid search: keyword-based (BM25) + semantic vector similarity.
+
+    Combines keyword search results from Unity Catalog metadata with semantic vector
+    similarity search results. The keyword score is normalized and the semantic score
+    decays linearly with rank to perform a weighted fusion, returning an optimal
+    combined set of table matches sorted by relevance.
+
+    Args:
+        query (str): The search query string.
+        groups (tuple): A tuple of Entra ID group object IDs the user belongs to for authorization.
+
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing combined and sorted search results.
+    """
     # 1. Keyword search (carries a 0-5 `_score` column)
     keyword_results = _search_keywords(query, groups)
 
