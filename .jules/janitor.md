@@ -30,3 +30,6 @@
 ## 2025-02-27 - [Suppressing Linter Warnings for Dynamic Imports]
 **Learning:** When resolving linter warnings for unused imports, running `ruff check . --fix` can aggressively remove seemingly "unused" local imports (e.g., `import streamlit as st` inside test wrapper functions) that are actually required for dynamic execution or framework wrappers like `AppTest`.
 **Action:** Do not use `--fix` blindly on test files, or ensure you manually restore required local imports with `# noqa: F401` to prevent test suite regressions while satisfying the linter.
+## 2024-05-24 - Remove redundant caching wrappers
+**Learning:** Local `@st.cache_data` wrappers around functions already cached at their source (like database queries) create unnecessary memory overhead and duplicate caching layers.
+**Action:** Remove redundant `@st.cache_data` wrappers and import/use the base cached function directly. Update associated test patches.
