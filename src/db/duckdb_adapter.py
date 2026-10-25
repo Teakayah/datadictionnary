@@ -8,15 +8,14 @@ $name named-parameter style so no query code needs to change.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
-import logging
 import threading
 
 import pandas as pd
 
-from src.config import DUCKDB_PATH, USER_DATA_PATH, CATALOG_CACHE
-
+from src.config import CATALOG_CACHE, DUCKDB_PATH, USER_DATA_PATH
 
 _db_write_lock = threading.Lock()
 _shared_connection = None
@@ -89,6 +88,7 @@ def _to_duckdb_sql(sql: str, params: dict) -> tuple:
     # DuckDB compatibility: current_timestamp() → current_localtimestamp()
     result = result.replace("current_timestamp()", "current_localtimestamp()")
     return result, converted
+
 
 _SCHEMA_STATEMENTS = (
     """
@@ -245,12 +245,15 @@ _SCHEMA_STATEMENTS = (
     """,
 )
 
+
 def _initialize_schema(con):
     """Initialize user data tables with primary keys (if they don't exist)."""
     con.execute(";\n".join(_SCHEMA_STATEMENTS))
 
 
-def _ensure_user_data_attached(con, safe_user_data_path: str, read_only: bool = False) -> None:
+def _ensure_user_data_attached(
+    con, safe_user_data_path: str, read_only: bool = False
+) -> None:
     """Attach the persistent user_data DuckDB database.
 
     When ``read_only`` is True and the user_data file already exists on disk,
@@ -260,9 +263,11 @@ def _ensure_user_data_attached(con, safe_user_data_path: str, read_only: bool = 
     attaches read-write and initializes the schema.
     """
     if read_only and safe_user_data_path and os.path.exists(USER_DATA_PATH):
-        con.execute(f'ATTACH IF NOT EXISTS \'{safe_user_data_path}\' AS "user_data" (READ_ONLY)')
+        con.execute(
+            f"ATTACH IF NOT EXISTS '{safe_user_data_path}' AS \"user_data\" (READ_ONLY)"
+        )
     else:
-        con.execute(f'ATTACH IF NOT EXISTS \'{safe_user_data_path}\' AS "user_data"')
+        con.execute(f"ATTACH IF NOT EXISTS '{safe_user_data_path}' AS \"user_data\"")
         _initialize_schema(con)
 
 
@@ -279,11 +284,16 @@ def _get_shared_duckdb_connection(read_only: bool | None = None):
     if not _duckdb_available():
         return None
     if read_only is None:
-        read_only = os.getenv("DUCKDB_READ_ONLY", "false").lower() in ("1", "true", "yes")
+        read_only = os.getenv("DUCKDB_READ_ONLY", "false").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
     with _db_write_lock:
         if _shared_connection is not None:  # re-check after acquiring lock
             return _shared_connection
         import duckdb
+
         try:
             con = duckdb.connect(":memory:")
 
@@ -291,11 +301,21 @@ def _get_shared_duckdb_connection(read_only: bool | None = None):
                 return '"' + val.replace('"', '""') + '"'
 
             # Sanitize paths to prevent SQL injection when using f-strings for ATTACH
-            safe_duckdb_path = DUCKDB_PATH.replace("\x00", "").replace("'", "''") if DUCKDB_PATH else ""
-            safe_user_data_path = USER_DATA_PATH.replace("\x00", "").replace("'", "''") if USER_DATA_PATH else ""
+            safe_duckdb_path = (
+                DUCKDB_PATH.replace("\x00", "").replace("'", "''")
+                if DUCKDB_PATH
+                else ""
+            )
+            safe_user_data_path = (
+                USER_DATA_PATH.replace("\x00", "").replace("'", "''")
+                if USER_DATA_PATH
+                else ""
+            )
 
             # Attach the main read-only cache
-            con.execute(f"ATTACH '{safe_duckdb_path}' AS {_escape_id(CATALOG_CACHE)} (READ_ONLY)")
+            con.execute(
+                f"ATTACH '{safe_duckdb_path}' AS {_escape_id(CATALOG_CACHE)} (READ_ONLY)"
+            )
             # Attach the persistent user data database
             _ensure_user_data_attached(con, safe_user_data_path, read_only=read_only)
 
@@ -356,7 +376,11 @@ class _DuckDBCursor:
             # but we receive a list of dicts with pyformat syntax.
             # We must convert the SQL once using the first dictionary,
             # then convert all parameter dictionaries to maintain compatibility.
-            if isinstance(params, (list, tuple)) and len(params) > 0 and isinstance(params[0], dict):
+            if (
+                isinstance(params, (list, tuple))
+                and len(params) > 0
+                and isinstance(params[0], dict)
+            ):
                 converted_sql, _ = _to_duckdb_sql(sql, params[0])
                 converted_params = []
                 for p in params:
@@ -395,19 +419,36 @@ class _DuckDBConn:
     This wrapper shares a single underlying DuckDB connection across all
     Streamlit sessions. The __exit__ method deliberately skips closing the
     connection so it remains available for subsequent queries.
+
+    WHY IT EXISTS:
+    DuckDB maintains a lock on the database file when opened in read-write mode.
+    If each Streamlit session or thread opened its own connection and closed it,
+    concurrent access would fail due to file locking conflicts. By sharing a
+    singleton connection and deliberately omitting connection closure in `__exit__`,
+    we ensure thread-safe concurrent access across the entire application lifespan.
     """
 
     def __init__(self, path: str, read_only: bool | None = None):
         if read_only is None:
-            read_only = os.getenv("DUCKDB_READ_ONLY", "false").lower() in ("1", "true", "yes")
+            read_only = os.getenv("DUCKDB_READ_ONLY", "false").lower() in (
+                "1",
+                "true",
+                "yes",
+            )
         self._read_only = read_only
         self._con = _get_shared_duckdb_connection(read_only=read_only)
 
     def _ensure_user_data_attached(self) -> None:
         if self._con is None:
             return
-        safe_user_data_path = USER_DATA_PATH.replace("\x00", "").replace("'", "''") if USER_DATA_PATH else ""
-        _ensure_user_data_attached(self._con, safe_user_data_path, read_only=self._read_only)
+        safe_user_data_path = (
+            USER_DATA_PATH.replace("\x00", "").replace("'", "''")
+            if USER_DATA_PATH
+            else ""
+        )
+        _ensure_user_data_attached(
+            self._con, safe_user_data_path, read_only=self._read_only
+        )
 
     def cursor(self):
         """Returns a new wrapper cursor that shares the singleton connection to prevent file-locking errors."""

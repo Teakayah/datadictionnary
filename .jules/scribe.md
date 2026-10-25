@@ -25,3 +25,6 @@
 ## 2024-11-20 - Documenting Databricks Connection Strategy
 **Learning:** The application uses short-lived, per-query Databricks SQL Warehouse connections rather than a global connection pool to avoid "connection closed" errors caused by server-side scaling and timeouts. This crucial architectural decision was undocumented, making it unclear why a seemingly inefficient per-query connection model was chosen over standard pooling techniques.
 **Action:** Ensure that connection handling logic, particularly workarounds for cloud warehouse limitations (like avoiding connection pooling due to timeouts), is explicitly documented with a "WHY IT EXISTS" section so future contributors understand the architectural constraint.
+## 2025-02-14 - Documenting architectural constraints (Unclosed connections)
+**Learning:** Intentional resource leaks, such as an unclosed database connection to maintain a thread-safe singleton in `_DuckDBConn`, can appear as bugs. They must be explicitly documented so future developers understand the architectural reasoning (e.g. avoiding file locking conflicts).
+**Action:** Always add a 'WHY IT EXISTS' comment explaining the architectural constraints when documenting unconventional code architecture like intentional resource leaks.
