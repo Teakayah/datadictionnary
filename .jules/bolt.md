@@ -134,3 +134,6 @@
 ## 2023-10-24 - Faster Pandas Boolean Indexing
 **Learning:** Direct boolean indexing on a Pandas Series (e.g., `df[df["col"] == val]`) incurs significant index alignment overhead.
 **Action:** Use `.to_numpy()` on the Series before equality evaluation (e.g., `df[df["col"].to_numpy() == val]`) to drop index overhead and maintain fast vectorized array operations, particularly useful for high-frequency search filtering or UI rendering.
+## 2024-10-25 - Remove Redundant Cache Wrappers
+**Learning:** Adding `@st.cache_data` locally around database functions that are already cached at their source (e.g. `get_authorized_table_names` in `src/db/queries.py`) creates duplicate caching layers and unnecessary memory overhead.
+**Action:** Import and use the base function directly instead of wrapping it in a redundant local `@st.cache_data` decorator within UI components.
