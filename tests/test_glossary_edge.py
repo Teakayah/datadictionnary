@@ -1,8 +1,10 @@
 from unittest.mock import patch
-from streamlit.testing.v1 import AppTest
-import pandas as pd
 
-@patch("src.pages.glossary._cached_get_authorized_table_names", return_value={"catalog.schema.visible"})
+import pandas as pd
+from streamlit.testing.v1 import AppTest
+
+
+@patch("src.pages.glossary.get_authorized_table_names", return_value={"catalog.schema.visible"})
 def test_glossary_unauthorized_table(mock_auth):
     mock_demo = pd.DataFrame([
         {
@@ -17,7 +19,7 @@ def test_glossary_unauthorized_table(mock_auth):
     ])
     with patch("src.pages.glossary._DEMO_GLOSSARY", mock_demo):
         def app():
-            import src.pages.glossary as glossary
+            from src.pages import glossary
             glossary.render_glossary(["group1"])
 
         at = AppTest.from_function(app).run()
@@ -31,7 +33,7 @@ def test_glossary_unauthorized_table(mock_auth):
         hidden_buttons = [b for b in at.button if b.label == "→ hidden"]
         assert len(hidden_buttons) == 0
 
-@patch("src.pages.glossary._cached_get_authorized_table_names", return_value={"catalog.schema.visible"})
+@patch("src.pages.glossary.get_authorized_table_names", return_value={"catalog.schema.visible"})
 @patch("src.pages.glossary._pref_upsert")
 @patch("src.pages.glossary._pref_delete")
 def test_glossary_bookmarks(mock_del, mock_upsert, mock_auth):
@@ -51,7 +53,7 @@ def test_glossary_bookmarks(mock_del, mock_upsert, mock_auth):
             import streamlit as st
             if "bookmarks" not in st.session_state:
                 st.session_state.bookmarks = set()
-            import src.pages.glossary as glossary
+            from src.pages import glossary
             glossary.render_glossary(["group1"])
 
         at = AppTest.from_function(app).run()

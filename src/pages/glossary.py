@@ -1,7 +1,6 @@
 """Glossary page renderer."""
 from __future__ import annotations
 
-
 import html as _html
 import json
 
@@ -11,14 +10,8 @@ import streamlit.components.v1 as components
 from src.db.queries import get_authorized_table_names
 from src.demo.data import _DEMO_GLOSSARY
 from src.i18n import t
-from src.personalization import _pref_upsert, _pref_delete
+from src.personalization import _pref_delete, _pref_upsert
 
-
-
-@st.cache_data(ttl="1h", show_spinner=False)
-def _cached_get_authorized_table_names(groups: tuple) -> set:
-    """Local cache wrapper for authorized tables to ensure it only evaluates once per rendering."""
-    return get_authorized_table_names(groups)
 
 def _render_hero_and_help() -> None:
     """Renders the hero section and help expander."""
@@ -136,7 +129,7 @@ def _render_concept_map(selected_term: str, term_row) -> None:
 
 def render_glossary(query_groups) -> None:
     # ⚡ Bolt: Cache authorized table metadata locally and ensure it executes exactly once before the rendering loop
-    _authorized_fns = _cached_get_authorized_table_names(tuple(query_groups or []))
+    _authorized_fns = get_authorized_table_names(tuple(query_groups or []))
 
     _render_hero_and_help()
 

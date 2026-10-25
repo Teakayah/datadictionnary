@@ -30,3 +30,6 @@
 ## 2025-02-27 - [Suppressing Linter Warnings for Dynamic Imports]
 **Learning:** When resolving linter warnings for unused imports, running `ruff check . --fix` can aggressively remove seemingly "unused" local imports (e.g., `import streamlit as st` inside test wrapper functions) that are actually required for dynamic execution or framework wrappers like `AppTest`.
 **Action:** Do not use `--fix` blindly on test files, or ensure you manually restore required local imports with `# noqa: F401` to prevent test suite regressions while satisfying the linter.
+## 2024-10-25 - Remove Redundant Cache Wrappers
+**Learning:** Redundant `@st.cache_data` wrappers in UI components around functions that are already cached in their source module (like `get_authorized_table_names` in `src/db/queries.py`) cause duplicate caching overhead without any benefit.
+**Action:** Always import and use the base cached function directly rather than wrapping it in a local cached function.
