@@ -293,12 +293,12 @@ def test_use_demo_backend_actual():
 
     with patch("src.config.is_demo_mode", return_value=True), \
          patch("src.db.duckdb_adapter._duckdb_available", return_value=True):
-        assert _use_demo_backend() == True
+        assert _use_demo_backend()
 
     with patch("src.config.is_demo_mode", return_value=False), \
          patch("src.db.duckdb_adapter._duckdb_available", return_value=False):
-        assert _use_demo_backend() == True
+        assert _use_demo_backend()
 
     with patch("src.config.is_demo_mode", return_value=False), \
          patch("src.db.duckdb_adapter._duckdb_available", return_value=True):
-        assert _use_demo_backend() == False
+        assert not _use_demo_backend()

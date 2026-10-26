@@ -62,9 +62,7 @@ def test_search_downstream_critical():
                 found = True
 
         assert found is True, f"Critical warning not found. Markdowns: {[m.value for m in at.markdown]}"
-import pandas as pd
-from unittest.mock import patch
-from streamlit.testing.v1 import AppTest
+
 
 def test_search_downstream_exception():
     def render_search():
