@@ -16,9 +16,12 @@ spec:
   selector:
     matchLabels:
       app: dd-app
-  replicas: 1
+  # replica count is managed by dd-app-hpa — do not set it here.
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
