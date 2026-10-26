@@ -234,7 +234,7 @@
     "total_tables": "Total tables",
     "documented": "Documented",
     "with_grants": "With grants",
-    "last_sync": "Last sync at 04:12 UTC",
+    "last_sync": "Last sync at {time}",
     "table_coverage": "Table coverage",
     "column_coverage": "Column coverage",
     "freshness_index": "Freshness index",
