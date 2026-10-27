@@ -96,10 +96,10 @@ def render_table_business_name_editor(
     if not src.auth.is_admin():
         st.info(t("detail.friendly_name_pending_notice"))
 
-    new_name_en = st.text_input(t("detail.friendly_name_en"), value=current_name_en)
-    new_name_fr = st.text_input(t("detail.friendly_name_fr"), value=current_name_fr)
-    new_def_en  = st.text_area(t("detail.friendly_definition_en"), value=current_def_en, height=120)
-    new_def_fr  = st.text_area(t("detail.friendly_definition_fr"), value=current_def_fr, height=120)
+    new_name_en = st.text_input(t("detail.friendly_name_en"), value=current_name_en, placeholder=t("detail.friendly_name_en_placeholder"))
+    new_name_fr = st.text_input(t("detail.friendly_name_fr"), value=current_name_fr, placeholder=t("detail.friendly_name_fr_placeholder"))
+    new_def_en  = st.text_area(t("detail.friendly_definition_en"), value=current_def_en, placeholder=t("detail.friendly_definition_en_placeholder"), height=120)
+    new_def_fr  = st.text_area(t("detail.friendly_definition_fr"), value=current_def_fr, placeholder=t("detail.friendly_definition_fr_placeholder"), height=120)
 
     c1, c2 = st.columns([1, 1])
     with c1:
