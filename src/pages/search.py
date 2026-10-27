@@ -81,7 +81,7 @@ def _render_comment_form(
                 st.rerun()
         if not steward and not parent_comment_id:
             st.markdown(
-                f'<p class="dd-comment-no-steward">{t("comment.no_steward")}</p>',
+                f'<p class="dd-comment-no-steward">{_html.escape(t("comment.no_steward"))}</p>',
                 unsafe_allow_html=True,
             )
 
@@ -92,7 +92,7 @@ def _render_result_card(full_name: str, name: str, desc: str, match_type: str, d
     st.markdown(f'''
     <div style="background:var(--paper); border:1px solid var(--ink-10); border-radius:4px; padding:14px 18px; height:100%;">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-            <span class="dd-dq-badge {_gcls}" title="{t("catalog.completeness_grade", grade=_grade)}">{_grade}</span>
+            <span class="dd-dq-badge {_gcls}" title="{_html.escape(t("catalog.completeness_grade", grade=_grade))}">{_grade}</span>
             <span style="font-family:var(--font-mono); font-size:11px; color:var(--ink-60); text-transform:uppercase; letter-spacing:0.08em;">{_html.escape(match_type)}</span>
         </div>
         <div style="font-family:var(--font-sans); font-size:15px; font-weight:600; color:var(--ink); margin-bottom:2px;">{_html.escape(name)}</div>
