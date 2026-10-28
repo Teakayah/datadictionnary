@@ -28,3 +28,6 @@
 ## 2024-11-20 - Adding "Why It Exists" to regex explainers
 **Learning:** Security gates and authentication dependencies (like `get_current_user` in FastAPI) require complete docstrings explaining not just their arguments and returns, but also the specific HTTP exceptions they raise to prevent developers from mishandling auth failures or returning incorrect status codes.
 **Action:** Always ensure that when documenting FastAPI security dependencies, the docstring includes a detailed "Raises" section clearly mapping exception types to HTTP status codes (e.g., 401 Unauthorized, 500 Internal Server Error).
+## 2024-11-20 - Adding "Why It Exists" to ContextVars
+**Learning:** Functions that retrieve variables from thread-local or asynchronous context variables (like FastAPI's `ContextVar` populated by middlewares) can be confusing for developers who expect standard parameter passing. When a function relies on a side-effect injected context (e.g., `_current_user.get()`), its documentation must explicitly explain this hidden dependency.
+**Action:** Always document functions returning `ContextVar` values with a "WHY IT EXISTS" section explaining where the context is populated (e.g., in a specific middleware) to clarify the data flow for future contributors.
