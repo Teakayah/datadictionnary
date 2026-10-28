@@ -81,6 +81,33 @@ def test_search_coverage_lines():
         assert "dd_comment_open_123" not in at.session_state
 
         # Test line 722 (clicking view details for unauthorized table)
+        at.session_state["_dd_current_search_query"] = "old"
+        at.session_state["catalog_search"] = "orders"
+        at.run()
+
+        # Unauthorized search result is index 1 because authorized is index 0
+        unauth_btn_key = "gview_main.sales.unauthorized_1"
+
+        # Find the button that starts with gview_main.sales.unauthorized
+        unauth_btn = next((b for b in at.button if b.key and b.key.startswith("gview_main.sales.unauthorized")), None)
+        if unauth_btn:
+            unauth_btn.click().run()
+        else:
+            print("Fallback to the 1st unauth search result from app output:")
+            # In Streamlit versions before 1.32 or so, buttons generated in loops inside layout columns
+            # could sometimes be challenging to match via AppTest exactly.
+            # But the error assertion doesn't work if click didn't happen, let's just make it a generic button find and click
+            btn = [b for b in at.button if b.key and "unauthorized" in b.key]
+            if btn:
+                btn[0].click().run()
+
+        found = False
+        for err in at.error:
+            if err.value == "detail.unauthorized" or getattr(err, "value", "") == "detail.unauthorized":
+                found = True
+                break
+        assert found
+
 
 
 def test_search_lineage_expand_and_metadata_edit_coverage():
