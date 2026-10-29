@@ -16,6 +16,13 @@ async def get_current_user(
     If the token is invalid or the server is misconfigured, it raises an appropriate
     HTTPException to reject the request.
 
+    WHY IT EXISTS:
+    Acts as the primary authentication and authorization gate for all REST API endpoints.
+    It deliberately translates internal authentication exceptions (from validate_token)
+    into standard HTTP exceptions (HTTPException) so FastAPI can automatically intercept
+    them and return well-formed JSON error responses (401 or 500) to the client without
+    leaking internal stack traces.
+
     Args:
         creds (HTTPAuthorizationCredentials): The parsed Bearer token credentials injected by FastAPI.
 
