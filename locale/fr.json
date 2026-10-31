@@ -30,7 +30,13 @@
     "mock_department": "Département",
     "mock_prompt": "Authentification simulée — sélectionnez un département pour filtrer par ses accès.",
     "policy_agreement": "En vous connectant, vous acceptez la politique d'accès aux données.",
-    "hero_eyebrow": "Dictionnaire de Données Métier"
+    "hero_eyebrow": "Dictionnaire de Données Métier",
+    "dept_finance": "Finances",
+    "dept_research": "Recherche",
+    "dept_hr": "RH",
+    "dept_it": "Informatique",
+    "dept_admin": "Administration",
+    "mock_user_name": "Utilisateur {dept}"
   },
   "search": {
     "hero_title": "Recherchez dans le catalogue.",

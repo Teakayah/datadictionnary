@@ -30,7 +30,13 @@
     "mock_department": "Department",
     "mock_prompt": "Mock authentication — select a department to filter by its grants.",
     "policy_agreement": "By signing in you agree to the data access policy.",
-    "hero_eyebrow": "Business Data Dictionary"
+    "hero_eyebrow": "Business Data Dictionary",
+    "dept_finance": "Finance",
+    "dept_research": "Research",
+    "dept_hr": "HR",
+    "dept_it": "IT",
+    "dept_admin": "Admin",
+    "mock_user_name": "{dept} User"
   },
   "search": {
     "hero_title": "Search the catalog.",
