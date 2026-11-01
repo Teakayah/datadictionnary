@@ -109,3 +109,7 @@
 **Cluster Quirk:** The `dd-sync-worker` deployment, a background daemon with no Service, had a `readinessProbe` identical to its `livenessProbe`.
 **Learning:** Background workers and daemons that do not serve network traffic via a Kubernetes Service do not benefit from a `readinessProbe`. Having an identical readiness probe just wastes kubelet resources and triggers false-positive failure cascades if the single endpoint responds slowly.
 **Resilience:** Removed the `readinessProbe` from `dd-sync-worker` entirely, relying solely on the `livenessProbe` to restart the daemon if the internal loop deadlocks.
+## 2024-05-18 - Stateless Streamlit HA over DuckDB
+**Cluster Quirk:** The `dd-sync-worker` acts as a singleton DuckDB writer, leaving the `dd-app` Streamlit frontend as a read-only, stateless component backed by Redis cache.
+**Learning:** Because `dd-app` only reads from DuckDB, it does not require a singleton lock (unlike `dd-sync-worker`) and can safely scale horizontally across nodes.
+**Resilience:** Configure stateless frontends reading from singleton databases with `replicas: 2`, a `RollingUpdate` strategy, and a `PodDisruptionBudget` to ensure high availability during node drains.
