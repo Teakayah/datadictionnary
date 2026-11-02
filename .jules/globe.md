@@ -61,3 +61,6 @@
 ## 2025-03-01 - Avoid Concatenating Icons with Localized Text
 **Learning:** Hardcoding string concatenations like `f"← {t('common.back')}"` forces a specific English-centric layout (icon on the left) that breaks RTL languages and prevents translators from adapting the button layout naturally.
 **Action:** Extract the entire string, including formatting templates like icons and arrows, into a unified translation key (e.g., `common.back_btn`: `"← Back"`) to give full control back to the translation dictionary.
+## 2024-11-02 - Extracted mock auth department names
+**Learning:** Hardcoded dictionary keys acting as UI labels in Streamlit components (like `st.selectbox`) should be extracted into translation files and resolved dynamically using `format_func`.
+**Action:** Use `format_func=lambda x: t(f"namespace.key_{x.lower()}")` to map internal keys to localized strings.
