@@ -409,6 +409,17 @@ class TestDuckDBAdapter:
             conn_present = self.h["_DuckDBConn"](db)
             assert conn_present.open is True
 
+    def test_duckdb_adapter_ensure_user_data_attached_no_con(self, tmp_path):
+        import src.db.duckdb_adapter as _adapter
+        db = str(tmp_path / "cache.duckdb")
+        user_db = str(tmp_path / "user_data.duckdb")
+        with patch.object(_adapter, "_get_shared_duckdb_connection", return_value=None):
+            with patch.object(_adapter, "DUCKDB_PATH", db), \
+                 patch.object(_adapter, "USER_DATA_PATH", user_db):
+                conn = _adapter._DuckDBConn(db)
+                assert conn.open is False
+                assert conn._con is None
+
     def test_ensure_user_data_attached_read_only(self, tmp_path):
         import src.db.duckdb_adapter as _adapter
         _adapter._clear_shared_duckdb_connection()
