@@ -16,9 +16,9 @@ spec:
   selector:
     matchLabels:
       app: dd-app
-  replicas: 1
+  replicas: 2
   strategy:
-    type: Recreate
+    type: RollingUpdate
   template:
     metadata:
       labels:
