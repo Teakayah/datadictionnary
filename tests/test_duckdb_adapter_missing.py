@@ -1,6 +1,6 @@
 import pytest
 import duckdb
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from src.db.duckdb_adapter import _DuckDBCursor
 
 def test_executemany_duckdb_invalid_input_exception():
@@ -75,3 +75,27 @@ def test_duckdb_adapter_executemany_write():
     sql = "INSERT INTO test (a) VALUES (1)"
     cursor.executemany_write(sql)
     con_mock.executemany.assert_called_once_with(sql)
+
+from src.db.duckdb_adapter import _DuckDBConn
+
+def test_duckdbconn_ensure_user_data_attached_con_none():
+    conn = _DuckDBConn("dummy_path", read_only=True)
+    conn._con = None
+    conn._ensure_user_data_attached()
+
+@patch("src.db.duckdb_adapter._ensure_user_data_attached")
+def test_duckdbconn_ensure_user_data_attached_valid(mock_ensure):
+    with patch("src.db.duckdb_adapter.USER_DATA_PATH", "user_data.duckdb"):
+        conn = _DuckDBConn("dummy_path", read_only=True)
+        # Mock _con so it doesn't return early
+        conn._con = MagicMock()
+        conn._ensure_user_data_attached()
+        mock_ensure.assert_called_once_with(conn._con, "user_data.duckdb", read_only=True)
+
+@patch("src.db.duckdb_adapter._ensure_user_data_attached")
+def test_duckdbconn_ensure_user_data_attached_empty_path(mock_ensure):
+    with patch("src.db.duckdb_adapter.USER_DATA_PATH", ""):
+        conn = _DuckDBConn("dummy_path", read_only=True)
+        conn._con = MagicMock()
+        conn._ensure_user_data_attached()
+        mock_ensure.assert_called_once_with(conn._con, "", read_only=True)
