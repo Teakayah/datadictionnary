@@ -109,3 +109,7 @@
 **Cluster Quirk:** The `dd-sync-worker` deployment, a background daemon with no Service, had a `readinessProbe` identical to its `livenessProbe`.
 **Learning:** Background workers and daemons that do not serve network traffic via a Kubernetes Service do not benefit from a `readinessProbe`. Having an identical readiness probe just wastes kubelet resources and triggers false-positive failure cascades if the single endpoint responds slowly.
 **Resilience:** Removed the `readinessProbe` from `dd-sync-worker` entirely, relying solely on the `livenessProbe` to restart the daemon if the internal loop deadlocks.
+## 2024-05-25 - dd-app Stateless High Availability
+**Cluster Quirk:** `dd-app` was previously misconfigured as a singleton (replicas: 1, Recreate) due to assumptions about DuckDB writes.
+**Learning:** The `dd-sync-worker` is the true singleton writer for the DuckDB database. The `dd-app` frontend only reads from DuckDB and relies on Redis for its cache state, making it entirely stateless.
+**Resilience:** Configured `dd-app` for high availability by setting `replicas: 2`, using a `RollingUpdate` strategy, and adding a `PodDisruptionBudget`.
