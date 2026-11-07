@@ -12,6 +12,12 @@ async def get_current_user(
 ) -> AuthenticatedUser:
     """FastAPI dependency to authenticate the current user via Bearer token.
 
+    WHY IT EXISTS:
+    This dependency acts as the primary security gate for all REST API endpoints.
+    It deliberately translates internal authentication exceptions into standardized
+    HTTPExceptions (401 Unauthorized, 500 Internal Server Error) to prevent stack
+    trace leakage and ensure well-formed JSON responses to the client.
+
     Extracts the Entra ID token from the Authorization header and validates it.
     If the token is invalid or the server is misconfigured, it raises an appropriate
     HTTPException to reject the request.
