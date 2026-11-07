@@ -61,3 +61,6 @@
 ## 2025-03-01 - Avoid Concatenating Icons with Localized Text
 **Learning:** Hardcoding string concatenations like `f"← {t('common.back')}"` forces a specific English-centric layout (icon on the left) that breaks RTL languages and prevents translators from adapting the button layout naturally.
 **Action:** Extract the entire string, including formatting templates like icons and arrows, into a unified translation key (e.g., `common.back_btn`: `"← Back"`) to give full control back to the translation dictionary.
+## 2026-11-20 - Missing dynamically formatted fallback keys
+**Learning:** Adding missing localization keys alone to `.json` files is not sufficient for a complete localization fix when the source code contains hardcoded strings or incorrect key usages. A localization improvement must extract actual hardcoded user-facing strings from the source code and utilize those keys.
+**Action:** When extracting hardcoded strings, always replace the hardcoded string in the source code (e.g. `src/*.py`) with the `t('key')` function and ensure the keys are added to both primary (`en.json`) and secondary (`fr.json`) translation dictionaries.

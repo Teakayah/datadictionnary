@@ -53,7 +53,8 @@
     "results_count_other": "{count} résultats",
     "showing_first_50": "Affichage des 50 premiers résultats sur {count}.",
     "view_details_btn": "Voir les détails →",
-    "back_to_results_btn": "← Retour aux résultats"
+    "back_to_results_btn": "← Retour aux résultats",
+    "results_count": "{count} résultats"
   },
   "catalog": {
     "eyebrow": "§ Navigateur de catalogue",
@@ -128,14 +129,21 @@
     "showing_first_50_columns": "Affichage des 50 premières colonnes sur {count}.",
     "showing_first_50_grants": "Affichage des 50 premières permissions sur {count}.",
     "edit_table_btn": "✎ Modifier les métadonnées de la table",
-    "edit_friendly_name_btn": "✎ Modifier le nom usuel"
+    "edit_friendly_name_btn": "✎ Modifier le nom usuel",
+    "downstream_count": "{n} actifs en aval"
   },
   "editor": {
     "save": "Enregistrer",
     "cancel": "Annuler",
     "edit": "Modifier",
     "title": "Modifier le nom métier et la définition",
-    "last_edited_by": "Dernière modification par {user} · {date}"
+    "last_edited_by": "Dernière modification par {user} · {date}",
+    "business_name_label": "Nom métier",
+    "definition_label": "Définition",
+    "placeholder_biz_name": "ex. ID Fidélité Client",
+    "placeholder_biz_def": "Expliquez ce que représente cette colonne en termes métiers.",
+    "edit_mode_banner": "Modification des métadonnées de la colonne",
+    "permission_error": "Vous n'avez pas l'autorisation de modifier cet actif."
   },
   "comment": {
     "leave_a_comment": "Laisser un commentaire",
@@ -147,7 +155,13 @@
     "no_comments": "Aucun commentaire pour le moment. Soyez le premier à lancer la conversation !",
     "replies": "{count} réponses",
     "hide_replies": "Masquer les réponses",
-    "show_replies": "Afficher les réponses"
+    "show_replies": "Afficher les réponses",
+    "your_comment": "Votre commentaire...",
+    "your_reply": "Votre réponse...",
+    "placeholder_new": "Posez une question ou laissez une note pour le responsable des données...",
+    "placeholder_reply": "Écrivez une réponse...",
+    "no_steward": "Aucun responsable assigné à cette table.",
+    "max_chars": "1000 caractères maximum."
   },
   "admin": {
     "title": "§ Admin",
@@ -224,7 +238,11 @@
     "reviews_approved_toast": "Approuvé '{col}'.",
     "reviews_rejected_toast": "Rejeté '{col}'.",
     "table_friendly_approved_toast": "Nom convivial approuvé pour '{table}'.",
-    "table_friendly_rejected_toast": "Nom convivial rejeté pour '{table}'."
+    "table_friendly_rejected_toast": "Nom convivial rejeté pour '{table}'.",
+    "integrity_all_stewards_assigned": "Toutes les tables accessibles ont un responsable assigné.",
+    "integrity_no_dq_failures": "Aucun échec de contrôle qualité automatisé détecté.",
+    "table_friendly_reviews_title": "Révisions des noms conviviaux de tables",
+    "table_friendly_reviews_subtitle": "Noms conviviaux de tables proposés en attente d'approbation."
   },
   "health": {
     "title": "§ Santé du catalogue",
@@ -477,7 +495,8 @@
     "dismiss": "Ignorer",
     "mark_all_read": "Tout marquer comme lu",
     "dismissed_toast": "Notification ignorée.",
-    "all_read_toast": "Toutes les notifications marquées comme lues."
+    "all_read_toast": "Toutes les notifications marquées comme lues.",
+    "strip_label": "{count} mises à jour sur des favoris"
   },
   "date": {
     "months": {

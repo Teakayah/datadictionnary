@@ -53,7 +53,8 @@
     "results_count_other": "{count} results",
     "showing_first_50": "Showing first 50 results out of {count}.",
     "view_details_btn": "View details →",
-    "back_to_results_btn": "← Back to results"
+    "back_to_results_btn": "← Back to results",
+    "results_count": "{count} results"
   },
   "catalog": {
     "eyebrow": "§ Catalog browser",
@@ -128,14 +129,21 @@
     "placeholder_desc": "Describe the table's contents, grain, and common use cases...",
     "placeholder_steward": "e.g. data.steward@example.com",
     "edit_table_btn": "✎ Edit table metadata",
-    "edit_friendly_name_btn": "✎ Edit friendly name"
+    "edit_friendly_name_btn": "✎ Edit friendly name",
+    "downstream_count": "{n} downstream assets"
   },
   "editor": {
     "save": "Save",
     "cancel": "Cancel",
     "edit": "Edit",
     "title": "Edit business name and definition",
-    "last_edited_by": "Last edited by {user} · {date}"
+    "last_edited_by": "Last edited by {user} · {date}",
+    "business_name_label": "Business name",
+    "definition_label": "Definition",
+    "placeholder_biz_name": "e.g., Customer Loyalty ID",
+    "placeholder_biz_def": "Explain what this column represents in business terms.",
+    "edit_mode_banner": "Editing column metadata",
+    "permission_error": "You do not have permission to edit this asset."
   },
   "comment": {
     "leave_a_comment": "Leave a comment",
@@ -147,7 +155,13 @@
     "no_comments": "No comments yet. Be the first to start the conversation!",
     "replies": "{count} replies",
     "hide_replies": "Hide replies",
-    "show_replies": "Show replies"
+    "show_replies": "Show replies",
+    "your_comment": "Your comment...",
+    "your_reply": "Your reply...",
+    "placeholder_new": "Ask a question or leave a note for the data steward...",
+    "placeholder_reply": "Write a reply...",
+    "no_steward": "No steward assigned to this table.",
+    "max_chars": "Maximum 1000 characters."
   },
   "admin": {
     "title": "§ Admin",
@@ -224,7 +238,11 @@
     "reviews_approved_toast": "Approved '{col}'.",
     "reviews_rejected_toast": "Rejected '{col}'.",
     "table_friendly_approved_toast": "Approved friendly name for '{table}'.",
-    "table_friendly_rejected_toast": "Rejected friendly name for '{table}'."
+    "table_friendly_rejected_toast": "Rejected friendly name for '{table}'.",
+    "integrity_all_stewards_assigned": "All accessible tables have an assigned steward.",
+    "integrity_no_dq_failures": "No automated data quality failures detected.",
+    "table_friendly_reviews_title": "Table friendly name reviews",
+    "table_friendly_reviews_subtitle": "Proposed table friendly names awaiting approval."
   },
   "health": {
     "title": "§ Catalog health",
@@ -477,7 +495,8 @@
     "dismiss": "Dismiss",
     "mark_all_read": "Mark all as read",
     "dismissed_toast": "Notification dismissed.",
-    "all_read_toast": "All notifications marked as read."
+    "all_read_toast": "All notifications marked as read.",
+    "strip_label": "{count} updates on bookmarked tables"
   },
   "date": {
     "months": {
