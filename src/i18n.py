@@ -60,13 +60,9 @@ def get_locale() -> str:
 
 def get_current_locale() -> str:
     """Get the current active locale from session state, defaulting to English."""
-    _ensure_locale()
-    return st.session_state.get("locale", "en")
-
-
-def _ensure_locale() -> None:
     if "locale" not in st.session_state:
         st.session_state["locale"] = get_locale()
+    return st.session_state.get("locale", "en")
 
 
 def format_number(val: float) -> str:
@@ -117,8 +113,6 @@ def format_date(dt, format_type="long") -> str:
 
     if not hasattr(dt, "strftime"):
         return str(dt)
-
-    _ensure_locale()
 
     # 🌍 Globe: Extract hardcoded strftime which breaks localization
     month_key = str(dt.month)

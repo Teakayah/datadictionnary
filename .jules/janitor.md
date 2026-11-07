@@ -33,3 +33,6 @@
 ## 2024-10-26 - Test Duplication Cleanup
 **Learning:** Found significant duplicate test case definitions (`test_discovery_bookmarks_tab_df_empty` and others) appended at the bottom of `tests/test_ui_discovery.py`, likely caused by append operations, along with duplicated module-level imports in `tests/test_ui_search_downstream.py`.
 **Action:** Removed all duplicated function definitions using AST parsing and fixed duplicate imports to keep tests clean and avoid F811 linter warnings.
+## 2025-02-23 - Removed Redundant _ensure_locale Helper
+**Learning:** _ensure_locale was an unnecessary helper function just wrapping `if "locale" not in st.session_state: st.session_state["locale"] = get_locale()`. It was only used in `get_current_locale` and `format_date`, which calls `t()`, which calls `get_current_locale()`. This caused unnecessary indirection.
+**Action:** Inlined the logic into `get_current_locale` and removed `_ensure_locale` from `format_date` as it is redundant.
