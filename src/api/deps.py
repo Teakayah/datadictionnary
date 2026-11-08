@@ -12,6 +12,13 @@ async def get_current_user(
 ) -> AuthenticatedUser:
     """FastAPI dependency to authenticate the current user via Bearer token.
 
+    WHY IT EXISTS:
+    This dependency intentionally translates internal validation exceptions
+    (RuntimeError, ValueError) into standard HTTPExceptions (500 and 401 respectively).
+    This architectural choice prevents internal stack traces from leaking to the client,
+    ensures well-formed JSON error responses for the REST API, and provides a clear
+    HTTP status code mapping for frontend clients to interpret.
+
     Extracts the Entra ID token from the Authorization header and validates it.
     If the token is invalid or the server is misconfigured, it raises an appropriate
     HTTPException to reject the request.
