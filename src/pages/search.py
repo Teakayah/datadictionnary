@@ -81,7 +81,7 @@ def _render_comment_form(
                 st.rerun()
         if not steward and not parent_comment_id:
             st.markdown(
-                f'<p class="dd-comment-no-steward">{t("comment.no_steward")}</p>',
+                f'<p class="dd-comment-no-steward">{_html.escape(t("comment.no_steward"))}</p>',
                 unsafe_allow_html=True,
             )
 
@@ -92,7 +92,7 @@ def _render_result_card(full_name: str, name: str, desc: str, match_type: str, d
     st.markdown(f'''
     <div style="background:var(--paper); border:1px solid var(--ink-10); border-radius:4px; padding:14px 18px; height:100%;">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-            <span class="dd-dq-badge {_gcls}" title="{t("catalog.completeness_grade", grade=_grade)}">{_grade}</span>
+            <span class="dd-dq-badge {_gcls}" title="{_html.escape(t("catalog.completeness_grade", grade=_grade))}">{_grade}</span>
             <span style="font-family:var(--font-mono); font-size:11px; color:var(--ink-60); text-transform:uppercase; letter-spacing:0.08em;">{_html.escape(match_type)}</span>
         </div>
         <div style="font-family:var(--font-sans); font-size:15px; font-weight:600; color:var(--ink); margin-bottom:2px;">{_html.escape(name)}</div>
@@ -138,7 +138,7 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
 
         st.markdown(
             f'<div class="dd-detail-header" style="margin-top: 0;">'
-            f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.title")}</span>'
+            f'<span class="dd-eyebrow" style="margin-bottom:0">{_html.escape(t("detail.title"))}</span>'
             f'</div>',
             unsafe_allow_html=True,
         )
@@ -176,7 +176,7 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
             f'<div class="dd-detail-table-name" style="margin-bottom:0">{_h1}</div>'
             f'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">'
             f'<span class="dd-dq-badge {_gcls}" style="width:32px;height:32px;font-size:14px;" '
-            f'title="{t("catalog.completeness_score", score=int(_score))}">{_grade}</span>'
+            f'title="{_html.escape(t("catalog.completeness_score", score=int(_score)))}">{_grade}</span>'
             f'<span style="font-family:var(--font-mono);font-size:13px;color:var(--ink-60);">{_score:.0f}%</span>'
             f'</div>'
             f'</div>'
@@ -251,7 +251,7 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
 
         st.markdown(
             f'<div class="dd-section-header">'
-            f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_columns")}</span>'
+            f'<span class="dd-eyebrow" style="margin-bottom:0">{_html.escape(t("detail.section_columns"))}</span>'
             f'<span class="dd-section-count">{n_cols}</span>'
             f'</div>',
             unsafe_allow_html=True,
@@ -320,7 +320,7 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
 
                 if _col_edit == _edit_key:
                     st.markdown(
-                        f'<div class="dd-edit-banner">{t("editor.edit_mode_banner")}</div>',
+                        f'<div class="dd-edit-banner">{_html.escape(t("editor.edit_mode_banner"))}</div>',
                         unsafe_allow_html=True,
                     )
                     _inp_name = st.text_input(
@@ -379,7 +379,7 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
         from src.i18n import format_number
         st.markdown(
             f'<div class="dd-section-header">'
-            f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_comments")}</span>'
+            f'<span class="dd-eyebrow" style="margin-bottom:0">{_html.escape(t("detail.section_comments"))}</span>'
             f'<span class="dd-section-count">{format_number(_n_comments)}</span>'
             f'</div>',
             unsafe_allow_html=True,
@@ -429,7 +429,7 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
         n_grants = len(grants) if grants is not None and not grants.empty else 0
         st.markdown(
             f'<div class="dd-section-header" style="margin-top:0">'
-            f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_grants")}</span>'
+            f'<span class="dd-eyebrow" style="margin-bottom:0">{_html.escape(t("detail.section_grants"))}</span>'
             f'<span class="dd-section-count">{n_grants}</span>'
             f'</div>',
             unsafe_allow_html=True,
@@ -479,7 +479,7 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
 
         st.markdown(
             f'<div class="dd-section-header">'
-            f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_downstream")}</span>'
+            f'<span class="dd-eyebrow" style="margin-bottom:0">{_html.escape(t("detail.section_downstream"))}</span>'
             f'<span class="dd-section-count">{format_number(_n_downstream)}</span>'
             f'</div>',
             unsafe_allow_html=True,
@@ -494,7 +494,7 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
             if _has_critical:
                 st.markdown(
                     f'<p style="font-family:var(--font-sans);font-size:12px;color:var(--accent);'
-                    f'padding:4px 0 8px;">{t("detail.downstream_certified_warning")}</p>',
+                    f'padding:4px 0 8px;">{_html.escape(t("detail.downstream_certified_warning"))}</p>',
                     unsafe_allow_html=True,
                 )
             st.markdown(
@@ -562,8 +562,8 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
         with _lin_hdr_col:
             st.markdown(
                 f'<div class="dd-section-header">'
-                f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_lineage")} & {t("detail.section_related")}</span>'
-                f'<span class="dd-section-count">{t("detail.related_count", formatted_count=format_number(n_related))}</span>'
+                f'<span class="dd-eyebrow" style="margin-bottom:0">{_html.escape(t("detail.section_lineage"))} & {_html.escape(t("detail.section_related"))}</span>'
+                f'<span class="dd-section-count">{_html.escape(t("detail.related_count", formatted_count=format_number(n_related)))}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
@@ -616,9 +616,9 @@ def render_search_page(query_groups: tuple) -> None:
 
     st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">{t('search.eyebrow')}</div>
-      <h1>{t('search.hero_title')}</h1>
-      <p class="lead">{t('search.hero_subtitle')}</p>
+      <div class="dd-eyebrow">{_html.escape(t('search.eyebrow'))}</div>
+      <h1>{_html.escape(t('search.hero_title'))}</h1>
+      <p class="lead">{_html.escape(t('search.hero_subtitle'))}</p>
     </div>
     ''', unsafe_allow_html=True)
 
@@ -701,7 +701,7 @@ def render_search_page(query_groups: tuple) -> None:
 
         st.markdown(
             f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);margin-bottom:12px">'
-            f'{t("search.results_count", count=len(_gr))}</p>',
+            f'{_html.escape(t("search.results_count", count=len(_gr)))}</p>',
             unsafe_allow_html=True,
         )
         # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration over pre-computed list of dicts
@@ -759,7 +759,7 @@ def render_search_page(query_groups: tuple) -> None:
 
                     st.markdown(
                         f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);margin-bottom:12px">'
-                        f'{t("search.results_count", count=len(results))}</p>',
+                        f'{_html.escape(t("search.results_count", count=len(results)))}</p>',
                         unsafe_allow_html=True,
                     )
                     # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration over pre-computed list of dicts
@@ -796,6 +796,6 @@ def render_search_page(query_groups: tuple) -> None:
     else:
         st.markdown(
             f'<p style="font-family:var(--font-sans);font-size:15px;color:var(--ink-60);margin-top:8px">'
-            f'{t("search.start_typing")}</p>',
+            f'{_html.escape(t("search.start_typing"))}</p>',
             unsafe_allow_html=True,
         )
