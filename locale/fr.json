@@ -29,6 +29,11 @@
     "card_body": "Le catalogue est filtré selon les permissions Microsoft Entra ID — vous ne verrez que les données autorisées par Unity Catalog.",
     "mock_department": "Département",
     "mock_prompt": "Authentification simulée — sélectionnez un département pour filtrer par ses accès.",
+    "dept_Finance": "Finance",
+    "dept_Research": "Recherche",
+    "dept_HR": "RH",
+    "dept_IT": "Informatique",
+    "dept_Admin": "Administrateur",
     "policy_agreement": "En vous connectant, vous acceptez la politique d'accès aux données.",
     "hero_eyebrow": "Dictionnaire de Données Métier"
   },
