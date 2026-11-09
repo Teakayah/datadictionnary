@@ -128,7 +128,11 @@
     "showing_first_50_columns": "Affichage des 50 premières colonnes sur {count}.",
     "showing_first_50_grants": "Affichage des 50 premières permissions sur {count}.",
     "edit_table_btn": "✎ Modifier les métadonnées de la table",
-    "edit_friendly_name_btn": "✎ Modifier le nom usuel"
+    "edit_friendly_name_btn": "✎ Modifier le nom usuel",
+    "friendly_name_en_placeholder": "e.g., Customer Orders",
+    "friendly_name_fr_placeholder": "ex., Commandes des Clients",
+    "friendly_definition_en_placeholder": "A short explanation of what this table contains.",
+    "friendly_definition_fr_placeholder": "Une brève explication du contenu de cette table."
   },
   "editor": {
     "save": "Enregistrer",

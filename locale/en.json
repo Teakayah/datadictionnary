@@ -128,7 +128,11 @@
     "placeholder_desc": "Describe the table's contents, grain, and common use cases...",
     "placeholder_steward": "e.g. data.steward@example.com",
     "edit_table_btn": "✎ Edit table metadata",
-    "edit_friendly_name_btn": "✎ Edit friendly name"
+    "edit_friendly_name_btn": "✎ Edit friendly name",
+    "friendly_name_en_placeholder": "e.g., Customer Orders",
+    "friendly_name_fr_placeholder": "ex., Commandes des Clients",
+    "friendly_definition_en_placeholder": "A short explanation of what this table contains.",
+    "friendly_definition_fr_placeholder": "Une brève explication du contenu de cette table."
   },
   "editor": {
     "save": "Save",
