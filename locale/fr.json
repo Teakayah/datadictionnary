@@ -128,7 +128,9 @@
     "showing_first_50_columns": "Affichage des 50 premières colonnes sur {count}.",
     "showing_first_50_grants": "Affichage des 50 premières permissions sur {count}.",
     "edit_table_btn": "✎ Modifier les métadonnées de la table",
-    "edit_friendly_name_btn": "✎ Modifier le nom usuel"
+    "edit_friendly_name_btn": "✎ Modifier le nom usuel",
+    "placeholder_friendly_name": "ex., Données sur les ventes annuelles",
+    "placeholder_friendly_def": "Une définition commerciale claire..."
   },
   "editor": {
     "save": "Enregistrer",

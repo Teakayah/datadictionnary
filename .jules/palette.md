@@ -51,3 +51,6 @@
 ## 2025-01-20 - Ensure aria-current for custom Streamlit Navigation
 **Learning:** When building custom HTML navigation components in Streamlit (e.g., bypassing standard `st.navigation`), active visual states (like the `active` CSS class) are not automatically announced by screen readers.
 **Action:** Always ensure custom HTML tabs or toggle links programmatically inject `aria-current="page"` or `aria-current="true"` when their state matches the active selection.
+## 2024-11-20 - Standardizing Input Placeholders
+**Learning:** Some form fields (e.g., friendly name edit form) lack placeholder text, leaving users without guidance on expected input formats. Extracting these placeholders into i18n translation keys ensures they are properly localized.
+**Action:** Always add descriptive `placeholder` attributes to `st.text_input` and `st.text_area` fields, using translation keys (e.g., `placeholder=t('key')`) to support localization.
