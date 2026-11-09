@@ -91,7 +91,8 @@ def _get_undocumented_priority(groups: tuple, limit: int = 5) -> pd.DataFrame:
     if is_demo_mode():
         from src.demo.data import _DEMO_TABLES
         return _DEMO_TABLES[
-            _DEMO_TABLES['table_description'].fillna('').astype(str).str.strip() == ''
+            # ⚡ Bolt: Use .to_numpy() to skip index alignment overhead
+            _DEMO_TABLES['table_description'].fillna('').astype(str).str.strip().to_numpy() == ''
         ].head(limit)
 
     group_ph = ", ".join(f"%(g_{i})s" for i in range(len(groups))) if groups else "''"
