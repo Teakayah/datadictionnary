@@ -1,0 +1,5 @@
+🌍 Globe: Extract navigational formatting strings
+
+💡 What: Extracted string interpolations with direction-specific icons like `f"→ {name}"` and `f"📄 {tbl}"` to the translation dictionaries as `nav_forward` and `nav_document`. Updated navigational buttons in discovery, glossary, health, and catalog to use these tokens.
+🎯 Why: Hardcoding icon concatenations in Python limits the translation dictionary's ability to adjust layout based on RTL/LTR preferences and grammar rules in other languages.
+🔑 Keys Added: `common.nav_forward`, `common.nav_document`

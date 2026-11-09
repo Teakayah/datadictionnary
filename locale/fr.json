@@ -407,7 +407,9 @@
     "saved": "Changes saved.",
     "deleting": "Suppression...",
     "deleted": "Supprimé avec succès.",
-    "back_btn": "← Retour"
+    "back_btn": "← Retour",
+    "nav_forward": "→ {name}",
+    "nav_document": "📄 {name}"
   },
   "language": {
     "en": "EN",
