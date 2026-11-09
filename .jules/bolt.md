@@ -137,3 +137,6 @@
 ## 2024-10-25 - Remove Redundant Cache Wrappers
 **Learning:** Adding `@st.cache_data` locally around database functions that are already cached at their source (e.g. `get_authorized_table_names` in `src/db/queries.py`) creates duplicate caching layers and unnecessary memory overhead.
 **Action:** Import and use the base function directly instead of wrapping it in a redundant local `@st.cache_data` decorator within UI components.
+## 2026-11-10 - Remove Redundant Cache Wrappers on Health Tab Metrics
+**Learning:** Adding `@st.cache_data` decorators around database fetching functions that execute queries via a globally cached utility (like `run_query` when ADR 002 dictates SQL push-down metrics) creates unnecessary caching overheads. The redundant cache wrappers offer no performance benefit because the underlying layer already manages data retrieval caching, and they waste memory overhead by duplicating cache entries for the same data.
+**Action:** Remove local `@st.cache_data` wrappers from UI metric functions in `src/ui/cards/health.py` and rely on the globally managed database query cache.
