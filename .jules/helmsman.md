@@ -109,3 +109,7 @@
 **Cluster Quirk:** The `dd-sync-worker` deployment, a background daemon with no Service, had a `readinessProbe` identical to its `livenessProbe`.
 **Learning:** Background workers and daemons that do not serve network traffic via a Kubernetes Service do not benefit from a `readinessProbe`. Having an identical readiness probe just wastes kubelet resources and triggers false-positive failure cascades if the single endpoint responds slowly.
 **Resilience:** Removed the `readinessProbe` from `dd-sync-worker` entirely, relying solely on the `livenessProbe` to restart the daemon if the internal loop deadlocks.
+## 2024-05-26 - dd-app High Availability
+**Cluster Quirk:** The `dd-app` Streamlit deployment was restricted to `replicas: 1` with a `Recreate` strategy, limiting its availability.
+**Learning:** While `dd-sync-worker` must be a singleton because it writes to DuckDB, the `dd-app` frontend only reads from DuckDB and caches via Redis, meaning it is completely stateless and can be safely horizontally scaled.
+**Resilience:** Configured `dd-app` with `replicas: 2`, a `RollingUpdate` strategy, and a `PodDisruptionBudget` to ensure high availability and zero-downtime rollouts.

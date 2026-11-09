@@ -11,3 +11,17 @@ spec:
   selector:
     matchLabels:
       app: dd-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: dd-app-pdb
+  namespace: data-dictionary
+  labels:
+    app.kubernetes.io/name: data-dictionary
+    app.kubernetes.io/component: pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: dd-app
