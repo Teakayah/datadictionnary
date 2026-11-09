@@ -58,3 +58,7 @@
 ## 2026-10-25 - Missing dynamically formatted fallback keys
 **Learning:** Dynamically formatted keys (e.g. `t("admin.reviews_approved_toast", col=col)`) must exist in the locale dictionaries. If they are missing, the i18n module falls back to the dotted key name. However, since the fallback token does not contain format string placeholders (like `{col}`), the string formatting step crashes or drops the dynamic value.
 **Action:** Always ensure that dynamically formatted strings exist in the respective `locale` dictionary to keep it correctly translatable and dynamic.
+
+## 2026-11-05 - Extract Hardcoded Mock Department Labels
+**Learning:** Hardcoded dictionary keys used as options in `st.selectbox` for mock departments (e.g. `['Finance', 'Research', ...]`) prevent localization of the UI.
+**Action:** When a UI component derives its selectable options from internal dictionary keys, use `format_func=lambda x: t(f"auth.dept_{x.lower()}")` to dynamically resolve the localized strings while retaining the internal state keys.
