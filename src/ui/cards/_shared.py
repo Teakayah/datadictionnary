@@ -9,6 +9,7 @@ Contents:
   Used by ``render_cms_banner`` (discovery) and the admin CMS section.
 """
 from __future__ import annotations
+import html as _html
 
 
 from src.config import CATALOG_CACHE, SCHEMA_CACHE
@@ -25,8 +26,8 @@ def _render_empty_state(icon: str, text: str) -> None:
     """
     st.markdown(
         f'<div style="padding: 24px; text-align: center; background: var(--paper-deep); border: 1px dashed var(--ink-20); border-radius: 4px;">'
-        f'<div style="font-size: 24px; color: var(--ink-40); margin-bottom: 8px;" aria-hidden="true">{icon}</div>'
-        f'<div style="font-family: var(--font-sans); font-size: 14px; color: var(--ink-60);">{text}</div>'
+        f'<div style="font-size: 24px; color: var(--ink-40); margin-bottom: 8px;" aria-hidden="true">{_html.escape(icon)}</div>'
+        f'<div style="font-family: var(--font-sans); font-size: 14px; color: var(--ink-60);">{_html.escape(text)}</div>'
         f'</div>',
         unsafe_allow_html=True,
     )

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import html as _html
 
 import streamlit as st
 from streamlit_js_eval import streamlit_js_eval
@@ -121,8 +122,8 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
   <div class="dd-header-inner">
     <span class="dd-logo-link">
       {LOGO_MARK_SVG}
-      <span class="dd-logo-text">{t("common.app_title")}</span>
-      <span class="dd-pill">{t("common.beta")}</span>
+      <span class="dd-logo-text">{_html.escape(t("common.app_title"))}</span>
+      <span class="dd-pill">{_html.escape(t("common.beta"))}</span>
     </span>
   </div>
 </div>
