@@ -138,14 +138,14 @@ def render_notification_strip() -> None:
         for n in notifications:
             tbl = _html.escape(n["table_full_name"])
             summary = _html.escape(n["summary"])
-            by = _html.escape(n.get("changed_by") or "")
+            by = n.get("changed_by") or ""
             by_str = t("discovery.by_user", user=by) if by else ""
             card_html = (
                 f'<div style="font-family:var(--font-sans);font-size:13px;'
                 f'color:var(--ink);padding:6px 0;border-bottom:1px solid var(--ink-10);">'
                 f'<span style="font-family:var(--font-mono);color:var(--ink-60);">{tbl}</span>'
                 f' — {summary}'
-                f'<span style="color:var(--ink-40);font-size:11px;">{by_str}</span>'
+                f'<span style="color:var(--ink-40);font-size:11px;">{_html.escape(by_str)}</span>'
                 f'</div>'
             )
             col_card, col_btn = st.columns([11, 1], gap="small")
