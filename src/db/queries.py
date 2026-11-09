@@ -516,8 +516,12 @@ def _search_keywords(query: str, groups: tuple):
         )
         glossary_df = _DEMO_GLOSSARY[mask]
         # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
-        for row in glossary_df.to_dict("records"):
-            related_tables = row.get("related_tables", [])
+        # ⚡ Bolt: Use .tolist() and zip() to avoid expensive per-row dict instantiation overhead
+        _g_related = glossary_df["related_tables"].tolist() if "related_tables" in glossary_df else [[]] * len(glossary_df)
+        _g_terms = glossary_df["term"].tolist() if "term" in glossary_df else [""] * len(glossary_df)
+        _g_defs = glossary_df["definition"].tolist() if "definition" in glossary_df else [""] * len(glossary_df)
+        for _r_raw, _t_raw, _d_raw in zip(_g_related, _g_terms, _g_defs):
+            related_tables = _r_raw or []
             target_table = related_tables[0] if related_tables else ""
             if target_table and target_table not in _allowed_fns:
                 continue
@@ -525,9 +529,9 @@ def _search_keywords(query: str, groups: tuple):
             term_matches.append(
                 {
                     "full_name": target_table,
-                    "name": getattr(row, "term", ""),
+                    "name": str(_t_raw or ""),
                     "match_type": "Glossary",
-                    "description": getattr(row, "definition", ""),
+                    "description": str(_d_raw or ""),
                     "table_description": "",
                     "catalog_name": parts[0] if len(parts) == 3 else "",
                     "schema_name": parts[1] if len(parts) == 3 else "",

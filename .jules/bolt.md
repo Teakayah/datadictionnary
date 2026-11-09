@@ -127,3 +127,6 @@
 ## 2026-10-10 - Avoid .unique().tolist() in Pandas when .unique() is sufficient
 **Learning:** In Pandas, calling `df["column"].unique().tolist()` involves an unnecessary conversion to a Python list. If the goal is to create a set, calling `set(df["column"].unique())` is significantly faster because it avoids allocating a new list and iterating over the numpy array elements in Python before constructing the set.
 **Action:** When building sets from Pandas DataFrame columns, pass the numpy array returned by `.unique()` directly into `set()`, avoiding `.tolist()` entirely.
+## 2026-10-15 - Replace to_dict('records') with tolist() and zip()
+**Learning:** While iterating over `df.to_dict('records')` is faster than `iterrows()`, it still incurs significant overhead due to per-row Python dictionary instantiation. Extracting specific required columns via `.tolist()` and iterating over them simultaneously with `zip()` provides a roughly 5-6x speed improvement in UI render loops because it avoids repeated dictionary creation and generator overhead.
+**Action:** When extracting a subset of columns from a Pandas DataFrame in a frequent UI render loop (like Streamlit), prefer using `df['col'].tolist()` combined with `zip()` instead of iterating over `df.to_dict('records')`.

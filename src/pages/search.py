@@ -439,9 +439,12 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                 st.info(t("detail.showing_first_50_grants", count=n_grants))
                 grants = grants.head(50)
             # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
-            for g in grants.to_dict("records"):
-                principal = str(g.get("principal", ""))
-                privilege = str(g.get("privilege", ""))
+            # ⚡ Bolt: Use .tolist() and zip() to avoid expensive per-row dict instantiation overhead
+            _g_principals = grants["principal"].tolist() if "principal" in grants else [""] * len(grants)
+            _g_privileges = grants["privilege"].tolist() if "privilege" in grants else [""] * len(grants)
+            for _prin_raw, _priv_raw in zip(_g_principals, _g_privileges):
+                principal = str(_prin_raw or "")
+                privilege = str(_priv_raw or "")
                 st.markdown('<div style="border-top: 1px solid var(--ink-10); margin: 8px 0 4px 0;"></div>', unsafe_allow_html=True)
                 if principal == "SELECT_ALL_USERS":
                     if st.button(t("detail.browse_public_tables", privilege=privilege), key=f"grant_{full_name}_public_{privilege}", use_container_width=True):
@@ -539,10 +542,14 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                 for lnk in graph_links
             }
             # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
-            for rel in related.to_dict("records"):
-                _rel_full      = str(rel.get("full_name", ""))
-                _rel_name      = _html.escape(str(rel.get("table_name", "")))
-                _rel_raw_badge = str(rel.get("relationship", ""))
+            # ⚡ Bolt: Use .tolist() and zip() to avoid expensive per-row dict instantiation overhead
+            _rel_fulls = related["full_name"].tolist() if "full_name" in related else [""] * len(related)
+            _rel_names = related["table_name"].tolist() if "table_name" in related else [""] * len(related)
+            _rel_rels = related["relationship"].tolist() if "relationship" in related else [""] * len(related)
+            for _f_raw, _n_raw, _r_raw in zip(_rel_fulls, _rel_names, _rel_rels):
+                _rel_full      = str(_f_raw or "")
+                _rel_name      = _html.escape(str(_n_raw or ""))
+                _rel_raw_badge = str(_r_raw or "")
                 _rel_badge = (
                     t("detail.same_schema") if _rel_raw_badge == "Same schema"
                     else t("detail.shared_column") if _rel_raw_badge == "Shared column"
@@ -576,12 +583,15 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             st.markdown('<div style="margin-top: 16px;"></div>', unsafe_allow_html=True)
             _cols = st.columns(min(3, n_related), gap="small")
             # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
-            for i, rel in enumerate(related.to_dict("records")):
+            # ⚡ Bolt: Use .tolist() and zip() to avoid expensive per-row dict instantiation overhead
+            _rel_cats = related["catalog_name"].tolist() if "catalog_name" in related else [""] * len(related)
+            _rel_schs = related["schema_name"].tolist() if "schema_name" in related else [""] * len(related)
+            for i, (_f_raw, _n_raw, _r_raw, _c_raw, _s_raw) in enumerate(zip(_rel_fulls, _rel_names, _rel_rels, _rel_cats, _rel_schs)):
                 with _cols[i % 3]:
-                    _rel_full      = str(rel.get("full_name", ""))
-                    _rel_name      = _html.escape(str(rel.get("table_name", "")))
-                    _rel_sch       = _html.escape(f"{rel.get('catalog_name', '')}.{rel.get('schema_name', '')}")
-                    _rel_raw_badge = str(rel.get("relationship", ""))
+                    _rel_full      = str(_f_raw or "")
+                    _rel_name      = _html.escape(str(_n_raw or ""))
+                    _rel_sch       = _html.escape(f"{_c_raw or ''}.{_s_raw or ''}")
+                    _rel_raw_badge = str(_r_raw or "")
                     _rel_badge = (
                         t("detail.same_schema") if _rel_raw_badge == "Same schema"
                         else t("detail.shared_column") if _rel_raw_badge == "Shared column"
@@ -596,7 +606,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                         unsafe_allow_html=True,
                     )
                     if st.button(t("detail.open_related"), key=f"rel_{_rel_full}", type="secondary", use_container_width=True):
-                        st.session_state["dd_search_override"] = str(rel.get("table_name", ""))
+                        st.session_state["dd_search_override"] = str(_n_raw or "")
                         st.session_state["dd_nav_select"] = _rel_full
                         st.rerun()
 
@@ -704,17 +714,23 @@ def render_search_page(query_groups: tuple) -> None:
             unsafe_allow_html=True,
         )
         # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration over pre-computed list of dicts
-        for _i, _row in enumerate(_results_to_show.to_dict('records')):
-            _fn = str(_row.get("full_name", ""))
+        # ⚡ Bolt: Use .tolist() and zip() to avoid expensive per-row dict instantiation overhead
+        _rt_fulls = _results_to_show["full_name"].tolist() if "full_name" in _results_to_show else [""] * len(_results_to_show)
+        _rt_names = _results_to_show["name"].tolist() if "name" in _results_to_show else [""] * len(_results_to_show)
+        _rt_t_names = _results_to_show["table_name"].tolist() if "table_name" in _results_to_show else [""] * len(_results_to_show)
+        _rt_descs = _results_to_show["description"].tolist() if "description" in _results_to_show else [""] * len(_results_to_show)
+        _rt_scores = _results_to_show["dq_score"].tolist() if "dq_score" in _results_to_show else [""] * len(_results_to_show)
+        for _i, (_f_raw, _n_raw, _tn_raw, _d_raw, _s_raw) in enumerate(zip(_rt_fulls, _rt_names, _rt_t_names, _rt_descs, _rt_scores)):
+            _fn = str(_f_raw or "")
             if not _fn or _fn == "nan" or _fn == "None":
                 continue
             _gc, _gb = st.columns([5, 1], gap="small", vertical_alignment="top")
             with _gc:
-                _render_result_card(_fn, str(_row.get("name") or _row.get("table_name", "")), str(_row.get("description") or ""), "Table", str(_row.get("dq_score") or ""))
+                _render_result_card(_fn, str(_n_raw or _tn_raw or ""), str(_d_raw or ""), "Table", str(_s_raw or ""))
             with _gb:
                 if st.button(f"{t('search.view_details')} →", key=f"gview_{_fn}_{_i}", help=t("search.view_details_help"), use_container_width=True):
                     if _fn in _auth_full_names:
-                        st.session_state["dd_search_override"] = str(_row.get("name") or _row.get("table_name", ""))
+                        st.session_state["dd_search_override"] = str(_n_raw or _tn_raw or "")
                         st.session_state["dd_nav_select"] = _fn
                         st.rerun()
                     else:
@@ -761,13 +777,19 @@ def render_search_page(query_groups: tuple) -> None:
                         unsafe_allow_html=True,
                     )
                     # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration over pre-computed list of dicts
-                    for _sr_i, _sr in enumerate(_results_to_show.to_dict('records')):
-                        _fn = _s(_sr.get("full_name"))
+                    # ⚡ Bolt: Use .tolist() and zip() to avoid expensive per-row dict instantiation overhead
+                    _rt_fulls = _results_to_show["full_name"].tolist() if "full_name" in _results_to_show else [""] * len(_results_to_show)
+                    _rt_names = _results_to_show["name"].tolist() if "name" in _results_to_show else [""] * len(_results_to_show)
+                    _rt_descs = _results_to_show["description"].tolist() if "description" in _results_to_show else [""] * len(_results_to_show)
+                    _rt_matchs = _results_to_show["match_type"].tolist() if "match_type" in _results_to_show else [""] * len(_results_to_show)
+                    _rt_scores = _results_to_show["dq_score"].tolist() if "dq_score" in _results_to_show else [""] * len(_results_to_show)
+                    for _sr_i, (_f_raw, _n_raw, _d_raw, _m_raw, _s_raw) in enumerate(zip(_rt_fulls, _rt_names, _rt_descs, _rt_matchs, _rt_scores)):
+                        _fn = _s(_f_raw)
                         if not _fn or _fn == "nan" or _fn == "None":
                             continue
                         _card_col, _btn_col = st.columns([5, 1], gap="small", vertical_alignment="top")
                         with _card_col:
-                            _render_result_card(_fn, _s(_sr.get("name")), _s(_sr.get("description")), _s(_sr.get("match_type")), _s(_sr.get("dq_score", "")))
+                            _render_result_card(_fn, _s(_n_raw), _s(_d_raw), _s(_m_raw), _s(_s_raw or ""))
                         with _btn_col:
                             if st.button(f"{t('search.view_details')} →", key=f"view_{_fn}_{_sr_i}", help=t("search.view_details_help"), use_container_width=True):
                                 if _fn in _auth_full_names:
