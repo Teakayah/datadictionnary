@@ -124,14 +124,20 @@
     "no_columns": "No columns recorded.",
     "export_dictionary_help": "Download schema dictionary as CSV",
     "placeholder_desc": "Describe the table's contents, grain, and common use cases...",
-    "placeholder_steward": "e.g. data.steward@example.com"
+    "placeholder_steward": "e.g. data.steward@example.com",
+    "friendly_name_en_placeholder": "e.g., Customer Loyalty Data",
+    "friendly_name_fr_placeholder": "e.g., Données de fidélité des clients",
+    "friendly_definition_en_placeholder": "Explain the business purpose and rules...",
+    "friendly_definition_fr_placeholder": "Expliquez l'objectif et les règles métier..."
   },
   "editor": {
     "save": "Save",
     "cancel": "Cancel",
     "edit": "Edit",
     "title": "Edit business name and definition",
-    "last_edited_by": "Last edited by {user} · {date}"
+    "last_edited_by": "Last edited by {user} · {date}",
+    "placeholder_biz_name": "e.g., Customer Name",
+    "placeholder_biz_def": "Define the business concept..."
   },
   "comment": {
     "leave_a_comment": "Leave a comment",

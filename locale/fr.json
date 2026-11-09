@@ -124,14 +124,20 @@
     "placeholder_desc": "Describe the table's contents, grain, and common use cases...",
     "placeholder_steward": "e.g. data.steward@example.com",
     "showing_first_50_columns": "Affichage des 50 premières colonnes sur {count}.",
-    "showing_first_50_grants": "Affichage des 50 premières permissions sur {count}."
+    "showing_first_50_grants": "Affichage des 50 premières permissions sur {count}.",
+    "friendly_name_en_placeholder": "e.g., Customer Loyalty Data",
+    "friendly_name_fr_placeholder": "e.g., Données de fidélité des clients",
+    "friendly_definition_en_placeholder": "Explain the business purpose and rules...",
+    "friendly_definition_fr_placeholder": "Expliquez l'objectif et les règles métier..."
   },
   "editor": {
     "save": "Enregistrer",
     "cancel": "Annuler",
     "edit": "Modifier",
     "title": "Modifier le nom métier et la définition",
-    "last_edited_by": "Dernière modification par {user} · {date}"
+    "last_edited_by": "Dernière modification par {user} · {date}",
+    "placeholder_biz_name": "ex., Nom du client",
+    "placeholder_biz_def": "Définir le concept métier..."
   },
   "comment": {
     "leave_a_comment": "Laisser un commentaire",
