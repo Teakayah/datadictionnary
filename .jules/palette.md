@@ -51,3 +51,7 @@
 ## 2025-01-20 - Ensure aria-current for custom Streamlit Navigation
 **Learning:** When building custom HTML navigation components in Streamlit (e.g., bypassing standard `st.navigation`), active visual states (like the `active` CSS class) are not automatically announced by screen readers.
 **Action:** Always ensure custom HTML tabs or toggle links programmatically inject `aria-current="page"` or `aria-current="true"` when their state matches the active selection.
+
+## 2025-02-12 - Missing tooltips on generic save buttons
+**Learning:** Streamlit does not natively append `aria-label`s to form actions, but our system patches `st.button`s with `aria-label`s sourced dynamically from their tooltip content (`title`).
+**Action:** Consistently supply `help=` to all `st.button` actions (like "Save changes") so that the accessibility DOM-patching script can locate and inject the correct screen-reader metadata.

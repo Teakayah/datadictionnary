@@ -103,7 +103,7 @@ def render_table_business_name_editor(
 
     c1, c2 = st.columns([1, 1])
     with c1:
-        if st.button(t("common.save"), type="primary", use_container_width=True):
+        if st.button(t("common.save"), help=t("help.btn_common_save"), type="primary", use_container_width=True):
             with st.spinner(t("common.saving")):
                 try:
                     save_table_business_name(

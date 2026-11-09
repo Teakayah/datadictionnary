@@ -95,7 +95,7 @@ def _show_pipeline_create_dialog():
 
     _s, _c = st.columns(2)
     with _s:
-        if st.button(t("common.save"), type="primary", use_container_width=True, key="pl_save"):
+        if st.button(t("common.save"), help=t("help.btn_common_save"), type="primary", use_container_width=True, key="pl_save"):
             with st.spinner(t("common.saving")):
                 if not title.strip():
                     st.error(t("pipelines.error_title"))
