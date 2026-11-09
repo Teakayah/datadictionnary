@@ -25,3 +25,6 @@
 ## 2024-11-20 - Documenting Databricks Connection Strategy
 **Learning:** The application uses short-lived, per-query Databricks SQL Warehouse connections rather than a global connection pool to avoid "connection closed" errors caused by server-side scaling and timeouts. This crucial architectural decision was undocumented, making it unclear why a seemingly inefficient per-query connection model was chosen over standard pooling techniques.
 **Action:** Ensure that connection handling logic, particularly workarounds for cloud warehouse limitations (like avoiding connection pooling due to timeouts), is explicitly documented with a "WHY IT EXISTS" section so future contributors understand the architectural constraint.
+## 2024-05-25 - Python Module Docstring Ordering Fix
+**Learning:** Across the codebase, `from __future__ import annotations` was consistently placed before the module-level docstring, demoting the intended docstring to a regular string and triggering Ruff `E402` errors. This is a common violation of standard Python structure.
+**Action:** Always ensure the precise order: 1) Module docstring, 2) `__future__` imports, 3) Standard imports. A script was run to automatically reorder these across all affected Python files.

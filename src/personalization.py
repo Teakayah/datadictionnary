@@ -1,5 +1,3 @@
-from __future__ import annotations
-from typing import Optional
 """User preferences and personalization functions.
 
 Each storage helper branches on ``is_demo_mode()``: demo mode is a no-op
@@ -13,6 +11,9 @@ concerns:
 - the editing-toggle session cache (avoids a DB hit per render)
 - ``is_power_user()`` — combines the toggle with EDITOR_GROUPS membership
 """
+from __future__ import annotations
+from typing import Optional
+
 
 import logging
 import os

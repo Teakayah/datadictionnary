@@ -1,5 +1,3 @@
-from __future__ import annotations
-from typing import Optional
 """Authentication and authorization logic.
 
 Handles Microsoft Entra ID (OIDC) via MSAL, mock authentication for development,
@@ -31,6 +29,9 @@ Three failure modes are guarded against:
    before stopping so the user lands on a clean sign-in page rather than an
    error loop.
 """
+from __future__ import annotations
+from typing import Optional
+
 
 
 import logging

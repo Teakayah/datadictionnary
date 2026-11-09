@@ -5,8 +5,8 @@ read queries and app writes are served locally — no network round-trip.
 The adapter translates the existing %(name)s pyformat SQL into DuckDB's
 $name named-parameter style so no query code needs to change.
 """
-
 from __future__ import annotations
+
 
 import os
 import re

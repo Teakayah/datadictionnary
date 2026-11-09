@@ -3,8 +3,8 @@
 These call _base_run_query directly, bypassing @st.cache_data.
 Caching is handled by Redis at the endpoint/tool level instead.
 """
-
 from __future__ import annotations
+
 
 import pandas as pd
 

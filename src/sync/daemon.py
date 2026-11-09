@@ -1,5 +1,3 @@
-from __future__ import annotations
-from typing import Optional
 """Sidecar sync worker — long-lived process that drains user_data.pending_sync
 into Databricks and runs DR resync.
 
@@ -19,6 +17,9 @@ Environment:
                                  conflicts are real, timing values are not —
                                  those are module constants below)
 """
+from __future__ import annotations
+from typing import Optional
+
 
 
 import argparse
