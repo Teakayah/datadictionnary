@@ -18,7 +18,7 @@ from src.ui.cards._shared import _render_empty_state
 
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, is_demo_mode
 from src.db.queries import run_query
-from src.i18n import t
+from src.i18n import t, format_number
 from src.personalization import is_power_user
 
 @dataclass
@@ -115,16 +115,16 @@ def _render_health_hero_metrics(metrics: HealthMetrics):
         st.markdown(f'''
         <div style="background:var(--paper); border-top:3px solid var(--accent); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
             <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{_html.escape(t("health.table_coverage"))}</div>
-            <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{metrics.table_coverage:.0f}%</div>
-            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{_html.escape(t("health.tables_described", n_desc=metrics.n_desc, n_tables=metrics.n_tables))}</div>
+            <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{format_number(int(round(metrics.table_coverage)))}%</div>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{_html.escape(t("health.tables_described", n_desc=format_number(metrics.n_desc), n_tables=format_number(metrics.n_tables)))}</div>
         </div>
         ''', unsafe_allow_html=True)
     with c2:
         st.markdown(f'''
         <div style="background:var(--paper); border-top:3px solid var(--deepblue); padding:24px; border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
             <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">{_html.escape(t("health.column_coverage"))}</div>
-            <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{metrics.col_coverage:.0f}%</div>
-            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{_html.escape(t("health.columns_defined", n_col_desc=metrics.n_col_desc, n_cols=metrics.n_cols))}</div>
+            <div style="font-family:var(--font-display); font-size:48px; color:var(--ink);">{format_number(int(round(metrics.col_coverage)))}%</div>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-60); margin-top:8px;">{_html.escape(t("health.columns_defined", n_col_desc=format_number(metrics.n_col_desc), n_cols=format_number(metrics.n_cols)))}</div>
         </div>
         ''', unsafe_allow_html=True)
     with c3:

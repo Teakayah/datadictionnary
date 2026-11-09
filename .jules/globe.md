@@ -61,3 +61,7 @@
 ## 2025-03-01 - Avoid Concatenating Icons with Localized Text
 **Learning:** Hardcoding string concatenations like `f"← {t('common.back')}"` forces a specific English-centric layout (icon on the left) that breaks RTL languages and prevents translators from adapting the button layout naturally.
 **Action:** Extract the entire string, including formatting templates like icons and arrows, into a unified translation key (e.g., `common.back_btn`: `"← Back"`) to give full control back to the translation dictionary.
+## 2024-05-24 - Locale-Aware Number Formatting
+
+**Learning:** Extracted hardcoded f-string numeric formatting in `src/ui/cards/health.py` for variables like `metrics.table_coverage`, `metrics.col_coverage`, `metrics.n_desc`, `metrics.n_tables`, `metrics.n_col_desc` and `metrics.n_cols` and applied `format_number` function to format them contextually based on the user's selected language, particularly useful for large numbers which need their localized thousands and decimal separators correctly placed.
+**Action:** When printing metrics using string formatting, especially those bound by specific precision limits like integer counts or percentages, always make sure to use localization utility function, like `format_number` in `src/i18n.py`.
