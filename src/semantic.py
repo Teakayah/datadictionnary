@@ -139,7 +139,7 @@ def semantic_search(query: str, top_n: int = 10) -> List[str]:
         df = run_query(sql, (vector, top_n))
         
         if df is not None and not df.empty:
-            return df["table_full_name"].tolist()
+            return df["table_full_name"].to_numpy().tolist()
         return []
     except Exception as e:
         logging.error("Semantic search failed: %s", e)

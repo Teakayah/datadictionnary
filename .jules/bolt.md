@@ -127,3 +127,7 @@
 ## 2026-10-10 - Avoid .unique().tolist() in Pandas when .unique() is sufficient
 **Learning:** In Pandas, calling `df["column"].unique().tolist()` involves an unnecessary conversion to a Python list. If the goal is to create a set, calling `set(df["column"].unique())` is significantly faster because it avoids allocating a new list and iterating over the numpy array elements in Python before constructing the set.
 **Action:** When building sets from Pandas DataFrame columns, pass the numpy array returned by `.unique()` directly into `set()`, avoiding `.tolist()` entirely.
+
+## 2026-10-11 - Optimize Pandas Series to List Conversion
+**Learning:** In Pandas, converting a Series to a Python list using `series.tolist()` or `list(series)` is slower because it relies on standard Pandas object iteration. Using `series.to_numpy().tolist()` is significantly faster as it leverages NumPy's optimized C-level arrays for the conversion.
+**Action:** Replace `series.tolist()` or `list(series)` with `series.to_numpy().tolist()` when converting Pandas columns to Python lists.

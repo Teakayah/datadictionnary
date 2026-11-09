@@ -264,9 +264,9 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             if n_cols > 50:
                 st.info(t("detail.showing_first_50_columns", count=n_cols))
                 cols = cols.head(50)
-            _cnames = cols["column_name"].tolist() if "column_name" in cols else [""] * len(cols)
-            _ctypes = cols["data_type"].tolist() if "data_type" in cols else [""] * len(cols)
-            _ccomments = cols["comment"].tolist() if "comment" in cols else [""] * len(cols)
+            _cnames = cols["column_name"].to_numpy().tolist() if "column_name" in cols else [""] * len(cols)
+            _ctypes = cols["data_type"].to_numpy().tolist() if "data_type" in cols else [""] * len(cols)
+            _ccomments = cols["comment"].to_numpy().tolist() if "comment" in cols else [""] * len(cols)
 
             for _cname_raw, _ctype_raw, _ccomment_raw in zip(_cnames, _ctypes, _ccomments):
                 _cname = str(_cname_raw)
@@ -739,7 +739,7 @@ def render_search_page(query_groups: tuple) -> None:
 
             if results is not None and not results.empty:
                 _table_results = results[results["match_type"] == "Table"] if "match_type" in results.columns else results
-                _table_names   = _table_results["table_name"].tolist()
+                _table_names   = _table_results["table_name"].to_numpy().tolist()
                 _nav_target    = st.session_state.get("_dd_sticky_nav")
                 _nav_idx       = None
                 if _nav_target:
