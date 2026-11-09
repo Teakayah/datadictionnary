@@ -1,10 +1,9 @@
-from __future__ import annotations
 """Entra ID JWT validation for the FastAPI / MCP layer.
 
 Validates RS256-signed tokens from Microsoft Entra ID, extracts identity
 claims, and resolves groups (including overage via Microsoft Graph).
 """
-
+from __future__ import annotations
 import logging
 import os
 import time
@@ -51,6 +50,9 @@ def _validate_auth_config() -> None:
     The critical failure mode we guard against: when CLIENT_ID and API_AUDIENCE
     are both unset, python-jose receives audience=None and skips the audience
     check entirely — any valid Entra ID token from any app would be accepted.
+
+    Raises:
+        RuntimeError: If neither CLIENT_ID nor API_AUDIENCE is set, or if TENANT_ID is missing.
     """
     if _is_mock_auth():
         logger.warning("Mock auth enabled — Entra ID validation is DISABLED. Development only.")
@@ -100,6 +102,12 @@ async def validate_token(token: str) -> AuthenticatedUser:
     In development with ENABLE_MOCK_AUTH=true, accepts sentinel tokens of the
     form "mock-<dept>" (e.g. "mock-finance") and returns a synthetic user with
     the corresponding group memberships. Never active in production.
+
+    Args:
+        token (str): The JWT Bearer token extracted from the Authorization header.
+
+    Returns:
+        AuthenticatedUser: The resolved identity containing the user's OID, email, name, and Entra ID groups.
 
     Raises:
         RuntimeError: server is misconfigured (TENANT_ID or audience missing).

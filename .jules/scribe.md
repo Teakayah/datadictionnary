@@ -25,3 +25,6 @@
 ## 2024-11-20 - Documenting Databricks Connection Strategy
 **Learning:** The application uses short-lived, per-query Databricks SQL Warehouse connections rather than a global connection pool to avoid "connection closed" errors caused by server-side scaling and timeouts. This crucial architectural decision was undocumented, making it unclear why a seemingly inefficient per-query connection model was chosen over standard pooling techniques.
 **Action:** Ensure that connection handling logic, particularly workarounds for cloud warehouse limitations (like avoiding connection pooling due to timeouts), is explicitly documented with a "WHY IT EXISTS" section so future contributors understand the architectural constraint.
+## 2024-11-20 - Adding Args/Returns typing context to JWT validation
+**Learning:** Security functions that accept complex or opaque string tokens (like Entra ID JWTs) should clearly define their inputs and outputs using the standard Google style (Args:, Returns:, Raises:) to clarify security boundaries. We found `validate_token` in `src/api/auth.py` was missing this.
+**Action:** Ensure all authentication and validation functions in `src/api/auth.py` include proper Google-style typing contexts to aid security audits and new contributors.
