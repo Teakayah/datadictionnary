@@ -33,3 +33,6 @@
 ## 2024-10-26 - Test Duplication Cleanup
 **Learning:** Found significant duplicate test case definitions (`test_discovery_bookmarks_tab_df_empty` and others) appended at the bottom of `tests/test_ui_discovery.py`, likely caused by append operations, along with duplicated module-level imports in `tests/test_ui_search_downstream.py`.
 **Action:** Removed all duplicated function definitions using AST parsing and fixed duplicate imports to keep tests clean and avoid F811 linter warnings.
+## 2026-10-31 - Redundant Cache Wrappers
+**Learning:** Adding `@st.cache_data` locally around database functions that are already cached at their source (e.g. `_get_table_health_stats` in `src/ui/cards/health.py`) creates duplicate caching layers and unnecessary memory overhead. The `run_query` utility manages its own caching strategy, often pushing down to DuckDB/Databricks caching natively.
+**Action:** Remove redundant local `@st.cache_data` decorators within UI components that wrap cached data layer functions.
