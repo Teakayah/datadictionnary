@@ -33,3 +33,6 @@
 ## 2024-10-26 - Test Duplication Cleanup
 **Learning:** Found significant duplicate test case definitions (`test_discovery_bookmarks_tab_df_empty` and others) appended at the bottom of `tests/test_ui_discovery.py`, likely caused by append operations, along with duplicated module-level imports in `tests/test_ui_search_downstream.py`.
 **Action:** Removed all duplicated function definitions using AST parsing and fixed duplicate imports to keep tests clean and avoid F811 linter warnings.
+## 2026-10-29 - Remove redundant st.cache_data in health queries
+**Learning:** Found redundant `@st.cache_data` wrappers around UI-level query builder functions (`_get_table_health_stats`, `_get_column_health_stats`, `_get_undocumented_priority`) in `src/ui/cards/health.py`. The underlying `run_query` call handles caching at the database adapter level (e.g. `_run_databricks_query`), making the UI-level caches an unnecessary duplication that costs memory overhead (and caches duplicate pandas dataframe instances).
+**Action:** Removed redundant `@st.cache_data` wrappers from UI components where the underlying db access is already cached.

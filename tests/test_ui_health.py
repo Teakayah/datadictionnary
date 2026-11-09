@@ -1,6 +1,9 @@
+from unittest.mock import MagicMock, patch
+
 import pandas as pd
-from unittest.mock import patch, MagicMock
+
 from src.ui.cards.health import _render_priority_actions, render_health
+
 
 def test_render_priority_actions_empty():
     with patch("src.ui.cards.health.st.markdown"), \
@@ -80,7 +83,7 @@ def test_render_health_hero_metrics():
         mock_cols[1].__enter__.return_value = mock_cols[1]
         mock_cols[2].__enter__.return_value = mock_cols[2]
 
-        from src.ui.cards.health import _render_health_hero_metrics, HealthMetrics
+        from src.ui.cards.health import HealthMetrics, _render_health_hero_metrics
         metrics = HealthMetrics(
             table_coverage=50.0,
             n_desc=10,

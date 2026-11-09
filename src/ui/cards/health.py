@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 import html as _html
+
 """Health dashboard — catalog-wide metadata coverage metrics.
 
 Renders the "/health" tab. Pure read-only views: documentation coverage,
@@ -10,16 +12,18 @@ Implements SQL push-down for all metrics (ADR 002) to ensure scalability
 while maintaining row-level access control.
 """
 
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
+
 import pandas as pd
 import streamlit as st
-from src.ui.cards._shared import _render_empty_state
 
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, is_demo_mode
 from src.db.queries import run_query
 from src.i18n import t
 from src.personalization import is_power_user
+from src.ui.cards._shared import _render_empty_state
+
 
 @dataclass
 class HealthMetrics:
@@ -31,7 +35,6 @@ class HealthMetrics:
     n_cols: int
 
 
-@st.cache_data(ttl="1h", show_spinner=False)
 def _get_table_health_stats(groups: tuple) -> pd.DataFrame:
     """Fetch table-level coverage stats grouped by schema with SQL push-down."""
     if is_demo_mode():
@@ -62,7 +65,6 @@ def _get_table_health_stats(groups: tuple) -> pd.DataFrame:
     return run_query(query, params)
 
 
-@st.cache_data(ttl="1h", show_spinner=False)
 def _get_column_health_stats(groups: tuple) -> tuple[int, int]:
     """Fetch catalog-wide column coverage stats with SQL push-down."""
     if is_demo_mode():
@@ -85,7 +87,6 @@ def _get_column_health_stats(groups: tuple) -> tuple[int, int]:
     return int(stats.iloc[0]['total']), int(stats.iloc[0]['with_desc'] or 0)
 
 
-@st.cache_data(ttl="1h", show_spinner=False)
 def _get_undocumented_priority(groups: tuple, limit: int = 5) -> pd.DataFrame:
     """Identify undocumented tables with SQL push-down."""
     if is_demo_mode():
