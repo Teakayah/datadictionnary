@@ -51,3 +51,6 @@
 ## 2025-01-20 - Ensure aria-current for custom Streamlit Navigation
 **Learning:** When building custom HTML navigation components in Streamlit (e.g., bypassing standard `st.navigation`), active visual states (like the `active` CSS class) are not automatically announced by screen readers.
 **Action:** Always ensure custom HTML tabs or toggle links programmatically inject `aria-current="page"` or `aria-current="true"` when their state matches the active selection.
+## 2026-10-16 - Admin audit logs missing empty states
+**Learning:** Admin audit log dialogs (`biz_log` and `comment_log`) lack empty states, rendering an empty table grid when there's no data.
+**Action:** Use `_render_empty_state("📋", t("common.empty"))` instead of an empty table when audit logs are empty to provide better UX.
