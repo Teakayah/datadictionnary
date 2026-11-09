@@ -40,6 +40,7 @@ import secrets
 import time
 
 import msal
+import html as _html
 import streamlit as st
 
 from src.config import (
@@ -161,9 +162,9 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
     with col_hero:
         st.markdown(f"""
         <div class="dd-signin-hero">
-          <div class="dd-eyebrow">§ {t('auth.hero_eyebrow')}</div>
-          <h1>{t('auth.title')}</h1>
-          <p class="lead">{t('auth.subtitle')}</p>
+          <div class="dd-eyebrow">§ {_html.escape(t('auth.hero_eyebrow'))}</div>
+          <h1>{_html.escape(t('auth.title'))}</h1>
+          <p class="lead">{_html.escape(t('auth.subtitle'))}</p>
         </div>
         """, unsafe_allow_html=True)
         _n_tables, _n_schemas = _get_catalog_stats()
@@ -172,15 +173,15 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
         <div class="dd-stats-row">
           <div>
             <div class="dd-stat-n">{_n_tables}</div>
-            <div class="dd-stat-l">{t('auth.stats_tables')}</div>
+            <div class="dd-stat-l">{_html.escape(t('auth.stats_tables'))}</div>
           </div>
           <div>
             <div class="dd-stat-n">{_n_schemas}</div>
-            <div class="dd-stat-l">{t('auth.stats_schemas')}</div>
+            <div class="dd-stat-l">{_html.escape(t('auth.stats_schemas'))}</div>
           </div>
           <div>
-            <div class="dd-stat-n">{t('auth.stats_cadence_val')}</div>
-            <div class="dd-stat-l">{t('auth.stats_cadence')}</div>
+            <div class="dd-stat-n">{_html.escape(t('auth.stats_cadence_val'))}</div>
+            <div class="dd-stat-l">{_html.escape(t('auth.stats_cadence'))}</div>
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -188,9 +189,9 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
     with col_card:
         st.markdown(f"""
         <div class="dd-signin-card">
-          <div class="dd-eyebrow">{t('auth.card_eyebrow')}</div>
-          <h3>{t('auth.card_title')}</h3>
-          <p class="body">{t('auth.card_body')}</p>
+          <div class="dd-eyebrow">{_html.escape(t('auth.card_eyebrow'))}</div>
+          <h3>{_html.escape(t('auth.card_title'))}</h3>
+          <p class="body">{_html.escape(t('auth.card_body'))}</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -223,7 +224,7 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
                 st.session_state.user_email    = _email
                 st.rerun()
             st.markdown(
-                f'<p class="dd-meta">{t("auth.mock_prompt")}</p>',
+                f'<p class="dd-meta">{_html.escape(t("auth.mock_prompt"))}</p>',
                 unsafe_allow_html=True,
             )
         else:
@@ -236,8 +237,8 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
               font-family:var(--font-sans);font-weight:500;
               text-decoration:none;box-sizing:border-box;
               transition:background 120ms var(--ease);
-            ">{MS_LOGO_SVG} {t('auth.sign_in_button')}</a>
-            <p class="dd-meta" style="margin-top:12px">{t("auth.policy_agreement")}</p>
+            ">{MS_LOGO_SVG} {_html.escape(t('auth.sign_in_button'))}</a>
+            <p class="dd-meta" style="margin-top:12px">{_html.escape(t("auth.policy_agreement"))}</p>
             """, unsafe_allow_html=True)
 
 
