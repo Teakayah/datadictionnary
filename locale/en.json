@@ -215,7 +215,9 @@
     "sync_done": "{count} done",
     "sync_failed": "{count} failed",
     "sync_self_healing": "Self-healing daemon",
-    "sync_worker_heartbeat": "Worker heartbeat"
+    "sync_worker_heartbeat": "Worker heartbeat",
+    "integrity_no_dq_failures": "No data quality failures detected.",
+    "integrity_all_stewards_assigned": "All data stewards have been assigned."
   },
   "health": {
     "title": "§ Catalog health",

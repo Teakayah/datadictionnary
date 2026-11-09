@@ -51,3 +51,6 @@
 ## 2026-09-12 - Extract Missing Fallback Keys
 **Learning:** The i18n module gracefully falls back to the dotted key (e.g. `admin.sync_progress`) if a key is missing from the translation files, hiding the missing key problem by appearing as technical text. However, dynamically formatted fallback keys, especially those containing interpolated values, break completely because the template (`{pct}`) expects format strings which are absent in the raw fallback token.
 **Action:** Always ensure that dynamically formatted strings or any variants inside application source code actually exist in the respective `locale` dictionary to keep it correctly translatable and dynamic.
+## 2026-10-01 - Extract Missing Translation Keys for Admin Panel
+**Learning:** Certain translation keys used in `st.success()` or `st.info()` calls (such as `admin.integrity_no_dq_failures` and `admin.integrity_all_stewards_assigned`) were missing from `locale/en.json` and `locale/fr.json`. Missing keys can lead to untranslated strings or missing text in the UI.
+**Action:** When a key is missing from translation dictionaries, add the corresponding English strings to `locale/en.json` and French strings to `locale/fr.json` in their appropriate namespaces to ensure complete coverage.

@@ -215,7 +215,9 @@
     "sync_done": "{count} terminés",
     "sync_failed": "{count} échoués",
     "sync_self_healing": "Démon d'auto-réparation",
-    "sync_worker_heartbeat": "Battement de cœur du worker"
+    "sync_worker_heartbeat": "Battement de cœur du worker",
+    "integrity_no_dq_failures": "Aucun échec de qualité de données détecté.",
+    "integrity_all_stewards_assigned": "Tous les responsables de données sont assignés."
   },
   "health": {
     "title": "§ Santé du catalogue",
