@@ -369,7 +369,10 @@ class _DuckDBCursor:
         return self
 
     def __exit__(self, *_):
-        # We do NOT close the shared connection!
+        # WHY IT EXISTS:
+        # We deliberately skip closing the connection so it remains available for
+        # subsequent queries across Streamlit sessions in the singleton architecture.
+        # This is not a resource leak; it is required for thread-safe caching.
         pass
 
 
@@ -398,6 +401,10 @@ class _DuckDBConn:
         return self
 
     def __exit__(self, *_):
+        # WHY IT EXISTS:
+        # We deliberately skip closing the connection so it remains available for
+        # subsequent queries across Streamlit sessions in the singleton architecture.
+        # This is not a resource leak; it is required for thread-safe caching.
         pass
 
     @property
