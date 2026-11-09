@@ -111,6 +111,7 @@ def _try_silent_refresh() -> bool:
 
     Returns:
         bool: True if a fresh token was successfully retrieved and stored, False otherwise.
+
     """
     try:
         msal_app = get_msal_app()
@@ -242,7 +243,7 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
 
 
 def check_auth(sync_prefs_callback: Optional[callable] = None):
-    """Main authentication gate. Handles OIDC flow and session initialisation.
+    """Handle OIDC flow and session initialisation as the main authentication gate.
 
     Args:
         sync_prefs_callback (Optional[callable]): Optional callable to seed personalisation data on
@@ -251,6 +252,11 @@ def check_auth(sync_prefs_callback: Optional[callable] = None):
     Returns:
         None
 
+    WHY IT EXISTS:
+    Acts as the main authentication gate to block unauthenticated users from accessing the app.
+    It manages the entire OAuth 2.0 / OIDC flow, including token retrieval, expiry checking,
+    silent refresh, and rendering the sign-in page when necessary.
+
     Flow:
         1. If a valid, non-expired token is in session → return immediately.
         2. If the token is close to expiry → try silent refresh; clear + re-auth
@@ -258,6 +264,7 @@ def check_auth(sync_prefs_callback: Optional[callable] = None):
         3. If ?code= is in the URL → process the OIDC callback. Query params are
            cleared regardless of outcome so a stale code never causes a loop.
         4. Otherwise → generate state/nonce, build auth URL, render sign-in page.
+
     """
     # ── Step 1 & 2: existing session ─────────────────────────────────────────
     if st.session_state.get("auth_token") is not None:
@@ -365,7 +372,12 @@ def _parse_groups(env_val: str) -> frozenset[str]:
 
 
 def is_pipeline_user() -> bool:
-    """True if the current user belongs to at least one PIPELINE_GROUPS group.
+    """Return True if the current user belongs to at least one PIPELINE_GROUPS group.
+
+    WHY IT EXISTS:
+    This function acts as a role-based access control (RBAC) gate for the Pipelines tab.
+    It verifies user group membership against the PIPELINE_GROUPS environment configuration,
+    ensuring that only authorized operations users can trigger data integration pipelines.
 
     Always False when the pipelines feature is disabled (``ENABLE_PIPELINES``).
     """
@@ -380,7 +392,12 @@ def is_pipeline_user() -> bool:
 
 
 def is_admin() -> bool:
-    """True if the current user belongs to at least one ADMIN_GROUPS group.
+    """Return True if the current user belongs to at least one ADMIN_GROUPS group.
+
+    WHY IT EXISTS:
+    This function acts as a strict role-based access control (RBAC) gate for the Admin portal.
+    It verifies user group membership against the ADMIN_GROUPS environment configuration,
+    ensuring that only authorized administrators can view system health, usage metrics, and audit logs.
 
     No demo-mode bypass — admins must be in the real Entra group even in
     demo/development mode, unlike is_power_user() which may have a mock shortcut.

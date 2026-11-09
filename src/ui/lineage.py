@@ -24,6 +24,7 @@ def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, ru
 
     Returns:
         tuple[list, list]: A tuple containing the list of graph nodes and the list of graph links.
+
     """
     graph_nodes = [{"id": start_fn, "label": start_label, "current": True, "relationship": "Current"}]
     graph_links: list = []
@@ -35,6 +36,8 @@ def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, ru
         params[f"lin_g_{i}"] = g
 
     # The query uses a recursive CTE to traverse up to max_depth hops.
+    #
+    # WHY IT EXISTS:
     # CRITICAL: The JOIN on permissions_cache occurs in BOTH the base case and the recursive step.
     # This enforces push-down RBAC at every hop, ensuring that unauthorized tables are never traversed
     # or revealed to the user, preventing indirect discovery.
@@ -126,6 +129,7 @@ def render_lineage_fullscreen(graph_nodes: list, graph_links: list, full_name: s
 
     Returns:
         None
+
     """
     st.markdown(VIS_WIDE_CSS, unsafe_allow_html=True)
     st.markdown(f"**{full_name}** — {t('detail.lineage_graph_subtitle', table=full_name.split('.')[-1])}")

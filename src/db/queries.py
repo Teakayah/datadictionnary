@@ -72,6 +72,7 @@ def _build_auth_filters(groups: list | tuple) -> tuple[str, dict]:
         tuple[str, dict]: A tuple containing:
             1. The comma-separated pyformat placeholders string
             2. A dictionary mapping placeholder names to group string values
+
     """
     if not groups:
         return "''", {}
@@ -148,6 +149,7 @@ def run_query(query, params=None):
 
     Returns:
         pd.DataFrame: A pandas DataFrame containing the query results.
+
     """
     # ── Demo mode: return hardcoded DataFrames without hitting any DB ──────────
     if is_demo_mode():
@@ -198,6 +200,7 @@ def get_authorized_table_names(groups):
 def get_authorized_tables(groups):
     """Retrieve metadata for tables the user is authorized to access.
 
+    WHY IT EXISTS:
     Implements row-level access control by joining the tables metadata with
     a permissions cache. A table is returned only if the user's Entra ID groups
     intersect with the table's allowed principals, or if the table is marked
@@ -208,6 +211,7 @@ def get_authorized_tables(groups):
 
     Returns:
         pd.DataFrame: A pandas DataFrame containing authorized table metadata.
+
     """
     if is_demo_mode():
         return _DEMO_TABLES
@@ -249,6 +253,7 @@ def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
 
     Returns:
         pd.DataFrame: A pandas DataFrame containing lineage edges with columns for direction, entity name, entity type, and depth.
+
     """
     sql_query = (
         """
@@ -301,6 +306,7 @@ def _drop_score_cols(df: pd.DataFrame) -> pd.DataFrame:
 
     Returns:
         pd.DataFrame: A cleaned DataFrame with score columns removed and index reset.
+
     """
     cols = [c for c in ("_score", "_hybrid_score") if c in df.columns]
     return df.drop(columns=cols).reset_index(drop=True) if cols else df
@@ -402,6 +408,7 @@ def _search_keywords(query: str, groups: tuple):
     Permission-filtered: results are limited to tables the user's Entra
     groups have grants on (or tables marked ``SELECT_ALL_USERS``).
 
+    WHY IT EXISTS:
     Like get_authorized_tables, this enforces row-level access control.
     A table or its columns are returned only if the user's Entra ID groups
     intersect with the table's allowed principals, or if it is public.
@@ -423,8 +430,8 @@ def _search_keywords(query: str, groups: tuple):
 
     Returns:
         pd.DataFrame: pandas DataFrame of combined results, sorted by score desc.
-    """
 
+    """
     logging.info("GLOBAL SEARCH query=%s groups=%s", query, groups)
 
     group_placeholders, params = _build_auth_filters(groups)
@@ -605,6 +612,7 @@ def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
 
     Returns:
         str: A CSV-formatted string of the table metadata.
+
     """
     output = io.StringIO()
     writer = csv.writer(output)
