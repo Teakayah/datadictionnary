@@ -1,5 +1,3 @@
-from __future__ import annotations
-import html as _html
 """Health dashboard — catalog-wide metadata coverage metrics.
 
 Renders the "/health" tab. Pure read-only views: documentation coverage,
@@ -9,6 +7,9 @@ undocumented tables.
 Implements SQL push-down for all metrics (ADR 002) to ensure scalability
 while maintaining row-level access control.
 """
+
+from __future__ import annotations
+import html as _html
 
 from dataclasses import dataclass
 import logging
@@ -90,8 +91,9 @@ def _get_undocumented_priority(groups: tuple, limit: int = 5) -> pd.DataFrame:
     """Identify undocumented tables with SQL push-down."""
     if is_demo_mode():
         from src.demo.data import _DEMO_TABLES
+        # ⚡ Bolt: Use .to_numpy() array casting before boolean evaluation to avoid Pandas index alignment overhead
         return _DEMO_TABLES[
-            _DEMO_TABLES['table_description'].fillna('').astype(str).str.strip() == ''
+            _DEMO_TABLES['table_description'].fillna('').astype(str).str.strip().to_numpy() == ''
         ].head(limit)
 
     group_ph = ", ".join(f"%(g_{i})s" for i in range(len(groups))) if groups else "''"
