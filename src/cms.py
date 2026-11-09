@@ -1,5 +1,3 @@
-from __future__ import annotations
-from typing import Optional
 """CMS data layer — admin-authored posts shown as a banner on the Discovery tab.
 
 Each function branches on ``is_demo_mode()``: demo mode keeps posts in
@@ -11,6 +9,8 @@ Public function signatures are preserved so callers
 Adding a new CMS field: update the ``post`` dict in ``create_post`` and
 ``_POST_COLUMNS`` below.
 """
+from __future__ import annotations
+from typing import Optional
 
 
 import logging

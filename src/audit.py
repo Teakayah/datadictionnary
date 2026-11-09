@@ -1,5 +1,3 @@
-# ruff: noqa: E402
-from __future__ import annotations
 """Audit logging and business-name-override write paths.
 
 Each storage helper branches on ``is_demo_mode()``: demo mode keeps rows in
@@ -15,6 +13,8 @@ is ensured by writing to ``user_data.table_metadata_overrides``. These
 overrides are joined back into the core search and catalog queries in
 ``src.db.queries``, providing immediate feedback for user edits.
 """
+# ruff: noqa: E402
+from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
