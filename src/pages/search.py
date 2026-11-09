@@ -326,14 +326,14 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                     _inp_name = st.text_input(
                         t("editor.business_name_label"),
                         value=_col_biz,
-                        placeholder=t("editor.placeholder_biz_name"),
+                        placeholder=t("table.business_name_placeholder"),
                         max_chars=None if os.getenv("TESTING_NO_MAX_CHARS") else MAX_BUSINESS_NAME_LEN,
                         key=f"col_biz_name_{_edit_key}",
                     )
                     _inp_def = st.text_input(
                         t("editor.definition_label"),
                         value=_col_def,
-                        placeholder=t("editor.placeholder_biz_def"),
+                        placeholder=t("table.description_placeholder"),
                         max_chars=None if os.getenv("TESTING_NO_MAX_CHARS") else MAX_BUSINESS_NAME_LEN,
                         key=f"col_biz_def_{_edit_key}",
                     )
