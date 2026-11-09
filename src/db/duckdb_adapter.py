@@ -253,6 +253,12 @@ def _initialize_schema(con):
 def _get_shared_duckdb_connection():
     """Singleton connection shared across all Streamlit sessions/threads.
 
+    WHY IT EXISTS:
+    To avoid file lock contention ("database is locked") when multiple Streamlit
+    sessions attempt to read or write the local DuckDB files concurrently.
+    A single connection is established and shared, wrapped with threading locks
+    for write operations to maintain thread safety across concurrent user sessions.
+
     Uses double-checked locking so the connection is created once and reused.
     Returns None (without caching it) when the DuckDB file isn't available yet,
     so the next call retries — matching the validate= behaviour of st.cache_resource.
