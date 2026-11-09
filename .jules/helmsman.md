@@ -105,3 +105,7 @@
 **Cluster Quirk:** The `dd-app` deployment uses a DuckDB file, which only allows a single writer, but the Kubernetes manifest was configured with a `RollingUpdate` strategy, HPA scaling, and a PDB with `minAvailable: 1`.
 **Learning:** DuckDB requires strict singleton access. Scaling beyond 1 replica or using `RollingUpdate` (which creates a second pod before terminating the first) causes file locks and data corruption. Furthermore, a PDB with `minAvailable: 1` on a singleton deployment permanently deadlocks node drains.
 **Resilience:** Reconfigured `dd-app` to strictly `replicas: 1` with `strategy: Recreate`. Removed its HPA and PDB configurations to ensure it remains a safe singleton.
+## 2024-10-24 - Hardened API PVC Mount Security
+**Cluster Quirk:** The `dd-api` deployment mounted the `dd-data` PersistentVolumeClaim without restricting write access, even though the API only reads from the cached catalog.
+**Learning:** Granting write access to a shared volume for a service that only requires read access violates the principle of least privilege and increases the blast radius if the service is compromised.
+**Resilience:** Configured the `/data` volume mount in `dd-api` with `readOnly: true`, enforcing read-only access at the infrastructure layer to match the application's read-only DuckDB connection.

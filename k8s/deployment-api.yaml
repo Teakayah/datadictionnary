@@ -90,6 +90,7 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+              readOnly: true
             - name: tmp
               mountPath: /tmp
 
