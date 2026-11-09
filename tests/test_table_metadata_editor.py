@@ -1,6 +1,5 @@
 from unittest.mock import patch
 from streamlit.testing.v1 import AppTest
-import pytest
 
 def test_render_table_metadata_editor():
     def render_editor():

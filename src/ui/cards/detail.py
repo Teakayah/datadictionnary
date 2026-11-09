@@ -1,9 +1,10 @@
-from __future__ import annotations
 """Table detail cards and sections.
 
 Includes the schema/columns viewer, business name editor, comments
 section, and data preview (local-only for prototype).
 """
+from __future__ import annotations
+from src.auth import get_active_group, get_user_groups
 
 
 import logging
@@ -134,10 +135,9 @@ def render_data_sample(table_full_name: str):
     # Defense in depth: re-check authorization even though the UI gate
     # already prevents this dialog from opening for unauthorized tables.
     groups = (
-        tuple(st.session_state.get("user_groups", []))
-        if st.session_state.get("user_groups") else ("none",)
+        tuple(get_user_groups()) if get_user_groups() else ("none",)
     )
-    active_group = st.session_state.get("group_filter")
+    active_group = get_active_group()
     query_groups = (active_group,) if active_group else groups
     _allowed = get_authorized_table_names(query_groups)
     if table_full_name not in _allowed:

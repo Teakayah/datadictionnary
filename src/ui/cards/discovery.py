@@ -11,13 +11,14 @@ button next to each post (the actual create dialog lives in
 from __future__ import annotations
 
 
+
 import html as _html
 import logging
 
 import pandas as pd
 import streamlit as st
 
-from src.auth import is_admin
+from src.auth import is_admin, get_active_group
 from src.cms import get_active_posts
 from src.ui.cards.cms_admin import _show_delete_cms_dialog
 from src.config import is_demo_mode
@@ -26,7 +27,7 @@ from src.db.queries import run_query, get_authorized_tables, get_authorized_tabl
 from src.i18n import t
 from src.notifications import get_unread_notifications, mark_all_read, mark_read
 from src.ui.cards._shared import _POST_COLOR, _dq_grade, _render_empty_state
-from src.personalization import _pref_delete, _pref_upsert
+from src.personalization import _pref_delete, _pref_upsert, get_bookmarks, get_col_bookmarks, get_recent_views
 
 
 def _render_dq_badge(dq_score: str, dq_status: str) -> str:
@@ -69,11 +70,11 @@ def _render_bookmark_button(is_bk: bool, full_name: str, key_prefix: str) -> Non
     )
     if st.button(label, key=f"{key_prefix}_bk_{full_name}", help=help_text, use_container_width=True):
         if is_bk:
-            st.session_state.get("bookmarks", set()).discard(full_name)
+            get_bookmarks().discard(full_name)
             _pref_delete(full_name, "bookmark")
             st.toast(t("personalization.bookmark_removed"))
         else:
-            st.session_state.get("bookmarks", set()).add(full_name)
+            get_bookmarks().add(full_name)
             _pref_upsert(full_name, "bookmark")
             st.toast(t("personalization.bookmark_added"))
         st.rerun()
@@ -86,7 +87,7 @@ def _render_table_card(row: dict, key_prefix: str) -> None:
     _time_str = format_date(_ts)
     _full  = str(row.get("full_name", ""))
     _tname = str(row.get("table_name", ""))
-    _is_bk = _full in st.session_state.get("bookmarks", set())
+    _is_bk = _full in get_bookmarks()
 
     _dq_score  = str(row.get("dq_score", "") or "")
     _dq_status = str(row.get("dq_status", "") or "")
@@ -286,7 +287,7 @@ def _render_notable_tab(groups):
         f'style="margin-bottom:0;color:#14110C">{t("personalization.tab_notable")}</span></div>',
         unsafe_allow_html=True,
     )
-    primary_group = st.session_state.get("group_filter")
+    primary_group = get_active_group()
     if not primary_group and groups:
         primary_group = groups[0]
 
@@ -317,7 +318,7 @@ def _render_bookmarks_tab(groups):
         f'style="margin-bottom:0;color:#14110C">{t("personalization.tab_bookmarks")}</span></div>',
         unsafe_allow_html=True,
     )
-    bookmarks = st.session_state.get("bookmarks", set())
+    bookmarks = get_bookmarks()
     if not bookmarks:
         _render_empty_state("★", t("personalization.no_bookmarks"))
     else:
@@ -342,7 +343,7 @@ def _render_bookmarks_tab(groups):
             logging.error("Error loading bookmarks: %s", e)
             st.error(t("discovery.load_error"))
 
-    col_bookmarks = st.session_state.get("col_bookmarks", set())
+    col_bookmarks = get_col_bookmarks()
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:32px">'
         f'<span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">'
@@ -414,7 +415,7 @@ def _get_recommended_tables(authorized_full_names: set, top_n: int = 10) -> list
         if result is None or result.empty:
             return []
         # Filter to only authorized tables the user hasn't recently viewed
-        recent = set(st.session_state.get("recent_views", [])[:5])
+        recent = set(get_recent_views()[:5])
         # ⚡ Bolt: Removed redundant and slow string split/join operations on object_name
         return [
             str(r.get("object_name", ""))
@@ -469,7 +470,7 @@ def _render_recent_tab(groups):
         f'style="margin-bottom:0;color:#14110C">{t("personalization.tab_recent")}</span></div>',
         unsafe_allow_html=True,
     )
-    recent_views = st.session_state.get("recent_views", [])
+    recent_views = get_recent_views()
     if not recent_views:
         _render_empty_state("⏱", t("personalization.no_recent"))
     else:

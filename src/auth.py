@@ -375,7 +375,7 @@ def is_pipeline_user() -> bool:
     pipeline_groups = _parse_groups(os.getenv("PIPELINE_GROUPS", ""))
     if not pipeline_groups:
         return False
-    user_groups = st.session_state.get("user_groups") or []
+    user_groups = get_user_groups()
     return not pipeline_groups.isdisjoint(user_groups)
 
 
@@ -388,4 +388,12 @@ def is_admin() -> bool:
     admin_groups = _parse_groups(os.getenv("ADMIN_GROUPS", ""))
     if not admin_groups:
         return False
-    return not admin_groups.isdisjoint(st.session_state.get("user_groups", []))
+    return not admin_groups.isdisjoint(get_user_groups())
+
+def get_active_group():
+    """Return the currently selected group filter, or None if none selected."""
+    return st.session_state.get("group_filter")
+
+def get_user_groups():
+    """Return the user's groups list, or empty list if none."""
+    return st.session_state.get("user_groups", [])

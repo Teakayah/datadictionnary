@@ -1,5 +1,5 @@
-from __future__ import annotations
 """Search tab — result cards and table detail panel."""
+from __future__ import annotations
 
 
 import html as _html
@@ -19,8 +19,8 @@ from src.db.queries import (
 )
 from src.analytics import SearchEvent, track_search
 from src.audit import get_column_overrides, get_table_columns
-from src.personalization import _pref_upsert, _pref_delete, is_power_user
-from src.auth import is_admin
+from src.personalization import _pref_upsert, _pref_delete, is_power_user, get_bookmarks, get_col_bookmarks, get_recent_views
+from src.auth import is_admin, get_active_group
 from src.comments import get_table_comments, save_comment
 from src.audit import save_business_name, get_table_steward
 from src.ui.cards._shared import _dq_grade, _compute_live_completeness
@@ -201,7 +201,7 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
                     )
 
         # Bookmark + full_name row
-        _is_bk = full_name in st.session_state.get("bookmarks", set())
+        _is_bk = full_name in get_bookmarks()
         _c_code, _c_bk = st.columns([11, 1], gap="small")
         with _c_code:
             st.code(full_name, language=None)
@@ -213,17 +213,17 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
                 use_container_width=True,
             ):
                 if _is_bk:
-                    st.session_state.get("bookmarks", set()).discard(full_name)
+                    get_bookmarks().discard(full_name)
                     _pref_delete(full_name, "bookmark")
                     st.toast(t("personalization.bookmark_removed"))
                 else:
-                    st.session_state.get("bookmarks", set()).add(full_name)
+                    get_bookmarks().add(full_name)
                     _pref_upsert(full_name, "bookmark")
                     st.toast(t("personalization.bookmark_added"))
                 st.rerun()
 
         # Record recently viewed
-        _rv = st.session_state.get("recent_views", [])
+        _rv = get_recent_views()
         if not _rv or _rv[0] != full_name:
             st.session_state.recent_views = [full_name] + [x for x in _rv if x != full_name][:49]
             _pref_upsert(full_name, "recent")
@@ -306,14 +306,14 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
                         st.rerun()
 
                 _col_bk_id = f"{full_name}::{_cname}"
-                _is_col_bk = _col_bk_id in st.session_state.get("col_bookmarks", set())
+                _is_col_bk = _col_bk_id in get_col_bookmarks()
                 if _r_star.button("★" if _is_col_bk else "☆", key=f"colbk_{_edit_key}", help=t("personalization.remove_bookmark") if _is_col_bk else t("personalization.add_bookmark"), use_container_width=True):
                     if _is_col_bk:
-                        st.session_state.get("col_bookmarks", set()).discard(_col_bk_id)
+                        get_col_bookmarks().discard(_col_bk_id)
                         _pref_delete(_col_bk_id, "col_bookmark")
                         st.toast(t("personalization.bookmark_removed"))
                     else:
-                        st.session_state.get("col_bookmarks", set()).add(_col_bk_id)
+                        get_col_bookmarks().add(_col_bk_id)
                         _pref_upsert(_col_bk_id, "col_bookmark")
                         st.toast(t("personalization.bookmark_added"))
                     st.rerun()
@@ -604,7 +604,7 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
 
 def render_search_page(query_groups: tuple) -> None:
     """Render the search tab: hero, search box, result cards, and table detail panel."""
-    active_group = st.session_state.get("group_filter")
+    active_group = get_active_group()
 
     try:
         _all_tables = get_authorized_tables(query_groups)

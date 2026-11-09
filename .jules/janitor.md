@@ -33,3 +33,6 @@
 ## 2024-10-26 - Test Duplication Cleanup
 **Learning:** Found significant duplicate test case definitions (`test_discovery_bookmarks_tab_df_empty` and others) appended at the bottom of `tests/test_ui_discovery.py`, likely caused by append operations, along with duplicated module-level imports in `tests/test_ui_search_downstream.py`.
 **Action:** Removed all duplicated function definitions using AST parsing and fixed duplicate imports to keep tests clean and avoid F811 linter warnings.
+## 2026-11-09 - Consolidate session_state accesses into getters
+**Learning:** The application retrieved user session state such as `bookmarks`, `col_bookmarks`, `recent_views`, and `group_filter` directly via `st.session_state.get()` across multiple files (`src/pages/search.py`, `src/ui/cards/discovery.py`, `src/pages/glossary.py`, `app.py`). This leads to scattered access patterns and potential inconsistencies.
+**Action:** Centralized access by creating getter functions (`get_bookmarks`, `get_col_bookmarks`, `get_recent_views`, `get_active_group`) in `src/personalization.py` and `src/auth.py` and updating callers to use these methods, making state retrieval uniform and easier to test/refactor.

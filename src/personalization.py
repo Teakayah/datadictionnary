@@ -19,7 +19,7 @@ import os
 
 import streamlit as st
 
-from src.auth import is_admin, _parse_groups
+from src.auth import is_admin, _parse_groups, get_user_groups
 from src.config import is_demo_mode
 from src.db.duckdb_adapter import _db_write_lock
 from src.db.queries import _get_write_connection, get_db_connection
@@ -185,4 +185,16 @@ def is_power_user() -> bool:
     editor_groups = _parse_groups(os.getenv("EDITOR_GROUPS", ""))
     if not editor_groups:
         return False
-    return not editor_groups.isdisjoint(st.session_state.get("user_groups", []))
+    return not editor_groups.isdisjoint(get_user_groups())
+
+def get_bookmarks():
+    """Return the user's table bookmarks set."""
+    return st.session_state.get("bookmarks", set())
+
+def get_col_bookmarks():
+    """Return the user's column bookmarks set."""
+    return st.session_state.get("col_bookmarks", set())
+
+def get_recent_views():
+    """Return the user's recent views list."""
+    return st.session_state.get("recent_views", [])

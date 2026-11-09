@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()  # must run before any src.* import so os.getenv() reads .env values
 
-from src.auth import check_auth, is_admin, is_pipeline_user, render_signin_page  # noqa: E402
+from src.auth import check_auth, is_admin, is_pipeline_user, render_signin_page, get_active_group, get_user_groups  # noqa: E402
 from src.ui.header import render_header, render_footer, LOGO_MARK_SVG  # noqa: E402
 
 # ── Internationalisation (i18n) ───────────────────────────────────────────────
@@ -145,8 +145,8 @@ render_header(
 )
 st.markdown('<div class="dd-page" role="main" aria-live="polite">', unsafe_allow_html=True)
 
-groups = tuple(st.session_state.get("user_groups", [])) if st.session_state.get("user_groups") else ("none",)
-active_group = st.session_state.get("group_filter")
+groups = tuple(get_user_groups()) if get_user_groups() else ("none",)
+active_group = get_active_group()
 query_groups = (active_group,) if active_group else groups
 
 

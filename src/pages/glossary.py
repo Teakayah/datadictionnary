@@ -11,7 +11,7 @@ import streamlit.components.v1 as components
 from src.db.queries import get_authorized_table_names
 from src.demo.data import _DEMO_GLOSSARY
 from src.i18n import t
-from src.personalization import _pref_upsert, _pref_delete
+from src.personalization import _pref_upsert, _pref_delete, get_bookmarks
 
 
 
@@ -49,7 +49,7 @@ def _render_term_details(term_row, _authorized_fns: set) -> None:
     for table_fn in term_row["related_tables"]:
         if table_fn not in _authorized_fns:
             continue  # hide tables the current user cannot access
-        _gloss_bk = table_fn in st.session_state.get("bookmarks", set())
+        _gloss_bk = table_fn in get_bookmarks()
         _c_tbl, _c_star = st.columns([11, 1], gap="small")
         with _c_tbl:
             if st.button(t("discovery.explore_button", name=table_fn.split('.')[-1]), key=f"gloss_link_{table_fn}", help=t("search.view_details_help"), use_container_width=True, type="secondary"):
@@ -60,11 +60,11 @@ def _render_term_details(term_row, _authorized_fns: set) -> None:
         with _c_star:
             if st.button("★" if _gloss_bk else "☆", key=f"gloss_bk_{table_fn}", help=t("personalization.remove_bookmark") if _gloss_bk else t("personalization.add_bookmark"), use_container_width=True):
                 if _gloss_bk:
-                    st.session_state.get("bookmarks", set()).discard(table_fn)
+                    get_bookmarks().discard(table_fn)
                     _pref_delete(table_fn, "bookmark")
                     st.toast(t("personalization.bookmark_removed"))
                 else:
-                    st.session_state.get("bookmarks", set()).add(table_fn)
+                    get_bookmarks().add(table_fn)
                     _pref_upsert(table_fn, "bookmark")
                     st.toast(t("personalization.bookmark_added"))
                 st.rerun()
