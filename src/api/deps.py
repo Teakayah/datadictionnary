@@ -22,6 +22,6 @@ async def get_current_user(
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(exc),
+            detail="Authentication failed",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc

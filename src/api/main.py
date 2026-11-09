@@ -159,7 +159,7 @@ class _MCPAuthMiddleware:
             await self._reject(send, 500, "Authentication service misconfigured")
             return
         except ValueError as exc:
-            await self._reject(send, 401, str(exc))
+            await self._reject(send, 401, "Authentication failed")
             return
 
         token = _current_user.set(user)

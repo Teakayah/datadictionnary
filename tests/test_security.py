@@ -389,7 +389,7 @@ class TestMCPAuthIndependence:
                     headers={"Content-Type": "application/json", "Authorization": "Bearer fake_token"},
                 )
             assert resp.status_code == 401
-            assert resp.json() == {"detail": "Invalid signature"}
+            assert resp.json() == {"detail": "Authentication failed"}
 
     def test_mcp_validate_token_runtime_error(self, monkeypatch):
         """MCP must return 500 with a safe message when validate_token raises RuntimeError."""

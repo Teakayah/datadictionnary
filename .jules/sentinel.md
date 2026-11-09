@@ -54,3 +54,7 @@
 **Vulnerability:** SQL Injection via path breakout in DuckDB `ATTACH` queries using `$token$` quoting.
 **Learning:** DuckDB does not support standard parameterized queries (like `?`) for `ATTACH` statements. When using f-strings to format user-provided paths, dollar-quoting (`$token$`) is insecure if the token itself can be injected by the user to break out of the string literal.
 **Prevention:** Always use single quotes for string literals in dynamically constructed `ATTACH` statements and sanitize paths by doubling up single quotes (`replace("'", "''")`) to prevent string breakout.
+## 2026-09-29 - Prevent Information Leakage in Authentication Errors
+**Vulnerability:** Raw exception strings (`str(exc)`) were being passed directly to FastAPI `HTTPException` detail parameters and MCP `_reject` methods during token validation failures.
+**Learning:** Passing raw exception strings can inadvertently leak internal library details (such as `JWTError` specifics) to the client in HTTP 401 responses.
+**Prevention:** Always use generic, hardcoded error messages like 'Authentication failed' for unauthorized responses instead of passing `str(exc)`.
