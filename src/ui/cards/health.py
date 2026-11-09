@@ -183,7 +183,7 @@ def _render_priority_actions(undocumented: pd.DataFrame):
         # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
         for row_dict in undocumented.to_dict("records"):
             if st.button(
-                f"📄 {row_dict.get('table_name', '')}",
+                t("common.file_link", name=row_dict.get('table_name', '')),
                 key=f"health_fix_{row_dict.get('full_name', '')}",
                 use_container_width=True,
                 help=t("help.btn_priority_fix"),

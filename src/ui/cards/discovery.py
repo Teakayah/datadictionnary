@@ -49,7 +49,7 @@ def _render_dq_badge(dq_score: str, dq_status: str) -> str:
 def _render_navigation_button(table_name: str, full_name: str, key_prefix: str) -> None:
     """Render the navigation button to jump to table search details."""
     if st.button(
-        f"→ {table_name}",
+        t("common.arrow_link", name=table_name),
         key=f"{key_prefix}_open_{full_name}",
         help=t("search.view_details_help"),
         use_container_width=True, type="secondary",
@@ -221,7 +221,7 @@ def render_cms_banner() -> None:
 
         if post["post_type"] == "featured_table" and post.get("table_ref"):
             _tref = post["table_ref"]
-            if st.button(f"→ {_tref}", key=f"cms_nav_{post['post_id']}", help=t("search.view_details_help"), type="secondary"):
+            if st.button(t("common.arrow_link", name=_tref), key=f"cms_nav_{post['post_id']}", help=t("search.view_details_help"), type="secondary"):
                 st.query_params["tab"] = "search"
                 st.session_state["dd_search_override"] = _tref.split(".")[-1]
                 st.session_state["dd_nav_select"] = _tref
@@ -379,7 +379,7 @@ def _render_bookmarks_tab(groups):
                     unsafe_allow_html=True,
                 )
                 if st.button(
-                    f"→ {_bk_tbl_label}", key=f"colbk_open_{_bk_id}",
+                    t("common.arrow_link", name=_bk_tbl_label), key=f"colbk_open_{_bk_id}",
                     help=t("search.view_details_help"),
                     use_container_width=True, type="secondary",
                 ):

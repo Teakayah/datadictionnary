@@ -407,7 +407,11 @@
     "saved": "Changes saved.",
     "deleting": "Suppression...",
     "deleted": "Supprimé avec succès.",
-    "back_btn": "← Retour"
+    "back_btn": "← Retour",
+    "arrow_link": "→ {name}",
+    "folder_link": "📁 {name}",
+    "open_folder_link": "📂 {name}",
+    "file_link": "📄 {name}"
   },
   "language": {
     "en": "EN",
