@@ -31,7 +31,6 @@ class HealthMetrics:
     n_cols: int
 
 
-@st.cache_data(ttl="1h", show_spinner=False)
 def _get_table_health_stats(groups: tuple) -> pd.DataFrame:
     """Fetch table-level coverage stats grouped by schema with SQL push-down."""
     if is_demo_mode():
@@ -62,7 +61,6 @@ def _get_table_health_stats(groups: tuple) -> pd.DataFrame:
     return run_query(query, params)
 
 
-@st.cache_data(ttl="1h", show_spinner=False)
 def _get_column_health_stats(groups: tuple) -> tuple[int, int]:
     """Fetch catalog-wide column coverage stats with SQL push-down."""
     if is_demo_mode():
@@ -85,7 +83,6 @@ def _get_column_health_stats(groups: tuple) -> tuple[int, int]:
     return int(stats.iloc[0]['total']), int(stats.iloc[0]['with_desc'] or 0)
 
 
-@st.cache_data(ttl="1h", show_spinner=False)
 def _get_undocumented_priority(groups: tuple, limit: int = 5) -> pd.DataFrame:
     """Identify undocumented tables with SQL push-down."""
     if is_demo_mode():
