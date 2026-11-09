@@ -106,8 +106,13 @@ def _resolve_user_groups(claims: dict, access_token: str) -> list[str]:
 def _try_silent_refresh() -> bool:
     """Attempt a silent token refresh using MSAL's cached account.
 
-    Args:
-        None
+    WHY IT EXISTS:
+    Access tokens obtained via OIDC expire after a short period (typically 1 hour).
+    To avoid interrupting the user's session with frequent, explicit sign-in prompts,
+    we use the MSAL library's `acquire_token_silent` method. This method leverages
+    the cached refresh token to seamlessly acquire a new access token in the background.
+    If the silent refresh fails (e.g., the refresh token is also expired or revoked),
+    we fall back to a full re-authentication flow.
 
     Returns:
         bool: True if a fresh token was successfully retrieved and stored, False otherwise.
