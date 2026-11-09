@@ -1,10 +1,13 @@
 from unittest.mock import patch
-from streamlit.testing.v1 import AppTest
+
 import pandas as pd
+from streamlit.testing.v1 import AppTest
+
 
 def test_search_query_unauthorized():
     def render_search():
         import streamlit as st
+
         from src.pages.search import render_search_page
 
         st.session_state["user_email"] = "test@example.com"
@@ -55,6 +58,7 @@ def test_search_query_unauthorized():
 def test_search_group_filter_more_than_50():
     def render_search():
         import streamlit as st
+
         from src.pages.search import render_search_page
 
         # Set initial state
@@ -96,6 +100,7 @@ def test_search_group_filter_more_than_50():
 def test_search_query_more_than_50():
     def render_search():
         import streamlit as st
+
         from src.pages.search import render_search_page
 
         st.session_state["user_email"] = "test@example.com"
@@ -132,6 +137,7 @@ def test_search_query_more_than_50():
 def test_search_query_search_error():
     def render_search():
         import streamlit as st
+
         from src.pages.search import render_search_page
 
         st.session_state["user_email"] = "test@example.com"
@@ -162,6 +168,7 @@ def test_search_query_empty_full_name():
     # Arrange
     def render_search():
         import streamlit as st
+
         from src.pages.search import render_search_page
 
         st.session_state["user_email"] = "test@example.com"
@@ -204,6 +211,7 @@ def test_search_query_group_filter_empty_full_name():
     # Arrange
     def render_search():
         import streamlit as st
+
         from src.pages.search import render_search_page
 
         st.session_state["group_filter"] = "SELECT_ALL_USERS"
@@ -242,6 +250,7 @@ def test_search_query_group_filter_nan_full_name():
     # Arrange
     def render_search():
         import streamlit as st
+
         from src.pages.search import render_search_page
 
         st.session_state["group_filter"] = "SELECT_ALL_USERS"
@@ -280,10 +289,12 @@ def test_search_results_with_nan_score():
     # Arrange
 
     def run_detail_panel():
-        import pandas as pd
-        import numpy as np
-        import streamlit as st
         from unittest.mock import patch
+
+        import numpy as np
+        import pandas as pd
+        import streamlit as st
+
         from src.pages.search import _render_detail_panel
 
         row = pd.Series({
@@ -320,6 +331,7 @@ def test_search_results_with_nan_score():
 def test_live_completeness_exception():
     def render_detail_panel():
         import pandas as pd
+
         from src.pages.search import _render_detail_panel
         row = pd.Series({
             "catalog_name": "main",
@@ -356,12 +368,14 @@ def test_live_completeness_exception():
 
 
 def test_add_remove_bookmark():
-    from unittest.mock import patch, call
+    from unittest.mock import call, patch
+
     from streamlit.testing.v1 import AppTest
 
     def render_detail_panel():
-        import streamlit as st
         import pandas as pd
+        import streamlit as st
+
         from src.pages.search import _render_detail_panel
 
         st.session_state["user_email"] = "test@example.com"
@@ -410,12 +424,14 @@ def test_add_remove_bookmark():
         assert "personalization.bookmark_removed" in at.toast[-1].value
 
 def test_add_remove_col_bookmark():
-    from unittest.mock import patch, call
+    from unittest.mock import call, patch
+
     from streamlit.testing.v1 import AppTest
 
     def render_detail_panel():
-        import streamlit as st
         import pandas as pd
+        import streamlit as st
+
         from src.pages.search import _render_detail_panel
 
         st.session_state["user_email"] = "test@example.com"
@@ -473,12 +489,14 @@ def test_add_remove_col_bookmark():
         assert "personalization.bookmark_removed" in at.toast[-1].value
 
 def test_missing_coverage():
-    import pandas as pd
     from unittest.mock import patch
+
+    import pandas as pd
     from streamlit.testing.v1 import AppTest
 
     def render_search():
         import streamlit as st
+
         from src.pages.search import render_search_page
 
         st.session_state["user_email"] = "test@example.com"
@@ -547,13 +565,15 @@ def test_missing_coverage():
 
 
 def test_save_business_name_exceptions():
-    import pandas as pd
     from unittest.mock import patch
+
+    import pandas as pd
     from streamlit.testing.v1 import AppTest
 
     def render_detail_panel_wrapper():
-        import streamlit as st
         import pandas as pd
+        import streamlit as st
+
         from src.pages.search import _render_detail_panel
 
         row = pd.Series({
@@ -606,3 +626,233 @@ def test_save_business_name_exceptions():
         with patch("src.pages.search.save_business_name", side_effect=PermissionError("Permission Denied")):
             at.button(key="col_biz_save_main.sales.orders__col_1").click().run()
             assert any("editor.permission_error" in e.value for e in at.error)
+def test_search_ui_coverage_additions():
+    from unittest.mock import patch
+
+    import pandas as pd
+    from streamlit.testing.v1 import AppTest
+
+    # 1. Test test_save_business_name_exceptions
+    def render_detail_panel_wrapper():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com"
+        })
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["dd_user_groups"] = ["finance_dept_id"]
+
+        st.session_state["dd_col_edit_mode"] = "main.sales.orders__col_1"
+        _render_detail_panel(row, "main.sales.orders", ("finance_dept_id",))
+
+    at2 = AppTest.from_function(render_detail_panel_wrapper)
+
+    mock_cols = pd.DataFrame([{"column_name": "col_1", "data_type": "int", "comment": ""}])
+
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at2.run()
+
+        at2.text_input(key="col_biz_name_main.sales.orders__col_1").set_value("Biz").run()
+        at2.text_input(key="col_biz_def_main.sales.orders__col_1").set_value("Def").run()
+
+        with patch("src.pages.search.save_business_name", side_effect=ValueError("Validation Failed")):
+            at2.button(key="col_biz_save_main.sales.orders__col_1").click().run()
+            assert any("common.error" in e.value for e in at2.error)
+
+        at2.session_state["dd_col_edit_mode"] = "main.sales.orders__col_1"
+        at2.run()
+        with patch("src.pages.search.save_business_name", side_effect=Exception("Save Failed")):
+            at2.button(key="col_biz_save_main.sales.orders__col_1").click().run()
+            assert any("common.error" in e.value for e in at2.error)
+
+        at2.session_state["dd_col_edit_mode"] = "main.sales.orders__col_1"
+        at2.run()
+        with patch("src.pages.search.save_business_name", side_effect=PermissionError("Permission Denied")):
+            at2.button(key="col_biz_save_main.sales.orders__col_1").click().run()
+            assert any("editor.permission_error" in e.value for e in at2.error)
+
+    # 2. Test render downstream impact
+    mock_downstream = pd.DataFrame([
+        {"direction": "downstream", "entity_type": "certified"}
+    ])
+
+    at3 = AppTest.from_function(render_detail_panel_wrapper)
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.get_multi_hop_lineage", return_value=mock_downstream), \
+         patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at3.run()
+        html_contents = "".join([m.value for m in at3.markdown])
+        assert "detail.downstream_certified_warning" in html_contents
+
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.get_multi_hop_lineage", side_effect=Exception("Error")), \
+         patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at3.run()
+        html_contents = "".join([m.value for m in at3.markdown])
+        assert "detail.downstream_none" in html_contents
+
+    # 3. Test render grants interaction
+    mock_grants = pd.DataFrame([
+        {"principal": "finance_dept_id", "privilege": "SELECT"},
+        {"principal": "SELECT_ALL_USERS", "privilege": "SELECT"}
+    ])
+
+    at4 = AppTest.from_function(render_detail_panel_wrapper)
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.run_query", return_value=mock_grants), \
+         patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at4.run()
+        at4.button(key="grant_main.sales.orders_finance_dept_id_SELECT").click().run()
+        assert at4.session_state["group_filter"] == "finance_dept_id"
+
+        at4.button(key="grant_main.sales.orders_public_SELECT").click().run()
+        assert at4.session_state["group_filter"] == "SELECT_ALL_USERS"
+
+
+def test_comment_input_box_interaction():
+    from unittest.mock import patch
+
+    from streamlit.testing.v1 import AppTest
+
+    def render_comment_box():
+        import streamlit as st
+        from src.pages.search import _render_comment_form
+        st.session_state["user_email"] = "test@example.com"
+
+        _render_comment_form("main.sales.orders", "test@example.com", "test_suffix")
+        _render_comment_form("main.sales.orders", "test@example.com", "test_reply", "parent_id_123")
+
+    at = AppTest.from_function(render_comment_box)
+
+    with patch("src.pages.search.save_comment") as mock_save, \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        at.button(key="dd_comment_btn_test_suffix").click().run()
+
+        at.text_area(key="dd_comment_text_test_suffix").set_value("  ").run()
+        at.button(key="dd_comment_send_test_suffix").click().run()
+        assert any("comment.empty_error" in w.value for w in at.warning)
+
+        at.text_area(key="dd_comment_text_test_suffix").set_value("My comment").run()
+        at.button(key="dd_comment_send_test_suffix").click().run()
+        mock_save.assert_called_once_with("TABLE", "main.sales.orders", "My comment", "test@example.com", parent_comment_id=None)
+
+        assert "dd_comment_open_test_suffix" not in at.session_state
+
+        at.button(key="dd_comment_btn_test_suffix").click().run()
+        at.text_area(key="dd_comment_text_test_suffix").set_value("My comment 2").run()
+        with patch("src.pages.search.save_comment", side_effect=Exception("Save Failed")):
+            at.button(key="dd_comment_send_test_suffix").click().run()
+            assert any("common.error" in e.value for e in at.error)
+
+        at.button(key="dd_comment_cancel_test_suffix").click().run()
+        assert "dd_comment_open_test_suffix" not in at.session_state
+
+        at.button(key="dd_comment_btn_test_reply").click().run()
+        at.button(key="dd_comment_cancel_test_reply").click().run()
+        assert "dd_comment_open_test_reply" not in at.session_state
+
+def test_save_business_name_success_and_cancel_and_edit_by():
+    from unittest.mock import patch
+    from datetime import datetime
+    import pandas as pd
+    from streamlit.testing.v1 import AppTest
+
+    def render_detail_panel_wrapper():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com"
+        })
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["dd_user_groups"] = ["finance_dept_id"]
+
+        _render_detail_panel(row, "main.sales.orders", ("finance_dept_id",))
+
+    at = AppTest.from_function(render_detail_panel_wrapper)
+
+    mock_cols = pd.DataFrame([
+        {"column_name": "col_1", "data_type": "int", "comment": ""}
+    ])
+
+    mock_overrides = {
+        "col_1": {
+            "business_name": "Col 1 Biz",
+            "business_definition": "Def",
+            "edited_by": "user1@example.com",
+            "edited_at": datetime.now()
+        }
+    }
+
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+         patch("src.pages.search.get_column_overrides", return_value=mock_overrides), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search.save_business_name") as mock_save, \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        at.button(key="col_edit_main.sales.orders__col_1").click().run()
+        assert at.session_state["dd_col_edit_mode"] == "main.sales.orders__col_1"
+
+        at.text_input(key="col_biz_name_main.sales.orders__col_1").set_value("New Biz Name").run()
+        at.text_input(key="col_biz_def_main.sales.orders__col_1").set_value("New Def").run()
+
+        at.button(key="col_biz_save_main.sales.orders__col_1").click().run()
+        mock_save.assert_called_once_with("main.sales.orders", "col_1", "New Biz Name", "New Def")
+        assert "dd_col_edit_mode" not in at.session_state
+
+        at.button(key="col_edit_main.sales.orders__col_1").click().run()
+        assert at.session_state["dd_col_edit_mode"] == "main.sales.orders__col_1"
+        at.button(key="col_biz_cancel_main.sales.orders__col_1").click().run()
+        assert "dd_col_edit_mode" not in at.session_state
