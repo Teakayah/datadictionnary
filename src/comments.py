@@ -1,5 +1,5 @@
-from __future__ import annotations
 """Comments and discussions functionality."""
+from __future__ import annotations
 
 import os
 import logging

@@ -1,4 +1,3 @@
-from __future__ import annotations
 """Public API for in-app bookmark-change notifications.
 
 The sync daemon writes notification rows when a bookmarked table is
@@ -10,6 +9,7 @@ Demo mode keeps notifications in ``st.session_state['_demo_notifications']``
 (no persistence across reloads); otherwise rows live in
 ``user_data.notifications`` (DuckDB).
 """
+from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
