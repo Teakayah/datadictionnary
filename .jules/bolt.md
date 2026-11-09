@@ -137,3 +137,6 @@
 ## 2024-10-25 - Remove Redundant Cache Wrappers
 **Learning:** Adding `@st.cache_data` locally around database functions that are already cached at their source (e.g. `get_authorized_table_names` in `src/db/queries.py`) creates duplicate caching layers and unnecessary memory overhead.
 **Action:** Import and use the base function directly instead of wrapping it in a redundant local `@st.cache_data` decorator within UI components.
+## 2024-10-26 - Optimize Pandas isin with numpy arrays
+**Learning:** Using Pandas `.isin()` directly on a Pandas Series for filtering involves significant overhead due to object comparisons and index alignment.
+**Action:** Always cast the Series to a numpy array via `.to_numpy()` and use `np.isin()` when checking membership against a list or set to skip index alignment and leverage optimized C-level arrays.
