@@ -10,7 +10,6 @@ caching, no demo-mode branching — because the daemon never runs inside a
 Streamlit context.
 """
 from __future__ import annotations
-from typing import Optional
 from collections.abc import Callable
 
 
@@ -33,7 +32,7 @@ _DR_TABLES: tuple[tuple[str, str], ...] = (
 )
 
 
-def _databricks_query(sql: str, params: Optional[dict] = None) -> Optional[pd.DataFrame]:
+def _databricks_query(sql: str, params: dict | None = None) -> pd.DataFrame | None:
     """Run a query against Databricks. Returns None if creds are unset.
 
     DR resync is best-effort — when DATABRICKS_* env vars are missing (e.g.
@@ -53,7 +52,7 @@ def _databricks_query(sql: str, params: Optional[dict] = None) -> Optional[pd.Da
             return cur.fetchall_as_pandas()
 
 
-def _get_all_local_max_ts(local_conn) -> dict[str, Optional[str]]:
+def _get_all_local_max_ts(local_conn) -> dict[str, str | None]:
     """Fetch the max timestamp for all DR tables in a single query."""
     queries = [
         f"SELECT '{tbl}' as tbl, MAX({ts_col}) as max_ts FROM user_data.{tbl}"
@@ -106,7 +105,7 @@ def _merge_into_local(local_conn, table: str, df: pd.DataFrame) -> None:
 
 def run_dr_resync(
     local_conn,
-    status_setter: Optional[Callable[[str], None]] = None,
+    status_setter: Callable[[str], None] | None = None,
 ) -> str:
     """Pull missing rows from Databricks back into local user_data.
 

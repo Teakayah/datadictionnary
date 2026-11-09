@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Protocol, List
+from typing import Protocol
 import logging
 
 from src.config import DATABRICKS_EMBEDDING_ENDPOINT, ENABLE_SEMANTIC_SEARCH, is_demo_mode
@@ -9,11 +9,11 @@ from src.db.queries import run_query
 class EmbeddingEngine(Protocol):
     """Protocol for generating semantic embeddings from text."""
     
-    def embed_text(self, text: str) -> List[float]:
+    def embed_text(self, text: str) -> list[float]:
         """Convert a string into a vector of floats."""
         ...
 
-    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Convert a list of strings into a list of vectors."""
         ...
 
@@ -31,10 +31,10 @@ class DatabricksEmbeddingEngine:
             self._client = WorkspaceClient()
         return self._client
 
-    def embed_text(self, text: str) -> List[float]:
+    def embed_text(self, text: str) -> list[float]:
         return self.embed_batch([text])[0]
 
-    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
         try:
@@ -53,10 +53,10 @@ class DatabricksEmbeddingEngine:
 class MockEmbeddingEngine:
     """Mock implementation for scaffolding; returns fixed-size dummy vectors."""
     
-    def embed_text(self, text: str) -> List[float]:
+    def embed_text(self, text: str) -> list[float]:
         return self.embed_batch([text])[0]
 
-    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:
         # Return deterministic dummy vectors (384-dim)
         res = []
         for t in texts:
@@ -70,7 +70,7 @@ def get_embedding_engine() -> EmbeddingEngine:
         return DatabricksEmbeddingEngine(DATABRICKS_EMBEDDING_ENDPOINT)
     return MockEmbeddingEngine()
 
-def generate_table_embeddings(tables: List[dict]) -> List[dict]:
+def generate_table_embeddings(tables: list[dict]) -> list[dict]:
     """Generate embeddings for a list of tables based on their name and description.
 
     Args:
@@ -99,7 +99,7 @@ def generate_table_embeddings(tables: List[dict]) -> List[dict]:
         })
     return result
 
-def semantic_search(query: str, top_n: int = 10) -> List[str]:
+def semantic_search(query: str, top_n: int = 10) -> list[str]:
     """Perform a vector similarity search using the local DuckDB cache.
 
     Args:

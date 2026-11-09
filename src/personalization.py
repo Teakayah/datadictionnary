@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Optional
 """User preferences and personalization functions.
 
 Each storage helper branches on ``is_demo_mode()``: demo mode is a no-op
@@ -110,7 +109,7 @@ def _sync_prefs_to_session() -> None:
 _EDITING_ENABLED_KEY = "editing_enabled"
 
 
-def _get_site_setting(key: str) -> Optional[str]:
+def _get_site_setting(key: str) -> str | None:
     """Read a global key/value setting; None when unset or in demo mode."""
     if is_demo_mode():
         return None

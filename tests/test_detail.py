@@ -57,7 +57,7 @@ def test_render_data_sample_unauthorized_unit():
 # --- Functional Tests (AppTest) ---
 
 # Get translated strings for exact assertions based on the locale source of truth
-with open("locale/en.json", "r") as f:
+with open("locale/en.json") as f:
     en_locale = json.load(f)
 
 # Mocked UI Wrapper for testing dialogs

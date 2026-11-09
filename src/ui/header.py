@@ -11,7 +11,6 @@ Public API:
 """
 from __future__ import annotations
 
-from typing import Optional
 import html as _html
 import json as _json
 
@@ -134,7 +133,7 @@ def _inject_wiring_js(tabs: list[str]) -> None:
 
 
 def render_header(
-    user_name: Optional[str] = None,
+    user_name: str | None = None,
     active_tab: str = "search",
     show_admin: bool = False,
     show_pipelines: bool = False

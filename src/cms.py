@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Optional
 """CMS data layer — admin-authored posts shown as a banner on the Discovery tab.
 
 Each function branches on ``is_demo_mode()``: demo mode keeps posts in
@@ -16,7 +15,7 @@ Adding a new CMS field: update the ``post`` dict in ``create_post`` and
 import logging
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone; UTC = timezone.utc
+from datetime import datetime, timedelta, UTC; UTC = UTC
 
 import streamlit as st
 
@@ -25,7 +24,7 @@ from src.config import is_demo_mode
 from src.db.duckdb_adapter import _db_write_lock
 from src.db.queries import _get_write_connection, get_db_connection
 
-_EXPIRY_DAYS: dict[str, Optional[int]] = {
+_EXPIRY_DAYS: dict[str, int | None] = {
     "2_days":  2,
     "7_days":  7,
     "30_days": 30,
@@ -95,9 +94,9 @@ class PostParams:
     post_type: str
     title: str
     body: str
-    table_ref: Optional[str]
+    table_ref: str | None
     author_email: str
-    expiry_days: Optional[int]
+    expiry_days: int | None
 
 def create_post(params: PostParams) -> None:
     """Persist a new CMS post.

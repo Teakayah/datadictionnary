@@ -16,7 +16,6 @@ overrides are joined back into the core search and catalog queries in
 ``src.db.queries``, providing immediate feedback for user edits.
 """
 from dataclasses import dataclass
-from typing import Optional
 
 
 import logging
@@ -144,8 +143,8 @@ def log_audit_event(
 
 def save_table_metadata(
     table_full_name: str,
-    description: Optional[str] = None,
-    steward_email: Optional[str] = None,
+    description: str | None = None,
+    steward_email: str | None = None,
 ) -> None:
     """Persist table description/steward locally and enqueue for Databricks sync.
 

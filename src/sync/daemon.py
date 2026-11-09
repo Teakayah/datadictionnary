@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Optional
 """Sidecar sync worker — long-lived process that drains user_data.pending_sync
 into Databricks and runs DR resync.
 
@@ -29,7 +28,7 @@ import signal
 import sys
 import threading
 import time
-from datetime import datetime, timezone; UTC = timezone.utc
+from datetime import datetime, UTC; UTC = UTC
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -170,7 +169,7 @@ def _silence_streamlit_warnings() -> None:
         logging.getLogger(name).setLevel(logging.ERROR)
 
 
-def run(once: bool = False, healthz_port: Optional[int] = None) -> int:
+def run(once: bool = False, healthz_port: int | None = None) -> int:
     """Daemon entry point. Returns 0 on graceful shutdown."""
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
@@ -218,7 +217,7 @@ def run(once: bool = False, healthz_port: Optional[int] = None) -> int:
     return 0
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="sync-daemon")
     parser.add_argument(
         "--once", action="store_true",

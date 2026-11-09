@@ -8,12 +8,12 @@ Databricks/ADF/ADO management APIs) lives below the storage section.
 """
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 
 import logging
 import uuid
-from datetime import datetime, timezone; UTC = timezone.utc
+from datetime import datetime, UTC; UTC = UTC
 
 import streamlit as st
 
@@ -149,14 +149,14 @@ class PipelineDefParams:
     backend: str
     created_by: str
     description: str = ""
-    databricks_job_id: Optional[str] = None
-    adf_subscription_id: Optional[str] = None
-    adf_resource_group: Optional[str] = None
-    adf_factory_name: Optional[str] = None
-    adf_pipeline_name: Optional[str] = None
-    ado_organization: Optional[str] = None
-    ado_project: Optional[str] = None
-    ado_pipeline_id: Optional[str] = None
+    databricks_job_id: str | None = None
+    adf_subscription_id: str | None = None
+    adf_resource_group: str | None = None
+    adf_factory_name: str | None = None
+    adf_pipeline_name: str | None = None
+    ado_organization: str | None = None
+    ado_project: str | None = None
+    ado_pipeline_id: str | None = None
 
 
 def create_pipeline_def(params: PipelineDefParams) -> None:
@@ -218,7 +218,7 @@ def delete_pipeline_def(pipeline_id: str) -> None:
 
 # ── Run state persistence ─────────────────────────────────────────────────────
 
-def get_active_run(pipeline_id: str) -> Optional[dict]:
+def get_active_run(pipeline_id: str) -> dict | None:
     """Return the active run for a pipeline, or None if no run is in flight."""
     if is_demo_mode():
         return st.session_state.get(_demo_run_key(pipeline_id))

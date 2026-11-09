@@ -17,6 +17,7 @@ import streamlit as st
 from src.cms import _EXPIRY_DAYS, PostParams, create_post, delete_post, get_all_posts
 from src.i18n import t
 from src.ui.cards._shared import _POST_COLOR, _render_empty_state
+from datetime import UTC
 
 
 @st.dialog(t("cms.confirm_delete_title"))
@@ -132,7 +133,7 @@ def _render_admin_cms_section():
         expires  = post["expires_at"]
         date_str = format_date(created)
         exp_str  = format_date(expires) if expires else t("cms.no_expiry")
-        from datetime import datetime, timezone; UTC = timezone.utc
+        from datetime import datetime, UTC
         if expires is None:
             is_expired = False
         else:

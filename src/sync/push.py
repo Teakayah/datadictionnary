@@ -1,13 +1,12 @@
 """Queue and Push logic for Databricks write-back."""
 from __future__ import annotations
-from typing import Optional
 
 import json
 import logging
 import os
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import _get_write_connection
@@ -98,7 +97,7 @@ def _split_full_name(table_full_name: str) -> list[str]:
     return parts
 
 
-def enqueue_sync(sync_type: str, table_full_name: Optional[str], payload: dict, queued_by: str) -> None:
+def enqueue_sync(sync_type: str, table_full_name: str | None, payload: dict, queued_by: str) -> None:
     """Add an action to the Databricks write-back queue.
 
     For metadata sync types ('COLUMN_DEF', 'TABLE_DESC', 'STEWARD'), this method
@@ -171,7 +170,7 @@ def enqueue_table_business_name_sync(
     )
 
 
-def _push_to_databricks(sync_type: str, table_full_name: Optional[str], payload: dict) -> None:
+def _push_to_databricks(sync_type: str, table_full_name: str | None, payload: dict) -> None:
     """Generalized dispatcher to push different types of changes to Databricks.
 
     Executes the appropriate SQL command against the Databricks SQL Warehouse
@@ -354,7 +353,7 @@ def _notify_bookmarkers(conn, table_full_name: str, sync_type: str, payload: dic
             return
 
         summary = _build_summary(sync_type, payload)
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now(UTC).replace(tzinfo=None)
 
         params_list = []
         for (user_oid,) in rows:

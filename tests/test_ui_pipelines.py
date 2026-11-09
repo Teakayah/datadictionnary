@@ -5,7 +5,7 @@ from src.pipelines import PipelineDefParams
 import pytest
 from streamlit.testing.v1 import AppTest
 
-with open("locale/en.json", "r") as f:
+with open("locale/en.json") as f:
     en_locale = json.load(f)
 
 def create_dialog_app():

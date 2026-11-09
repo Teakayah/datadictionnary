@@ -9,7 +9,6 @@ import asyncio
 import json
 import logging
 from contextvars import ContextVar
-from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
@@ -20,7 +19,7 @@ from src.cache import redis_cache
 logger = logging.getLogger(__name__)
 
 # Populated by MCPAuthMiddleware before each MCP request
-_current_user: ContextVar[Optional[AuthenticatedUser]] = ContextVar(
+_current_user: ContextVar[AuthenticatedUser | None] = ContextVar(
     "mcp_user", default=None
 )
 
@@ -101,8 +100,8 @@ async def get_table_details(table_full_name: str) -> str:
 
 @mcp.tool()
 async def list_tables(
-    catalog: Optional[str] = None,
-    schema: Optional[str] = None,
+    catalog: str | None = None,
+    schema: str | None = None,
 ) -> str:
     """List all tables you are authorized to access, optionally filtered.
 

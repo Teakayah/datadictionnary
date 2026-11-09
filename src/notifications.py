@@ -12,7 +12,7 @@ Demo mode keeps notifications in ``st.session_state['_demo_notifications']``
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from src.config import is_demo_mode
 
@@ -29,7 +29,7 @@ def _demo_store() -> dict[str, dict]:
 
 
 def _now():
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def get_unread_notifications(user_oid: str, limit: int = 20) -> list[dict]:

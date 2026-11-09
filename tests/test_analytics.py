@@ -7,7 +7,7 @@ Covers both branches:
 
 import os
 import tempfile
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, UTC
 from unittest.mock import patch
 
 import duckdb
@@ -24,7 +24,7 @@ from src.analytics import (
 
 def test_demo_analytics_alerts():
     st.session_state.demo_analytics = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     with patch("src.analytics._use_demo_backend", return_value=True):
         # 1. term1: first search 8 days ago, last 2 days ago (should trigger)
@@ -170,7 +170,7 @@ def test_track_search_duckdb_path():
         with duckdb.connect(db_path) as conn:
             conn.execute("CREATE SCHEMA IF NOT EXISTS user_data")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         event = SearchEvent("new_term", 10, "u1@test.com", now)
 
         with patch("src.analytics._use_demo_backend", return_value=False), \
@@ -199,7 +199,7 @@ def test_track_search_duckdb_path_error():
     temp_dir = tempfile.mkdtemp()
     db_path = os.path.join(temp_dir, "test_analytics_track.duckdb")
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         event = SearchEvent("new_term", 10, "u1@test.com", now)
 
         with patch("src.analytics._use_demo_backend", return_value=False), \
@@ -224,8 +224,8 @@ def test_track_search_duckdb_path_error():
 
 def test_demo_zero_result_searches():
     st.session_state.demo_analytics = [
-        {"query": "term1", "results_count": 0, "user_email": "u@test.com", "timestamp": datetime.now(timezone.utc) - timedelta(days=1)},
-        {"query": "term2", "results_count": 5, "user_email": "u@test.com", "timestamp": datetime.now(timezone.utc)}
+        {"query": "term1", "results_count": 0, "user_email": "u@test.com", "timestamp": datetime.now(UTC) - timedelta(days=1)},
+        {"query": "term2", "results_count": 5, "user_email": "u@test.com", "timestamp": datetime.now(UTC)}
     ]
     with patch("src.analytics._use_demo_backend", return_value=True):
         zeros = get_zero_result_searches(limit=10)
@@ -235,7 +235,7 @@ def test_demo_zero_result_searches():
 
 def test_demo_track_search():
     st.session_state.pop("demo_analytics", None)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     event = SearchEvent("new_term", 10, "u1@test.com", now)
 
     with patch("src.analytics._use_demo_backend", return_value=True):

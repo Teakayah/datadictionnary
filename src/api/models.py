@@ -4,7 +4,6 @@ These models ensure consistent serialization and OpenAPI schema generation
 across the FastAPI endpoints for search, lineage, and table discovery.
 """
 from __future__ import annotations
-from typing import Optional
 from pydantic import BaseModel
 
 
@@ -17,18 +16,18 @@ class TableSummary(BaseModel):
     catalog_name: str
     schema_name: str
     table_name: str
-    table_description: Optional[str] = None
-    table_type: Optional[str] = None
-    dq_score: Optional[str] = None
-    dq_status: Optional[str] = None
-    updated_at: Optional[str] = None
+    table_description: str | None = None
+    table_type: str | None = None
+    dq_score: str | None = None
+    dq_status: str | None = None
+    updated_at: str | None = None
 
 
 class ColumnInfo(BaseModel):
     """Column metadata including data type and business description."""
     column_name: str
     data_type: str
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class TableDetail(BaseModel):
@@ -42,11 +41,11 @@ class SearchResult(BaseModel):
     full_name: str
     name: str
     match_type: str  # "Table" | "Column" | "Glossary"
-    description: Optional[str] = None
-    catalog_name: Optional[str] = None
-    schema_name: Optional[str] = None
-    table_name: Optional[str] = None
-    dq_score: Optional[str] = None
+    description: str | None = None
+    catalog_name: str | None = None
+    schema_name: str | None = None
+    table_name: str | None = None
+    dq_score: str | None = None
 
 
 class LineageEdge(BaseModel):

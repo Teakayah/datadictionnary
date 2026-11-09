@@ -9,14 +9,14 @@ import hashlib
 import json
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_client: Optional[Any] = None
+_client: Any | None = None
 
 
-def _get_client() -> Optional[Any]:
+def _get_client() -> Any | None:
     """Return an async Redis client, or None if REDIS_URL is unset / unavailable."""
     global _client
     if _client is not None:
@@ -55,7 +55,7 @@ def cache_key(*parts: Any) -> str:
     return f"ddic:{digest}"
 
 
-async def get(key: str) -> Optional[Any]:
+async def get(key: str) -> Any | None:
     """Return a cached value or None.
 
     Args:

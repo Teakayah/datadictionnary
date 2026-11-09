@@ -8,8 +8,7 @@ read connection).
 """
 
 from __future__ import annotations
-from typing import List, Optional
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 import threading
 import logging
 
@@ -20,12 +19,12 @@ class SearchEvent:
         query: str,
         results_count: int,
         user_email: str,
-        timestamp: Optional[datetime] = None
+        timestamp: datetime | None = None
     ):
         self.query = query
         self.results_count = results_count
         self.user_email = user_email
-        self.timestamp = timestamp or datetime.now(timezone.utc)
+        self.timestamp = timestamp or datetime.now(UTC)
 
 
 def _use_demo_backend() -> bool:
@@ -84,7 +83,7 @@ def track_search(event: SearchEvent) -> None:
     t.start()
 
 
-def get_zero_result_searches(limit: int = 50) -> List[dict]:
+def get_zero_result_searches(limit: int = 50) -> list[dict]:
     """Retrieve most recent searches that returned no results."""
     if _use_demo_backend():
         import streamlit as st
@@ -103,7 +102,7 @@ def get_zero_result_searches(limit: int = 50) -> List[dict]:
     return df.to_dict('records') if df is not None and not df.empty else []
 
 
-def _get_demo_zero_result_alerts(days: int) -> List[dict]:
+def _get_demo_zero_result_alerts(days: int) -> list[dict]:
     import streamlit as st
     data = st.session_state.get("demo_analytics", [])
     zeros = [d for d in data if d["results_count"] == 0]
@@ -117,13 +116,13 @@ def _get_demo_zero_result_alerts(days: int) -> List[dict]:
         if isinstance(ts, str):
             ts = datetime.fromisoformat(ts)
         if isinstance(ts, datetime) and ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
+            ts = ts.replace(tzinfo=UTC)
 
         if q not in groups:
             groups[q] = []
         groups[q].append(ts)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(days=days)
 
     alerts = []
@@ -141,7 +140,7 @@ def _get_demo_zero_result_alerts(days: int) -> List[dict]:
     return sorted(alerts, key=lambda x: x["last_seen"], reverse=True)
 
 
-def get_zero_result_alerts(days: int = 7) -> List[dict]:
+def get_zero_result_alerts(days: int = 7) -> list[dict]:
     """Retrieve search terms returning zero results for more than N days."""
     if _use_demo_backend():
         return _get_demo_zero_result_alerts(days)

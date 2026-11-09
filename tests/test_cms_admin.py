@@ -1,12 +1,12 @@
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 from unittest.mock import patch
 
 from streamlit.testing.v1 import AppTest
 
-UTC = timezone.utc
+UTC = UTC
 
-with open("locale/en.json", "r") as f:
+with open("locale/en.json") as f:
     en_locale = json.load(f)
 
 # Mock wrapper for `_show_cms_create_dialog` to test the dialog independently
