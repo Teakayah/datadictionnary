@@ -187,7 +187,7 @@ def run_query(query, params=None):
     return _base_run_query(query, params)
 
 
-@st.cache_data(ttl="1h", show_spinner=False)
+# ⚡ Bolt: Removed redundant @st.cache_data wrapper to prevent duplicate caching overhead, as get_authorized_tables is already cached.
 def get_authorized_table_names(groups):
     """Retrieve a set of full names for tables the user is authorized to access."""
     df = get_authorized_tables(groups)
