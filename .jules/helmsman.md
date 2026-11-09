@@ -109,3 +109,7 @@
 **Cluster Quirk:** The `dd-sync-worker` deployment, a background daemon with no Service, had a `readinessProbe` identical to its `livenessProbe`.
 **Learning:** Background workers and daemons that do not serve network traffic via a Kubernetes Service do not benefit from a `readinessProbe`. Having an identical readiness probe just wastes kubelet resources and triggers false-positive failure cascades if the single endpoint responds slowly.
 **Resilience:** Removed the `readinessProbe` from `dd-sync-worker` entirely, relying solely on the `livenessProbe` to restart the daemon if the internal loop deadlocks.
+## 2026-11-09 - Hardened dd-api for DuckDB Singleton
+**Cluster Quirk:** The `dd-api` deployment was configured with a `RollingUpdate` strategy and an HPA (`dd-api-hpa`) to scale replicas, while concurrently mounting the DuckDB PVC (`dd-data`) and attaching the `user_data` file in read-write mode.
+**Learning:** DuckDB only allows a single writer process. Even if an application only executes read queries logically, opening the DuckDB file in read-write mode (without explicit `READ_ONLY`) causes it to attempt acquiring an exclusive write lock. Deployments using `RollingUpdate` or HPA scaling will spawn concurrent pods that clash over the lock, resulting in crashes or data corruption.
+**Resilience:** Reconfigured `dd-api` to strictly `replicas: 1` with `strategy: Recreate` in `k8s/deployment-api.yaml`. Removed its HPA (`k8s/hpa.yaml`) and PDB (`k8s/pdb.yaml`) configurations entirely to ensure it acts as a safe singleton.

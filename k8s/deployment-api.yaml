@@ -12,15 +12,11 @@ metadata:
   annotations:
     deployment.kubernetes.io/image: ghcr.io/org/data-dictionary:${IMAGE_TAG}
 spec:
-  # replica count is managed by dd-api-hpa — do not set it here.
   selector:
     matchLabels:
       app: dd-api
   strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+    type: Recreate
   template:
     metadata:
       labels:
@@ -39,99 +35,89 @@ spec:
         runAsUser: 10001
         runAsGroup: 10001
         fsGroup: 10001
-
       containers:
-        - name: api
-          image: ghcr.io/org/data-dictionary:${IMAGE_TAG}
-          imagePullPolicy: IfNotPresent
-          command:
-            - uvicorn
-            - src.api.main:app
-            - --host
-            - "0.0.0.0"
-            - --port
-            - "8080"
-            - --workers
-            - "2"
-
-          ports:
-            - name: http
-              containerPort: 8080
-              protocol: TCP
-
-          securityContext:
-            seccompProfile:
-              type: RuntimeDefault
-            runAsNonRoot: true
-            runAsUser: 10001
-            runAsGroup: 10001
-            readOnlyRootFilesystem: true
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-
-          resources:
-            requests:
-              cpu: "250m"
-              memory: "384Mi"
-              ephemeral-storage: "128Mi"
-            limits:
-              cpu: "1000m"
-              memory: "768Mi"
-              ephemeral-storage: "512Mi"
-
-          envFrom:
-            - configMapRef:
-                name: dd-config
-            - secretRef:
-                name: dd-secrets
-
-          volumeMounts:
-            - name: data
-              mountPath: /data
-            - name: tmp
-              mountPath: /tmp
-
-          livenessProbe:
-            httpGet:
-              path: /health/live
-              port: 8080
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
-
-          readinessProbe:
-            httpGet:
-              path: /health/ready
-              port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 5
-            timeoutSeconds: 3
-            failureThreshold: 3
-
-      volumes:
+      - name: api
+        image: ghcr.io/org/data-dictionary:${IMAGE_TAG}
+        imagePullPolicy: IfNotPresent
+        command:
+        - uvicorn
+        - src.api.main:app
+        - --host
+        - 0.0.0.0
+        - --port
+        - '8080'
+        - --workers
+        - '2'
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        securityContext:
+          seccompProfile:
+            type: RuntimeDefault
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 250m
+            memory: 384Mi
+            ephemeral-storage: 128Mi
+          limits:
+            cpu: 1000m
+            memory: 768Mi
+            ephemeral-storage: 512Mi
+        envFrom:
+        - configMapRef:
+            name: dd-config
+        - secretRef:
+            name: dd-secrets
+        volumeMounts:
         - name: data
-          persistentVolumeClaim:
-            claimName: dd-data
+          mountPath: /data
         - name: tmp
-          emptyDir: {}
-
+          mountPath: /tmp
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: dd-data
+      - name: tmp
+        emptyDir: {}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchLabels:
-                    app: dd-api
-                topologyKey: kubernetes.io/hostname
-
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: dd-api
+              topologyKey: kubernetes.io/hostname
       topologySpreadConstraints:
-        - maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
-          labelSelector:
-            matchLabels:
-              app: dd-api
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: dd-api
+  replicas: 1
