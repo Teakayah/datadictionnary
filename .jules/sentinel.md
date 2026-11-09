@@ -58,3 +58,7 @@
 **Vulnerability:** Localized strings were injected directly into Streamlit's `st.markdown(..., unsafe_allow_html=True)` without escaping, leading to potential Cross-Site Scripting (XSS).
 **Learning:** Even if inner interpolation variables are escaped, the translated strings themselves may contain characters that can introduce XSS or break HTML when injected into raw HTML blocks.
 **Prevention:** Always wrap the entire translation output in `_html.escape(t(...))` before injecting it into HTML strings when `unsafe_allow_html=True` is used.
+## 2024-05-24 - API Response Security Headers
+**Vulnerability:** The API lacked a Content-Security-Policy (CSP) header.
+**Learning:** Even for APIs that primarily serve JSON, adding a restrictive CSP (like `default-src 'none'`) provides a critical defense-in-depth layer. If an attacker tricks a user's browser into navigating directly to an API endpoint that reflects malicious input, the CSP prevents the browser from executing it as HTML/JavaScript, mitigating XSS risks that bypass `Content-Type` sniffing protections.
+**Prevention:** Always ensure global security header middleware explicitly includes a strict CSP, regardless of whether the application is a frontend UI or a backend API.

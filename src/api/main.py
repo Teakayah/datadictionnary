@@ -45,6 +45,8 @@ _SECURITY_HEADERS = [
     (b"x-xss-protection", b"0"),
     # API responses must not be cached by proxies or browsers.
     (b"cache-control", b"no-store"),
+    # Defense in depth: strict baseline Content-Security-Policy
+    (b"content-security-policy", b"default-src 'none'; frame-ancestors 'none';"),
 ]
 
 if os.getenv("ENVIRONMENT") == "production":
