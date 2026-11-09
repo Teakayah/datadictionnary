@@ -128,6 +128,10 @@
     "placeholder_desc": "Describe the table's contents, grain, and common use cases...",
     "placeholder_steward": "e.g. data.steward@example.com",
     "edit_table_btn": "✎ Edit table metadata",
+    "friendly_name_en_placeholder": "e.g., Customer Loyalty ID",
+    "friendly_name_fr_placeholder": "ex. Identifiant de fidélité client",
+    "friendly_definition_en_placeholder": "Explain what this table represents in business terms.",
+    "friendly_definition_fr_placeholder": "Expliquez ce que cette table représente en termes métier.",
     "edit_friendly_name_btn": "✎ Edit friendly name"
   },
   "editor": {

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Table detail cards and sections.
 
 Includes the schema/columns viewer, business name editor, comments
@@ -10,10 +11,13 @@ import logging
 
 import pandas as pd
 import streamlit as st
-from src.ui.cards._shared import _render_empty_state
 
-from src.audit import save_table_metadata, save_table_business_name, get_table_business_name_override
 import src.auth
+from src.audit import (
+    get_table_business_name_override,
+    save_table_business_name,
+    save_table_metadata,
+)
 from src.config import CATALOG_CACHE, is_demo_mode
 from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import (
@@ -21,6 +25,7 @@ from src.db.queries import (
     run_query,
 )
 from src.i18n import t
+from src.ui.cards._shared import _render_empty_state
 from src.ui.css import VIS_WIDE_CSS
 
 
@@ -96,10 +101,10 @@ def render_table_business_name_editor(
     if not src.auth.is_admin():
         st.info(t("detail.friendly_name_pending_notice"))
 
-    new_name_en = st.text_input(t("detail.friendly_name_en"), value=current_name_en)
-    new_name_fr = st.text_input(t("detail.friendly_name_fr"), value=current_name_fr)
-    new_def_en  = st.text_area(t("detail.friendly_definition_en"), value=current_def_en, height=120)
-    new_def_fr  = st.text_area(t("detail.friendly_definition_fr"), value=current_def_fr, height=120)
+    new_name_en = st.text_input(t("detail.friendly_name_en"), value=current_name_en, placeholder=t("detail.friendly_name_en_placeholder"))
+    new_name_fr = st.text_input(t("detail.friendly_name_fr"), value=current_name_fr, placeholder=t("detail.friendly_name_fr_placeholder"))
+    new_def_en  = st.text_area(t("detail.friendly_definition_en"), value=current_def_en, height=120, placeholder=t("detail.friendly_definition_en_placeholder"))
+    new_def_fr  = st.text_area(t("detail.friendly_definition_fr"), value=current_def_fr, height=120, placeholder=t("detail.friendly_definition_fr_placeholder"))
 
     c1, c2 = st.columns([1, 1])
     with c1:

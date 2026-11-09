@@ -128,6 +128,10 @@
     "showing_first_50_columns": "Affichage des 50 premières colonnes sur {count}.",
     "showing_first_50_grants": "Affichage des 50 premières permissions sur {count}.",
     "edit_table_btn": "✎ Modifier les métadonnées de la table",
+    "friendly_name_en_placeholder": "e.g., Customer Loyalty ID",
+    "friendly_name_fr_placeholder": "ex. Identifiant de fidélité client",
+    "friendly_definition_en_placeholder": "Explain what this table represents in business terms.",
+    "friendly_definition_fr_placeholder": "Expliquez ce que cette table représente en termes métier.",
     "edit_friendly_name_btn": "✎ Modifier le nom usuel"
   },
   "editor": {

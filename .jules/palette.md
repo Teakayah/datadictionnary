@@ -51,3 +51,6 @@
 ## 2025-01-20 - Ensure aria-current for custom Streamlit Navigation
 **Learning:** When building custom HTML navigation components in Streamlit (e.g., bypassing standard `st.navigation`), active visual states (like the `active` CSS class) are not automatically announced by screen readers.
 **Action:** Always ensure custom HTML tabs or toggle links programmatically inject `aria-current="page"` or `aria-current="true"` when their state matches the active selection.
+## 2024-05-18 - [Add Placeholders for Friendly Name Editor]
+**Learning:** Providing placeholders in text inputs and text areas for complex or bilingual forms helps users understand the expected input and the context. The "friendly name editor" form had no placeholders.
+**Action:** Extract static strings from the placeholder argument into i18n translation keys to ensure they are properly localized.
