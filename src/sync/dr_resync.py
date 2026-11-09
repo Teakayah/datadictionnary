@@ -1,5 +1,3 @@
-from __future__ import annotations
-from typing import Callable, Optional
 """Disaster-recovery resync — pull recent rows from Databricks back into the
 local DuckDB user_data file.
 
@@ -11,8 +9,8 @@ The local connection is injected (`_DuckDBConn` in-process or
 caching, no demo-mode branching — because the daemon never runs inside a
 Streamlit context.
 """
-
-
+from __future__ import annotations
+from typing import Callable, Optional
 import logging
 import os
 import uuid

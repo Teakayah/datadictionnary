@@ -1,4 +1,3 @@
-from __future__ import annotations
 """FastAPI application — REST API + MCP server for the Data Dictionary.
 
 Start with:
@@ -15,7 +14,7 @@ GET  /api/v1/lineage/{cat}/{schema}/{tbl} lineage graph
 POST /mcp                                MCP Streamable HTTP endpoint
 GET  /docs                               OpenAPI UI
 """
-
+from __future__ import annotations
 import json
 import logging
 import os

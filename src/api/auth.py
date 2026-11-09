@@ -1,10 +1,9 @@
-from __future__ import annotations
 """Entra ID JWT validation for the FastAPI / MCP layer.
 
 Validates RS256-signed tokens from Microsoft Entra ID, extracts identity
 claims, and resolves groups (including overage via Microsoft Graph).
 """
-
+from __future__ import annotations
 import logging
 import os
 import time
