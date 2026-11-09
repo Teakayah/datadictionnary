@@ -607,3 +607,294 @@ def test_save_business_name_exceptions():
         with patch("src.pages.search.save_business_name", side_effect=PermissionError("Permission Denied")):
             at.button(key="col_biz_save_main.sales.orders__col_1").click().run()
             assert any("editor.permission_error" in e.value for e in at.error)
+
+
+
+def test_search_comments_list_and_reply():
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+        st.session_state["user_email"] = "test@example.com"
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com",
+            "business_name_en": "Orders",
+            "business_name_fr": "Commandes"
+        })
+        _render_detail_panel(row, "main.sales.orders", ("group1",))
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_function(render_detail_panel)
+    at.session_state["bookmarks"] = set()
+    at.session_state["recent_views"] = []
+
+    import pandas as pd
+    from unittest.mock import patch
+
+    mock_cols = pd.DataFrame([
+        {"column_name": "col_1", "data_type": "int", "comment": "Original comment"}
+    ])
+
+    mock_table_comments = [
+        {
+            "comment_id": "c1",
+            "author_name": "Alice",
+            "created_at": "2023-01-01T12:00:00Z",
+            "comment_text": "First comment",
+            "replies": [
+                {
+                    "comment_id": "r1",
+                    "author_name": "Bob",
+                    "created_at": "2023-01-01T13:00:00Z",
+                    "comment_text": "Reply"
+                }
+            ]
+        }
+    ]
+
+    with patch("src.pages.search.is_power_user", return_value=False), \
+         patch("src.pages.search.get_table_comments", return_value=mock_table_comments), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.i18n.format_date", return_value="Jan 1"):
+
+        at.run()
+
+        reply_open_btn = next((b for b in at.button if b.key == "dd_comment_btn_main.sales.orders_c1"), None)
+        assert reply_open_btn is not None
+        reply_open_btn.click().run()
+
+        # We should see the replies form
+        at.text_area(key="dd_comment_text_main.sales.orders_c1").set_value("New Reply").run()
+
+        with patch("src.pages.search.save_comment") as mock_add_cmt:
+            reply_send_btn = next((b for b in at.button if b.key == "dd_comment_send_main.sales.orders_c1"), None)
+            assert reply_send_btn is not None
+            reply_send_btn.click().run()
+
+            mock_add_cmt.assert_called_once_with("TABLE", "main.sales.orders", "New Reply", "test@example.com", parent_comment_id="c1")
+
+        cancel_btn = next((b for b in at.button if b.key == "dd_comment_btn_main.sales.orders"), None)
+        assert cancel_btn is not None
+        cancel_btn.click().run()
+
+        # Cancel writing comment
+        cancel_form_btn = next((b for b in at.button if b.key == "dd_comment_cancel_main.sales.orders"), None)
+        assert cancel_form_btn is not None
+        cancel_form_btn.click().run()
+
+        assert "dd_comment_open_main.sales.orders" not in at.session_state
+
+def test_search_grants_buttons():
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        st.session_state["user_email"] = "power@example.com"
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "power@example.com",
+            "business_name_en": "Orders",
+            "business_name_fr": "Commandes"
+        })
+        _render_detail_panel(row, "main.sales.orders", ("group1",))
+
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_function(render_detail_panel)
+    at.session_state["bookmarks"] = set()
+    at.session_state["recent_views"] = []
+
+    import pandas as pd
+    from unittest.mock import patch
+
+    mock_cols = pd.DataFrame([
+        {"column_name": "col_1", "data_type": "int", "comment": "Original comment"}
+    ])
+
+    mock_grants = pd.DataFrame([
+        {"principal": "SELECT_ALL_USERS", "privilege": "SELECT"},
+        {"principal": "finance_group", "privilege": "SELECT"}
+    ])
+
+    with patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value="power@example.com"), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search.run_query", return_value=mock_grants), \
+         patch("src.i18n.format_date", return_value="Jan 1"), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        # Click public button
+        at.run()
+        public_btn = next((b for b in at.button if b.key == "grant_main.sales.orders_public_SELECT"), None)
+        assert public_btn is not None
+        public_btn.click().run()
+        assert at.session_state.get("group_filter") == "SELECT_ALL_USERS"
+
+        # Click group button
+        group_btn = next((b for b in at.button if b.key == "grant_main.sales.orders_finance_group_SELECT"), None)
+        assert group_btn is not None
+        group_btn.click().run()
+        assert at.session_state.get("group_filter") == "finance_group"
+
+
+
+def test_search_downstream_error():
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        st.session_state["user_email"] = "test@example.com"
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com",
+            "business_name_en": "Orders",
+            "business_name_fr": "Commandes"
+        })
+        _render_detail_panel(row, "main.sales.orders", ("group1",))
+
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_function(render_detail_panel)
+    at.session_state["bookmarks"] = set()
+    at.session_state["recent_views"] = []
+
+    import pandas as pd
+    from unittest.mock import patch
+
+    mock_cols = pd.DataFrame([
+        {"column_name": "col_1", "data_type": "int", "comment": "Original comment"}
+    ])
+
+    with patch("src.pages.search.is_power_user", return_value=False), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.get_multi_hop_lineage", side_effect=Exception("DB connection error")), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        assert not at.exception
+
+def test_search_downstream_certified():
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        st.session_state["user_email"] = "power@example.com"
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "power@example.com",
+            "business_name_en": "Orders",
+            "business_name_fr": "Commandes"
+        })
+        _render_detail_panel(row, "main.sales.orders", ("group1",))
+
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_function(render_detail_panel)
+    at.session_state["bookmarks"] = set()
+    at.session_state["recent_views"] = []
+
+    import pandas as pd
+    from unittest.mock import patch
+
+    mock_cols = pd.DataFrame([
+        {"column_name": "col_1", "data_type": "int", "comment": "Original comment"}
+    ])
+
+    mock_ds = pd.DataFrame([
+        {"downstream_table": "main.sales.cert_orders", "entity_type": "Certified Table"}
+    ])
+
+    with patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value="power@example.com"), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.get_multi_hop_lineage", return_value=mock_ds), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        assert not at.exception
+
+
+
+def test_search_expand_lineage():
+    def render_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+        st.session_state["user_email"] = "test@example.com"
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com"
+        })
+        _render_detail_panel(row, "main.sales.orders", ("group1",))
+
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_function(render_detail_panel)
+    at.session_state["bookmarks"] = set()
+    at.session_state["recent_views"] = []
+
+    import pandas as pd
+    from unittest.mock import patch
+
+    with patch("src.pages.search.render_lineage_fullscreen") as mock_render, \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        expand_btn = next((b for b in at.button if b.key == "expand_lin_main.sales.orders"), None)
+        assert expand_btn is not None
+
+        expand_btn.click().run()
+        mock_render.assert_called_once()
