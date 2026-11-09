@@ -606,3 +606,105 @@ def test_save_business_name_exceptions():
         with patch("src.pages.search.save_business_name", side_effect=PermissionError("Permission Denied")):
             at.button(key="col_biz_save_main.sales.orders__col_1").click().run()
             assert any("editor.permission_error" in e.value for e in at.error)
+
+def test_search_group_unauthorized_gap():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["group_filter"] = "group1"
+
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+
+    # Note that full_name main.sales.unauthorized is NOT in authorized tables
+    mock_data = {
+        "full_name": ["main.sales.unauthorized"],
+        "table_name": ["unauthorized"],
+        "catalog_name": ["main"],
+        "schema_name": ["sales"]
+    }
+
+    class MockSeries:
+        def __init__(self, data):
+            self.data = data
+        def unique(self):
+            return [] # Empty list so it's NOT in _auth_full_names
+
+    class MockDataFrame(pd.DataFrame):
+        @property
+        def empty(self):
+            return False
+
+        def __getitem__(self, key):
+            if key == "full_name":
+                return MockSeries(["main.sales.unauthorized"])
+            return super().__getitem__(key)
+
+    mock_authorized = MockDataFrame(mock_data)
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized),          patch("src.pages.search.t", side_effect=lambda k, **kw: k),          patch("src.pages.search.track_search"):
+
+        at.run()
+
+        # Look for buttons in the "active_group" branch where it renders a list of assets
+        buttons = at.button
+        view_btns = [b for b in buttons if b.key and b.key.startswith("gview_")]
+
+        unauth_btn = next((b for b in view_btns if "main.sales.unauthorized" in b.key), None)
+        assert unauth_btn is not None, "Could not find button"
+
+        unauth_btn.click().run()
+
+        # Should show error
+        assert len(at.error) > 0, "No errors found"
+        assert at.error[0].value == "detail.unauthorized"
+
+
+def test_search_group_authorized_gap():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["group_filter"] = "group1"
+
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+
+    # Note that full_name main.sales.orders IS in authorized tables
+    mock_data = {
+        "full_name": ["main.sales.orders"],
+        "table_name": ["orders"],
+        "catalog_name": ["main"],
+        "schema_name": ["sales"]
+    }
+
+    mock_authorized = pd.DataFrame(mock_data)
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized),          patch("src.pages.search.t", side_effect=lambda k, **kw: k),          patch("src.pages.search.track_search"):
+
+        at.run()
+
+        # Look for buttons in the "active_group" branch where it renders a list of assets
+        buttons = at.button
+        view_btns = [b for b in buttons if b.key and b.key.startswith("gview_")]
+
+        auth_btn = next((b for b in view_btns if "main.sales.orders" in b.key), None)
+        assert auth_btn is not None, "Could not find button"
+
+        auth_btn.click().run()
+
+        # Should NOT show error
+        assert len(at.error) == 0
+        # Wait, the code sets st.session_state["dd_nav_select"] then calls st.rerun().
+        # AppTest will process rerun and so the value might be popped!
+        # Ah: lines 637-642 say:
+        # if "dd_nav_select" in st.session_state:
+        #     _nav_candidate = st.session_state.pop("dd_nav_select")
+        #     if _nav_candidate in _auth_full_names:
+        #         st.session_state["_dd_sticky_nav"] = _nav_candidate
+        assert at.session_state.get("_dd_sticky_nav") == "main.sales.orders"
