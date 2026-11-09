@@ -152,3 +152,7 @@ Assertion: `assert "search" in at.query_params["tab"]` or `assert at.query_param
 ## 2026-10-15 - Streamlit AppTest _html element type extraction
 **Learning:** When extracting HTML from `st.html()` elements in Streamlit tests using `AppTest.main`, the component structure can vary. Previously, it might have been an `UnknownElement`, but as of recent Streamlit versions it is now represented as an `Html` element. Thus, relying solely on `type(el).__name__ == "UnknownElement"` to extract the HTML proto body fails and silently ignores HTML injections, leading to `AssertionError` in accessibility tests that verify markup (like language toggles, nav bars, etc).
 **Action:** When extracting custom injected HTML from an `AppTest` wrapper in Streamlit tests, check for both `Html` and `UnknownElement` types, and safely use `getattr(el, "type", "")` instead of a direct attribute access to avoid `AttributeError` on elements without a type field.
+
+## 2026-10-23 - Unreachable UI paths due to complex Streamlit session state
+**Learning:** Streamlit `AppTest` requires careful manual simulation of `session_state` and multiple `.run()` calls to traverse conditionally rendered UI components (like detail panels hidden behind selectbox interactions). Mocking dependencies early and forcing state updates allows testing paths that are otherwise unreachable.
+**Action:** When adding coverage for hidden Streamlit UI paths, explicitly set `st.session_state` variables and mock underlying data functions to bypass complex interaction barriers.

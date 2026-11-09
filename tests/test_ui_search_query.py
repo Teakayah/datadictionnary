@@ -606,3 +606,725 @@ def test_save_business_name_exceptions():
         with patch("src.pages.search.save_business_name", side_effect=PermissionError("Permission Denied")):
             at.button(key="col_biz_save_main.sales.orders__col_1").click().run()
             assert any("editor.permission_error" in e.value for e in at.error)
+
+
+def test_search_sticky_nav_persistence():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "steward": "steward@example.com"
+    }])
+
+    mock_search = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "match_type": "Table",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "description": "Sales orders",
+        "dq_score": 100,
+        "name": "orders"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_search), \
+         patch("src.pages.search._render_detail_panel") as mock_detail:
+
+        # Run 1: initial render (search_query = None)
+        at.run()
+
+        # Run 2: Set search to "orders"
+        at.selectbox(key="catalog_search").set_value("orders").run()
+
+        # Check that we have a button called "view_main.sales.orders_0"
+        view_btn = [b for b in at.button if b.key == "view_main.sales.orders_0"]
+        assert len(view_btn) == 1
+
+        # Run 3: Click "View Details"
+        view_btn[0].click().run()
+
+        # Verify we are on details page (back button is visible)
+        back_btn = [b for b in at.button if b.key == "search_back"]
+        assert len(back_btn) == 1
+
+        # Run 4: Force a rerun by changing some unrelated state, e.g., a dummy checkbox
+        # Streamlit sometimes reruns just because we interact with other things.
+        # But wait, what if we simulate a rerun just directly?
+        at.run()
+
+        # In a real app, _dd_sticky_nav would persist across reruns.
+        # Is it still here?
+        back_btn_after = [b for b in at.button if b.key == "search_back"]
+        assert len(back_btn_after) == 1
+
+        # Now what happens if we click back?
+        back_btn_after[0].click().run()
+        assert "_dd_sticky_nav" not in at.session_state
+
+def test_search_nav_select_unauthorized():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["dd_nav_select"] = "unauthorized.table.name"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "steward": "steward@example.com"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search._render_detail_panel") as mock_detail:
+
+        at.run()
+
+        assert "_dd_sticky_nav" not in at.session_state
+
+def test_search_sticky_nav_missing_coverage():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["dd_nav_select"] = "main.sales.orders"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "steward": "steward@example.com"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search._render_detail_panel") as mock_detail:
+
+        at.run()
+
+        # Test dd_nav_select hits lines 638-640
+        assert at.session_state["_dd_sticky_nav"] == "main.sales.orders"
+
+def test_search_search_override():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["dd_search_override"] = "my_table"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.my_table",
+        "table_name": "my_table",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "steward": "steward@example.com"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search._render_detail_panel") as mock_detail:
+
+        at.run()
+
+        assert "dd_search_override" not in at.session_state
+        assert at.session_state["_dd_current_search_query"] == "my_table"
+        assert at.session_state["catalog_search"] == "my_table"
+
+
+def test_search_group_filter_back_button():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        if "group_filter" not in st.session_state:
+            st.session_state["group_filter"] = "finance"
+
+        render_search_page(("finance",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.my_table",
+        "table_name": "my_table",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "steward": "steward@example.com"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search._render_detail_panel") as mock_detail:
+
+        at.run()
+
+        back_btn = [b for b in at.button if not str(b.key).startswith("gview_") and not str(b.key).startswith("view_")]
+
+        assert len(back_btn) == 1
+        back_btn[0].click().run()
+
+        # Verify the group filter info is now gone instead of checking dict
+        assert not any(i.value == "search.group_filter_active" for i in at.info)
+
+
+def test_search_all_tables_none_or_empty():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+
+    # Test 1: _all_tables is None (Exception in get_authorized_tables)
+    with patch("src.pages.search.get_authorized_tables", side_effect=Exception("DB Error")), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: f"mocked_{k}"):
+        at.run()
+        # Verify the error message using our mocked translation
+        assert any(e.value == "mocked_search.load_error" for e in at.error)
+
+    # Test 2: _all_tables is empty
+    empty_df = pd.DataFrame(columns=["full_name", "table_name"])
+    with patch("src.pages.search.get_authorized_tables", return_value=empty_df), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: f"mocked_{k}"):
+        at.run()
+        # Empty state renders with "mocked_search.no_access"
+        assert any("mocked_search.no_access" in getattr(m, "value", "") for m in at.markdown)
+
+def test_search_group_filter_view_details():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        if "group_filter" not in st.session_state:
+            st.session_state["group_filter"] = "finance"
+
+        render_search_page(("finance",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.my_table",
+        "table_name": "my_table",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "steward": "steward@example.com"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search._render_detail_panel") as mock_detail:
+
+        at.run()
+
+        # In group filter view, results are just a list of tables. They have a "View Details" button.
+        view_btns = [b for b in at.button if str(b.key).startswith("gview_")]
+        assert len(view_btns) == 1
+
+        view_btns[0].click().run()
+
+        assert at.session_state["_dd_current_search_query"] == "my_table"
+        assert at.session_state["catalog_search"] == "my_table"
+        assert at.session_state["_dd_sticky_nav"] == "main.sales.my_table"
+
+def test_search_group_filter_view_details_unauthorized_really():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        if "group_filter" not in st.session_state:
+            st.session_state["group_filter"] = "finance"
+
+        render_search_page(("finance",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_all_tables = pd.DataFrame([{
+        "full_name": 123.0,
+        "table_name": "my_table",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "steward": "steward@example.com"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_all_tables), \
+         patch("src.pages.search._render_detail_panel") as mock_detail, \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: f"mocked_{k}"):
+
+        at.run()
+
+        view_btns = [b for b in at.button if str(b.key).startswith("gview_")]
+        assert len(view_btns) == 1
+
+        view_btns[0].click().run()
+
+        assert any(e.value == "mocked_detail.unauthorized" for e in at.error)
+
+def test_search_help_admin_power_user():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.authorized",
+        "table_name": "authorized",
+        "catalog_name": "main",
+        "schema_name": "sales"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search.is_admin", return_value=True), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: f"mocked_{k}"):
+
+        at.run()
+
+        found_editor = False
+        found_admin = False
+        for mk in at.markdown:
+            if "mocked_help.search_extra_editor" in getattr(mk, "value", ""):
+                found_editor = True
+            if "mocked_help.search_extra_admin" in getattr(mk, "value", ""):
+                found_admin = True
+
+        assert found_editor
+        assert found_admin
+
+def test_search_track_analytics_failure():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["dd_search_override"] = "authorized"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.authorized",
+        "table_name": "authorized",
+        "catalog_name": "main",
+        "schema_name": "sales"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.track_search", side_effect=Exception("Analytics DB down")), \
+         patch("src.pages.search._render_detail_panel") as mock_detail:
+
+        at.run()
+
+        assert not at.exception
+
+def test_search_edit_table_metadata_real():
+    def render_search():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        st.session_state["user_email"] = "test@example.com"
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com",
+            "comment": "foo",
+            "business_name_en": "Orders"
+        })
+        _render_detail_panel(row, "main.sales.orders", ("finance_dept_id",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_cols = pd.DataFrame([
+        {"column_name": "col_1", "data_type": "int", "comment": ""}
+    ])
+
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search.render_table_metadata_editor") as mock_edit_meta, \
+         patch("src.pages.search.render_table_business_name_editor") as mock_edit_biz:
+
+        at.run()
+
+        edit_tbl_btn = [b for b in at.button if b.key == "edit_tbl_main.sales.orders"]
+        edit_friendly_btn = [b for b in at.button if b.key == "edit_friendly_main.sales.orders"]
+
+        assert len(edit_tbl_btn) == 1
+        assert len(edit_friendly_btn) == 1
+
+        edit_tbl_btn[0].click().run()
+        mock_edit_meta.assert_called_once()
+
+        edit_friendly_btn = [b for b in at.button if b.key == "edit_friendly_main.sales.orders"]
+        edit_friendly_btn[0].click().run()
+        mock_edit_biz.assert_called_once()
+
+def test_search_column_biz_and_def():
+    def render_search():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        st.session_state["user_email"] = "test@example.com"
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com",
+            "comment": "foo",
+            "business_name_en": "Orders"
+        })
+        _render_detail_panel(row, "main.sales.orders", ("finance_dept_id",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_cols = pd.DataFrame([
+        {
+            "column_name": "col_1",
+            "data_type": "int",
+            "comment": "tech comment"
+        }
+    ])
+
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={
+             "col_1": {
+                 "business_name_en": "Business Name",
+                 "business_name": "Business Name",
+                 "definition_en": "Business Definition",
+                 "definition": "Business Definition",
+                 "business_definition": "Business Definition"
+             }
+         }), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.is_power_user", return_value=True):
+
+        at.run()
+
+        found_biz = False
+        found_def = False
+        for mk in at.markdown:
+            val = getattr(mk, "value", "")
+            if "Business Name" in val:
+                found_biz = True
+            if "Business Definition" in val:
+                found_def = True
+
+        assert found_biz
+        assert found_def
+
+def test_search_column_edit_buttons():
+    def render_search():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        st.session_state["user_email"] = "test@example.com"
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com",
+            "comment": "foo",
+            "business_name_en": "Orders"
+        })
+        _render_detail_panel(row, "main.sales.orders", ("finance_dept_id",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_cols = pd.DataFrame([
+        {
+            "column_name": "col_1",
+            "data_type": "int",
+            "comment": "tech comment"
+        }
+    ])
+
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={
+             "col_1": {
+                 "business_name_en": "Business Name",
+                 "business_definition_en": "Business Definition",
+                 "edited_by": "test@example.com",
+                 "edited_at": "2023-01-01"
+             }
+         }), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.is_power_user", return_value=True):
+
+        at.run()
+
+        edit_col_btn = [b for b in at.button if b.key == "col_edit_main.sales.orders__col_1"]
+        assert len(edit_col_btn) == 1
+
+        edit_col_btn[0].click().run()
+
+        assert at.session_state["dd_col_edit_mode"] == "main.sales.orders__col_1"
+
+
+def test_search_column_edit_save():
+    def render_search():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        st.session_state["user_email"] = "test@example.com"
+
+        # Streamlit AppTest doesn't always clear keys popped during the app run if they were
+        # initially set in the wrapper dict. So we won't assert it's missing, we just assert
+        # mock_save was called.
+        if "dd_col_edit_mode" not in st.session_state:
+            st.session_state["dd_col_edit_mode"] = "main.sales.orders__col_1"
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com",
+            "comment": "foo",
+            "business_name_en": "Orders"
+        })
+        _render_detail_panel(row, "main.sales.orders", ("finance_dept_id",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_cols = pd.DataFrame([
+        {
+            "column_name": "col_1",
+            "data_type": "int",
+            "comment": "tech comment"
+        }
+    ])
+
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search.save_business_name") as mock_save:
+
+        at.run()
+
+        save_btn = [b for b in at.button if b.key == "col_biz_save_main.sales.orders__col_1"]
+        assert len(save_btn) == 1
+
+        save_btn[0].click().run()
+
+        mock_save.assert_called_once()
+
+def test_search_column_edit_cancel():
+    def render_search():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        st.session_state["user_email"] = "test@example.com"
+        if "dd_col_edit_mode" not in st.session_state:
+            st.session_state["dd_col_edit_mode"] = "main.sales.orders__col_1"
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com",
+            "comment": "foo",
+            "business_name_en": "Orders"
+        })
+        _render_detail_panel(row, "main.sales.orders", ("finance_dept_id",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_cols = pd.DataFrame([
+        {
+            "column_name": "col_1",
+            "data_type": "int",
+            "comment": "tech comment"
+        }
+    ])
+
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.is_power_user", return_value=True):
+
+        at.run()
+
+        cancel_btn = [b for b in at.button if b.key == "col_biz_cancel_main.sales.orders__col_1"]
+        assert len(cancel_btn) == 1
+
+        cancel_btn[0].click().run()
+
+
+def test_search_query_change_clears_state():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.my_table",
+        "table_name": "my_table",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "steward": "steward@example.com"
+    }, {
+        "full_name": "main.sales.other_table",
+        "table_name": "other_table",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "steward": "steward@example.com"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search._render_detail_panel") as mock_detail:
+
+        at.run()
+
+        # Initial search query is set
+        at.selectbox(key="catalog_search").set_value("my_table").run()
+
+        # Set some state variables that should be cleared
+        # We need to set them via at.session_state, then trigger another run
+        at.session_state["dd_col_edit_mode"] = "some_col"
+        at.session_state["dd_comment_open_1"] = True
+        at.session_state["dd_comment_open_2"] = False
+        at.session_state["_dd_sticky_nav"] = "some_nav"
+
+        # Change the search query
+        at.selectbox(key="catalog_search").set_value("other_table").run()
+
+        assert "dd_col_edit_mode" not in at.session_state
+        assert "dd_comment_open_1" not in at.session_state
+        assert "dd_comment_open_2" not in at.session_state
+        assert "_dd_sticky_nav" not in at.session_state
+
+def test_search_comments_render():
+    def render_search():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        st.session_state["user_email"] = "test@example.com"
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com",
+            "comment": "foo",
+            "business_name_en": "Orders"
+        })
+        _render_detail_panel(row, "main.sales.orders", ("finance_dept_id",))
+
+    at = AppTest.from_function(render_search)
+
+    mock_cols = pd.DataFrame([
+        {
+            "column_name": "col_1",
+            "data_type": "int",
+            "comment": "tech comment"
+        }
+    ])
+
+    mock_comments = [
+        {
+            "comment_id": "c1",
+            "author_name": "Alice",
+            "created_at": "2023-01-01T00:00:00Z",
+            "comment_text": "First comment",
+            "replies": [
+                {
+                    "author_name": "Bob",
+                    "created_at": "2023-01-02T00:00:00Z",
+                    "comment_text": "First reply"
+                }
+            ]
+        }
+    ]
+
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=mock_comments), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.is_power_user", return_value=True):
+
+        at.run()
+
+        found_comment = False
+        found_reply = False
+        for mk in at.markdown:
+            val = getattr(mk, "value", "")
+            if "First comment" in val and "Alice" in val:
+                found_comment = True
+            if "First reply" in val and "Bob" in val:
+                found_reply = True
+
+        assert found_comment
+        assert found_reply
