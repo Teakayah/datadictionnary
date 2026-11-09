@@ -148,14 +148,15 @@ def render_glossary(query_groups) -> None:
     )
 
     if selected_term:
-        # ⚡ Bolt: Use .to_numpy() to skip index alignment overhead
-        term_row = _DEMO_GLOSSARY[_DEMO_GLOSSARY["term"].to_numpy() == selected_term].iloc[0]
+        with st.spinner(t("common.loading")):
+            # ⚡ Bolt: Use .to_numpy() to skip index alignment overhead
+            term_row = _DEMO_GLOSSARY[_DEMO_GLOSSARY["term"].to_numpy() == selected_term].iloc[0]
 
-        col_main, col_side = st.columns([7, 5], gap="large")
+            col_main, col_side = st.columns([7, 5], gap="large")
 
-        with col_main:
-            _render_term_details(term_row, _authorized_fns)
+            with col_main:
+                _render_term_details(term_row, _authorized_fns)
 
-        with col_side:
-            _render_stewardship(term_row)
-            _render_concept_map(selected_term, term_row)
+            with col_side:
+                _render_stewardship(term_row)
+                _render_concept_map(selected_term, term_row)
