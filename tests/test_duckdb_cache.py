@@ -578,3 +578,84 @@ class TestWriteDuckdb:
         assert df.iloc[0]["b"] == 2
         assert df.iloc[1]["a"] == 3
         assert df.iloc[1]["b"] == 4
+
+def test_duckdb_adapter_ensure_user_data_attached_no_con():
+    # Create an adapter instance but mock its _con to None
+    from unittest.mock import patch
+    from src.db.duckdb_adapter import _DuckDBConn
+
+    with patch("src.db.duckdb_adapter._get_shared_duckdb_connection", return_value=None):
+        conn = _DuckDBConn("dummy_path", read_only=True)
+        assert conn._con is None
+
+        # This shouldn't raise any exception, just return early
+        with patch("src.db.duckdb_adapter.USER_DATA_PATH", "mock_path"), \
+             patch("src.db.duckdb_adapter._ensure_user_data_attached") as mock_ensure:
+
+            conn._ensure_user_data_attached()
+            mock_ensure.assert_not_called()
+
+def test_duckdb_adapter_ensure_user_data_attached_with_con():
+    from unittest.mock import patch, MagicMock
+    from src.db.duckdb_adapter import _DuckDBConn
+
+    with patch("src.db.duckdb_adapter._get_shared_duckdb_connection", return_value=MagicMock()):
+        conn = _DuckDBConn("dummy_path", read_only=True)
+        assert conn._con is not None
+
+        # This shouldn't raise any exception, just return early
+        with patch("src.db.duckdb_adapter.USER_DATA_PATH", "mock_path"), \
+             patch("src.db.duckdb_adapter._ensure_user_data_attached") as mock_ensure:
+
+            conn._ensure_user_data_attached()
+            mock_ensure.assert_called_once_with(conn._con, "mock_path", read_only=True)
+
+def test_duckdb_adapter_ensure_user_data_attached_no_con():
+    # Create an adapter instance but mock its _con to None
+    from unittest.mock import patch
+    from src.db.duckdb_adapter import _DuckDBConn
+
+    with patch("src.db.duckdb_adapter._get_shared_duckdb_connection", return_value=None):
+        conn = _DuckDBConn("dummy_path", read_only=True)
+        assert conn._con is None
+
+        # This shouldn't raise any exception, just return early
+        with patch("src.db.duckdb_adapter.USER_DATA_PATH", "mock_path"), \
+             patch("src.db.duckdb_adapter._DuckDBConn._ensure_user_data_attached") as mock_ensure:
+
+            conn._ensure_user_data_attached()
+            # method itself shouldn't call global method
+            # We don't have to patch the method, we test it.
+
+def test_duckdb_adapter_ensure_user_data_attached_no_con():
+    # Create an adapter instance but mock its _con to None
+    from unittest.mock import patch
+    from src.db.duckdb_adapter import _DuckDBConn
+
+    with patch("src.db.duckdb_adapter._get_shared_duckdb_connection", return_value=None):
+        conn = _DuckDBConn("dummy_path", read_only=True)
+        assert conn._con is None
+
+        # This shouldn't raise any exception, just return early
+        with patch("src.db.duckdb_adapter.USER_DATA_PATH", "mock_path"), \
+             patch("src.db.duckdb_adapter._ensure_user_data_attached") as mock_global_ensure:
+
+            # call the method
+            conn._ensure_user_data_attached()
+            mock_global_ensure.assert_not_called()
+
+def test_duckdb_adapter_ensure_user_data_attached_with_con():
+    from unittest.mock import patch, MagicMock
+    from src.db.duckdb_adapter import _DuckDBConn
+
+    with patch("src.db.duckdb_adapter._get_shared_duckdb_connection", return_value=MagicMock()):
+        conn = _DuckDBConn("dummy_path", read_only=True)
+        assert conn._con is not None
+
+        # This shouldn't raise any exception, just return early
+        with patch("src.db.duckdb_adapter.USER_DATA_PATH", "mock_path"), \
+             patch("src.db.duckdb_adapter._ensure_user_data_attached") as mock_global_ensure:
+
+            # call the method
+            conn._ensure_user_data_attached()
+            mock_global_ensure.assert_called_once_with(conn._con, "mock_path", read_only=True)

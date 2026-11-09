@@ -155,3 +155,6 @@ Assertion: `assert "search" in at.query_params["tab"]` or `assert at.query_param
 ## 2026-10-17 - tests/test_ui_search_missing_coverage.py
 **Learning:** `AppTest` requires that the lineage mock actually returns multiple nodes (`len(graph_nodes) > 1`) for the expand lineage button to render. Also column overrides map directly from the column name (e.g., `id`) to `business_name` and `definition`, not from `full_name__column_name`.
 **Action:** Wrote a test to mock these values and simulate button clicks to trigger the UI paths, hitting previously missed coverage lines.
+## 2024-05-18 - [DuckDB Singleton Edge Case]
+**Learning:** Testing methods of classes that handle DuckDB singletons requires explicitly mocking out the shared connection state at the module level before instantiation.
+**Action:** When adding tests for `_ensure_user_data_attached` (lines 415-418), wrap the instantiation of `_DuckDBConn` in a mock for `_get_shared_duckdb_connection`.
