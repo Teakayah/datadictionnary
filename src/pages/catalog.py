@@ -80,7 +80,7 @@ def render_catalog_browser(groups: list[str]) -> None:
                                 f'<span style="font-family:var(--font-mono);font-size:12px;color:var(--ink-60);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_html.escape(tbl)}</span>'
                                 f'</div>'
                             )
-                            if st.button(f"📄 {tbl}", key=f"tree_{full_n}", help=t("catalog.tree_help"), use_container_width=True):
+                            if st.button(t("common.document_table", table=tbl), key=f"tree_{full_n}", help=t("catalog.tree_help"), use_container_width=True):
                                 st.query_params["tab"] = "search"
                                 st.session_state["dd_search_override"] = tbl
                                 st.session_state["dd_nav_select"] = full_n
