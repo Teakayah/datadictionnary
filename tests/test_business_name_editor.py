@@ -491,6 +491,50 @@ class TestBusinessNameValidation:
         assert at.error, "st.error should be shown for a >255 char name attempt"
         assert "Error" in at.error[0].value or "error" in at.error[0].value.lower()
 
+
+
+    def test_save_shows_value_error_for_value_error(self, monkeypatch):
+        """If a ValueError is raised, st.error is shown."""
+        monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
+        monkeypatch.setenv("DEMO_DATA", "true")
+
+        at = authenticated_app()
+        at.session_state["dd_col_edit_mode"] = EDIT_KEY
+        at.run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
+
+        from unittest.mock import patch
+        with patch("src.pages.search.save_business_name", side_effect=ValueError("Invalid Name")):
+            inp = next(t for t in at.text_input if "col_biz_name" in t.key)
+            inp.set_value("New Name").run()
+            next(b for b in at.button if b.label == "Save").click().run()
+
+        assert at.error, "st.error should be shown for a ValueError"
+        assert "Error" in at.error[0].value or "error" in at.error[0].value.lower()
+    def test_save_shows_permission_error_for_permission_error(self, monkeypatch):
+        """If a PermissionError is raised, st.error is shown with permission_error message."""
+        monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
+        monkeypatch.setenv("DEMO_DATA", "true")
+
+        at = authenticated_app()
+        at.session_state["dd_col_edit_mode"] = EDIT_KEY
+        at.run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
+
+        # Mock save_business_name to raise a PermissionError
+        from unittest.mock import patch
+        with patch("src.pages.search.save_business_name", side_effect=PermissionError("Permission Denied")):
+            inp = next(t for t in at.text_input if "col_biz_name" in t.key)
+            inp.set_value("New Name").run()
+            next(b for b in at.button if b.label == "Save").click().run()
+
+        assert at.error, "st.error should be shown for a PermissionError"
+        assert "editor.permission_error" in at.error[0].value
+
     def test_save_shows_generic_error_for_other_exceptions(self, monkeypatch):
         """If an unexpected Exception is raised, st.error is shown."""
         monkeypatch.setenv("EDITOR_GROUPS", "finance_dept_id")
