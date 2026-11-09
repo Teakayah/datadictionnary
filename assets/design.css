@@ -123,6 +123,11 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
     border-color: var(--ink-90) !important;
     color: var(--paper) !important;
 }
+.stButton > button:focus-visible,
+.stDownloadButton > button:focus-visible {
+    outline: 2px solid var(--accent) !important;
+    outline-offset: 2px !important;
+}
 
 /* Selectbox */
 [data-testid="stSelectbox"] > div > div {
