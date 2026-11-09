@@ -159,7 +159,23 @@ async def validate_token(token: str) -> AuthenticatedUser:
 
 
 async def _fetch_groups_graph(access_token: str, user_oid: str) -> list[str]:
-    """Resolve group memberships via Microsoft Graph (groups overage path)."""
+    """Resolve group memberships via Microsoft Graph (groups overage path).
+
+    WHY IT EXISTS:
+    When a user belongs to more than ~150 Entra ID groups, Microsoft omits the
+    `groups` claim from the JWT token to prevent header bloat and instead includes
+    a `_claim_names` field. This function provides the necessary fallback mechanism
+    to query the Microsoft Graph API directly to resolve the user's groups,
+    ensuring that users with many group memberships can still authenticate and
+    be properly authorized.
+
+    Args:
+        access_token (str): The valid Entra ID Bearer token.
+        user_oid (str): The Object ID of the user.
+
+    Returns:
+        list[str]: A list of string group Object IDs the user belongs to.
+    """
     ck = cache_key("api_groups", user_oid)
     cached = await rcache_get(ck)
     if cached is not None:
