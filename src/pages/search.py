@@ -596,7 +596,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                         f'</div>',
                         unsafe_allow_html=True,
                     )
-                    if st.button(t("detail.open_related"), key=f"rel_{_rel_full}", type="secondary", use_container_width=True):
+                    if st.button(t("detail.open_related"), key=f"rel_{_rel_full}_{i}", type="secondary", use_container_width=True):
                         st.session_state["dd_search_override"] = str(rel.get("table_name", ""))
                         st.session_state["dd_nav_select"] = _rel_full
                         st.rerun()

@@ -328,7 +328,7 @@ def test_search_related_open_button_click():
     at.session_state["bookmarks"] = {"main.sales.orders"}
     at.run()
 
-    rel_btn = next((b for b in at.button if b.key == "rel_main.sales.customers"), None)
+    rel_btn = next((b for b in at.button if b.key.startswith("rel_main.sales.customers_")), None)
     assert rel_btn is not None
     with patch("streamlit.rerun"):
         rel_btn.click().run()

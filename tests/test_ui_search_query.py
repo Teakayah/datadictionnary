@@ -606,3 +606,59 @@ def test_save_business_name_exceptions():
         with patch("src.pages.search.save_business_name", side_effect=PermissionError("Permission Denied")):
             at.button(key="col_biz_save_main.sales.orders__col_1").click().run()
             assert any("editor.permission_error" in e.value for e in at.error)
+
+def test_related_tables_rendering_multiple_unique_keys():
+    from streamlit.testing.v1 import AppTest
+    from unittest.mock import patch
+
+    def run_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        st.session_state["user_email"] = "test@example.com"
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com"
+        })
+        _render_detail_panel(row, "main.sales.orders", ("group1",))
+
+    at = AppTest.from_function(run_detail_panel)
+
+    import pandas as pd
+    mock_cols = pd.DataFrame([])
+
+    def mock_run_query(query, params=None):
+        if "permissions_cache" in query and "columns_metadata" not in query:
+            return pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])
+        else:
+            # We mock related tables where the table_full_name is the SAME (e.g. duplicate relationships found)
+            # This exercises the unique key suffix addition logic for `rel_main.sales.related1_0`
+            return pd.DataFrame([
+             {"full_name": "main.sales.related1", "table_name": "related1", "catalog_name": "main", "schema_name": "sales", "relationship": "Same schema"},
+             {"full_name": "main.sales.related1", "table_name": "related1", "catalog_name": "main", "schema_name": "sales", "relationship": "Shared column"}
+         ])
+
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.run_query", side_effect=mock_run_query), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.get_multi_hop_lineage", return_value=([], [])):
+
+        at.run()
+
+        # Test that duplicate keys don't throw an error and buttons render correctly
+        assert not at.exception
+
+        at.button(key="rel_main.sales.related1_0").click().run()
+        assert at.session_state.get("dd_search_override") == "related1"
+        assert at.session_state.get("dd_nav_select") == "main.sales.related1"
