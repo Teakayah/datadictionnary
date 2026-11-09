@@ -51,3 +51,6 @@
 ## 2025-01-20 - Ensure aria-current for custom Streamlit Navigation
 **Learning:** When building custom HTML navigation components in Streamlit (e.g., bypassing standard `st.navigation`), active visual states (like the `active` CSS class) are not automatically announced by screen readers.
 **Action:** Always ensure custom HTML tabs or toggle links programmatically inject `aria-current="page"` or `aria-current="true"` when their state matches the active selection.
+## 2024-10-24 - Add help tooltip to the mark all read notifications button
+**Learning:** The "Mark all read" button in the discovery panel's notification strip lacks a tooltip. Adding tooltip/help descriptions to all interactive elements improves accessibility and clarity for screen readers and users discovering the interface.
+**Action:** Always ensure that `st.button` elements, especially those performing bulk actions like marking items read, include a `help` attribute describing their action, along with appropriate translation keys.

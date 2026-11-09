@@ -469,7 +469,8 @@
     "btn_common_cancel": "Cancel current action",
     "btn_common_save": "Save changes",
     "btn_confirm_delete_post": "Confirm post deletion",
-    "btn_auth_sign_in": "Sign in to the application"
+    "btn_auth_sign_in": "Sign in to the application",
+    "btn_mark_all_read": "Mark all notifications as read"
   },
   "notifications": {
     "strip_label_one": "1 update on a bookmarked table",

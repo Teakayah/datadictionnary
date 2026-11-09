@@ -469,7 +469,8 @@
     "btn_common_cancel": "Annuler l'action",
     "btn_common_save": "Enregistrer les modifications",
     "btn_confirm_delete_post": "Confirmer la suppression de l'annonce",
-    "btn_auth_sign_in": "Se connecter à l'application"
+    "btn_auth_sign_in": "Se connecter à l'application",
+    "btn_mark_all_read": "Marquer toutes les notifications comme lues"
   },
   "notifications": {
     "strip_label_one": "1 mise à jour sur un favori",
