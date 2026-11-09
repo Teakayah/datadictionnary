@@ -191,3 +191,7 @@ Assertion: When testing >50 truncation paths, verify `at.info` presence containi
 **Coverage Gap:** Data-driven UI components in the discovery recommended tab were missing coverage for structural edge cases, specifically when mocked dependencies return an empty DataFrame (e.g., `pd.DataFrame(columns=["full_name"])`) while valid authorization names are still present.
 **Learning:** Testing logic paths like empty DataFrames in discovery tabs requires precise test setup, returning not just primitive data types but properly structured empty DataFrames to exercise `df.empty` branches securely without triggering `KeyError`.
 **Assertion:** We explicitly mock the internal `get_authorized_tables` call to return an empty DataFrame (e.g., `pd.DataFrame(columns=["full_name"])`) when there are seemingly valid bookmark/recent view names in session state, verifying the UI appropriately falls back to an empty state prompt without throwing exceptions.
+## 2026-10-30 - Cover daemon and db core
+Coverage Gap: Missing coverage for `if __name__ == "__main__"` block in daemon.py and early return in duckdb adapter _ensure_user_data_attached.
+Learning: When testing a module's `if __name__ == '__main__':` block, use `runpy.run_module('module.name', run_name='__main__')` along with `unittest.mock.patch` (e.g., patching `sys.argv` and `sys.exit`) to safely evaluate the entry point without spawning a new subprocess.
+Assertion: Tested module execution via runpy for daemon and mocked `_con=None` for DuckDB adapter.

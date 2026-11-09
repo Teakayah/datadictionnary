@@ -75,3 +75,23 @@ def test_duckdb_adapter_executemany_write():
     sql = "INSERT INTO test (a) VALUES (1)"
     cursor.executemany_write(sql)
     con_mock.executemany.assert_called_once_with(sql)
+
+def test_ensure_user_data_attached_no_con():
+    from src.db.duckdb_adapter import _DuckDBConn
+    conn = _DuckDBConn(":memory:")
+    conn._con = None
+    conn._ensure_user_data_attached()
+    assert conn._con is None
+
+def test_ensure_user_data_attached_has_con(monkeypatch):
+    from src.db.duckdb_adapter import _DuckDBConn
+    import src.db.duckdb_adapter
+    monkeypatch.setattr(src.db.duckdb_adapter, "USER_DATA_PATH", "mock_path")
+
+    conn = _DuckDBConn(":memory:")
+
+    from unittest.mock import patch, MagicMock
+    conn._con = MagicMock()
+    with patch("src.db.duckdb_adapter._ensure_user_data_attached") as mock_ensure:
+        conn._ensure_user_data_attached()
+        mock_ensure.assert_called_once_with(conn._con, "mock_path", read_only=conn._read_only)

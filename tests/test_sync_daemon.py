@@ -645,3 +645,13 @@ def test_record_heartbeat_error_does_not_crash():
     # Assert
     mock_log.error.assert_called()
     assert "Failed to write heartbeat" in mock_log.error.call_args[0][0]
+
+def test_if_name_main(monkeypatch):
+    import runpy
+    import sys
+    from unittest.mock import patch
+    with patch.object(sys, "argv", ["sync-daemon", "--once", "--healthz-port", "0"]):
+        with patch("sys.exit") as mock_exit:
+            with patch("src.sync.daemon.main", return_value=0) as mock_main:
+                runpy.run_module("src.sync.daemon", run_name="__main__")
+                mock_exit.assert_called_once_with(0)
