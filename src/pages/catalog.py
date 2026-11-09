@@ -36,7 +36,7 @@ def render_catalog_browser(groups: list[str]) -> None:
             _render_empty_state("📁", t("catalog.no_catalogs"))
             return
 
-        catalogs = sorted(all_data['catalog_name'].unique())
+        catalogs = sorted(set(all_data['catalog_name']))
 
         # ⚡ Bolt: Replace inner groupby loop with pre-computed dictionary mapping to prevent O(N^2) performance bottleneck
         _global_dq = {}

@@ -607,7 +607,7 @@ def render_search_page(query_groups: tuple) -> None:
 
     try:
         _all_tables = get_authorized_tables(query_groups)
-        _auth_full_names = set(_all_tables["full_name"].unique()) if _all_tables is not None and not _all_tables.empty else set()
+        _auth_full_names = set(_all_tables["full_name"]) if _all_tables is not None and not _all_tables.empty else set()
     except Exception as e:
         logging.error("Error querying authorized tables: %s", e, exc_info=True)
         _all_tables = None
@@ -660,7 +660,7 @@ def render_search_page(query_groups: tuple) -> None:
         _table_options = []
     else:
         _table_options = (
-            sorted(_all_tables["table_name"].unique())
+            sorted(set(_all_tables["table_name"]))
             if "table_name" in _all_tables.columns
             else []
         )

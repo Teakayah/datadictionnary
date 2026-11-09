@@ -27,3 +27,10 @@
 ## 2026-10-24 - Unnecessary complex operation over DataFrame for set extraction
 **Learning:** Found `set(all_tables["full_name"].unique().tolist())` which unnecessarily downloads all table columns into a pandas dataframe then does a complex transformation, when a simpler optimized `get_authorized_table_names(groups)` which returns the set directly is available.
 **Action:** Replaced the unoptimized extraction with the optimized `get_authorized_table_names(groups)` in `src/ui/cards/discovery.py`.
+
+## 2024-11-09 - Unnecessary complex operation over DataFrame for set extraction
+**Learning:** Found `set(all_tables["full_name"].unique())` in `src/pages/search.py` and `src/db/queries.py` and `set(all_data['catalog_name'].unique())` in `src/pages/catalog.py` which are inefficient. Using `.unique()` requires additional numpy object allocations. Passing the raw column to `set()` directly avoids this allocation overhead and gives the exact same result faster.
+**Action:** Replaced `.unique()` wrapped in `set()` or `sorted()` with direct sets (e.g. `set(df['col'])`) in pandas queries.
+## 2026-11-09 - [Suppressing Linter Warnings for Dynamic Imports]
+**Learning:** When resolving linter warnings for unused imports in test files using `ruff check --fix`, linters might aggressively strip local imports like `import streamlit as st` inside test wrapper functions. These imports are often required for dynamic execution or framework wrappers like `AppTest`, leading to runtime `NameError` if removed.
+**Action:** Use `# noqa: F401` to manually preserve required local imports in test wrappers, and avoid using `--fix` blindly on test files without verifying the tests still execute correctly.

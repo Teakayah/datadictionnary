@@ -4,8 +4,7 @@ import pandas as pd
 
 def test_search_query_unauthorized():
     def render_search():
-        import streamlit as st
-        from src.pages.search import render_search_page
+            from src.pages.search import render_search_page
 
         st.session_state["user_email"] = "test@example.com"
         render_search_page(("group1",))
@@ -547,7 +546,6 @@ def test_missing_coverage():
 
 
 def test_save_business_name_exceptions():
-    import streamlit as st
     import pandas as pd
     from unittest.mock import patch
     from streamlit.testing.v1 import AppTest
