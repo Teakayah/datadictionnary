@@ -12,9 +12,11 @@ async def get_current_user(
 ) -> AuthenticatedUser:
     """FastAPI dependency to authenticate the current user via Bearer token.
 
-    Extracts the Entra ID token from the Authorization header and validates it.
-    If the token is invalid or the server is misconfigured, it raises an appropriate
-    HTTPException to reject the request.
+    WHY IT EXISTS:
+    This dependency intentionally translates internal validation exceptions
+    (`ValueError` and `RuntimeError` from `validate_token`) into standard FastAPI
+    `HTTPException`s (401 and 500). This prevents stack trace leakage to the client
+    on auth failures and ensures the API always returns well-formed JSON error responses.
 
     Args:
         creds (HTTPAuthorizationCredentials): The parsed Bearer token credentials injected by FastAPI.
@@ -23,8 +25,8 @@ async def get_current_user(
         AuthenticatedUser: The validated user object containing identity and group memberships.
 
     Raises:
-        HTTPException (500): If the authentication service is misconfigured.
-        HTTPException (401): If the token is invalid, expired, or has an incorrect audience.
+        HTTPException: HTTP 500 if the authentication service is misconfigured (RuntimeError).
+        HTTPException: HTTP 401 if the token is invalid, expired, or has an incorrect audience (ValueError).
     """
     try:
         return await validate_token(creds.credentials)
