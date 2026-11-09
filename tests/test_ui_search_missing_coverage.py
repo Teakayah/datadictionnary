@@ -80,10 +80,22 @@ def test_search_coverage_lines():
         at.run()
         assert "dd_comment_open_123" not in at.session_state
 
+
         # Test line 722 (clicking view details for unauthorized table)
+        assert len([b for b in at.button if b.key == "view_main.sales.unauthorized_1"]) == 1
+        with patch("src.pages.search.get_authorized_tables", return_value=pd.DataFrame([{"full_name": "main.sales.orders", "table_name": "orders", "catalog_name": "main", "schema_name": "sales"}])), \
+             patch("src.pages.search.search_all_metadata", return_value=mock_search), \
+             patch("src.pages.search.track_search"), \
+             patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+            at.button(key="view_main.sales.unauthorized_1").click().run()
+
+        assert len(at.error) > 0
+        assert at.error[0].value == "detail.unauthorized"
 
 
 def test_search_lineage_expand_and_metadata_edit_coverage():
+
     def render_search():
         import streamlit as st
         from src.pages.search import render_search_page
