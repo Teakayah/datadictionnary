@@ -204,3 +204,61 @@ def test_search_column_desc_fallback():
 
         # Test column fallback output
         assert any("bus_def_en" in getattr(m, "value", "") or "bus_def_en" in str(m) for m in at.get("markdown") + at.get("html") + at.get("text"))
+
+def test_search_coverage_missing_lines_91():
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["dd_user_groups"] = ["group1"]
+        st.session_state["power_user"] = True
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+    at.session_state["catalog_search"] = "orders"
+    at.session_state["dd_nav_select"] = "main.sales.unauthorized"
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "dq_score": 100,
+        "match_type": "Table",
+        "description": "desc"
+    }])
+    mock_search = pd.DataFrame([
+        {
+            "full_name": "main.sales.orders",
+            "table_name": "orders",
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "dq_score": 100,
+            "match_type": "Table",
+            "description": "desc"
+        }
+    ])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_search), \
+         patch("src.pages.search.track_search"), \
+         patch("src.pages.search.get_multi_hop_lineage", return_value=pd.DataFrame([{"direction":"downstream", "entity_type":"table", "node":"some_node"}])), \
+         patch("src.pages.search._build_lineage_graph", return_value=([{"id":"some_node"}], [{"from":"main.sales.orders","to":"some_node"}])), \
+         patch("src.pages.search.get_table_columns", return_value=pd.DataFrame([{"column_name": "id", "data_type": "int", "comment": "col_comment"}])), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame([{"grant_group_0": "group1", "principal": "user", "privilege": "SELECT"}])), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={"id": {"business_name": "biz", "definition": "def", "edited_by": "user", "edited_at": "date"}}), \
+         patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search.is_admin", return_value=True), \
+         patch("src.ui.lineage.render_lineage_fullscreen"), \
+         patch("src.pages.search.render_table_metadata_editor"), \
+         patch("src.pages.search._pref_delete") as mock_rm, \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        at.session_state["dd_nav_select"] = "main.sales.unauthorized"
+        at.session_state["_dd_sticky_nav"] = "main.sales.unauthorized"
+        at.run()
+        assert "_dd_sticky_nav" not in at.session_state

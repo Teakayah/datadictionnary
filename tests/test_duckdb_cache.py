@@ -8,12 +8,13 @@ Coverage:
   - _duckdb_available: path absent / present
 """
 from __future__ import annotations
+import pytest
+from unittest.mock import patch
+import duckdb
 
 import os
 import sys
 import pandas as pd
-import pytest
-import duckdb
 from unittest.mock import MagicMock, patch
 
 # ── Fixture: stubs needed by sync_metadata ────────────────────────────────────
@@ -308,8 +309,7 @@ class TestDuckDBAdapter:
         cur = _adapter._DuckDBCursor(con)
         cur.execute("CREATE TABLE test (a INTEGER)")
         # Act/Assert
-        import duckdb as ddb
-        with pytest.raises(ddb.InvalidInputException):
+        with pytest.raises(duckdb.InvalidInputException):
             cur.executemany("INSERT INTO test VALUES (?)")
 
     def test_cursor_executemany_none_con(self):
@@ -578,3 +578,16 @@ class TestWriteDuckdb:
         assert df.iloc[0]["b"] == 2
         assert df.iloc[1]["a"] == 3
         assert df.iloc[1]["b"] == 4
+
+def test_duckdb_conn_ensure_user_data_attached_returns_none_when_con_none():
+    import src.db.duckdb_adapter as _adapter
+    conn = _adapter._DuckDBConn(path=":memory:")
+    conn._con = None
+    conn._ensure_user_data_attached() # should not raise error
+
+def test_duckdb_conn_ensure_user_data_attached_returns_none_when_con_none_when_path_dummy():
+    import src.db.duckdb_adapter as _adapter
+    conn = _adapter._DuckDBConn(path=":memory:")
+    conn._con = duckdb.connect(":memory:")
+    with patch("src.db.duckdb_adapter.USER_DATA_PATH", ":memory:"):
+        conn._ensure_user_data_attached() # should not raise error
