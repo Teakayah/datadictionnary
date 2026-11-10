@@ -15,11 +15,6 @@ from src.personalization import _pref_upsert, _pref_delete
 
 
 
-@st.cache_data(ttl="1h", show_spinner=False)
-def _cached_get_authorized_table_names(groups: tuple) -> set:
-    """Local cache wrapper for authorized tables to ensure it only evaluates once per rendering."""
-    return get_authorized_table_names(groups)
-
 def _render_hero_and_help() -> None:
     """Renders the hero section and help expander."""
     st.markdown(f'''
@@ -135,8 +130,7 @@ def _render_concept_map(selected_term: str, term_row) -> None:
     components.html(graph_html, height=330)
 
 def render_glossary(query_groups) -> None:
-    # ⚡ Bolt: Cache authorized table metadata locally and ensure it executes exactly once before the rendering loop
-    _authorized_fns = _cached_get_authorized_table_names(tuple(query_groups or []))
+    _authorized_fns = get_authorized_table_names(tuple(query_groups or []))
 
     _render_hero_and_help()
 
