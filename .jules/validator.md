@@ -191,3 +191,7 @@ Assertion: When testing >50 truncation paths, verify `at.info` presence containi
 **Coverage Gap:** Data-driven UI components in the discovery recommended tab were missing coverage for structural edge cases, specifically when mocked dependencies return an empty DataFrame (e.g., `pd.DataFrame(columns=["full_name"])`) while valid authorization names are still present.
 **Learning:** Testing logic paths like empty DataFrames in discovery tabs requires precise test setup, returning not just primitive data types but properly structured empty DataFrames to exercise `df.empty` branches securely without triggering `KeyError`.
 **Assertion:** We explicitly mock the internal `get_authorized_tables` call to return an empty DataFrame (e.g., `pd.DataFrame(columns=["full_name"])`) when there are seemingly valid bookmark/recent view names in session state, verifying the UI appropriately falls back to an empty state prompt without throwing exceptions.
+## 2024-05-24 - [CRITICAL/HIGH] Cover _ensure_user_data_attached
+Coverage Gap: `_DuckDBConn._ensure_user_data_attached` missed early-return coverage when `self._con` is None, and regular logic.
+Learning: Testing methods of inner connection wrappers may require intercepting singleton fetching.
+Assertion: Mocked `_get_shared_duckdb_connection` to return None, and mock `_ensure_user_data_attached` standalone function to verify correct behavior.

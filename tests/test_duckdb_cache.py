@@ -578,3 +578,22 @@ class TestWriteDuckdb:
         assert df.iloc[0]["b"] == 2
         assert df.iloc[1]["a"] == 3
         assert df.iloc[1]["b"] == 4
+
+    def test_ensure_user_data_attached_no_con(self):
+        import src.db.duckdb_adapter as _adapter
+        with patch.object(_adapter, "_get_shared_duckdb_connection", return_value=None):
+            conn = _adapter._DuckDBConn("dummy_path")
+            # Should return immediately and not raise any errors
+            conn._ensure_user_data_attached()
+
+    def test_ensure_user_data_attached_with_con(self):
+        import src.db.duckdb_adapter as _adapter
+        import duckdb
+        # Mock connection and patch _ensure_user_data_attached function
+        con = duckdb.connect(":memory:")
+        with patch.object(_adapter, "_get_shared_duckdb_connection", return_value=con), \
+             patch.object(_adapter, "_ensure_user_data_attached") as mock_func:
+            conn = _adapter._DuckDBConn("dummy_path")
+            conn._ensure_user_data_attached()
+            mock_func.assert_called_once()
+        con.close()
