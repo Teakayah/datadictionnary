@@ -58,3 +58,7 @@
 **Vulnerability:** Localized strings were injected directly into Streamlit's `st.markdown(..., unsafe_allow_html=True)` without escaping, leading to potential Cross-Site Scripting (XSS).
 **Learning:** Even if inner interpolation variables are escaped, the translated strings themselves may contain characters that can introduce XSS or break HTML when injected into raw HTML blocks.
 **Prevention:** Always wrap the entire translation output in `_html.escape(t(...))` before injecting it into HTML strings when `unsafe_allow_html=True` is used.
+## 2024-05-24 - Unescaped XSS Vector in UI Empty State Components
+**Vulnerability:** The `_render_empty_state` function in `src/ui/cards/_shared.py` rendered the provided `icon` and `text` arguments directly into an `st.markdown(..., unsafe_allow_html=True)` block without escaping. This led to a Reflected XSS vulnerability, primarily because it's called with user-controlled input like `_render_empty_state("🔍", t("search.no_results", query=search_query))` in `src/pages/search.py`.
+**Learning:** Even internal helper components that seem designed to take safe, static strings (like 'empty' indicators) can become XSS vectors when developers pass dynamic, user-controlled data into them via translations or formatting.
+**Prevention:** All data passed into `unsafe_allow_html=True` contexts must be explicitly escaped with `html.escape()`, even in generic helper functions where the data is expected to be static text or simple strings.
