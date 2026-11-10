@@ -196,14 +196,15 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
 
         if mock:
             _MOCK_DEPTS = {
-                "Finance":  (["finance_group",  "SELECT_ALL_USERS"], "finance.user@research-org.ca"),
-                "Research": (["research_group", "SELECT_ALL_USERS"], "research.user@research-org.ca"),
-                "HR":       (["hr_group",        "SELECT_ALL_USERS"], "hr.user@research-org.ca"),
-                "IT":       (["it_group",        "SELECT_ALL_USERS"], "it.user@research-org.ca"),
-                "Admin":    (
+                "finance":  (["finance_group",  "SELECT_ALL_USERS"], "Finance User", "finance.user@research-org.ca"),
+                "research": (["research_group", "SELECT_ALL_USERS"], "Research User", "research.user@research-org.ca"),
+                "hr":       (["hr_group",        "SELECT_ALL_USERS"], "HR User", "hr.user@research-org.ca"),
+                "it":       (["it_group",        "SELECT_ALL_USERS"], "IT User", "it.user@research-org.ca"),
+                "admin":    (
                     ["finance_group", "research_group", "hr_group", "it_group",
                      "SELECT_ALL_USERS", "finance_dept_id", "all_employees_id",
                      "mock_admin_group"],
+                    "Admin User",
                     "admin@research-org.ca",
                 ),
             }
@@ -212,14 +213,15 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
             _dept_sel = st.selectbox(
                 t("auth.mock_department"),
                 _dept_opts,
+                format_func=lambda x: t(f"auth.mock_dept_{x}"),
                 index=_dept_opts.index(_default_dept) if _default_dept in _dept_opts else 0,
                 label_visibility="collapsed",
             )
             if st.button(t("auth.sign_in"), use_container_width=True, type="primary"):
-                _groups, _email = _MOCK_DEPTS[_dept_sel]
+                _groups, _name, _email = _MOCK_DEPTS[_dept_sel]
                 st.session_state.authenticated = True
                 st.session_state.user_groups   = _groups
-                st.session_state.user_name     = f"{_dept_sel} User"
+                st.session_state.user_name     = _name
                 st.session_state.user_email    = _email
                 st.rerun()
             st.markdown(

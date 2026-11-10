@@ -29,6 +29,11 @@
     "card_body": "The catalog is permission-trimmed by Microsoft Entra ID — you'll only see data your Unity Catalog grants allow.",
     "mock_department": "Department",
     "mock_prompt": "Mock authentication — select a department to filter by its grants.",
+    "mock_dept_finance": "Finance",
+    "mock_dept_research": "Research",
+    "mock_dept_hr": "HR",
+    "mock_dept_it": "IT",
+    "mock_dept_admin": "Admin",
     "policy_agreement": "By signing in you agree to the data access policy.",
     "hero_eyebrow": "Business Data Dictionary"
   },

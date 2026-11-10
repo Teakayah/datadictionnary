@@ -316,7 +316,7 @@ class TestRenderSigninPage:
         col_card.__enter__ = MagicMock(return_value=col_card)
         col_card.__exit__ = MagicMock(return_value=None)
 
-        mock_selectbox.return_value = "Finance"
+        mock_selectbox.return_value = "finance"
         mock_button.return_value = True
 
         render_signin_page(mock=True)

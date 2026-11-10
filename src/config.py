@@ -56,7 +56,7 @@ DATABRICKS_HOST_URL       = os.getenv("DATABRICKS_HOST", "")
 # ENABLE_MOCK_AUTH, ENVIRONMENT, and DEMO_DATA are intentionally NOT defined
 # here. They are read inline via os.getenv() in app.py so that test suites
 # can temporarily override them per-test without hitting the module-level cache.
-MOCK_DEPT = os.getenv("MOCK_DEPT", "Finance")
+MOCK_DEPT = os.getenv("MOCK_DEPT", "finance")
 
 # ── Semantic Search ──────────────────────────────────────────────────────────
 ENABLE_SEMANTIC_SEARCH = os.getenv("ENABLE_SEMANTIC_SEARCH", "false").lower() == "true"
