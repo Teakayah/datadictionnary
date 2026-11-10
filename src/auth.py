@@ -161,7 +161,7 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
     with col_hero:
         st.markdown(f"""
         <div class="dd-signin-hero">
-          <div class="dd-eyebrow">§ {t('auth.hero_eyebrow')}</div>
+          <div class="dd-eyebrow">{t('auth.hero_eyebrow')}</div>
           <h1>{t('auth.title')}</h1>
           <p class="lead">{t('auth.subtitle')}</p>
         </div>

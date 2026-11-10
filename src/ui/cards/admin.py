@@ -282,7 +282,7 @@ def _render_admin_integrity_report():
     """Admin section: Data Integrity Insights."""
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:16px;">'
-        f'<span class="dd-eyebrow">§ {t("admin.integrity_title")}</span></div>',
+        f'<span class="dd-eyebrow">{t("admin.integrity_title")}</span></div>',
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -351,7 +351,7 @@ def _render_admin_search_analytics_section():
     """Render the zero-results search analytics table."""
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:32px;">'
-        f'<span class="dd-eyebrow">§ {_html.escape(t("admin.section_search_analytics"))}</span>'
+        f'<span class="dd-eyebrow">{_html.escape(t("admin.section_search_analytics"))}</span>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -379,7 +379,7 @@ def _render_admin_search_analytics_section():
 def _render_admin_sync_section():
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:32px;">'
-        f'<span class="dd-eyebrow">§ {_html.escape(t("admin.sync_title"))}</span></div>',
+        f'<span class="dd-eyebrow">{_html.escape(t("admin.sync_title"))}</span></div>',
         unsafe_allow_html=True,
     )
 
@@ -426,7 +426,7 @@ def _render_admin_biz_log_section():
     _biz_h, _biz_btn = st.columns([9, 1], gap="small")
     with _biz_h:
         st.markdown(
-            f'<div class="dd-section-header"><span class="dd-eyebrow">§ {t("admin.biz_log_title")}</span></div>',
+            f'<div class="dd-section-header"><span class="dd-eyebrow">{t("admin.biz_log_title")}</span></div>',
             unsafe_allow_html=True,
         )
     with _biz_btn:
@@ -439,7 +439,7 @@ def _render_admin_comment_log_section():
     _cmt_h, _cmt_btn = st.columns([9, 1], gap="small")
     with _cmt_h:
         st.markdown(
-            f'<div class="dd-section-header"><span class="dd-eyebrow">§ {_html.escape(t("admin.comment_log_title"))}</span></div>',
+            f'<div class="dd-section-header"><span class="dd-eyebrow">{_html.escape(t("admin.comment_log_title"))}</span></div>',
             unsafe_allow_html=True,
         )
     with _cmt_btn:
@@ -450,7 +450,7 @@ def _render_admin_comment_log_section():
 def _render_admin_editing_section():
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:32px;">'
-        f'<span class="dd-eyebrow">§ {_html.escape(t("admin.editing_title"))}</span></div>',
+        f'<span class="dd-eyebrow">{_html.escape(t("admin.editing_title"))}</span></div>',
         unsafe_allow_html=True,
     )
     enabled = is_editing_enabled()
@@ -479,7 +479,7 @@ def _render_admin_groups_cache_section():
     """Admin tool: flush every user's cached Entra group membership."""
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:32px;">'
-        f'<span class="dd-eyebrow">§ {_html.escape(t("admin.groups_cache_title"))}</span></div>',
+        f'<span class="dd-eyebrow">{_html.escape(t("admin.groups_cache_title"))}</span></div>',
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -504,7 +504,7 @@ def _render_pending_reviews_section():
     import html as _html
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:32px;">'
-        f'<span class="dd-eyebrow">§ {_html.escape(t("admin.reviews_title"))}</span></div>',
+        f'<span class="dd-eyebrow">{_html.escape(t("admin.reviews_title"))}</span></div>',
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -599,7 +599,7 @@ def _render_pending_table_friendly_names_section():
     import html as _html
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:32px;">'
-        f'<span class="dd-eyebrow">§ {_html.escape(t("admin.table_friendly_reviews_title"))}</span></div>',
+        f'<span class="dd-eyebrow">{_html.escape(t("admin.table_friendly_reviews_title"))}</span></div>',
         unsafe_allow_html=True,
     )
     st.markdown(

@@ -127,7 +127,7 @@ def _render_admin_pipelines_section():
     with _h:
         st.markdown(
             f'<div class="dd-section-header" style="margin-top:32px;">'
-            f'<span class="dd-eyebrow">§ {t("pipelines.admin_title")}</span>'
+            f'<span class="dd-eyebrow">{t("pipelines.admin_title")}</span>'
             f'</div>',
             unsafe_allow_html=True,
         )
