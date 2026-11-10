@@ -1,7 +1,7 @@
 import pytest
 import duckdb
-from unittest.mock import MagicMock
-from src.db.duckdb_adapter import _DuckDBCursor
+from unittest.mock import MagicMock, patch
+from src.db.duckdb_adapter import _DuckDBCursor, _to_duckdb_sql
 
 def test_executemany_duckdb_invalid_input_exception():
     con_mock = MagicMock()
@@ -16,7 +16,6 @@ def test_executemany_duckdb_invalid_input_exception_no_pyformat():
     cursor = _DuckDBCursor(con_mock)
     with pytest.raises(duckdb.InvalidInputException):
         cursor.executemany("SELECT * FROM t WHERE c = ?", [])
-
 
 def test_duckdb_adapter_executemany_valid_dict_conversion():
     con_mock = MagicMock()
@@ -75,3 +74,29 @@ def test_duckdb_adapter_executemany_write():
     sql = "INSERT INTO test (a) VALUES (1)"
     cursor.executemany_write(sql)
     con_mock.executemany.assert_called_once_with(sql)
+
+def test_to_duckdb_sql_no_params():
+    sql, params = _to_duckdb_sql("SELECT * FROM test", {})
+    assert sql == "SELECT * FROM test"
+    assert params == {}
+
+def test_to_duckdb_sql_in_clause():
+    sql = "SELECT * FROM test WHERE id IN %(ids)s"
+    params = {"ids": [1, 2, 3]}
+    res_sql, res_params = _to_duckdb_sql(sql, params)
+    assert res_sql == "SELECT * FROM test WHERE id = ANY($ids)"
+    assert res_params == {"ids": [1, 2, 3]}
+
+def test_to_duckdb_sql_pyformat():
+    sql = "SELECT * FROM test WHERE id = %(id)s"
+    params = {"id": 1}
+    res_sql, res_params = _to_duckdb_sql(sql, params)
+    assert res_sql == "SELECT * FROM test WHERE id = $id"
+    assert res_params == {"id": 1}
+
+def test_to_duckdb_sql_current_timestamp():
+    sql = "SELECT current_timestamp()"
+    params = {"id": 1}
+    res_sql, res_params = _to_duckdb_sql(sql, params)
+    assert res_sql == "SELECT current_localtimestamp()"
+    assert res_params == {"id": 1}
