@@ -50,8 +50,14 @@ def authenticated_app() -> AppTest:
     return at
 
 
-def _html(*markdowns) -> str:
-    return " ".join(m.value for m in markdowns)
+def _html(at) -> str:
+    parts = []
+    if hasattr(at, "markdown"):
+        parts.extend(m.value for m in at.markdown)
+    for el in getattr(at, "main", []):
+        if type(el).__name__ in ("Html", "UnknownElement") and getattr(el, "type", "") == "html":
+            parts.append(getattr(el.proto, "body", ""))
+    return " ".join(parts)
 
 
 # DataFrames used by the production-mode DB tests (non-demo path).
@@ -226,7 +232,7 @@ class TestBusinessNameEditorUI:
         at = self._at_detail(monkeypatch)
         next(b for b in at.button if b.label == "✎").click().run()
 
-        assert "dd-edit-banner" in _html(*at.markdown), (
+        assert "dd-edit-banner" in _html(at), (
             "Edit banner not rendered when entering column edit mode"
         )
 
@@ -257,7 +263,7 @@ class TestBusinessNameEditorUI:
         next(b for b in at.button if b.label == "✎").click().run()
         next(b for b in at.button if b.label == "Cancel").click().run()
 
-        assert "business name is saved immediately" not in _html(*at.markdown), (
+        assert "business name is saved immediately" not in _html(at), (
             "Edit mode banner text still visible after Cancel"
         )
 
@@ -322,19 +328,19 @@ class TestBusinessNameSave:
     def test_save_removes_edit_banner(self, monkeypatch):
         """After Save the edit banner must disappear."""
         at = self._save_name(monkeypatch, "Customer ID")
-        assert "business name is saved immediately" not in _html(*at.markdown), (
+        assert "business name is saved immediately" not in _html(at), (
             "Edit mode banner text still shown after Save"
         )
 
     def test_save_shows_business_name_in_column_row(self, monkeypatch):
         """After saving, the business name must appear in the column row."""
         at = self._save_name(monkeypatch, "Customer ID")
-        assert "Customer ID" in _html(*at.markdown)
+        assert "Customer ID" in _html(at)
 
     def test_save_shows_biz_name_css_class(self, monkeypatch):
         """After saving, dd-col-biz-name must appear in the rendered HTML."""
         at = self._save_name(monkeypatch, "Customer ID")
-        assert "dd-col-biz-name" in _html(*at.markdown), (
+        assert "dd-col-biz-name" in _html(at), (
             "dd-col-biz-name class not rendered after Save"
         )
 
@@ -360,7 +366,7 @@ class TestBusinessNameSave:
         if len(at.button) > 0 and any("View details" in b.label for b in at.button):
             next(b for b in at.button if "View details" in b.label).click().run()
 
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "dd-col-biz-name" in html
         assert "Customer ID" in html
 
@@ -380,7 +386,7 @@ class TestBusinessNameSave:
         if len(at.button) > 0 and any("View details" in b.label for b in at.button):
             next(b for b in at.button if "View details" in b.label).click().run()
 
-        html = _html(*at.markdown)
+        html = _html(at)
         # dd-col-biz-name spans only appear when an override is set; the demo
         # columns have no overrides so the rendered output won't contain the
         # opening tag followed by any content.
@@ -419,7 +425,7 @@ class TestBusinessNameEdgeCases:
         if len(at.button) > 0 and any("View details" in b.label for b in at.button):
             next(b for b in at.button if "View details" in b.label).click().run()
 
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "<script>" not in html, (
             "Raw <script> tag found — business name not escaped"
         )
@@ -545,7 +551,7 @@ class TestBusinessNameAudit:
         if len(at.button) > 0 and any("View details" in b.label for b in at.button):
             next(b for b in at.button if "View details" in b.label).click().run()
 
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "Last edited by" in html, "Audit trail 'Last edited by' not rendered"
         assert "alice@example.com" in html, "Audit trail editor name not rendered"
 
@@ -739,7 +745,7 @@ class TestBusinessNameEditorDB:
             next(b for b in at.button if "View details" in b.label).click().run()
 
         try:
-            html = _html(*at.markdown)
+            html = _html(at)
             assert "Last edited by" in html, "Audit trail not rendered"
             assert "bob@example.com" in html, "Audit trail editor name not rendered"
         finally:

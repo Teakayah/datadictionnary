@@ -110,8 +110,14 @@ def authenticated_app() -> AppTest:
     return at
 
 
-def _html(*markdowns) -> str:
-    return " ".join(m.value for m in markdowns)
+def _html(at) -> str:
+    parts = []
+    if hasattr(at, "markdown"):
+        parts.extend(m.value for m in at.markdown)
+    for el in getattr(at, "main", []):
+        if type(el).__name__ in ("Html", "UnknownElement") and getattr(el, "type", "") == "html":
+            parts.append(getattr(el.proto, "body", ""))
+    return " ".join(parts)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -125,7 +131,7 @@ class TestMockAuth:
         """Unauthenticated app must show the sign-in hero copy."""
         at = unauthenticated_app()
         at.run()
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "card catalog" in html, "Sign-in hero text not found"
 
     def test_signin_button_present(self):
@@ -185,7 +191,7 @@ class TestMockAuth:
         """The 'Search' section must NOT render before sign-in."""
         at = unauthenticated_app()
         at.run()
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "§ Catalog search" not in html
 
 
@@ -205,7 +211,7 @@ class TestSearch:
         """Before any search, the 'Start typing' prompt must appear."""
         at = authenticated_app()
         at.run()
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "Start typing" in html
 
     def test_search_queries_correct_tables(self, monkeypatch):
@@ -295,7 +301,7 @@ class TestSearch:
             assert "SECRET_DB_ERROR_123" not in w.value, "Exception details leaked in st.warning"
         for i in at.info:
             assert "SECRET_DB_ERROR_123" not in i.value, "Exception details leaked in st.info"
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "SECRET_DB_ERROR_123" not in html, "Exception details leaked in st.markdown"
 
 
@@ -346,7 +352,7 @@ class TestTableDetail:
             TestTableDetail._EMPTY_STEWARD(), TestTableDetail._EMPTY_COMMENTS(),
             make_grants_df(), make_lineage_df(), make_related_df(),
         )
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "dd-col-name" in html, "Expected dd-col-name spans in detail pane"
 
     def test_column_query_targets_columns_metadata(self, monkeypatch):
@@ -656,14 +662,14 @@ class TestLineageAndRelated:
     def test_grants_section_renders_rows(self, monkeypatch):
         """§ Group Permissions must render dd-grant-row divs when grants exist."""
         at = self._run_with_detail(monkeypatch, grants_df=make_grants_df())
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "dd-grant-row" in html
 
     def test_grants_select_all_users_shown_as_all_users(self, monkeypatch):
         """SELECT_ALL_USERS must never appear raw; a browse button must be present."""
         grants = pd.DataFrame({"principal": ["SELECT_ALL_USERS"], "privilege": ["SELECT"]})
         at = self._run_with_detail(monkeypatch, grants_df=grants)
-        html = _html(*at.markdown)
+        html = _html(at)
         # Sentinel must not leak into the UI
         assert "SELECT_ALL_USERS" not in html
         # A clickable button for public tables must be rendered
@@ -677,7 +683,7 @@ class TestLineageAndRelated:
             monkeypatch,
             grants_df=pd.DataFrame(columns=["principal", "privilege"])
         )
-        html = _html(*at.markdown)
+        html = _html(at)
         # Debug print to see what was actually rendered
         if "No grants recorded" not in html:
             print(f"DEBUG HTML: {html[:500]}...")
@@ -694,7 +700,7 @@ class TestLineageAndRelated:
             downstreams=["prod.analytics.orders_fact"],
         )
         at = self._run_with_detail(monkeypatch, lineage_df=lineage)
-        html = _html(*at.markdown)
+        html = _html(at)
         # The section header should be present
         assert "Lineage" in html
 
@@ -708,7 +714,7 @@ class TestLineageAndRelated:
             "relationship": "Same schema",
         }])
         at = self._run_with_detail(monkeypatch, related_df=related)
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "dd-related-card" in html
         assert "customers" in html
 
@@ -735,7 +741,7 @@ class TestGlossary:
         at.query_params["tab"] = "glossary"
         at.run()
 
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "Define business concepts and link them to technical data." in html
         assert "Speak the same language." in html
 
@@ -747,7 +753,7 @@ class TestGlossary:
 
         at.selectbox[0].select("Churn Rate").run()
 
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "The percentage of customers who stop using your product" in html
         assert "Sales & Marketing" in html or "Sales &amp; Marketing" in html
         assert "Jane Doe (Marketing)" in html
@@ -795,7 +801,7 @@ class TestDiscovery:
             assert "SECRET_DB_ERROR_DISCOVERY" not in w.value, "Exception details leaked in st.warning"
         for i in at.info:
             assert "SECRET_DB_ERROR_DISCOVERY" not in i.value, "Exception details leaked in st.info"
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "SECRET_DB_ERROR_DISCOVERY" not in html, "Exception details leaked in st.markdown"
 
 class TestTabState:

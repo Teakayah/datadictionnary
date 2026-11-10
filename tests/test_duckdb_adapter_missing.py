@@ -1,6 +1,6 @@
 import pytest
 import duckdb
-from unittest.mock import MagicMock
+from unittest.mock import patch, MagicMock
 from src.db.duckdb_adapter import _DuckDBCursor
 
 def test_executemany_duckdb_invalid_input_exception():
@@ -75,3 +75,22 @@ def test_duckdb_adapter_executemany_write():
     sql = "INSERT INTO test (a) VALUES (1)"
     cursor.executemany_write(sql)
     con_mock.executemany.assert_called_once_with(sql)
+def test_duckdb_adapter_executemany_invalid_input():
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value = mock_cursor
+    mock_conn.executemany.side_effect = duckdb.InvalidInputException("executemany with no parameters")
+    from src.db.duckdb_adapter import _DuckDBCursor
+    import pytest
+    with _DuckDBCursor(mock_conn) as cursor:
+        with pytest.raises(duckdb.InvalidInputException):
+            cursor.executemany("SELECT 1", [])
+
+def test_duckdb_adapter_executemany_question_mark_params():
+    mock_conn = MagicMock()
+
+    from src.db.duckdb_adapter import _DuckDBCursor
+    with _DuckDBCursor(mock_conn) as cursor:
+        cursor.executemany("SELECT ?", [(1,), (2,)])
+
+    mock_conn.executemany.assert_called_with("SELECT ?", [(1,), (2,)])

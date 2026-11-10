@@ -258,3 +258,13 @@ def test_get_authorized_tables_db_mode(mock_run_query, mock_get_override_table_n
     assert not res.empty
     assert res.iloc[0]["full_name"] == "t1"
     mock_run_query.assert_called_once()
+
+@patch("src.db.queries.is_demo_mode", return_value=True)
+def test_search_keywords_demo_mode_empty(mock_demo):
+    from src.db.queries import _search_keywords
+    import pandas as pd
+    from unittest.mock import patch
+    with patch("src.db.queries.run_query", return_value=pd.DataFrame()), patch("src.db.queries._DEMO_GLOSSARY", pd.DataFrame(columns=["term", "definition", "related_tables"])):
+        res = _search_keywords("non_existent_query_string_for_demo", ("group1",))
+        assert res is not None
+        assert res.empty

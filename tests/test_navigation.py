@@ -128,9 +128,14 @@ def unauthenticated_app() -> AppTest:
     return AppTest.from_file(APP_PATH, default_timeout=15)
 
 
-def _html(at: AppTest) -> str:
-    """Combine markdown output for easier searching."""
-    return " ".join(m.value for m in at.markdown)
+def _html(at) -> str:
+    parts = []
+    if hasattr(at, "markdown"):
+        parts.extend(m.value for m in at.markdown)
+    for el in getattr(at, "main", []):
+        if type(el).__name__ in ("Html", "UnknownElement") and getattr(el, "type", "") == "html":
+            parts.append(getattr(el.proto, "body", ""))
+    return " ".join(parts)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

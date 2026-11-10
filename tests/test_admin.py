@@ -45,8 +45,14 @@ def _standard_app() -> AppTest:
     return at
 
 
-def _html(*markdowns) -> str:
-    return " ".join(m.value for m in markdowns)
+def _html(at) -> str:
+    parts = []
+    if hasattr(at, "markdown"):
+        parts.extend(m.value for m in at.markdown)
+    for el in getattr(at, "main", []):
+        if type(el).__name__ in ("Html", "UnknownElement") and getattr(el, "type", "") == "html":
+            parts.append(getattr(el.proto, "body", ""))
+    return " ".join(parts)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -172,7 +178,7 @@ class TestAdminPage:
         """Admin page heading is present in the rendered HTML."""
         at = self._run_admin(monkeypatch)
         assert not at.exception, f"Exception: {at.exception}"
-        html = _html(*at.markdown)
+        html = _html(at)
         assert "§ Admin" in html
 
     def test_access_guard_shows_error(self, monkeypatch):

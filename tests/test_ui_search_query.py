@@ -305,7 +305,7 @@ def test_search_results_with_nan_score():
                  pd.DataFrame([]), # search related
                  pd.DataFrame([]), # data profile
              ]), \
-             patch("src.pages.search._compute_live_completeness", side_effect=Exception("Failed")), \
+             patch("src.pages.search._compute_live_completeness", create=True, side_effect=Exception("Failed")), \
              patch("src.pages.search.t", side_effect=lambda k, **kw: k):
              # Act
              _render_detail_panel(row, "main.sales.orders", ("group1", "group2"))
@@ -338,7 +338,7 @@ def test_live_completeness_exception():
 
     at = AppTest.from_function(render_detail_panel)
     # Arrange
-    with patch("src.pages.search._compute_live_completeness", side_effect=Exception("DB Error")), \
+    with patch("src.pages.search._compute_live_completeness", create=True, side_effect=Exception("DB Error")), \
          patch("src.pages.search.get_table_comments", return_value=[]), \
          patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
          patch("src.pages.search.get_column_overrides", return_value={}), \
@@ -381,7 +381,7 @@ def test_add_remove_bookmark():
     at.session_state["bookmarks"] = set()
     at.session_state["recent_views"] = []
 
-    with patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+    with patch("src.pages.search._compute_live_completeness", create=True, return_value=50.0), \
          patch("src.pages.search.get_table_comments", return_value=[]), \
          patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
          patch("src.pages.search.get_column_overrides", return_value={}), \
@@ -442,7 +442,7 @@ def test_add_remove_col_bookmark():
         "comment": "ID column"
     }])
 
-    with patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+    with patch("src.pages.search._compute_live_completeness", create=True, return_value=50.0), \
          patch("src.pages.search.get_table_comments", return_value=[]), \
          patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
          patch("src.pages.search.get_column_overrides", return_value={}), \
@@ -580,7 +580,7 @@ def test_save_business_name_exceptions():
     ])
 
     with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
-         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search._compute_live_completeness", create=True, return_value=50.0), \
          patch("src.pages.search.get_table_comments", return_value=[]), \
          patch("src.pages.search.get_table_steward", return_value=""), \
          patch("src.pages.search.get_column_overrides", return_value={}), \
