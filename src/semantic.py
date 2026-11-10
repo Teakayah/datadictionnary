@@ -60,7 +60,10 @@ class MockEmbeddingEngine:
         # Return deterministic dummy vectors (384-dim)
         res = []
         for t in texts:
+            # Repeat the input string enough times to reach 384 characters, then slice exactly to 384.
+            # This ensures short texts still produce a full-length vector without crashing.
             base = (t * (384 // len(t) + 1))[:384] if t else " " * 384
+            # Normalize ASCII ordinals to a 0.0-1.0 float range to mimic a real embedding vector's scale.
             res.append([float(ord(c)) / 255.0 for c in base])
         return res
 
