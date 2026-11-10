@@ -606,3 +606,141 @@ def test_save_business_name_exceptions():
         with patch("src.pages.search.save_business_name", side_effect=PermissionError("Permission Denied")):
             at.button(key="col_biz_save_main.sales.orders__col_1").click().run()
             assert any("editor.permission_error" in e.value for e in at.error)
+def test_search_page_exception_displays_load_error_in_try_block():
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+    import pandas as pd
+
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+    at.session_state["catalog_search"] = "orders"
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "dq_score": 100,
+        "match_type": "Table",
+        "description": "desc"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", side_effect=Exception("Database connection timeout")), \
+         patch("src.pages.search.track_search"), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        at.selectbox(key="catalog_search").set_value("orders").run()
+
+        assert any("detail.load_error" in str(e.value) for e in at.error)
+
+def test_search_page_active_group_no_query_empty_gr():
+    from streamlit.testing.v1 import AppTest
+    from unittest.mock import patch
+    import pandas as pd
+
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        st.query_params["group"] = "finance"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+    at.session_state["catalog_search"] = ""
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "dq_score": 100,
+        "description": "desc"
+    }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+        at.run()
+
+def test_search_page_col_def_false_ccomment():
+    from streamlit.testing.v1 import AppTest
+    from unittest.mock import patch
+    import pandas as pd
+    import html
+
+    def render():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+        st.session_state["user_email"] = "test@example.com"
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com",
+        })
+        _render_detail_panel(row, "main.sales.orders", ("group1",))
+
+    at = AppTest.from_function(render)
+
+    mock_columns = pd.DataFrame([{
+        "column_name": "id",
+        "data_type": "INTEGER",
+        "comment": "ID column tech comment"
+    }])
+
+    mock_overrides = {
+        "id": {
+            "business_name": "ID column biz definition"
+        }
+    }
+
+    with patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+         patch("src.pages.search.get_column_overrides", return_value=mock_overrides), \
+         patch("src.pages.search.get_table_columns", return_value=mock_columns), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.get_current_locale", return_value="en"), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        expected = f'<span class="dd-col-desc">{html.escape("ID column tech comment")}</span>'
+        assert any(expected in m.value for m in at.markdown if m.value)
+
+
+def test_search_page_unreachable_exception():
+    from streamlit.testing.v1 import AppTest
+    from unittest.mock import patch
+    import pandas as pd
+
+    def render():
+        import streamlit as st
+        from src.pages.search import render_search_page
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render)
+    at.session_state["catalog_search"] = "orders"
+
+    with patch("src.pages.search.search_all_metadata", side_effect=Exception("Database down")), \
+         patch("src.pages.search.track_search"), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+        at.run()
+        assert len(at.selectbox) > 0, "Expected a selectbox to be rendered"
+        at.selectbox(key="catalog_search").set_value("orders").run()
+        assert any("detail.load_error" in e.value for e in at.error)
