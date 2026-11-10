@@ -105,13 +105,15 @@ def _render_concept_map(selected_term: str, term_row) -> None:
         graph_nodes.append({"id": table_fn, "label": t_label, "current": False, "relationship": "Table"})
         graph_links.append({"from": "TERM", "to": table_fn})
 
+    nodes_js = json.dumps(graph_nodes).replace("</", "<\\/")
+    edges_js = json.dumps(graph_links).replace("</", "<\\/")
     graph_html = (
         f'<div id="mynetwork_glossary" style="width: 100%; height: 300px; background: #F2EDE1; '
         f'border-radius: 4px; border: 1px solid #C9C2B4; overflow: hidden; margin-top: 16px;"></div>'
         f'<script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>'
         f'<script type="text/javascript">'
-        f'var nodes = new vis.DataSet({json.dumps(graph_nodes)}); '
-        f'var edges = new vis.DataSet({json.dumps(graph_links)}); '
+        f'var nodes = new vis.DataSet({nodes_js}); '
+        f'var edges = new vis.DataSet({edges_js}); '
         f'var container = document.getElementById("mynetwork_glossary"); '
         f'var data = {{ nodes: nodes, edges: edges }}; '
         f'var options = {{ '

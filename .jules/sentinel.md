@@ -58,3 +58,7 @@
 **Vulnerability:** Localized strings were injected directly into Streamlit's `st.markdown(..., unsafe_allow_html=True)` without escaping, leading to potential Cross-Site Scripting (XSS).
 **Learning:** Even if inner interpolation variables are escaped, the translated strings themselves may contain characters that can introduce XSS or break HTML when injected into raw HTML blocks.
 **Prevention:** Always wrap the entire translation output in `_html.escape(t(...))` before injecting it into HTML strings when `unsafe_allow_html=True` is used.
+## 2024-11-10 - Fix XSS in JSON-to-Script Injections
+**Vulnerability:** Unescaped `json.dumps()` output interpolated directly into HTML `<script>` tags (`nodes_js` and `edges_js` for vis.js rendering) allowed attackers to supply inputs containing `</script>` tags, breaking out of the JavaScript context and injecting arbitrary malicious scripts into the frontend view.
+**Learning:** `json.dumps()` does not escape HTML slashes by default. When injecting JSON representations into an inline `<script>` tag inside an f-string, you must explicitly escape slashes to prevent script block premature termination. Backslashes are strictly prohibited inside Python f-string expressions prior to Python 3.12, so escaping must be performed on the standalone variable before f-string injection.
+**Prevention:** Always use `.replace("</", "<\\/")` on JSON outputs before embedding them inside HTML `<script>` tags, and perform this string operation before string interpolation (e.g. `var = json.dumps(data).replace("</", "<\\/")`).

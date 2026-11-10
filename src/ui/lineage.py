@@ -89,8 +89,8 @@ def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, ru
 
 
 def _lineage_vis_html(graph_nodes: list, graph_links: list, height: int = 350, container_id: str = "mynetwork", spring_length: int = 120) -> str:
-    nodes_js = json.dumps(graph_nodes)
-    edges_js = json.dumps(graph_links)
+    nodes_js = json.dumps(graph_nodes).replace("</", "<\\/")
+    edges_js = json.dumps(graph_links).replace("</", "<\\/")
     return (
         f'<div id="{container_id}" style="width:100%;height:{height}px;background:#F2EDE1;border-radius:4px;'
         f'border:1px solid #C9C2B4;overflow:hidden;margin-top:16px;"></div>'

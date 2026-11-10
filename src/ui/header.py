@@ -75,8 +75,8 @@ def _render_proxy_buttons(tabs: list[str]) -> None:
 
 def _inject_wiring_js(tabs: list[str]) -> None:
     tab_map = {tid: t(f"nav.{tid}") for tid in tabs}
-    tab_map_js = _json.dumps(tab_map)
-    nav_labels_js = _json.dumps(list(tab_map.values()))
+    tab_map_js = _json.dumps(tab_map).replace("</", "<\\/")
+    nav_labels_js = _json.dumps(list(tab_map.values())).replace("</", "<\\/")
 
     components.html(f"""
     <div style="display:none;">
