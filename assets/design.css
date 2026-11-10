@@ -910,3 +910,12 @@ iframe[height="0"] { display: none !important; }
     position: absolute !important;
     pointer-events: none !important;
 }
+
+/* ── Keyboard Accessibility Focus Indicators ── */
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--accent) !important;
+    outline-offset: 3px !important;
+}
