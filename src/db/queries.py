@@ -342,8 +342,7 @@ def search_all_metadata(query: str, groups: tuple):
     # 3. Weighted fusion. Keyword `_score` is normalized to [0, 1]; the
     # semantic contribution decays linearly with rank in `semantic_fns`.
     combined = keyword_results.copy()
-    # ⚡ Bolt: Replace .unique().tolist() with just .unique() for faster set construction
-    known_fns = set(combined["full_name"].unique())
+    known_fns = set(combined["full_name"].to_numpy())  # ⚡ Bolt: Use .to_numpy() before set() to bypass pandas object iteration overhead
     missing_fns = [fn for fn in semantic_fns if fn not in known_fns]
     if missing_fns:
         extra = _fetch_metadata_for_fns(missing_fns, groups)
@@ -618,9 +617,9 @@ def export_schema_to_csv(cols: pd.DataFrame, col_overrides: dict) -> str:
     )
 
     if cols is not None and not cols.empty:
-        cnames = cols["column_name"].tolist() if "column_name" in cols else [""] * len(cols)
-        ctypes = cols["data_type"].tolist() if "data_type" in cols else [""] * len(cols)
-        ccomments = cols["comment"].tolist() if "comment" in cols else [""] * len(cols)
+        cnames = cols["column_name"].to_numpy().tolist() if "column_name" in cols else [""] * len(cols)  # ⚡ Bolt: Use .to_numpy().tolist() for faster conversion instead of .tolist()
+        ctypes = cols["data_type"].to_numpy().tolist() if "data_type" in cols else [""] * len(cols)  # ⚡ Bolt: Use .to_numpy().tolist() for faster conversion instead of .tolist()
+        ccomments = cols["comment"].to_numpy().tolist() if "comment" in cols else [""] * len(cols)  # ⚡ Bolt: Use .to_numpy().tolist() for faster conversion instead of .tolist()
 
         for cname_raw, ctype_raw, ccomment_raw in zip(cnames, ctypes, ccomments):
             cname = str(cname_raw)
