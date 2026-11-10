@@ -204,3 +204,56 @@ def test_search_column_desc_fallback():
 
         # Test column fallback output
         assert any("bus_def_en" in getattr(m, "value", "") or "bus_def_en" in str(m) for m in at.get("markdown") + at.get("html") + at.get("text"))
+
+def test_search_view_details_unauth():
+    from streamlit.testing.v1 import AppTest
+    from unittest.mock import patch
+    import pandas as pd
+
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["dd_user_groups"] = ["group1"]
+        st.session_state["power_user"] = True
+        st.session_state["_dd_current_search_query"] = "orders"
+
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+    at.session_state["catalog_search"] = "orders"
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales"
+    }])
+
+    mock_search = pd.DataFrame([
+        {
+            "full_name": "main.sales.unauthorized",
+            "table_name": "unauthorized",
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "dq_score": 0,
+            "match_type": "Table",
+            "description": ""
+        }
+    ])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_search), \
+         patch("src.pages.search.track_search"), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        unauth_button = [b for b in at.button if getattr(b, "key", "") == "gview_main.sales.unauthorized_0"]
+        if unauth_button:
+            unauth_button[0].click().run()
+
+            assert "dd_search_override" not in at.session_state
+            assert "dd_nav_select" not in at.session_state
+            assert any("detail.unauthorized" in getattr(e, "value", "") or "detail.unauthorized" in str(e) for e in at.error)
