@@ -187,3 +187,7 @@ Assertion: When testing >50 truncation paths, verify `at.info` presence containi
 **Coverage Gap:** The else branch inside `_render_notable_tab` prompting for user sign in was unreachable since an earlier statement would return early if `primary_group` was falsey.
 **Learning:** When addressing test coverage gaps involving missing lines, if analysis reveals the un-covered lines are logically unreachable dead code (e.g., statements following a branch with a guaranteed early-return), remove the dead code to satisfy the coverage metric instead of attempting to mock impossible test states.
 **Assertion:** Removed the unreachable dead code block.
+## 2026-10-18 - Cover MCP server list_tables schema-only fallback
+**Coverage Gap:** The `list_tables` method inside the MCP server module lacked test coverage for its `elif schema:` branch which handles fetching tables when only a schema parameter (and no catalog parameter) is supplied.
+**Learning:** Testing logic tied tightly to external async Redis caches or internal duckdb queries inside an async handler requires carefully matching the exact import namespace used internally (e.g. `src.api.queries.get_authorized_tables` must be mock-patched relative to how the MCP server invokes it).
+**Assertion:** Wrote an `anyio` async test that isolates `list_tables` by mocking the cache methods and `get_authorized_tables` dependency. Explicitly invoke the `schema="sales"` case and verify using `json.loads` that the returned payload properly filters the mocked DataFrame down to one correct record.
