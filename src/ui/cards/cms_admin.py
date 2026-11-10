@@ -75,14 +75,16 @@ def _show_cms_create_dialog():
 
     _save, _cancel = st.columns([1, 1], gap="small")
     with _save:
-        if st.button(t("common.save"), type="primary", use_container_width=True, key="cms_save_btn"):
+        _title_valid = bool(title.strip())
+        _tref_valid = bool((table_ref or "").strip()) if post_type == "featured_table" else True
+        if not _title_valid:
+            _help = t("cms.error_title_required")
+        elif not _tref_valid:
+            _help = t("cms.error_table_ref_required")
+        else:
+            _help = t("help.btn_common_save")
+        if st.button(t("common.save"), type="primary", use_container_width=True, key="cms_save_btn", disabled=not (_title_valid and _tref_valid), help=_help):
             with st.spinner(t("common.saving")):
-                if not title.strip():
-                    st.error(t("cms.error_title_required"))
-                    return
-                if post_type == "featured_table" and not (table_ref or "").strip():
-                    st.error(t("cms.error_table_ref_required"))
-                    return
                 actor = st.session_state.get("user_email", "admin")
                 create_post(PostParams(
                     post_type=post_type,

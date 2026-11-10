@@ -25,11 +25,12 @@ class TestPipelineCreateDialog:
     def test_create_pipeline_databricks_missing_title(self, mock_create):
         at = AppTest.from_function(create_dialog_app).run()
 
-        at.text_input(key="pl_create_title").set_value("   ")
-        at.button(key="pl_save").click().run()
+        at.text_input(key="pl_create_title").set_value("   ").run()
+        # Do not click because it's disabled now
 
         mock_create.assert_not_called()
-        assert at.error[0].value == en_locale["pipelines"]["error_title"]
+        assert getattr(at.button(key="pl_save"), "disabled", False)
+        assert getattr(at.button(key="pl_save"), "help", "") != ""
 
     @patch("src.ui.cards.pipelines.create_pipeline_def")
     def test_create_pipeline_databricks_success(self, mock_create):

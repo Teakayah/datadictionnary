@@ -24,12 +24,12 @@ class TestCmsCreateDialog:
     def test_create_post_success(self, mock_create):
         at = AppTest.from_function(create_dialog_app).run()
 
-        at.text_input[0].set_value("Test Title")
-        at.text_area[0].set_value("Test Body")
+        at.text_input[0].set_value("Test Title").run()
+        at.text_area[0].set_value("Test Body").run()
         # Radio button: "Announcement" (default) is 0
-        at.radio[0].set_value("announcement")
+        at.radio[0].set_value("announcement").run()
 
-        at.button[0].click().run() # Click "Save"
+        at.button(key="cms_save_btn").click().run() # Click "Save"
 
         mock_create.assert_called_once()
         args = mock_create.call_args[0][0]
@@ -41,12 +41,11 @@ class TestCmsCreateDialog:
     def test_create_post_missing_title(self, mock_create):
         at = AppTest.from_function(create_dialog_app).run()
 
-        at.text_input[0].set_value("  ") # Empty title
-
-        at.button[0].click().run()
+        at.text_input[0].set_value("  ").run() # Empty title
 
         mock_create.assert_not_called()
-        assert at.error[0].value == en_locale["cms"]["error_title_required"]
+        assert getattr(at.button[0], "disabled", False)
+        assert at.button[0].help == en_locale["cms"]["error_title_required"]
 
     @patch("src.ui.cards.cms_admin.create_post")
     def test_create_post_featured_table_missing_ref(self, mock_create):
@@ -57,12 +56,11 @@ class TestCmsCreateDialog:
         at.run()
 
         # Second text input is now table_ref
-        at.text_input[1].set_value("  ")
-
-        at.button[0].click().run()
+        at.text_input[1].set_value("  ").run()
 
         mock_create.assert_not_called()
-        assert at.error[0].value == en_locale["cms"]["error_table_ref_required"]
+        assert getattr(at.button[0], "disabled", False)
+        assert at.button[0].help == en_locale["cms"]["error_table_ref_required"]
 
 class TestAdminCmsSection:
     @patch("src.ui.cards.cms_admin.get_all_posts")

@@ -51,3 +51,6 @@
 ## 2025-01-20 - Ensure aria-current for custom Streamlit Navigation
 **Learning:** When building custom HTML navigation components in Streamlit (e.g., bypassing standard `st.navigation`), active visual states (like the `active` CSS class) are not automatically announced by screen readers.
 **Action:** Always ensure custom HTML tabs or toggle links programmatically inject `aria-current="page"` or `aria-current="true"` when their state matches the active selection.
+## 2024-12-07 - Form validation with disabled state tooltips
+**Learning:** Triggering `st.error` checks inside `st.button` actions requires users to submit invalid data before they receive feedback.
+**Action:** Improve inline form validation and clarity by setting `disabled=not is_valid` directly on the `st.button` and dynamically updating the `help` kwarg with the specific validation error message (e.g., `help="Title is required" if not title else "Save"`).

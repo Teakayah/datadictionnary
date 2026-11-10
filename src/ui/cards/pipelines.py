@@ -95,11 +95,10 @@ def _show_pipeline_create_dialog():
 
     _s, _c = st.columns(2)
     with _s:
-        if st.button(t("common.save"), type="primary", use_container_width=True, key="pl_save"):
+        _title_valid = bool(title.strip())
+        _help = t("pipelines.error_title") if not _title_valid else t("help.btn_common_save")
+        if st.button(t("common.save"), type="primary", use_container_width=True, key="pl_save", disabled=not _title_valid, help=_help):
             with st.spinner(t("common.saving")):
-                if not title.strip():
-                    st.error(t("pipelines.error_title"))
-                    return
                 actor = st.session_state.get("user_email", "admin")
                 create_pipeline_def(PipelineDefParams(
                     title=title.strip(),

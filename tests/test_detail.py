@@ -188,11 +188,11 @@ class TestRenderTableMetadataEditor:
     def test_render_table_metadata_editor_invalid_email(self, mock_save):
         at = AppTest.from_function(table_editor_app, args=("cat.sch.tbl", "old desc", "old@steward.com")).run()
 
-        at.text_input[0].set_value("invalidemail")
-        at.button[0].click().run()
+        at.text_input[0].set_value("invalidemail").run()
 
         mock_save.assert_not_called()
-        assert at.error[0].value == en_locale["detail"]["invalid_email"]
+        assert getattr(at.button[0], "disabled", False)
+        assert at.button[0].help == en_locale["detail"]["invalid_email"]
 
     @patch("src.ui.cards.detail.save_table_metadata")
     def test_render_table_metadata_editor_exception(self, mock_save):

@@ -14,8 +14,8 @@ def test_render_table_metadata_editor():
 
         # invalid email
         at.text_input[0].set_value("invalidemail").run()
-        at.button[0].click().run()
-        assert at.error[0].value == "detail.invalid_email"
+        assert getattr(at.button[0], "disabled", False)
+        assert at.button[0].help == "detail.invalid_email"
 
         # valid save
         with patch("src.ui.cards.detail.save_table_metadata") as mock_save:
@@ -33,5 +33,6 @@ def test_render_table_metadata_editor():
 
         # exception on save
         with patch("src.ui.cards.detail.save_table_metadata", side_effect=Exception("Save Failed")):
+            at.text_input[0].set_value("valid@example.com").run()
             at.button[0].click().run()
             assert at.error[0].value == "common.error"
