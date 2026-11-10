@@ -15,7 +15,7 @@ from src.config import CATALOG_CACHE, SCHEMA_CACHE, MAX_BUSINESS_NAME_LEN
 from src.i18n import t, get_current_locale
 from src.db.queries import (
     get_authorized_tables, search_all_metadata,
-    get_multi_hop_lineage, run_query, export_schema_to_csv,
+    get_lineage, run_query, export_schema_to_csv,
 )
 from src.analytics import SearchEvent, track_search
 from src.audit import get_column_overrides, get_table_columns
@@ -460,7 +460,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
 
         # Downstream impact
         try:
-            _downstream = get_multi_hop_lineage(full_name, depth=2)
+            _downstream = get_lineage(full_name, depth=2)
             _ds_rows = (
                 _downstream[_downstream["direction"] == "downstream"]
                 if _downstream is not None and not _downstream.empty and "direction" in _downstream.columns

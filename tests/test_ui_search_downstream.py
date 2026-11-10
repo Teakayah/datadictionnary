@@ -43,7 +43,7 @@ def test_search_downstream_critical():
 
     with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
          patch("src.pages.search.search_all_metadata", return_value=mock_authorized), \
-         patch("src.pages.search.get_multi_hop_lineage", return_value=mock_lineage), \
+         patch("src.pages.search.get_lineage", return_value=mock_lineage), \
          patch("src.pages.search._build_lineage_graph", return_value=([], [])), \
          patch("src.pages.search.get_table_columns", return_value=pd.DataFrame([{"column_name": "id", "data_type": "int", "comment": ""}])), \
          patch("src.pages.search.run_query", return_value=pd.DataFrame([{"grant_group_0": "group1", "principal": "user", "privilege": "SELECT"}])), \
@@ -93,7 +93,7 @@ def test_search_downstream_exception():
 
     with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
          patch("src.pages.search.search_all_metadata", return_value=mock_authorized), \
-         patch("src.pages.search.get_multi_hop_lineage", side_effect=Exception("Database error")), \
+         patch("src.pages.search.get_lineage", side_effect=Exception("Database error")), \
          patch("src.pages.search._build_lineage_graph", return_value=([], [])), \
          patch("src.pages.search.get_table_columns", return_value=pd.DataFrame([{"column_name": "id", "data_type": "int", "comment": ""}])), \
          patch("src.pages.search.run_query", return_value=pd.DataFrame([{"grant_group_0": "group1", "principal": "user", "privilege": "SELECT"}])), \

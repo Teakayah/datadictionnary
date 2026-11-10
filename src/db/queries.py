@@ -239,7 +239,7 @@ def get_authorized_tables(groups):
 
 
 @st.cache_data(ttl="1h", show_spinner=False)
-def get_multi_hop_lineage(table_full_name: str, depth: int = 1):
+def get_lineage(table_full_name: str, depth: int = 1):
     """Fetch lineage edges up to a given depth.
 
     Args:

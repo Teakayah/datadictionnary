@@ -27,3 +27,9 @@
 ## 2026-10-24 - Unnecessary complex operation over DataFrame for set extraction
 **Learning:** Found `set(all_tables["full_name"].unique().tolist())` which unnecessarily downloads all table columns into a pandas dataframe then does a complex transformation, when a simpler optimized `get_authorized_table_names(groups)` which returns the set directly is available.
 **Action:** Replaced the unoptimized extraction with the optimized `get_authorized_table_names(groups)` in `src/ui/cards/discovery.py`.
+## 2026-11-09 - Method Renaming
+**Learning:** Found two implementations of the lineage retrieval query with different names (`get_lineage` vs `get_multi_hop_lineage`). Renamed `get_multi_hop_lineage` to `get_lineage` to be consistent with the rest of the codebase (`src/api/queries.py`).
+**Action:** Renamed `get_multi_hop_lineage` to `get_lineage` across the codebase (`src/db/queries.py`, `src/pages/search.py`, `tests/test_ui_search_downstream.py`, `tests/test_db_queries.py`, `tests/test_lineage.py`, `tests/test_ui_search_query.py`).
+## 2026-11-09 - Method Renaming
+**Learning:** Found two implementations of the lineage retrieval query with different names (`get_lineage` vs `get_multi_hop_lineage`). Renamed `get_multi_hop_lineage` to `get_lineage` to be consistent with the rest of the codebase (`src/api/queries.py`).
+**Action:** Renamed `get_multi_hop_lineage` to `get_lineage` across the codebase (`src/db/queries.py`, `src/pages/search.py`, `tests/test_ui_search_downstream.py`, `tests/test_db_queries.py`, `tests/test_lineage.py`, `tests/test_ui_search_query.py`).
