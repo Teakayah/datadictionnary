@@ -81,6 +81,14 @@ def _clear_auth_session() -> None:
 def _resolve_user_groups(claims: dict, access_token: str) -> list[str]:
     """Return the user's security-group membership list.
 
+    WHY IT EXISTS:
+    Entra ID limits the number of groups returned in the `groups` claim of an ID token
+    (typically ~150). If a user belongs to more groups, Entra ID omits the `groups` claim
+    and instead provides a `_claim_names.groups` pointer. This function abstracts that
+    complexity, checking the inline claim first, and automatically falling back to an explicit
+    Microsoft Graph API call (`getMemberObjects`) if an overage is detected. Without this
+    logic, power users with many group assignments would silently lose access to all tables.
+
     Three branches:
       1. ID token has inline ``groups`` claim → use it (the common case).
       2. ID token signals overage (``_claim_names.groups`` set, no inline
@@ -88,6 +96,13 @@ def _resolve_user_groups(claims: dict, access_token: str) -> list[str]:
          >~150 groups; without this they would see zero tables.
       3. Neither → empty list. Logged once at INFO so a tenant misconfig
          (no groups at all) is visible in logs.
+
+    Args:
+        claims (dict): The decoded claims from the Entra ID token.
+        access_token (str): The valid MSAL access token required for Graph API fallback.
+
+    Returns:
+        list[str]: A list of Entra ID group Object IDs the user belongs to.
     """
     inline = claims.get("groups")
     if inline is not None:
