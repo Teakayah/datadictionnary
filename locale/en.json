@@ -128,7 +128,11 @@
     "placeholder_desc": "Describe the table's contents, grain, and common use cases...",
     "placeholder_steward": "e.g. data.steward@example.com",
     "edit_table_btn": "✎ Edit table metadata",
-    "edit_friendly_name_btn": "✎ Edit friendly name"
+    "edit_friendly_name_btn": "✎ Edit friendly name",
+    "friendly_name_en_placeholder": "e.g. Daily Sales",
+    "friendly_name_fr_placeholder": "e.g. Ventes Quotidiennes",
+    "friendly_definition_en_placeholder": "Enter English definition...",
+    "friendly_definition_fr_placeholder": "Enter French definition..."
   },
   "editor": {
     "save": "Save",
