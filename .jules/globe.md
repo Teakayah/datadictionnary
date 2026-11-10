@@ -61,3 +61,6 @@
 ## 2025-03-01 - Avoid Concatenating Icons with Localized Text
 **Learning:** Hardcoding string concatenations like `f"← {t('common.back')}"` forces a specific English-centric layout (icon on the left) that breaks RTL languages and prevents translators from adapting the button layout naturally.
 **Action:** Extract the entire string, including formatting templates like icons and arrows, into a unified translation key (e.g., `common.back_btn`: `"← Back"`) to give full control back to the translation dictionary.
+## 2024-10-27 - Extract Hardcoded Editor Placeholder Strings
+**Learning:** Found hardcoded placeholder string keys referenced in `src/pages/search.py` that were missing from `locale/en.json` and `locale/fr.json`, which were causing fallbacks to English or failing translations entirely during component rendering for the `editor` section.
+**Action:** Added the missing `editor` localization keys to the `en.json` and `fr.json` language files to ensure all strings can be correctly localized across different user preferences.
