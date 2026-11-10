@@ -58,3 +58,6 @@
 ## 2026-10-25 - Missing dynamically formatted fallback keys
 **Learning:** Dynamically formatted keys (e.g. `t("admin.reviews_approved_toast", col=col)`) must exist in the locale dictionaries. If they are missing, the i18n module falls back to the dotted key name. However, since the fallback token does not contain format string placeholders (like `{col}`), the string formatting step crashes or drops the dynamic value.
 **Action:** Always ensure that dynamically formatted strings exist in the respective `locale` dictionary to keep it correctly translatable and dynamic.
+## 2026-11-09 - Extracted Missing Form Field Translations
+**Learning:** Hardcoded strings in form fields like placeholders (`t("editor.placeholder_biz_name")`), labels (`t("editor.business_name_label")`), and error messages (`t("editor.permission_error")`) can be missed during translation extraction if they are built dynamically or are specific to form states. Found missing keys under `editor` namespace.
+**Action:** Extract these field-specific keys, including placeholders and errors, into both `locale/en.json` and fallback files to ensure the entire form remains localized properly. Ensure to always verify `t("namespace.key")` strings have corresponding entries.

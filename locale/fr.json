@@ -131,7 +131,13 @@
     "cancel": "Annuler",
     "edit": "Modifier",
     "title": "Modifier le nom métier et la définition",
-    "last_edited_by": "Dernière modification par {user} · {date}"
+    "last_edited_by": "Dernière modification par {user} · {date}",
+    "edit_mode_banner": "Modification des métadonnées de la colonne",
+    "business_name_label": "Nom métier",
+    "placeholder_biz_name": "Entrez le nom métier...",
+    "definition_label": "Définition",
+    "placeholder_biz_def": "Entrez la définition...",
+    "permission_error": "Vous n'avez pas la permission de modifier cet actif."
   },
   "comment": {
     "leave_a_comment": "Laisser un commentaire",

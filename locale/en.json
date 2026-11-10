@@ -131,7 +131,13 @@
     "cancel": "Cancel",
     "edit": "Edit",
     "title": "Edit business name and definition",
-    "last_edited_by": "Last edited by {user} · {date}"
+    "last_edited_by": "Last edited by {user} · {date}",
+    "edit_mode_banner": "Editing column metadata",
+    "business_name_label": "Business name",
+    "placeholder_biz_name": "Enter business name...",
+    "definition_label": "Definition",
+    "placeholder_biz_def": "Enter definition...",
+    "permission_error": "You do not have permission to edit this asset."
   },
   "comment": {
     "leave_a_comment": "Leave a comment",
