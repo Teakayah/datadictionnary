@@ -198,7 +198,7 @@ def render_footer() -> None:
     st.markdown(f"""
     <div class="dd-footer">
       <div class="dd-footer-inner">
-        <span>{t('footer.built_with')}</span>
+        <span>{_html.escape(t("footer.built_with"))}</span>
         <span>main.data_governance.dictionary_cache</span>
       </div>
     </div>

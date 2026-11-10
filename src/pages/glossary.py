@@ -19,9 +19,9 @@ def _render_hero_and_help() -> None:
     """Renders the hero section and help expander."""
     st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">{t("glossary.title")}</div>
-      <h1>{t("glossary.hero_title")}</h1>
-      <p class="lead">{t("glossary.subtitle")}</p>
+      <div class="dd-eyebrow">{_html.escape(t("glossary.title"))}</div>
+      <h1>{_html.escape(t("glossary.hero_title"))}</h1>
+      <p class="lead">{_html.escape(t("glossary.subtitle"))}</p>
     </div>
     ''', unsafe_allow_html=True)
 
@@ -43,7 +43,7 @@ def _render_term_details(term_row, _authorized_fns: set) -> None:
       {_html.escape(str(term_row["calculation"]))}
     </div>
 
-    <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:32px; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em;">{t("glossary.linked_tables")}</div>
+    <div style="font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--ink-40); margin-top:32px; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em;">{_html.escape(t("glossary.linked_tables"))}</div>
     ''', unsafe_allow_html=True)
 
     for table_fn in term_row["related_tables"]:
@@ -80,7 +80,7 @@ def _render_stewardship(term_row) -> None:
       <div style="font-family:var(--font-sans); font-size:16px; font-weight:600; color:var(--ink); margin-top:4px;">{_html.escape(str(term_row["domain"]))}</div>
     </div>
     <div style="margin-top:20px;">
-      <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{t("glossary.data_steward")}</div>
+      <div style="font-family:var(--font-sans); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(t("glossary.data_steward"))}</div>
       <div style="font-family:var(--font-sans); font-size:16px; font-weight:600; color:var(--ink); margin-top:4px;">{_html.escape(str(term_row["steward"]))}</div>
     </div>
     ''', unsafe_allow_html=True)
@@ -89,7 +89,7 @@ def _render_concept_map(selected_term: str, term_row) -> None:
     """Renders the interactive concept map for a term and its linked tables."""
     st.markdown(f'''
     <div class="dd-section-header" style="margin-top:32px;">
-      <span class="dd-eyebrow" style="margin-bottom:0">{t("glossary.concept_map")}</span>
+      <span class="dd-eyebrow" style="margin-bottom:0">{_html.escape(t("glossary.concept_map"))}</span>
     </div>
     ''', unsafe_allow_html=True)
 

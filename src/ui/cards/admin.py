@@ -282,12 +282,12 @@ def _render_admin_integrity_report():
     """Admin section: Data Integrity Insights."""
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:16px;">'
-        f'<span class="dd-eyebrow">§ {t("admin.integrity_title")}</span></div>',
+        f'<span class="dd-eyebrow">§ {_html.escape(t("admin.integrity_title"))}</span></div>',
         unsafe_allow_html=True,
     )
     st.markdown(
         f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);'
-        f'line-height:1.5;margin:8px 0 24px;">{t("admin.integrity_subtitle")}</p>',
+        f'line-height:1.5;margin:8px 0 24px;">{_html.escape(t("admin.integrity_subtitle"))}</p>',
         unsafe_allow_html=True,
     )
 
@@ -357,7 +357,7 @@ def _render_admin_search_analytics_section():
     )
     st.markdown(
         f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);'
-        f'line-height:1.5;margin:8px 0 12px;">{t("admin.search_analytics_subtitle")}</p>',
+        f'line-height:1.5;margin:8px 0 12px;">{_html.escape(t("admin.search_analytics_subtitle"))}</p>',
         unsafe_allow_html=True,
     )
     df = get_search_analytics()
@@ -412,7 +412,7 @@ def _render_admin_sync_section():
             f'<div style="font-family:var(--font-sans); font-size:14px; font-weight:600; '
             f'color:var(--ink);">{_html.escape(str(dr_status))}</div>'
             f'<div style="margin-top:12px; font-family:var(--font-mono); font-size:10px; '
-            f'color:var(--ink-40); text-transform:uppercase;">{t("admin.sync_worker_heartbeat")}</div>'
+            f'color:var(--ink-40); text-transform:uppercase;">{_html.escape(t("admin.sync_worker_heartbeat"))}</div>'
             f'<div style="font-family:var(--font-mono); font-size:11px; '
             f'color:var(--ink-60);">{_html.escape(str(heartbeat))}</div>'
             f'</div>',
@@ -426,7 +426,7 @@ def _render_admin_biz_log_section():
     _biz_h, _biz_btn = st.columns([9, 1], gap="small")
     with _biz_h:
         st.markdown(
-            f'<div class="dd-section-header"><span class="dd-eyebrow">§ {t("admin.biz_log_title")}</span></div>',
+            f'<div class="dd-section-header"><span class="dd-eyebrow">§ {_html.escape(t("admin.biz_log_title"))}</span></div>',
             unsafe_allow_html=True,
         )
     with _biz_btn:
@@ -693,8 +693,8 @@ def render_admin_page():
 
     st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">{t("admin.title")}</div>
-      <h1>{t("admin.hero_title")}</h1>
+      <div class="dd-eyebrow">{_html.escape(t("admin.title"))}</div>
+      <h1>{_html.escape(t("admin.hero_title"))}</h1>
       <p class="lead">{_html.escape(t("admin.subtitle"))}</p>
     </div>
     ''', unsafe_allow_html=True)
