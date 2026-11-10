@@ -37,7 +37,7 @@ def _get_table_health_stats(groups: tuple) -> pd.DataFrame:
     if is_demo_mode():
         from src.demo.data import _DEMO_TABLES
         # ⚡ Bolt: Replace .agg(lambda) with vectorized boolean mask grouping for ~10% faster conditional counting
-        mask = _DEMO_TABLES['table_description'].notna() & (_DEMO_TABLES['table_description'].str.strip() != '')
+        mask = _DEMO_TABLES['table_description'].notna() & (_DEMO_TABLES['table_description'].str.strip().to_numpy() != '')
         res = _DEMO_TABLES.groupby('schema_name').agg(total=('table_name', 'count'))
         res['described'] = mask.groupby(_DEMO_TABLES['schema_name']).sum()
         return res.reset_index()
@@ -91,7 +91,7 @@ def _get_undocumented_priority(groups: tuple, limit: int = 5) -> pd.DataFrame:
     if is_demo_mode():
         from src.demo.data import _DEMO_TABLES
         return _DEMO_TABLES[
-            _DEMO_TABLES['table_description'].fillna('').astype(str).str.strip() == ''
+            _DEMO_TABLES['table_description'].fillna('').astype(str).str.strip().to_numpy() == ''
         ].head(limit)
 
     group_ph = ", ".join(f"%(g_{i})s" for i in range(len(groups))) if groups else "''"
