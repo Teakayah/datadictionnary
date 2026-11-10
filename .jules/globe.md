@@ -61,3 +61,11 @@
 ## 2025-03-01 - Avoid Concatenating Icons with Localized Text
 **Learning:** Hardcoding string concatenations like `f"← {t('common.back')}"` forces a specific English-centric layout (icon on the left) that breaks RTL languages and prevents translators from adapting the button layout naturally.
 **Action:** Extract the entire string, including formatting templates like icons and arrows, into a unified translation key (e.g., `common.back_btn`: `"← Back"`) to give full control back to the translation dictionary.
+
+## 2024-11-04 - Extracting Mock Department Selection Keys
+**Learning:** The mock authentication dropdown (`st.selectbox` for departments) used raw dictionary keys (e.g., "Finance", "Research") directly in the UI. These keys were hardcoded into the component. By using a translation lookup and a lambda formatting function (`format_func=lambda x: t(f"auth.dept_{x.lower()}")`), the internal static mapping remains functional while the user-facing text is localized properly.
+**Action:** When a UI component derives its display labels directly from a data structure's keys, convert those keys to localization tokens and use the component's formatting properties (like Streamlit's `format_func`) to resolve them at render time.
+
+## 2026-11-10 - Localizing Mock Authentication Department Selectbox
+**Learning:** The mock authentication dropdown (`st.selectbox` for departments) used raw dictionary keys (e.g., "Finance", "Research") directly in the UI. These keys were hardcoded into the component. By using a translation lookup and a lambda formatting function (`format_func=lambda x: t(f"auth.dept_{x.lower()}")`), the internal static mapping remains functional while the user-facing text is localized properly.
+**Action:** When a UI component derives its display labels directly from a data structure's keys, convert those keys to localization tokens and use the component's formatting properties (like Streamlit's `format_func`) to resolve them at render time.
