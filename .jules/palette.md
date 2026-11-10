@@ -51,3 +51,6 @@
 ## 2025-01-20 - Ensure aria-current for custom Streamlit Navigation
 **Learning:** When building custom HTML navigation components in Streamlit (e.g., bypassing standard `st.navigation`), active visual states (like the `active` CSS class) are not automatically announced by screen readers.
 **Action:** Always ensure custom HTML tabs or toggle links programmatically inject `aria-current="page"` or `aria-current="true"` when their state matches the active selection.
+## 2026-11-10 - Add warning icon to empty state error
+**Learning:** Using `st.warning` without an explicit icon for user feedback on empty forms (such as submitting an empty comment) fails to visually distinguish the warning from generic text, leading to a poorer user experience.
+**Action:** Enhance user feedback by adding the warning icon `icon="⚠️"` to `st.warning` calls when a form validation fails (e.g. `st.warning(t("comment.empty_error"), icon="⚠️")`).

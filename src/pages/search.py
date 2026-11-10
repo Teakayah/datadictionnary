@@ -74,7 +74,7 @@ def _render_comment_form(
                             logging.error("Failed to save comment for %s: %s", full_name, exc, exc_info=True)
                             st.error(t("common.error"))
                     else:
-                        st.warning(t("comment.empty_error"))
+                        st.warning(t("comment.empty_error"), icon="⚠️")
         with _cc:
             if st.button(t("comment.cancel"), key=f"dd_comment_cancel_{key_suffix}", help=t("help.btn_cancel_comment"), use_container_width=True):
                 st.session_state.pop(_open_key, None)

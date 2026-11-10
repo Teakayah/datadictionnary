@@ -174,7 +174,7 @@ def _render_priority_actions(undocumented: pd.DataFrame):
     )
 
     if not undocumented.empty:
-        st.warning(t("health.missing_descriptions"))
+        st.warning(t("health.missing_descriptions"), icon="⚠️")
         # ⚡ Bolt: Apply hard cap of 50 to prevent O(N) main-thread blocking when rendering large DataFrames.
         # Reduces severe UI freezing when there are hundreds of undocumented tables.
         if len(undocumented) > 50:

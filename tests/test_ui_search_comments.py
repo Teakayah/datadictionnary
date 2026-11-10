@@ -97,7 +97,7 @@ def test_comment_form_submit_empty():
 
     # Warning should be displayed and form stays open
     assert len(at.warning) == 1
-    assert at.warning[0].value == "comment.empty_error"
+    assert at.warning[0].value == "comment.empty_error" and at.warning[0].icon == "⚠️"
     assert len(at.button) == 2
 
 def test_comment_form_no_steward_warning():
