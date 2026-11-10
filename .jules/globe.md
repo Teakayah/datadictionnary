@@ -61,3 +61,6 @@
 ## 2025-03-01 - Avoid Concatenating Icons with Localized Text
 **Learning:** Hardcoding string concatenations like `f"← {t('common.back')}"` forces a specific English-centric layout (icon on the left) that breaks RTL languages and prevents translators from adapting the button layout naturally.
 **Action:** Extract the entire string, including formatting templates like icons and arrows, into a unified translation key (e.g., `common.back_btn`: `"← Back"`) to give full control back to the translation dictionary.
+## 2026-11-10 - Extracting editor UI placeholders and labels
+**Learning:** Hardcoding English fallback keys (e.g. `placeholder_biz_name`) within the Python codebase and missing those actual keys in translation files `locale/en.json` and `locale/fr.json` causes those labels and placeholders (e.g., `t("editor.placeholder_biz_name")`) to render improperly as technical strings in both supported languages.
+**Action:** When working on UI input components (e.g., `st.text_input`, `st.text_area`), always ensure the required nested keys for their labels and placeholders are correctly defined in both translation JSON files. Missing keys result in silent fallback to dotted key paths, impacting UX significantly.
