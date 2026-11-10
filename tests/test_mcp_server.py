@@ -250,3 +250,28 @@ class TestGetLineageCache:
             result = _run_with_user(get_lineage("cached.s.t"))
         no_db.assert_not_called()
         assert json.loads(result) == cached
+
+def test_list_tables_schema_only():
+    """Test get_tables filtering by schema only."""
+    from src.mcp_server.server import list_tables
+
+    mock_df = pd.DataFrame([
+        {"catalog_name": "cat1", "schema_name": "sch1", "table_name": "t1"},
+        {"catalog_name": "cat1", "schema_name": "sch2", "table_name": "t2"},
+        {"catalog_name": "cat2", "schema_name": "sch1", "table_name": "t3"}
+    ])
+
+    with patch("src.mcp_server.server.queries.get_authorized_tables", return_value=mock_df), \
+         patch("src.mcp_server.server.redis_cache.get", new_callable=AsyncMock, return_value=None), \
+         patch("src.mcp_server.server.redis_cache.set", new_callable=AsyncMock) as mock_set:
+
+        result_json = _run_with_user(list_tables(schema="sch1"))
+        result = json.loads(result_json)
+
+        assert len(result) == 2
+        tables = [r["table_name"] for r in result]
+        assert "t1" in tables
+        assert "t3" in tables
+
+        # Verify redis cache set was called
+        mock_set.assert_called_once()

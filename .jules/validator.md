@@ -187,3 +187,7 @@ Assertion: When testing >50 truncation paths, verify `at.info` presence containi
 **Coverage Gap:** The else branch inside `_render_notable_tab` prompting for user sign in was unreachable since an earlier statement would return early if `primary_group` was falsey.
 **Learning:** When addressing test coverage gaps involving missing lines, if analysis reveals the un-covered lines are logically unreachable dead code (e.g., statements following a branch with a guaranteed early-return), remove the dead code to satisfy the coverage metric instead of attempting to mock impossible test states.
 **Assertion:** Removed the unreachable dead code block.
+## 2026-11-10 - Cover list_tables missing branch
+**Coverage Gap:** The `list_tables` function in `mcp_server/server.py` lacked test coverage for the branch where only a schema is provided, leaving line 135 uncovered.
+**Learning:** The application logic handles filtering by catalog, schema, or both, but only some combinations were tested.
+**Assertion:** A new test `test_list_tables_schema_only` was added to `tests/test_mcp_server.py` to specifically provide only a schema to `list_tables` and verify that the correct numpy array boolean evaluation is executed and cached.
