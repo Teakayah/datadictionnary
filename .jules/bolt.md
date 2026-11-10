@@ -137,3 +137,6 @@
 ## 2024-10-25 - Remove Redundant Cache Wrappers
 **Learning:** Adding `@st.cache_data` locally around database functions that are already cached at their source (e.g. `get_authorized_table_names` in `src/db/queries.py`) creates duplicate caching layers and unnecessary memory overhead.
 **Action:** Import and use the base function directly instead of wrapping it in a redundant local `@st.cache_data` decorator within UI components.
+## 2026-10-30 - Streamlit Threading Context in Pipeline Polling
+**Learning:** Streamlit heavily relies on a thread-local `ScriptRunContext` for its core features (like caching, connection state, etc.). Spawning a raw thread or using `ThreadPoolExecutor.map()` without attaching this context will cause Streamlit functions (or DB cache lookups) to throw a `RuntimeError`.
+**Action:** Always inject the Streamlit context into newly spawned background threads using `add_script_run_ctx(threading.current_thread(), get_script_run_ctx())`, including inside mapping functions for `ThreadPoolExecutor`.
