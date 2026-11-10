@@ -127,7 +127,7 @@ def _render_admin_pipelines_section():
     with _h:
         st.markdown(
             f'<div class="dd-section-header" style="margin-top:32px;">'
-            f'<span class="dd-eyebrow">§ {t("pipelines.admin_title")}</span>'
+            f'<span class="dd-eyebrow">§ {_html.escape(t("pipelines.admin_title"))}</span>'
             f'</div>',
             unsafe_allow_html=True,
         )
@@ -173,9 +173,9 @@ def render_pipelines_page():
 
     st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">{t("pipelines.eyebrow")}</div>
-      <h1>{t("pipelines.hero_title")}</h1>
-      <p class="lead">{t("pipelines.hero_subtitle")}</p>
+      <div class="dd-eyebrow">{_html.escape(t("pipelines.eyebrow"))}</div>
+      <h1>{_html.escape(t("pipelines.hero_title"))}</h1>
+      <p class="lead">{_html.escape(t("pipelines.hero_subtitle"))}</p>
     </div>
     ''', unsafe_allow_html=True)
 
