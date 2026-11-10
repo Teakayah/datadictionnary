@@ -48,3 +48,6 @@
 ## 2023-10-27 - Toast Notifications Before Rerun
 **Learning:** In Streamlit applications, providing non-blocking visual feedback for actions that trigger immediate page reloads (e.g., confirming a deletion in a dialog) by calling `st.toast()` immediately before `st.rerun()` prevents the action from appearing silent and abrupt.
 **Action:** Always add a success or status toast prior to calling `st.rerun()` for mutating actions, especially destructive ones like deletions, to assure users the action completed.
+## 2024-11-10 - Add tooltips/ARIA labels to icon-only buttons
+**Learning:** Icon-only buttons (like "Mark all read" represented by "✕" or similar, or "✕" dismiss buttons, or simple text buttons acting as icons) often lack tooltips and ARIA labels. Users rely on these labels to understand the button's action. Streamlit translates the `help` argument of `st.button` into both a hover tooltip and an `aria-label`.
+**Action:** When adding icon-only or bare action buttons in Streamlit (e.g. `st.button("✕", ...)` or `st.button(t("...mark_all_read"), ...)`), always use the `help` argument to provide a descriptive string (often localized via `t("help.btn_...")`).

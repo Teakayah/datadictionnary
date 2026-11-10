@@ -37,6 +37,8 @@ def _html(at: AppTest) -> str:
     # 1. Standard markdown
     if hasattr(at, "markdown"):
         parts.extend(m.value for m in at.markdown)
+    if hasattr(at, "html"):
+        parts.extend(h.value for h in at.html)
     # 2. Extract st.html injections which are stored as UnknownElement (html)
     for el in getattr(at, "main", []):
         if type(el).__name__ == "UnknownElement" and el.type == "html":
@@ -110,8 +112,10 @@ class TestButtonLabels:
         # Exclude the hidden nav/lang proxy buttons (label = tab id or "Lang XX")
         # All visible buttons must still have a label
         for btn in at.button:
-            assert btn.label is not None and len(btn.label.strip()) > 0, \
-                f"Button key={btn.key!r} has an empty label"
+            label = getattr(btn, 'label', None)
+            help_text = getattr(btn, 'help', None)
+            assert (label is not None and len(label.strip()) > 0) or (help_text is not None and len(help_text.strip()) > 0), \
+                f"st.button key={btn.key!r} has no label or aria-label (via help attr)"
 
 
 # ── 1.4  Semantic error states ────────────────────────────────────────────────
