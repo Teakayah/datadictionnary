@@ -519,25 +519,25 @@ class TestCheckAuth:
 
         mock_time.time.return_value = 1000
         mock_resolve_groups.return_value = ["group1"]
-        sync_prefs_mock = MagicMock()
 
-        check_auth(sync_prefs_callback=sync_prefs_mock)
+        with patch("src.personalization._sync_prefs_to_session") as sync_prefs_mock:
+            check_auth()
 
-        mock_qp.clear.assert_called_once()
-        mock_msal_app.acquire_token_by_authorization_code.assert_called_once()
-        mock_clear_cache.assert_called_once_with("user_oid")
+            mock_qp.clear.assert_called_once()
+            mock_msal_app.acquire_token_by_authorization_code.assert_called_once()
+            mock_clear_cache.assert_called_once_with("user_oid")
 
-        assert session["auth_token"] == {"access_token": "token123", "expires_in": 3600, "id_token_claims": {"nonce": "expected_nonce", "oid": "user_oid", "name": "Test User", "email": "test@test.com"}}
-        assert session["token_expires_at"] == 4600
-        assert session["authenticated"] is True
-        assert session["user_groups"] == ["group1"]
-        assert session["user_name"] == "Test User"
-        assert session["user_email"] == "test@test.com"
-        assert session["user_oid"] == "user_oid"
-        assert session["_prefs_loaded"] is True
+            assert session["auth_token"] == {"access_token": "token123", "expires_in": 3600, "id_token_claims": {"nonce": "expected_nonce", "oid": "user_oid", "name": "Test User", "email": "test@test.com"}}
+            assert session["token_expires_at"] == 4600
+            assert session["authenticated"] is True
+            assert session["user_groups"] == ["group1"]
+            assert session["user_name"] == "Test User"
+            assert session["user_email"] == "test@test.com"
+            assert session["user_oid"] == "user_oid"
+            assert session["_prefs_loaded"] is True
 
-        sync_prefs_mock.assert_called_once()
-        mock_rerun.assert_called_once()
+            sync_prefs_mock.assert_called_once()
+            mock_rerun.assert_called_once()
 
 
     @patch("src.auth.get_msal_app")

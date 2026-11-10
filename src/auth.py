@@ -241,12 +241,8 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
             """, unsafe_allow_html=True)
 
 
-def check_auth(sync_prefs_callback: Optional[callable] = None):
+def check_auth():
     """Main authentication gate. Handles OIDC flow and session initialisation.
-
-    Args:
-        sync_prefs_callback (Optional[callable]): Optional callable to seed personalisation data on
-                             first login (usually _sync_prefs_to_session).
 
     Returns:
         None
@@ -325,8 +321,8 @@ def check_auth(sync_prefs_callback: Optional[callable] = None):
                                                   or claims.get("preferred_username", ""))
             st.session_state.user_oid         = claims.get("oid", "")
 
-            if sync_prefs_callback:
-                sync_prefs_callback()
+            from src.personalization import _sync_prefs_to_session
+            _sync_prefs_to_session()
             st.session_state["_prefs_loaded"] = True
 
             st.rerun()

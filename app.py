@@ -133,7 +133,7 @@ if ENABLE_MOCK_AUTH and ENVIRONMENT == "development":
         render_footer()
         st.stop()
 else:
-    check_auth(sync_prefs_callback=_sync_prefs_to_session)
+    check_auth()
 
 # ── Authenticated: header with user ───────────────────────────────────────────
 current_tab = st.query_params.get("tab", "search")
