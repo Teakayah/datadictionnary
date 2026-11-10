@@ -1,5 +1,3 @@
-from __future__ import annotations
-from typing import Optional
 """Sidecar sync worker — long-lived process that drains user_data.pending_sync
 into Databricks and runs DR resync.
 
@@ -19,6 +17,8 @@ Environment:
                                  conflicts are real, timing values are not —
                                  those are module constants below)
 """
+from __future__ import annotations
+from typing import Optional
 
 
 import argparse
@@ -29,12 +29,13 @@ import signal
 import sys
 import threading
 import time
-from datetime import datetime, timezone; UTC = timezone.utc
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from dotenv import load_dotenv
 import contextlib
+UTC = timezone.utc
 
 # Load .env BEFORE importing src.config so DUCKDB_PATH etc. resolve.
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")

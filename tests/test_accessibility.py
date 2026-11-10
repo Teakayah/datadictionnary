@@ -37,9 +37,11 @@ def _html(at: AppTest) -> str:
     # 1. Standard markdown
     if hasattr(at, "markdown"):
         parts.extend(m.value for m in at.markdown)
-    # 2. Extract st.html injections which are stored as UnknownElement (html)
+    # 2. Extract st.html injections which are stored as UnknownElement (html) or Html
     for el in getattr(at, "main", []):
-        if type(el).__name__ == "UnknownElement" and el.type == "html":
+        if type(el).__name__ == "UnknownElement" and getattr(el, "type", "") == "html":
+            parts.append(getattr(el.proto, "body", ""))
+        elif type(el).__name__ == "Html":
             parts.append(getattr(el.proto, "body", ""))
     return " ".join(parts)
 

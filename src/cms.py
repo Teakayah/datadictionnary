@@ -1,5 +1,3 @@
-from __future__ import annotations
-from typing import Optional
 """CMS data layer — admin-authored posts shown as a banner on the Discovery tab.
 
 Each function branches on ``is_demo_mode()``: demo mode keeps posts in
@@ -11,12 +9,14 @@ Public function signatures are preserved so callers
 Adding a new CMS field: update the ``post`` dict in ``create_post`` and
 ``_POST_COLUMNS`` below.
 """
+from __future__ import annotations
+from typing import Optional
 
 
 import logging
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone; UTC = timezone.utc
+from datetime import datetime, timedelta, timezone
 
 import streamlit as st
 
@@ -24,6 +24,7 @@ from src.auth import is_admin
 from src.config import is_demo_mode
 from src.db.duckdb_adapter import _db_write_lock
 from src.db.queries import _get_write_connection, get_db_connection
+UTC = timezone.utc
 
 _EXPIRY_DAYS: dict[str, Optional[int]] = {
     "2_days":  2,

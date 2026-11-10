@@ -1,4 +1,3 @@
-from __future__ import annotations
 """UI-side helpers that report on the sidecar sync daemon.
 
 The actual drain loop and DR resync now run in a separate process — see
@@ -13,6 +12,7 @@ removed; running it from a Streamlit thread without a ScriptRunContext is
 undefined behaviour, and sharing a single DuckDB connection across the UI
 and the worker corrupted concurrent reads.
 """
+from __future__ import annotations
 
 
 import logging

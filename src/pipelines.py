@@ -1,6 +1,3 @@
-from __future__ import annotations
-from dataclasses import dataclass
-from typing import Any, Optional
 """Pipeline definitions, run tracking, and execution for Databricks / ADF / ADO.
 
 Storage branches on ``is_demo_mode()``: demo keeps definitions in
@@ -9,11 +6,14 @@ keys; otherwise rows persist to ``user_data.pipeline_definitions`` /
 ``user_data.pipeline_runs`` (DuckDB). Execution (HTTP calls to
 Databricks/ADF/ADO management APIs) lives below the storage section.
 """
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import Any, Optional
 
 
 import logging
 import uuid
-from datetime import datetime, timezone; UTC = timezone.utc
+from datetime import datetime, timezone
 
 import streamlit as st
 
@@ -27,8 +27,10 @@ from src.config import (
 )
 from src.db.duckdb_adapter import _db_write_lock
 from src.db.queries import _get_write_connection, get_db_connection
-
+UTC = timezone.utc
 _DEMO_DEFS_KEY = "_demo_pipelines"
+
+
 
 _PIPELINE_COLUMNS = (
     "pipeline_id", "title", "description", "backend",
