@@ -92,12 +92,20 @@ def _get_override_table_name(table_type: str = "table_metadata") -> str:
 def _get_write_connection():
     """Return a DuckDB connection for write operations.
 
-    Streamlit pods only ever write locally to DuckDB (user_data file).
-    The sidecar sync daemon is the sole intentional Databricks writer
-    (see ADR 004); pods enqueue into ``user_data.pending_sync`` and the
-    daemon drains it. If DuckDB is unavailable, the app cannot accept
-    writes — raise instead of silently opening a per-call Databricks
-    session.
+    WHY IT EXISTS:
+    Streamlit pods only write locally to DuckDB (user_data file) to avoid
+    concurrent write conflicts and Databricks API bottlenecks. The sidecar sync
+    daemon is the sole intentional Databricks writer (see ADR 004); pods
+    enqueue into ``user_data.pending_sync`` and the daemon drains it. If
+    DuckDB is unavailable, the app cannot accept writes — raising an error
+    prevents silent fallback to a per-call Databricks session that would
+    violate the singleton-writer architecture.
+
+    Returns:
+        _DuckDBConn: Connection wrapper providing thread-safe write execution.
+
+    Raises:
+        RuntimeError: If DuckDB is unavailable, preventing accidental writes.
     """
     if not _duckdb_available():
         raise RuntimeError(
@@ -111,7 +119,12 @@ def _get_write_connection():
 
 
 def get_db_connection():
-    """Return a DB connection for read queries (DuckDB → Databricks fallback)."""
+    """Return a DB connection for read queries (DuckDB → Databricks fallback).
+
+    Returns:
+        Connection: A DuckDB connection if the local cache is available, otherwise
+        a databricks.sql connection.
+    """
     if _duckdb_available():
         from src.config import DUCKDB_PATH
 
@@ -127,6 +140,13 @@ def _base_run_query(query: str, params=None) -> pd.DataFrame:
     This is the backend-only dispatcher — it has no demo-mode logic.
     It is used by run_query() after demo-mode interception, and directly by
     admin/health queries that guard the demo branch themselves.
+
+    Args:
+        query (str): The SQL query string to execute.
+        params (dict, optional): A dictionary of parameters to substitute.
+
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing the query results.
     """
     if _duckdb_available():
         return _run_duckdb_query(query, params)
