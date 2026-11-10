@@ -607,3 +607,144 @@ def test_save_business_name_exceptions():
         with patch("src.pages.search.save_business_name", side_effect=PermissionError("Permission Denied")):
             at.button(key="col_biz_save_main.sales.orders__col_1").click().run()
             assert any("editor.permission_error" in e.value for e in at.error)
+
+def test_search_view_details_unauthorized():
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+    import pandas as pd
+
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+
+    # Note: to populate the selectbox _table_options, "orders" must be in mock_auth
+    mock_auth = pd.DataFrame([{
+        "full_name": "main.sales.authorized",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "dq_score": 100,
+        "match_type": "Table",
+        "description": "auth"
+    }])
+
+    mock_search = pd.DataFrame([
+        {
+            "full_name": "main.sales.unauthorized",
+            "name": "unauthorized",
+            "table_name": "orders",
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "dq_score": 100,
+            "match_type": "Table",
+            "description": "unauth"
+        },
+        {
+            "full_name": "main.sales.authorized",
+            "name": "authorized",
+            "table_name": "orders",
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "dq_score": 100,
+            "match_type": "Table",
+            "description": "auth"
+        }
+    ])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_auth), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_search) as m_search, \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        # Select orders from the search selectbox
+        at.selectbox(key="catalog_search").select("orders").run()
+
+        key_to_click = None
+        for b in at.button:
+            if "unauthorized" in str(b.key):
+                key_to_click = b.key
+                break
+
+        if key_to_click:
+            at.button(key=key_to_click).click().run()
+
+        assert any("detail.unauthorized" in str(e.value) for e in at.error)
+
+def test_search_clear_comments_on_query_change():
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+    import pandas as pd
+
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["_dd_current_search_query"] = "old_query"
+        st.session_state["dd_col_edit_mode"] = "something"
+        st.session_state["dd_comment_open_something"] = True
+        st.session_state["_dd_sticky_nav"] = "old_nav"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+    mock_auth = pd.DataFrame([{"full_name": "a", "table_name": "new_query"}])
+    mock_search = pd.DataFrame(columns=["full_name"])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_auth), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_search), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+        at.selectbox(key="catalog_search").select("new_query").run()
+
+        assert "dd_col_edit_mode" not in at.session_state
+        assert "dd_comment_open_something" not in at.session_state
+        assert "_dd_sticky_nav" not in at.session_state
+
+def test_search_back_to_results_button():
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+    import pandas as pd
+
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+    at.session_state["_dd_sticky_nav"] = "main.sales.orders"
+
+    mock_search = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "dq_score": 100,
+        "match_type": "Table",
+        "description": "desc"
+    }])
+    mock_auth = mock_search.copy()
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_auth), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_search), \
+         patch("src.pages.search._render_detail_panel") as mock_panel, \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+        at.selectbox(key="catalog_search").select("orders").run()
+
+        key_to_click = None
+        for b in at.button:
+            if str(b.key).startswith("search_back"):
+                key_to_click = b.key
+                break
+
+        if key_to_click:
+            at.button(key=key_to_click).click().run()
+
+        assert "_dd_sticky_nav" not in at.session_state
