@@ -28,3 +28,6 @@
 ## 2024-11-20 - Adding "Why It Exists" to regex explainers
 **Learning:** Security gates and authentication dependencies (like `get_current_user` in FastAPI) require complete docstrings explaining not just their arguments and returns, but also the specific HTTP exceptions they raise to prevent developers from mishandling auth failures or returning incorrect status codes.
 **Action:** Always ensure that when documenting FastAPI security dependencies, the docstring includes a detailed "Raises" section clearly mapping exception types to HTTP status codes (e.g., 401 Unauthorized, 500 Internal Server Error).
+## 2025-02-12 - Adding Google-Style Docstrings to configuration functions
+**Learning:** Functions related to environment variable configuration (e.g. `pipelines_enabled`) are missing Google-style docstrings, which obscures their role in evaluating feature gates based on OS environment variables.
+**Action:** Ensure configuration functions explicitly document their environment variable reads and return types.

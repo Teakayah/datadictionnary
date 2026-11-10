@@ -43,6 +43,13 @@ USER_DATA_PATH = (
 # that a baseline deploy shouldn't require. Read at call time so tests can
 # flip it with monkeypatch.setenv.
 def pipelines_enabled() -> bool:
+    """Return True if the pipelines feature is enabled via environment variables.
+
+    Reads the ENABLE_PIPELINES environment variable.
+
+    Returns:
+        bool: True if pipelines are enabled, False otherwise.
+    """
     return os.getenv("ENABLE_PIPELINES", "false").lower() == "true"
 
 
