@@ -30,7 +30,7 @@ from src.ui.cards.detail import (
     render_table_metadata_editor,
 )
 from src.ui.lineage import _build_lineage_graph, _lineage_vis_html, render_lineage_fullscreen
-from src.ui.cards._shared import _render_empty_state
+from src.ui.cards._shared import _render_empty_state, _render_info_state
 
 
 
@@ -262,7 +262,7 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
 
         if n_cols > 0:
             if n_cols > 50:
-                st.info(t("detail.showing_first_50_columns", count=n_cols))
+                _render_info_state("ℹ️", t("detail.showing_first_50_columns", count=n_cols))
                 cols = cols.head(50)
             _cnames = cols["column_name"].tolist() if "column_name" in cols else [""] * len(cols)
             _ctypes = cols["data_type"].tolist() if "data_type" in cols else [""] * len(cols)
@@ -436,7 +436,7 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
         )
         if n_grants > 0:
             if n_grants > 50:
-                st.info(t("detail.showing_first_50_grants", count=n_grants))
+                _render_info_state("ℹ️", t("detail.showing_first_50_grants", count=n_grants))
                 grants = grants.head(50)
             # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
             for g in grants.to_dict("records"):
@@ -645,9 +645,9 @@ def render_search_page(query_groups: tuple) -> None:
         c1, c2 = st.columns([8, 2], gap="small", vertical_alignment="center")
         with c1:
             if active_group == "SELECT_ALL_USERS":
-                st.info(t("search.public_tables_filter"))
+                _render_info_state("ℹ️", t("search.public_tables_filter"))
             else:
-                st.info(t("search.group_filter_active", group=active_group))
+                _render_info_state("ℹ️", t("search.group_filter_active", group=active_group))
         with c2:
             if st.button(t('common.back_btn'), help=t("help.btn_common_back"), use_container_width=True, type="secondary"):
                 st.session_state.pop("group_filter", None)
@@ -696,7 +696,7 @@ def render_search_page(query_groups: tuple) -> None:
             _gr["description"] = _gr[_desc_col] if _desc_col else ""
         _results_to_show = _gr
         if len(_gr) > 50:
-            st.info(t("search.showing_first_50", count=len(_gr)))
+            _render_info_state("ℹ️", t("search.showing_first_50", count=len(_gr)))
             _results_to_show = _gr.head(50)
 
         st.markdown(
@@ -754,7 +754,7 @@ def render_search_page(query_groups: tuple) -> None:
                         return "" if _pd.isna(v) else str(v)
                     _results_to_show = results
                     if len(results) > 50:
-                        st.info(t("search.showing_first_50", count=len(results)))
+                        _render_info_state("ℹ️", t("search.showing_first_50", count=len(results)))
                         _results_to_show = results.head(50)
 
                     st.markdown(

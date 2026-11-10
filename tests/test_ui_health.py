@@ -313,9 +313,9 @@ def test_priority_actions_button_click():
         # Verify state was set
 
 def test_priority_actions_more_than_50():
-    with patch("src.ui.cards.health.st.markdown"), \
+    with patch("src.ui.cards.health.st.markdown") as mock_markdown, \
          patch("src.ui.cards.health.st.warning"), \
-         patch("src.ui.cards.health.st.info") as mock_info, \
+         patch("src.ui.cards.health._render_info_state") as mock_info, \
          patch("src.ui.cards.health.st.button", return_value=False):
         from src.ui.cards.health import _render_priority_actions
         # create 51 items

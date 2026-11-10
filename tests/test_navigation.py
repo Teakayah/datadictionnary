@@ -403,7 +403,7 @@ class TestDiscovery:
         sql_returns(empty_tables_df())
         at = authenticated_app(tab="discovery")
         at.run()
-        info_text = " ".join(i.value for i in at.info)
+        info_text = " ".join(i.value for i in at.markdown)
         assert "No recent updates" in info_text or "Highlights" in info_text
 
 

@@ -90,8 +90,8 @@ def test_search_group_filter_more_than_50():
         assert not at.exception
 
         # Should show info about 50 limit
-        assert len(at.info) > 0
-        assert any(i.value == "search.showing_first_50" for i in at.info)
+        assert len(at.markdown) > 0
+        assert any("search.showing_first_50" in m.value for m in at.markdown)
 
 def test_search_query_more_than_50():
     def render_search():
@@ -126,8 +126,8 @@ def test_search_query_more_than_50():
         assert not at.exception
 
         # Should show info about 50 limit
-        assert len(at.info) > 0
-        assert any(i.value == "search.showing_first_50" for i in at.info)
+        assert len(at.markdown) > 0
+        assert any("search.showing_first_50" in m.value for m in at.markdown)
 
 def test_search_query_search_error():
     def render_search():
@@ -533,11 +533,11 @@ def test_missing_coverage():
 
         found_col_msg = False
         found_grant_msg = False
-        for i in at.info:
-            if "detail.showing_first_50_columns" in i.value:
-                found_col_msg = True
-            if "detail.showing_first_50_grants" in i.value:
-                found_grant_msg = True
+        for i in at.markdown:
+                if "detail.showing_first_50_columns" in i.value:
+                    found_col_msg = True
+                if "detail.showing_first_50_grants" in i.value:
+                    found_grant_msg = True
 
         assert found_col_msg
         assert found_grant_msg

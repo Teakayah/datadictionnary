@@ -25,7 +25,7 @@ from src.db.duckdb_adapter import _duckdb_available
 from src.db.queries import run_query, get_authorized_tables, get_authorized_table_names
 from src.i18n import t
 from src.notifications import get_unread_notifications, mark_all_read, mark_read
-from src.ui.cards._shared import _POST_COLOR, _dq_grade, _render_empty_state
+from src.ui.cards._shared import _POST_COLOR, _dq_grade, _render_empty_state, _render_info_state
 from src.personalization import _pref_delete, _pref_upsert
 
 
@@ -296,7 +296,7 @@ def _render_notable_tab(groups):
         return
 
     if primary_group:
-        st.info(t("discovery.group_highlights", group=primary_group))
+        _render_info_state("ℹ️", t("discovery.group_highlights", group=primary_group))
         try:
             all_authorized = get_authorized_tables((primary_group,))
             if not all_authorized.empty and "updated_at" in all_authorized.columns:

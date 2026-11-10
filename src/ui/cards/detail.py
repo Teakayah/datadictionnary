@@ -10,7 +10,7 @@ import logging
 
 import pandas as pd
 import streamlit as st
-from src.ui.cards._shared import _render_empty_state
+from src.ui.cards._shared import _render_empty_state, _render_info_state
 
 from src.audit import save_table_metadata, save_table_business_name, get_table_business_name_override
 import src.auth
@@ -94,7 +94,7 @@ def render_table_business_name_editor(
             logging.warning("Could not load existing friendly name for %s: %s", table_full_name, exc)
 
     if not src.auth.is_admin():
-        st.info(t("detail.friendly_name_pending_notice"))
+        _render_info_state("ℹ️", t("detail.friendly_name_pending_notice"))
 
     new_name_en = st.text_input(t("detail.friendly_name_en"), value=current_name_en)
     new_name_fr = st.text_input(t("detail.friendly_name_fr"), value=current_name_fr)

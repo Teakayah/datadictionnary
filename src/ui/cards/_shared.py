@@ -32,6 +32,22 @@ def _render_empty_state(icon: str, text: str) -> None:
         unsafe_allow_html=True,
     )
 
+
+def _render_info_state(icon: str, text: str) -> None:
+    """Renders a consistent info state block for UI components, replacing st.info.
+
+    Args:
+        icon: An emoji or character string to display prominently as the icon.
+        text: The descriptive message to display next to the icon.
+    """
+    st.markdown(
+        f'<div style="padding: 16px; text-align: left; background: var(--paper-deep); border-left: 4px solid var(--ink-40); border-radius: 4px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">'
+        f'<div style="font-size: 20px; color: var(--ink-40);" aria-hidden="true">{_html.escape(icon)}</div>'
+        f'<div style="font-family: var(--font-sans); font-size: 14px; color: var(--ink-60); margin: 0;">{_html.escape(text)}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
 _DQ_GRADES = [
     (90, "A", "dq-a"),
     (75, "B", "dq-b"),

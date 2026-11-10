@@ -881,7 +881,7 @@ def test_render_pending_reviews_section_truncate():
         at = AppTest.from_function(app)
         at.run()
         assert not at.exception
-        assert len(at.info) > 0 # Should show info message
+        assert len(at.markdown) > 0 # Should show info message
 
 
 def test_render_pending_reviews_section_approve_reject_exceptions():
@@ -928,7 +928,7 @@ def test_render_pending_table_friendly_names_section_truncate():
         at = AppTest.from_function(app)
         at.run()
         assert not at.exception
-        assert len(at.info) > 0 # Should show info message
+        assert len(at.markdown) > 0 # Should show info message
 
 
 def test_render_pending_table_friendly_names_section_approve_reject_exceptions():

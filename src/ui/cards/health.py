@@ -14,7 +14,7 @@ from dataclasses import dataclass
 import logging
 import pandas as pd
 import streamlit as st
-from src.ui.cards._shared import _render_empty_state
+from src.ui.cards._shared import _render_empty_state, _render_info_state
 
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, is_demo_mode
 from src.db.queries import run_query
@@ -178,7 +178,7 @@ def _render_priority_actions(undocumented: pd.DataFrame):
         # ⚡ Bolt: Apply hard cap of 50 to prevent O(N) main-thread blocking when rendering large DataFrames.
         # Reduces severe UI freezing when there are hundreds of undocumented tables.
         if len(undocumented) > 50:
-            st.info(t("health.showing_first_50", count=len(undocumented)))
+            _render_info_state("ℹ️", t("health.showing_first_50", count=len(undocumented)))
             undocumented = undocumented.head(50)
         # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration
         for row_dict in undocumented.to_dict("records"):

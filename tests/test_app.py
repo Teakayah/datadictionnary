@@ -293,8 +293,6 @@ class TestSearch:
             assert "SECRET_DB_ERROR_123" not in e.value, "Exception details leaked in st.error"
         for w in at.warning:
             assert "SECRET_DB_ERROR_123" not in w.value, "Exception details leaked in st.warning"
-        for i in at.info:
-            assert "SECRET_DB_ERROR_123" not in i.value, "Exception details leaked in st.info"
         html = _html(*at.markdown)
         assert "SECRET_DB_ERROR_123" not in html, "Exception details leaked in st.markdown"
 
@@ -793,8 +791,6 @@ class TestDiscovery:
             assert "SECRET_DB_ERROR_DISCOVERY" not in e.value, "Exception details leaked in st.error"
         for w in at.warning:
             assert "SECRET_DB_ERROR_DISCOVERY" not in w.value, "Exception details leaked in st.warning"
-        for i in at.info:
-            assert "SECRET_DB_ERROR_DISCOVERY" not in i.value, "Exception details leaked in st.info"
         html = _html(*at.markdown)
         assert "SECRET_DB_ERROR_DISCOVERY" not in html, "Exception details leaked in st.markdown"
 

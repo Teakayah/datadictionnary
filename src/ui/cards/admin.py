@@ -21,7 +21,7 @@ import logging
 
 import pandas as pd
 import streamlit as st
-from src.ui.cards._shared import _render_empty_state
+from src.ui.cards._shared import _render_empty_state, _render_info_state
 
 from src.audit import (
     approve_business_name,
@@ -523,7 +523,7 @@ def _render_pending_reviews_section():
         return
 
     if len(pending) > 50:
-        st.info(t("search.showing_first_50", count=len(pending)))
+        _render_info_state("ℹ️", t("search.showing_first_50", count=len(pending)))
         pending = pending[:50]
 
     for item in pending:
@@ -618,7 +618,7 @@ def _render_pending_table_friendly_names_section():
         return
 
     if len(pending) > 50:
-        st.info(t("search.showing_first_50", count=len(pending)))
+        _render_info_state("ℹ️", t("search.showing_first_50", count=len(pending)))
         pending = pending[:50]
 
     from src.i18n import format_date
