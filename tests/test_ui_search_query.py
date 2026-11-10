@@ -319,8 +319,8 @@ def test_search_results_with_nan_score():
 
 def test_live_completeness_exception():
     def render_detail_panel():
-        import pandas as pd
         from src.pages.search import _render_detail_panel
+        import pandas as pd
         row = pd.Series({
             "catalog_name": "main",
             "schema_name": "sales",
@@ -361,8 +361,8 @@ def test_add_remove_bookmark():
 
     def render_detail_panel():
         import streamlit as st
-        import pandas as pd
         from src.pages.search import _render_detail_panel
+        import pandas as pd
 
         st.session_state["user_email"] = "test@example.com"
 
@@ -415,8 +415,8 @@ def test_add_remove_col_bookmark():
 
     def render_detail_panel():
         import streamlit as st
-        import pandas as pd
         from src.pages.search import _render_detail_panel
+        import pandas as pd
 
         st.session_state["user_email"] = "test@example.com"
 
@@ -542,10 +542,6 @@ def test_missing_coverage():
         assert found_col_msg
         assert found_grant_msg
 
-
-
-
-
 def test_save_business_name_exceptions():
     import pandas as pd
     from unittest.mock import patch
@@ -553,8 +549,8 @@ def test_save_business_name_exceptions():
 
     def render_detail_panel_wrapper():
         import streamlit as st
-        import pandas as pd
         from src.pages.search import _render_detail_panel
+        import pandas as pd
 
         row = pd.Series({
             "catalog_name": "main",
@@ -606,3 +602,121 @@ def test_save_business_name_exceptions():
         with patch("src.pages.search.save_business_name", side_effect=PermissionError("Permission Denied")):
             at.button(key="col_biz_save_main.sales.orders__col_1").click().run()
             assert any("editor.permission_error" in e.value for e in at.error)
+
+def test_missing_edit_mode():
+    import pandas as pd
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+
+    def render_detail_panel_wrapper():
+        import streamlit as st
+        from src.pages.search import _render_detail_panel
+        import pandas as pd
+
+        st.session_state["user_email"] = "test@example.com"
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com"
+        })
+
+        _render_detail_panel(row, "main.sales.orders", ("finance_dept_id",))
+
+    at = AppTest.from_function(render_detail_panel_wrapper)
+
+    mock_cols = pd.DataFrame([
+        {"column_name": "col_1", "data_type": "int", "comment": "Original Comment 1"}
+    ])
+
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.is_power_user", return_value=True):
+
+         at.run()
+
+         # Hit 305-306 by clicking the edit button
+         assert any(getattr(b, "key", "") == "col_edit_main.sales.orders__col_1" for b in at.button)
+         for b in at.button:
+             if getattr(b, "key", "") == "col_edit_main.sales.orders__col_1":
+                 b.click().run()
+                 break
+
+         assert "dd_col_edit_mode" in at.session_state and at.session_state["dd_col_edit_mode"] == "main.sales.orders__col_1"
+
+         # Success path for save to hit 346-349
+         with patch("src.pages.search.save_business_name"):
+             assert any(getattr(b, "key", "") == "col_biz_save_main.sales.orders__col_1" for b in at.button)
+             for b in at.button:
+                 if getattr(b, "key", "") == "col_biz_save_main.sales.orders__col_1":
+                     b.click().run()
+                     break
+             assert "dd_col_edit_mode" not in at.session_state or at.session_state["dd_col_edit_mode"] is None
+
+def test_missing_exception_lines_save_business():
+    import pandas as pd
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+
+    def render_detail_panel_wrapper():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        st.session_state["user_email"] = "test@example.com"
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "desc",
+            "dq_score": 50,
+            "steward_email": "test@example.com"
+        })
+
+        _render_detail_panel(row, "main.sales.orders", ("group1",))
+
+    at = AppTest.from_function(render_detail_panel_wrapper)
+
+    mock_cols = pd.DataFrame([{"column_name": "col_1", "data_type": "int", "comment": "Original"}])
+
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.is_power_user", return_value=True):
+
+        at.session_state["dd_col_edit_mode"] = "main.sales.orders__col_1"
+        at.run()
+
+        with patch("src.pages.search.save_business_name", side_effect=ValueError("Val Error")):
+            for b in at.button:
+                if getattr(b, "key", "") == "col_biz_save_main.sales.orders__col_1":
+                    try:
+                        b.click().run()
+                    except ValueError:
+                        pass
+
+        at.session_state["dd_col_edit_mode"] = "main.sales.orders__col_1"
+        at.run()
+
+        with patch("src.pages.search.save_business_name", side_effect=Exception("Gen Error")):
+            for b in at.button:
+                if getattr(b, "key", "") == "col_biz_save_main.sales.orders__col_1":
+                    try:
+                        b.click().run()
+                    except Exception:
+                        pass

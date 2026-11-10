@@ -204,3 +204,52 @@ def test_search_column_desc_fallback():
 
         # Test column fallback output
         assert any("bus_def_en" in getattr(m, "value", "") or "bus_def_en" in str(m) for m in at.get("markdown") + at.get("html") + at.get("text"))
+
+def test_missing_business_branches():
+    import pandas as pd
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+
+    def render_detail_panel_wrapper():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        st.session_state["user_email"] = "test@example.com"
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com"
+        })
+
+        _render_detail_panel(row, "main.sales.orders", ("finance_dept_id",))
+
+    at = AppTest.from_function(render_detail_panel_wrapper)
+
+    mock_cols = pd.DataFrame([
+        {"column_name": "col_2", "data_type": "int", "comment": "Original Comment 2"}
+    ])
+
+    mock_overrides = {
+        "col_2": {
+            "business_name": "Business Name 2",
+        }
+    }
+
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value=mock_overrides), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.is_power_user", return_value=False):
+
+        at.run()
+
+        assert not at.exception
