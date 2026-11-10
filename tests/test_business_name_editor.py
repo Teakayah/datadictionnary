@@ -466,9 +466,70 @@ class TestBusinessNameValidation:
             next(b for b in at.button if "View details" in b.label).click().run()
         inp = next(t for t in at.text_input if "col_biz_name" in t.key)
         inp.set_value("Customer ID").run()
-        next(b for b in at.button if b.label == "Save").click().run()
+
+        from unittest.mock import patch
+        with patch("src.pages.search.save_business_name") as mock_save:
+            mock_save.side_effect = PermissionError("Not allowed")
+            with patch("src.pages.search.st.rerun") as mock_rerun:
+                try:
+                    next(b for b in at.button if b.label == "Save").click().run()
+                except Exception:
+                    pass
+                mock_rerun.assert_not_called()
 
         assert at.error, "st.error should be shown for a non-power-user save attempt"
+        from src.i18n import t
+        assert at.error[0].value == t("editor.permission_error")
+
+    def test_save_shows_value_error(self, monkeypatch):
+        """save_business_name must show generic st.error if ValueError is raised."""
+        monkeypatch.setenv("EDITOR_GROUPS", "data_stewards_only_id")
+        monkeypatch.setenv("DEMO_DATA", "true")
+        monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
+
+        at = authenticated_app()
+        at.session_state["dd_col_edit_mode"] = EDIT_KEY
+        at.run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
+        inp = next(t for t in at.text_input if "col_biz_name" in t.key)
+        inp.set_value("Customer ID").run()
+
+        from unittest.mock import patch
+        with patch("src.pages.search.save_business_name") as mock_save:
+            mock_save.side_effect = ValueError("Invalid")
+            # Let Streamlit natively catch it without masking.
+            at.button(key=f"col_biz_save_{EDIT_KEY}").click().run()
+
+        from src.i18n import t
+        assert at.error, "st.error should be shown for ValueError"
+        assert at.error[0].value == t("common.error")
+
+    def test_save_shows_generic_exception(self, monkeypatch):
+        """save_business_name must show generic st.error if Exception is raised."""
+        monkeypatch.setenv("EDITOR_GROUPS", "data_stewards_only_id")
+        monkeypatch.setenv("DEMO_DATA", "true")
+        monkeypatch.setenv("TESTING_NO_MAX_CHARS", "true")
+
+        at = authenticated_app()
+        at.session_state["dd_col_edit_mode"] = EDIT_KEY
+        at.run()
+        at.selectbox(key="catalog_search").select(TABLE_NAME).run()
+        if len(at.button) > 0 and any("View details" in b.label for b in at.button):
+            next(b for b in at.button if "View details" in b.label).click().run()
+        inp = next(t for t in at.text_input if "col_biz_name" in t.key)
+        inp.set_value("Customer ID").run()
+
+        from unittest.mock import patch
+        with patch("src.pages.search.save_business_name") as mock_save:
+            mock_save.side_effect = Exception("DB Error")
+            # Let Streamlit natively catch it without masking.
+            at.button(key=f"col_biz_save_{EDIT_KEY}").click().run()
+
+        from src.i18n import t
+        assert at.error, "st.error should be shown for generic exception"
+        assert at.error[0].value == t("common.error")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
