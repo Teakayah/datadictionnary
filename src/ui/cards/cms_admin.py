@@ -104,7 +104,7 @@ def _render_admin_cms_section():
     with _cms_h:
         st.markdown(
             f'<div class="dd-section-header" style="margin-top:32px;">'
-            f'<span class="dd-eyebrow">§ {t("cms.section_title")}</span>'
+            f'<span class="dd-eyebrow">§ {_html.escape(t("cms.section_title"))}</span>'
             f'</div>',
             unsafe_allow_html=True,
         )

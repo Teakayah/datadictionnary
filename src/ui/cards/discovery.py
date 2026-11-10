@@ -233,9 +233,9 @@ def render_cms_banner() -> None:
 def render_discovery(groups):
     st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">{t("discovery.title")}</div>
-      <h1>{t("discovery.hero_title")}</h1>
-      <p class="lead">{t("discovery.hero_subtitle")}</p>
+      <div class="dd-eyebrow">{_html.escape(t("discovery.title"))}</div>
+      <h1>{_html.escape(t("discovery.hero_title"))}</h1>
+      <p class="lead">{_html.escape(t("discovery.hero_subtitle"))}</p>
     </div>
     ''', unsafe_allow_html=True)
 
@@ -283,7 +283,7 @@ def render_discovery(groups):
 def _render_notable_tab(groups):
     st.markdown(
         f'<div class="dd-section-header"><span class="dd-eyebrow" '
-        f'style="margin-bottom:0;color:#14110C">{t("personalization.tab_notable")}</span></div>',
+        f'style="margin-bottom:0;color:#14110C">{_html.escape(t("personalization.tab_notable"))}</span></div>',
         unsafe_allow_html=True,
     )
     primary_group = st.session_state.get("group_filter")
@@ -314,7 +314,7 @@ def _render_notable_tab(groups):
 def _render_bookmarks_tab(groups):
     st.markdown(
         f'<div class="dd-section-header"><span class="dd-eyebrow" '
-        f'style="margin-bottom:0;color:#14110C">{t("personalization.tab_bookmarks")}</span></div>',
+        f'style="margin-bottom:0;color:#14110C">{_html.escape(t("personalization.tab_bookmarks"))}</span></div>',
         unsafe_allow_html=True,
     )
     bookmarks = st.session_state.get("bookmarks", set())
@@ -346,7 +346,7 @@ def _render_bookmarks_tab(groups):
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:32px">'
         f'<span class="dd-eyebrow" style="margin-bottom:0;color:#14110C">'
-        f'{t("personalization.bookmarked_columns")}</span></div>',
+        f'{_html.escape(t("personalization.bookmarked_columns"))}</span></div>',
         unsafe_allow_html=True,
     )
     if not col_bookmarks:
@@ -430,12 +430,12 @@ def _get_recommended_tables(authorized_full_names: set, top_n: int = 10) -> list
 def _render_recommended_tab(groups):
     st.markdown(
         f'<div class="dd-section-header"><span class="dd-eyebrow" '
-        f'style="margin-bottom:0;color:#14110C">{t("personalization.recommended_title")}</span></div>',
+        f'style="margin-bottom:0;color:#14110C">{_html.escape(t("personalization.recommended_title"))}</span></div>',
         unsafe_allow_html=True,
     )
     st.markdown(
         f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);'
-        f'margin-bottom:12px;">{t("personalization.recommended_subtitle")}</p>',
+        f'margin-bottom:12px;">{_html.escape(t("personalization.recommended_subtitle"))}</p>',
         unsafe_allow_html=True,
     )
     try:
@@ -463,7 +463,7 @@ def _render_recommended_tab(groups):
 def _render_recent_tab(groups):
     st.markdown(
         f'<div class="dd-section-header"><span class="dd-eyebrow" '
-        f'style="margin-bottom:0;color:#14110C">{t("personalization.tab_recent")}</span></div>',
+        f'style="margin-bottom:0;color:#14110C">{_html.escape(t("personalization.tab_recent"))}</span></div>',
         unsafe_allow_html=True,
     )
     recent_views = st.session_state.get("recent_views", [])

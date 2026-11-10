@@ -58,3 +58,7 @@
 **Vulnerability:** Localized strings were injected directly into Streamlit's `st.markdown(..., unsafe_allow_html=True)` without escaping, leading to potential Cross-Site Scripting (XSS).
 **Learning:** Even if inner interpolation variables are escaped, the translated strings themselves may contain characters that can introduce XSS or break HTML when injected into raw HTML blocks.
 **Prevention:** Always wrap the entire translation output in `_html.escape(t(...))` before injecting it into HTML strings when `unsafe_allow_html=True` is used.
+## 2025-02-12 - Fix XSS in translated strings
+**Vulnerability:** Unescaped strings from translation function `t()` directly passed to `st.markdown(..., unsafe_allow_html=True)`.
+**Learning:** The translation layer is vulnerable to XSS injection if placeholders or the localization files themselves contain unescaped HTML content.
+**Prevention:** Always wrap `t()` function outputs and dynamic user inputs with `_html.escape()` when rendering them in `st.markdown(..., unsafe_allow_html=True)`.

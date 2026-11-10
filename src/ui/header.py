@@ -165,8 +165,8 @@ def render_header(
   <div class="dd-header-inner">
     <a href="#" data-tab="search" class="dd-logo-link">
       {LOGO_MARK_SVG}
-      <span class="dd-logo-text">{t("common.app_title")}</span>
-      <span class="dd-pill">{t("common.beta")}</span>
+      <span class="dd-logo-text">{_html.escape(t("common.app_title"))}</span>
+      <span class="dd-pill">{_html.escape(t("common.beta"))}</span>
     </a>
     <nav class="dd-nav" role="navigation" aria-label="{aria_nav}">
       {link(t("nav.search"), "search")}
@@ -198,7 +198,7 @@ def render_footer() -> None:
     st.markdown(f"""
     <div class="dd-footer">
       <div class="dd-footer-inner">
-        <span>{t('footer.built_with')}</span>
+        <span>{_html.escape(t('footer.built_with'))}</span>
         <span>main.data_governance.dictionary_cache</span>
       </div>
     </div>
