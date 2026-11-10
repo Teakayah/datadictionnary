@@ -607,3 +607,184 @@ def test_save_business_name_exceptions():
         with patch("src.pages.search.save_business_name", side_effect=PermissionError("Permission Denied")):
             at.button(key="col_biz_save_main.sales.orders__col_1").click().run()
             assert any("editor.permission_error" in e.value for e in at.error)
+
+def test_missing_exceptions():
+    import pandas as pd
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+    with patch("src.pages.search.get_authorized_tables", side_effect=Exception("API Error")):
+        at.run()
+        assert not at.exception
+
+def test_grant_buttons():
+    import pandas as pd
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+
+    def render_detail_panel_wrapper():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com"
+        })
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["dd_user_groups"] = ["finance_dept_id"]
+
+        _render_detail_panel(row, "main.sales.orders", ("finance_dept_id",))
+
+    at = AppTest.from_function(render_detail_panel_wrapper)
+
+    mock_grants = pd.DataFrame([
+        {"principal": "SELECT_ALL_USERS", "privilege": "SELECT"},
+        {"principal": "finance_dept_id", "privilege": "SELECT"}
+    ])
+
+    with patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+         patch("src.pages.search.run_query", return_value=mock_grants), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        # Click SELECT_ALL_USERS button
+        at.button(key="grant_main.sales.orders_public_SELECT").click().run()
+        assert at.session_state["group_filter"] == "SELECT_ALL_USERS"
+
+        # Click group button
+        at.button(key="grant_main.sales.orders_finance_dept_id_SELECT").click().run()
+        assert at.session_state["group_filter"] == "finance_dept_id"
+
+def test_preview_data_button():
+    import pandas as pd
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+    def render_detail_panel_wrapper():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com"
+        })
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["dd_user_groups"] = ["finance_dept_id"]
+
+        _render_detail_panel(row, "main.sales.orders", ("finance_dept_id",))
+
+    at = AppTest.from_function(render_detail_panel_wrapper)
+
+    with patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame()), \
+         patch("src.pages.search.render_data_sample") as mock_preview, \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+        at.button(key="preview_main.sales.orders").click().run()
+        mock_preview.assert_called_once_with("main.sales.orders")
+
+
+def test_power_user_edit_buttons():
+    import pandas as pd
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+    def render_detail_panel_wrapper():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com"
+        })
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["dd_user_groups"] = ["finance_dept_id"]
+
+        _render_detail_panel(row, "main.sales.orders", ("finance_dept_id",))
+
+    at = AppTest.from_function(render_detail_panel_wrapper)
+
+    with patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame()), \
+         patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search.render_table_metadata_editor") as mock_edit_tbl, \
+         patch("src.pages.search.render_table_business_name_editor") as mock_edit_biz, \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+        at.button(key="edit_tbl_main.sales.orders").click().run()
+        mock_edit_tbl.assert_called_once()
+
+        at.button(key="edit_friendly_main.sales.orders").click().run()
+        mock_edit_biz.assert_called_once()
+
+
+def test_comment_form_exceptions():
+    import pandas as pd
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+    def render_comment_form_wrapper():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_comment_form
+
+        st.session_state["user_email"] = "test@example.com"
+        # Seed it open
+        st.session_state["dd_comment_open_main.sales.orders"] = True
+        _render_comment_form("main.sales.orders", "test@example.com", "main.sales.orders")
+
+    at = AppTest.from_function(render_comment_form_wrapper)
+
+    with patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+        at.run()
+
+        # Click send with empty text
+        at.button(key="dd_comment_send_main.sales.orders").click().run()
+        assert any("comment.empty_error" in w.value for w in at.warning)
+
+        # Input text and throw error
+        at.text_area(key="dd_comment_text_main.sales.orders").input("Hello").run()
+        with patch("src.pages.search.save_comment", side_effect=Exception("Save Failed")):
+            at.button(key="dd_comment_send_main.sales.orders").click().run()
+            assert any("common.error" in e.value for e in at.error)
+
+        # Click cancel
+        at.button(key="dd_comment_cancel_main.sales.orders").click().run()
