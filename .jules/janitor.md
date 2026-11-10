@@ -24,3 +24,6 @@
 ## 2024-05-24 - Remove unused imports and variables
 **Learning:** Found multiple unused variables (`F841`) and unused imports (`F401`) throughout the tests using Ruff. Streamlit imports (`import streamlit as st`) are frequently imported inside functions without actually being used. Unused variable assignments (`mock_md`, `mock_markdown`, `calls`, `row`) are also common in testing files.
 **Action:** Use `ruff check . --select F401,F841 --fix` (with `--unsafe-fixes` where safe, like simple assignments) to aggressively clean up unused variables and unused imports, particularly those hidden inside function scopes in tests.
+## 2026-11-10 - Consolidate Caching Strategy for Authorization
+**Learning:** I found a local wrapper function `_cached_get_authorized_table_names` in `src/pages/glossary.py` that just re-wrapped `get_authorized_table_names` with `st.cache_data`. This created redundant caching logic, especially since `get_authorized_table_names` itself is heavily optimized or already caches at the DB adapter layer.
+**Action:** Removed the redundant local cache wrapper `_cached_get_authorized_table_names` and used `get_authorized_table_names` directly to simplify the glossary rendering logic.
