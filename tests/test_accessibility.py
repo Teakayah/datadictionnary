@@ -39,8 +39,16 @@ def _html(at: AppTest) -> str:
         parts.extend(m.value for m in at.markdown)
     # 2. Extract st.html injections which are stored as UnknownElement (html)
     for el in getattr(at, "main", []):
-        if type(el).__name__ == "UnknownElement" and el.type == "html":
+        if type(el).__name__ == "Html":
+            parts.append(getattr(el, "value", ""))
+        elif type(el).__name__ == "UnknownElement" and getattr(el, "type", "") == "html":
             parts.append(getattr(el.proto, "body", ""))
+
+    # 3. New Streamlit version
+    if hasattr(at, "html"):
+        for h in at.html:
+            parts.append(getattr(h, "value", ""))
+
     return " ".join(parts)
 
 
@@ -192,9 +200,7 @@ class TestLanguageToggle:
         assert not at.exception, f"Exception: {at.exception}"
         html = _html(at)
         # Gemini-designed toggle renders title= on each lang link
-        assert "switch_to" in html.lower() or "switch to" in html.lower() \
-            or "passer en" in html.lower() or "title=" in html, \
-            "Language toggle links missing accessible title attributes"
+        assert "switch_to" in html.lower() or "switch to" in html.lower() or "passer en" in html.lower() or "title=" in html.lower(), "Language toggle links missing accessible title attributes"
 
     def test_locale_switches_to_french(self):
         """Setting session_state.locale='fr' must change visible labels."""

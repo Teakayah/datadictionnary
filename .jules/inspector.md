@@ -135,3 +135,7 @@
 ## 2024-12-06 - Missing DB Queries Exception Coverage
 **Learning:** Utilities in `src/db/queries.py` such as `_current_locale` and `_get_override_table_name` contain `try/except` and `if/else` fallback paths for missing session states or unavailable duckdb dependencies. These lines were missed in coverage because `test_table_friendly_names.py` tested the locale wrapper instead of the direct db helper, and duckdb override path tests were completely missing in `test_db_queries.py`.
 **Action:** When adding or maintaining db utilities in `src/db/queries.py`, always ensure `test_db_queries.py` includes patched exception and toggle tests (e.g., patching `get_current_locale` to throw exceptions and patching `_duckdb_available` to return `False`) to fully test fallback mechanisms.
+
+## 2024-03-24 - Testing DOM structure properly with AppTest
+**Learning:** When testing Streamlit HTML strings embedded via `st.html` in `AppTest`, they can be rendered as either `Html` nodes or `UnknownElement(html)` nodes in the tree depending on the Streamlit version. Also, `.lower()` string assertions can be brittle for accessibility HTML assertions.
+**Action:** Write resilient DOM assertion helper logic in tests that properly extracts the text payload from both node variants `(getattr(el, 'value')` or `getattr(el.proto, 'body'))` instead of depending on single structure paths. Also avoid using string manipulation methods like `.lower()` on raw DOM outputs if direct pattern matching works better.
