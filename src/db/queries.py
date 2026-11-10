@@ -187,10 +187,10 @@ def run_query(query, params=None):
     return _base_run_query(query, params)
 
 
-@st.cache_data(ttl="1h", show_spinner=False)
 def get_authorized_table_names(groups):
     """Retrieve a set of full names for tables the user is authorized to access."""
     df = get_authorized_tables(groups)
+    # ⚡ Bolt: Pass .unique() numpy array directly to set() to avoid Pandas overhead and avoid .tolist() conversion
     return set(df["full_name"].unique()) if df is not None and not df.empty else set()
 
 

@@ -137,3 +137,6 @@
 ## 2024-10-25 - Remove Redundant Cache Wrappers
 **Learning:** Adding `@st.cache_data` locally around database functions that are already cached at their source (e.g. `get_authorized_table_names` in `src/db/queries.py`) creates duplicate caching layers and unnecessary memory overhead.
 **Action:** Import and use the base function directly instead of wrapping it in a redundant local `@st.cache_data` decorator within UI components.
+## 2026-10-18 - Remove Redundant Cache and Optimize Set Creation in Table Authorization
+**Learning:** The function `get_authorized_table_names` was wrapping `get_authorized_tables` with a redundant `@st.cache_data`. This is unnecessary because `get_authorized_tables` is already cached at its source. Furthermore, creating a set from a Pandas column using `set(df["full_name"].unique())` is faster than `.tolist()` and can be passed directly as a numpy array into `set()`. This eliminates the Pandas object iteration overhead and duplicate caching layers for frequent UI rendering operations.
+**Action:** Removed `@st.cache_data` from `get_authorized_table_names` in `src/db/queries.py` and passed `.unique()` numpy array directly to `set()` to avoid Pandas overhead and duplicate caching.
