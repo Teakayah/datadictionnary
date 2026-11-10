@@ -61,3 +61,7 @@
 ## 2025-03-01 - Avoid Concatenating Icons with Localized Text
 **Learning:** Hardcoding string concatenations like `f"← {t('common.back')}"` forces a specific English-centric layout (icon on the left) that breaks RTL languages and prevents translators from adapting the button layout naturally.
 **Action:** Extract the entire string, including formatting templates like icons and arrows, into a unified translation key (e.g., `common.back_btn`: `"← Back"`) to give full control back to the translation dictionary.
+
+## 2026-11-20 - Extracting Hardcoded Department Labels
+**Learning:** Hardcoded dictionary keys in `_MOCK_DEPTS` (e.g., "Finance", "HR") were used directly as display labels in `st.selectbox` for the mock authentication flow. This bypasses localization and enforces English labels globally.
+**Action:** When a UI component uses dictionary keys for display labels, convert the UI rendering to use localization tokens via `format_func` (e.g., `format_func=lambda x: t(f"auth.mock_dept_{x.lower()}")`) and add the corresponding keys to translation files, keeping the underlying data structure keys intact.

@@ -212,6 +212,7 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
             _dept_sel = st.selectbox(
                 t("auth.mock_department"),
                 _dept_opts,
+                format_func=lambda x: t(f"auth.mock_dept_{x.lower()}"),
                 index=_dept_opts.index(_default_dept) if _default_dept in _dept_opts else 0,
                 label_visibility="collapsed",
             )
