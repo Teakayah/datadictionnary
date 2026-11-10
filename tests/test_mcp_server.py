@@ -261,3 +261,12 @@ class TestGetLineageCache:
             result = _run_with_user(get_lineage("cached.s.t"))
         no_db.assert_not_called()
         assert json.loads(result) == cached
+
+
+    def test_filters_by_schema_only(self):
+        with patch("src.mcp_server.server.queries.get_authorized_tables", return_value=MULTI_CATALOG_DF), \
+             _no_cache():
+            result = _run_with_user(list_tables(schema="hr"))
+        data = json.loads(result)
+        assert len(data) == 1
+        assert data[0]["schema_name"] == "hr"

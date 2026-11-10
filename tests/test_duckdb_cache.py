@@ -578,3 +578,20 @@ class TestWriteDuckdb:
         assert df.iloc[0]["b"] == 2
         assert df.iloc[1]["a"] == 3
         assert df.iloc[1]["b"] == 4
+
+
+def test_duckdb_conn_ensure_user_data_attached_no_con():
+    from src.db.duckdb_adapter import _DuckDBConn
+    conn = _DuckDBConn("some_path", read_only=True)
+    conn._con = None
+    conn._ensure_user_data_attached() # should return silently
+
+def test_duckdb_conn_ensure_user_data_attached_success():
+    from unittest.mock import patch, MagicMock
+    from src.db.duckdb_adapter import _DuckDBConn
+    with patch("src.db.duckdb_adapter._get_shared_duckdb_connection", return_value=MagicMock()):
+        conn = _DuckDBConn("some_path", read_only=True)
+        with patch("src.db.duckdb_adapter._ensure_user_data_attached") as mock_ensure:
+            with patch("src.db.duckdb_adapter.USER_DATA_PATH", "mock_path"):
+                conn._ensure_user_data_attached()
+                mock_ensure.assert_called_once_with(conn._con, "mock_path", read_only=True)
