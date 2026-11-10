@@ -719,3 +719,63 @@ def test_search_column_bookmark_actions():
         bk_btn.click().run()
 
     assert "main.sales.orders::amount" in at.session_state["col_bookmarks"]
+
+def test_comment_form_interactions():
+    def app():
+        import streamlit as st
+        from src.pages.search import _render_comment_form
+
+        st.session_state["user_email"] = "test@example.com"
+        _render_comment_form("main.sales.orders", "steward@example.com", "main.sales.orders")
+
+    at = AppTest.from_function(app)
+
+    with patch("src.pages.search.save_comment") as mock_save, \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        # Click "leave a comment"
+        at.button(key="dd_comment_btn_main.sales.orders").click().run()
+
+        # Now text area and buttons should be visible
+        assert len([b for b in at.button if b.key == "dd_comment_send_main.sales.orders"]) == 1
+
+        # Click send with empty text
+        at.button(key="dd_comment_send_main.sales.orders").click().run()
+        assert len(at.warning) > 0
+
+        # Set text and send
+        at.text_area(key="dd_comment_text_main.sales.orders").set_value("This is a test comment").run()
+        at.button(key="dd_comment_send_main.sales.orders").click().run()
+        mock_save.assert_called_once_with("TABLE", "main.sales.orders", "This is a test comment", "steward@example.com", parent_comment_id=None)
+
+        # Now it is closed
+        assert not at.session_state.get("dd_comment_open_main.sales.orders", False)
+
+def test_comment_form_cancel_and_exception():
+    def app():
+        import streamlit as st
+        from src.pages.search import _render_comment_form
+
+        st.session_state["user_email"] = "test@example.com"
+        st.session_state["dd_comment_open_main.sales.orders"] = True
+        _render_comment_form("main.sales.orders", "steward@example.com", "main.sales.orders")
+
+    at = AppTest.from_function(app)
+
+    with patch("src.pages.search.save_comment", side_effect=Exception("Failed!")), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        # Cancel
+        at.button(key="dd_comment_cancel_main.sales.orders").click().run()
+
+        at.session_state["dd_comment_open_main.sales.orders"] = True
+        at.run()
+
+        # Exception
+        at.text_area(key="dd_comment_text_main.sales.orders").set_value("This is a test comment").run()
+        at.button(key="dd_comment_send_main.sales.orders").click().run()
+        assert len(at.error) > 0

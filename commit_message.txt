@@ -1,0 +1,7 @@
+🧪 Validator: [MEDIUM] Cover search page comments UI
+
+🚨 Severity: MEDIUM
+🕳️ Coverage Gap: The `_render_comment_form` and `_render_detail_panel` paths displaying replies/comments were completely unverified. Missing exception fallback and validation limit logic.
+🎯 Impact: Prevents regressions when interacting with the leave comment/reply functionality on the catalog table detail page.
+🔧 Assertion: Added AppTest targeting `_render_comment_form` to mock clicks, text submissions, validation errors, and simulated `save_comment` exceptions. Added mock data for replies loop coverage.
+✅ Verification: `python3 -m pytest tests/test_ui_search_comments.py` passes.
