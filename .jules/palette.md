@@ -51,3 +51,7 @@
 ## 2025-01-20 - Ensure aria-current for custom Streamlit Navigation
 **Learning:** When building custom HTML navigation components in Streamlit (e.g., bypassing standard `st.navigation`), active visual states (like the `active` CSS class) are not automatically announced by screen readers.
 **Action:** Always ensure custom HTML tabs or toggle links programmatically inject `aria-current="page"` or `aria-current="true"` when their state matches the active selection.
+
+## 2026-11-10 - Keyboard Accessibility Focus States
+**Learning:** Native form inputs and buttons in Streamlit apps may lack strong visual focus states for keyboard-only navigation users, potentially violating WCAG guidelines (2.4.7 Focus Visible).
+**Action:** Enhance the global design tokens (`assets/design.css`) to enforce strong `:focus-visible` styling (like high-contrast outlines and offsets) on interactive elements like `button`, `input`, and `a` tags.
