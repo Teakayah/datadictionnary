@@ -334,8 +334,6 @@ class TestRenderDataSample:
         assert at.error[0].value == en_locale["detail"]["preview_error"]
 
 def test_save_table_metadata_exception():
-    import streamlit as st
-    import pandas as pd
     from streamlit.testing.v1 import AppTest
     from unittest.mock import patch
 
@@ -362,8 +360,6 @@ def test_save_table_metadata_exception():
         assert at.error[0].value == "common.error"
 
 def test_save_table_business_name_exception():
-    import streamlit as st
-    import pandas as pd
     from streamlit.testing.v1 import AppTest
     from unittest.mock import patch
 

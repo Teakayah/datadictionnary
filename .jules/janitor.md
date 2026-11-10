@@ -27,3 +27,6 @@
 ## 2026-10-24 - Unnecessary complex operation over DataFrame for set extraction
 **Learning:** Found `set(all_tables["full_name"].unique().tolist())` which unnecessarily downloads all table columns into a pandas dataframe then does a complex transformation, when a simpler optimized `get_authorized_table_names(groups)` which returns the set directly is available.
 **Action:** Replaced the unoptimized extraction with the optimized `get_authorized_table_names(groups)` in `src/ui/cards/discovery.py`.
+## 2026-11-10 - Unused import linter warnings in test files
+**Learning:** Ruff `F401` warnings for local imports inside `AppTest` wrapped test functions (e.g. `import pandas as pd`, `import streamlit as st`) are often false positives because the framework relies on these imports being in the local scope during execution. Removing them via automated scripts/regex can easily break tests by inadvertently removing them from the wrong scopes.
+**Action:** When fixing unused imports in test files, strictly trace each reported line. If removing an import breaks a test with `NameError`, it's required for `AppTest` or dynamic mock execution and must be preserved (use `# noqa: F401`). Only remove imports that are truly unused across the entire function scope.
