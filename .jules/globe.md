@@ -61,3 +61,7 @@
 ## 2025-03-01 - Avoid Concatenating Icons with Localized Text
 **Learning:** Hardcoding string concatenations like `f"← {t('common.back')}"` forces a specific English-centric layout (icon on the left) that breaks RTL languages and prevents translators from adapting the button layout naturally.
 **Action:** Extract the entire string, including formatting templates like icons and arrows, into a unified translation key (e.g., `common.back_btn`: `"← Back"`) to give full control back to the translation dictionary.
+
+## 2026-11-10 - [Extract hardcoded placeholder translation]
+**Learning:** Missing placeholders in `st.text_input` or `st.text_area` calls should be populated with existing or new translation keys using `t()`.
+**Action:** Always check `placeholder` arguments for input components and ensure they use translated keys.

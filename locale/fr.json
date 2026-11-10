@@ -135,7 +135,9 @@
     "cancel": "Annuler",
     "edit": "Modifier",
     "title": "Modifier le nom métier et la définition",
-    "last_edited_by": "Dernière modification par {user} · {date}"
+    "last_edited_by": "Dernière modification par {user} · {date}",
+    "placeholder_biz_name": "ex: ID de fidélité client",
+    "placeholder_biz_def": "Expliquez ce que cela représente en termes métier."
   },
   "comment": {
     "leave_a_comment": "Laisser un commentaire",

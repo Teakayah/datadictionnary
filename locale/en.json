@@ -135,7 +135,9 @@
     "cancel": "Cancel",
     "edit": "Edit",
     "title": "Edit business name and definition",
-    "last_edited_by": "Last edited by {user} · {date}"
+    "last_edited_by": "Last edited by {user} · {date}",
+    "placeholder_biz_name": "e.g., Customer Loyalty ID",
+    "placeholder_biz_def": "Explain what this represents in business terms."
   },
   "comment": {
     "leave_a_comment": "Leave a comment",
