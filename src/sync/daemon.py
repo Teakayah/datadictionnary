@@ -241,5 +241,5 @@ def main(argv: Optional[list[str]] = None) -> int:
     return run(once=args.once, healthz_port=(args.healthz_port or None))
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     sys.exit(main())

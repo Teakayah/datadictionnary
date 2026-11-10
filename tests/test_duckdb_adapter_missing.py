@@ -1,7 +1,7 @@
 import pytest
 import duckdb
-from unittest.mock import MagicMock
 from src.db.duckdb_adapter import _DuckDBCursor
+from unittest.mock import patch, MagicMock
 
 def test_executemany_duckdb_invalid_input_exception():
     con_mock = MagicMock()
@@ -75,3 +75,37 @@ def test_duckdb_adapter_executemany_write():
     sql = "INSERT INTO test (a) VALUES (1)"
     cursor.executemany_write(sql)
     con_mock.executemany.assert_called_once_with(sql)
+
+def test_duckdb_adapter_execute_write():
+    from src.db.duckdb_adapter import _DuckDBCursor
+    con_mock = MagicMock()
+    cursor = _DuckDBCursor(con_mock)
+
+    sql = "INSERT INTO test (a) VALUES (1)"
+    cursor.execute_write(sql)
+    con_mock.execute.assert_called_once_with(sql)
+
+def test_duckdb_adapter_context_manager():
+    from src.db.duckdb_adapter import _DuckDBConn
+    con_mock = MagicMock()
+    with patch('src.db.duckdb_adapter._get_shared_duckdb_connection', return_value=con_mock):
+        db = _DuckDBConn(':memory:')
+        with db as ctx:
+            assert ctx is db
+
+def test_duckdb_adapter_ensure_user_data_attached_no_con():
+    from src.db.duckdb_adapter import _DuckDBConn
+    with patch('src.db.duckdb_adapter._get_shared_duckdb_connection', return_value=None):
+        db = _DuckDBConn(':memory:')
+        # Verify it returns early without error
+        db._ensure_user_data_attached()
+
+def test_duckdb_adapter_ensure_user_data_attached():
+    from src.db.duckdb_adapter import _DuckDBConn
+    con_mock = MagicMock()
+    with patch('src.db.duckdb_adapter._get_shared_duckdb_connection', return_value=con_mock):
+        db = _DuckDBConn(':memory:', read_only=False)
+        with patch('src.db.duckdb_adapter.USER_DATA_PATH', 'test_path'):
+            with patch('src.db.duckdb_adapter._ensure_user_data_attached') as mock_ensure:
+                db._ensure_user_data_attached()
+                mock_ensure.assert_called_once_with(con_mock, 'test_path', read_only=False)
