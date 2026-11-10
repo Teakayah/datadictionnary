@@ -7,6 +7,7 @@ $name named-parameter style so no query code needs to change.
 """
 
 from __future__ import annotations
+import secrets
 
 import os
 import re
@@ -251,6 +252,7 @@ def _initialize_schema(con):
 
 
 def _ensure_user_data_attached(con, safe_user_data_path: str, read_only: bool = False) -> None:
+    tok = "t" + secrets.token_hex(8)
     """Attach the persistent user_data DuckDB database.
 
     When ``read_only`` is True and the user_data file already exists on disk,
@@ -260,9 +262,9 @@ def _ensure_user_data_attached(con, safe_user_data_path: str, read_only: bool = 
     attaches read-write and initializes the schema.
     """
     if read_only and safe_user_data_path and os.path.exists(USER_DATA_PATH):
-        con.execute(f'ATTACH IF NOT EXISTS \'{safe_user_data_path}\' AS "user_data" (READ_ONLY)')
+        con.execute(f'ATTACH IF NOT EXISTS ${tok}${safe_user_data_path}${tok}$ AS "user_data" (READ_ONLY)')
     else:
-        con.execute(f'ATTACH IF NOT EXISTS \'{safe_user_data_path}\' AS "user_data"')
+        con.execute(f'ATTACH IF NOT EXISTS ${tok}${safe_user_data_path}${tok}$ AS "user_data"')
         _initialize_schema(con)
 
 
@@ -291,11 +293,12 @@ def _get_shared_duckdb_connection(read_only: bool | None = None):
                 return '"' + val.replace('"', '""') + '"'
 
             # Sanitize paths to prevent SQL injection when using f-strings for ATTACH
-            safe_duckdb_path = DUCKDB_PATH.replace("\x00", "").replace("'", "''") if DUCKDB_PATH else ""
-            safe_user_data_path = USER_DATA_PATH.replace("\x00", "").replace("'", "''") if USER_DATA_PATH else ""
+            tok = "t" + secrets.token_hex(8)
+            safe_duckdb_path = DUCKDB_PATH.replace("\x00", "") if DUCKDB_PATH else ""
+            safe_user_data_path = USER_DATA_PATH.replace("\x00", "") if USER_DATA_PATH else ""
 
             # Attach the main read-only cache
-            con.execute(f"ATTACH '{safe_duckdb_path}' AS {_escape_id(CATALOG_CACHE)} (READ_ONLY)")
+            con.execute(f"ATTACH ${tok}${safe_duckdb_path}${tok}$ AS {_escape_id(CATALOG_CACHE)} (READ_ONLY)")
             # Attach the persistent user data database
             _ensure_user_data_attached(con, safe_user_data_path, read_only=read_only)
 
@@ -406,7 +409,7 @@ class _DuckDBConn:
     def _ensure_user_data_attached(self) -> None:
         if self._con is None:
             return
-        safe_user_data_path = USER_DATA_PATH.replace("\x00", "").replace("'", "''") if USER_DATA_PATH else ""
+        safe_user_data_path = USER_DATA_PATH.replace("\x00", "") if USER_DATA_PATH else ""
         _ensure_user_data_attached(self._con, safe_user_data_path, read_only=self._read_only)
 
     def cursor(self):

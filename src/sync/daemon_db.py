@@ -1,4 +1,5 @@
 from __future__ import annotations
+import secrets
 """Process-local DuckDB connection for the sidecar sync daemon.
 
 The Streamlit app uses a Streamlit-cached singleton (src.db.duckdb_adapter
@@ -36,20 +37,21 @@ class DaemonConn:
         self._con = duckdb.connect(":memory:")
 
         # Sanitize paths to prevent SQL injection when using f-strings for ATTACH
-        safe_duckdb_path = DUCKDB_PATH.replace("\x00", "").replace("'", "''") if DUCKDB_PATH else ""
-        safe_user_data_path = USER_DATA_PATH.replace("\x00", "").replace("'", "''") if USER_DATA_PATH else ""
+        tok = "t" + secrets.token_hex(8)
+        safe_duckdb_path = DUCKDB_PATH.replace("\x00", "") if DUCKDB_PATH else ""
+        safe_user_data_path = USER_DATA_PATH.replace("\x00", "") if USER_DATA_PATH else ""
         safe_catalog_cache = CATALOG_CACHE.replace('"', '""')
 
         if DUCKDB_PATH and Path(DUCKDB_PATH).exists():
             self._con.execute(
-                f"ATTACH '{safe_duckdb_path}' AS \"{safe_catalog_cache}\" (READ_ONLY)"  # nosec B608
+                f"ATTACH ${tok}${safe_duckdb_path}${tok}$ AS \"{safe_catalog_cache}\" (READ_ONLY)"  # nosec B608
             )
         else:
             log.info(
                 "Catalog file %s missing — daemon will run without DR resync from cache.",
                 DUCKDB_PATH,
             )
-        self._con.execute(f"ATTACH IF NOT EXISTS '{safe_user_data_path}' AS \"user_data\"")  # nosec B608
+        self._con.execute(f"ATTACH IF NOT EXISTS ${tok}${safe_user_data_path}${tok}$ AS \"user_data\"")  # nosec B608
         _initialize_schema(self._con)
 
     def cursor(self) -> _DuckDBCursor:
