@@ -224,7 +224,8 @@
     "reviews_approved_toast": "Approved '{col}'.",
     "reviews_rejected_toast": "Rejected '{col}'.",
     "table_friendly_approved_toast": "Approved friendly name for '{table}'.",
-    "table_friendly_rejected_toast": "Rejected friendly name for '{table}'."
+    "table_friendly_rejected_toast": "Rejected friendly name for '{table}'.",
+    "groups_cache_flush_help": "Clear the groups cache"
   },
   "health": {
     "title": "§ Catalog health",
@@ -477,7 +478,8 @@
     "dismiss": "Dismiss",
     "mark_all_read": "Mark all as read",
     "dismissed_toast": "Notification dismissed.",
-    "all_read_toast": "All notifications marked as read."
+    "all_read_toast": "All notifications marked as read.",
+    "mark_all_read_help": "Mark all notifications as read"
   },
   "date": {
     "months": {

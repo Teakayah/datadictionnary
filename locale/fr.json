@@ -224,7 +224,8 @@
     "reviews_approved_toast": "Approuvé '{col}'.",
     "reviews_rejected_toast": "Rejeté '{col}'.",
     "table_friendly_approved_toast": "Nom convivial approuvé pour '{table}'.",
-    "table_friendly_rejected_toast": "Nom convivial rejeté pour '{table}'."
+    "table_friendly_rejected_toast": "Nom convivial rejeté pour '{table}'.",
+    "groups_cache_flush_help": "Vider le cache des groupes"
   },
   "health": {
     "title": "§ Santé du catalogue",
@@ -466,7 +467,7 @@
     "btn_editor_cancel": "Annuler la modification",
     "btn_common_back": "Retourner à la page précédente",
     "btn_confirm_delete_pipeline": "Confirmer la suppression du pipeline",
-    "btn_common_cancel": "Annuler l'action",
+    "btn_common_cancel": "Annuler l'action en cours",
     "btn_common_save": "Enregistrer les modifications",
     "btn_confirm_delete_post": "Confirmer la suppression de l'annonce",
     "btn_auth_sign_in": "Se connecter à l'application"
@@ -477,7 +478,8 @@
     "dismiss": "Ignorer",
     "mark_all_read": "Tout marquer comme lu",
     "dismissed_toast": "Notification ignorée.",
-    "all_read_toast": "Toutes les notifications marquées comme lues."
+    "all_read_toast": "Toutes les notifications marquées comme lues.",
+    "mark_all_read_help": "Marquer toutes les notifications comme lues"
   },
   "date": {
     "months": {

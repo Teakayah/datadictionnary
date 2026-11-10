@@ -164,7 +164,7 @@ def render_notification_strip() -> None:
                     st.rerun()
 
         st.markdown("<div style='margin-top:8px'></div>", unsafe_allow_html=True)
-        if st.button(t("notifications.mark_all_read"), key="notif_mark_all"):
+        if st.button(t("notifications.mark_all_read"), key="notif_mark_all", help=t("notifications.mark_all_read_help")):
             with st.spinner(t("common.loading")):
                 mark_all_read(user_oid)
             st.toast(t("notifications.all_read_toast"))

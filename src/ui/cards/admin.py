@@ -490,6 +490,7 @@ def _render_admin_groups_cache_section():
     )
     if st.button(
         t("admin.groups_cache_flush"),
+        help=t("admin.groups_cache_flush_help"),
         key="admin_groups_cache_flush",
         type="secondary",
     ):
