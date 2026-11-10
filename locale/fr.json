@@ -135,7 +135,13 @@
     "cancel": "Annuler",
     "edit": "Modifier",
     "title": "Modifier le nom métier et la définition",
-    "last_edited_by": "Dernière modification par {user} · {date}"
+    "last_edited_by": "Derni\u00e8re modification par {user} \u00b7 {date}",
+    "edit_mode_banner": "\u00c9dition en cours...",
+    "business_name_label": "Nom usuel",
+    "placeholder_biz_name": "ex., ID de fid\u00e9lit\u00e9 client",
+    "definition_label": "D\u00e9finition m\u00e9tier",
+    "placeholder_biz_def": "D\u00e9finition claire et non technique du contenu de cette colonne",
+    "permission_error": "Vous n'avez pas la permission de modifier cette colonne."
   },
   "comment": {
     "leave_a_comment": "Laisser un commentaire",

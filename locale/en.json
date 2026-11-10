@@ -135,7 +135,13 @@
     "cancel": "Cancel",
     "edit": "Edit",
     "title": "Edit business name and definition",
-    "last_edited_by": "Last edited by {user} · {date}"
+    "last_edited_by": "Last edited by {user} \u00b7 {date}",
+    "edit_mode_banner": "Editing...",
+    "business_name_label": "Business Name",
+    "placeholder_biz_name": "e.g., Customer Loyalty ID",
+    "definition_label": "Business Definition",
+    "placeholder_biz_def": "Clear, non-technical definition of this column's contents",
+    "permission_error": "You don't have permission to edit this column."
   },
   "comment": {
     "leave_a_comment": "Leave a comment",
