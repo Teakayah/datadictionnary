@@ -26,7 +26,7 @@ from src.db.queries import run_query, get_authorized_tables, get_authorized_tabl
 from src.i18n import t
 from src.notifications import get_unread_notifications, mark_all_read, mark_read
 from src.ui.cards._shared import _POST_COLOR, _dq_grade, _render_empty_state
-from src.personalization import _pref_delete, _pref_upsert
+from src.personalization import _pref_delete, _pref_upsert, add_bookmark, remove_bookmark, is_bookmarked, remove_col_bookmark, add_bookmark, remove_bookmark, is_bookmarked, remove_col_bookmark
 
 
 def _render_dq_badge(dq_score: str, dq_status: str) -> str:
@@ -69,12 +69,10 @@ def _render_bookmark_button(is_bk: bool, full_name: str, key_prefix: str) -> Non
     )
     if st.button(label, key=f"{key_prefix}_bk_{full_name}", help=help_text, use_container_width=True):
         if is_bk:
-            st.session_state.get("bookmarks", set()).discard(full_name)
-            _pref_delete(full_name, "bookmark")
+            remove_bookmark(full_name)
             st.toast(t("personalization.bookmark_removed"))
         else:
-            st.session_state.get("bookmarks", set()).add(full_name)
-            _pref_upsert(full_name, "bookmark")
+            add_bookmark(full_name)
             st.toast(t("personalization.bookmark_added"))
         st.rerun()
 
@@ -86,7 +84,7 @@ def _render_table_card(row: dict, key_prefix: str) -> None:
     _time_str = format_date(_ts)
     _full  = str(row.get("full_name", ""))
     _tname = str(row.get("table_name", ""))
-    _is_bk = _full in st.session_state.get("bookmarks", set())
+    _is_bk = is_bookmarked(_full)
 
     _dq_score  = str(row.get("dq_score", "") or "")
     _dq_status = str(row.get("dq_status", "") or "")
@@ -395,8 +393,7 @@ def _render_bookmarks_tab(groups):
                     help=t("personalization.remove_bookmark"),
                     use_container_width=True,
                 ):
-                    st.session_state.col_bookmarks.discard(_bk_id)
-                    _pref_delete(_bk_id, "col_bookmark")
+                    remove_col_bookmark(_bk_id)
                     st.toast(t("personalization.bookmark_removed"))
                     st.rerun()
 

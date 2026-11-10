@@ -32,8 +32,8 @@ def test_glossary_unauthorized_table(mock_auth):
         assert len(hidden_buttons) == 0
 
 @patch("src.pages.glossary._cached_get_authorized_table_names", return_value={"catalog.schema.visible"})
-@patch("src.pages.glossary._pref_upsert")
-@patch("src.pages.glossary._pref_delete")
+@patch("src.personalization._pref_upsert")
+@patch("src.personalization._pref_delete")
 def test_glossary_bookmarks(mock_del, mock_upsert, mock_auth):
     mock_demo = pd.DataFrame([
         {

@@ -144,7 +144,7 @@ def test_power_user_edit_buttons():
              patch("src.pages.search.get_column_overrides", return_value={}), \
              patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
              patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
-             patch("src.pages.search._pref_upsert"), \
+             patch("src.personalization._pref_upsert"), \
              patch("src.pages.search.t", side_effect=lambda k, **kw: k):
              _render_detail_panel(row, "main.sales.orders", tuple())
 
@@ -191,7 +191,7 @@ def test_search_bookmark_actions():
              patch("src.pages.search.get_column_overrides", return_value={}), \
              patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
              patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
-             patch("src.pages.search._pref_upsert"), \
+             patch("src.personalization._pref_upsert"), \
              patch("src.pages.search._pref_delete"), \
              patch("src.pages.search.t", side_effect=lambda k, **kw: k):
              _render_detail_panel(row, "main.sales.orders", tuple())
@@ -234,7 +234,7 @@ def test_search_data_preview_and_export():
              patch("src.pages.search.get_table_columns", return_value=pd.DataFrame([{"column_name": "id", "data_type": "integer", "comment": "ID"}])), \
              patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
              patch("src.pages.search.render_data_sample"), \
-             patch("src.pages.search._pref_upsert"), \
+             patch("src.personalization._pref_upsert"), \
              patch("src.pages.search.export_schema_to_csv", return_value="id,integer"), \
              patch("src.pages.search.t", side_effect=lambda k, **kw: k):
              _render_detail_panel(row, "main.sales.orders", tuple())
@@ -276,7 +276,7 @@ def test_search_business_name_editor_click():
              patch("src.pages.search.get_column_overrides", return_value={}), \
              patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
              patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
-             patch("src.pages.search._pref_upsert"), \
+             patch("src.personalization._pref_upsert"), \
              patch("src.pages.search.render_table_business_name_editor"), \
              patch("src.pages.search.t", side_effect=lambda k, **kw: k):
              _render_detail_panel(row, "main.sales.orders", tuple())
@@ -572,7 +572,7 @@ def test_search_comments_rendering():
              patch("src.pages.search.get_column_overrides", return_value={}), \
              patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
              patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
-             patch("src.pages.search._pref_upsert"), \
+             patch("src.personalization._pref_upsert"), \
              patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
              patch("src.pages.search.format_date", return_value="formatted date", create=True), \
              patch("src.pages.search.format_number", return_value="2", create=True):
@@ -691,7 +691,7 @@ def test_search_column_bookmark_actions():
              patch("src.pages.search.get_column_overrides", return_value={}), \
              patch("src.pages.search.get_table_columns", return_value=pd.DataFrame([{"column_name": "amount", "data_type": "DOUBLE", "comment": "Order amount"}])), \
              patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
-             patch("src.pages.search._pref_upsert"), \
+             patch("src.personalization._pref_upsert"), \
              patch("src.pages.search._pref_delete"), \
              patch("src.pages.search.t", side_effect=lambda k, **kw: k):
              _render_detail_panel(row, "main.sales.orders", tuple())

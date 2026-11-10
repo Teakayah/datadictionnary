@@ -39,8 +39,13 @@ def _html(at: AppTest) -> str:
         parts.extend(m.value for m in at.markdown)
     # 2. Extract st.html injections which are stored as UnknownElement (html)
     for el in getattr(at, "main", []):
-        if type(el).__name__ == "UnknownElement" and el.type == "html":
+        if type(el).__name__ == "UnknownElement" and getattr(el, "type", "") == "html":
             parts.append(getattr(el.proto, "body", ""))
+    # Look into elements list too since st.html got changed
+    if hasattr(at, "elements"):
+        for el in at.elements:
+             if type(el).__name__ == "UnknownElement" and getattr(el, "type", "") == "html":
+                parts.append(getattr(el.proto, "body", ""))
     return " ".join(parts)
 
 

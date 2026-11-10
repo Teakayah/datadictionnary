@@ -100,6 +100,99 @@ def _pref_load(pref_type: str, limit: int = 20) -> list[str]:
     return []
 
 
+
+
+def add_bookmark(table_full_name: str) -> None:
+    st.session_state.setdefault("bookmarks", set()).add(table_full_name)
+    _pref_upsert(table_full_name, "bookmark")
+
+def remove_bookmark(table_full_name: str) -> None:
+    st.session_state.setdefault("bookmarks", set()).discard(table_full_name)
+    _pref_delete(table_full_name, "bookmark")
+
+def is_bookmarked(table_full_name: str) -> bool:
+    return table_full_name in st.session_state.get("bookmarks", set())
+
+def add_col_bookmark(col_id: str) -> None:
+    st.session_state.setdefault("col_bookmarks", set()).add(col_id)
+    _pref_upsert(col_id, "col_bookmark")
+
+def remove_col_bookmark(col_id: str) -> None:
+    st.session_state.setdefault("col_bookmarks", set()).discard(col_id)
+    _pref_delete(col_id, "col_bookmark")
+
+def is_col_bookmarked(col_id: str) -> bool:
+    return col_id in st.session_state.get("col_bookmarks", set())
+
+def add_recent_view(table_full_name: str) -> None:
+    _rv = st.session_state.get("recent_views", [])
+    if not _rv or _rv[0] != table_full_name:
+        st.session_state.recent_views = [table_full_name] + [x for x in _rv if x != table_full_name][:49]
+        _pref_upsert(table_full_name, "recent")
+
+
+
+
+def add_bookmark(table_full_name: str) -> None:
+    st.session_state.setdefault("bookmarks", set()).add(table_full_name)
+    _pref_upsert(table_full_name, "bookmark")
+
+def remove_bookmark(table_full_name: str) -> None:
+    st.session_state.setdefault("bookmarks", set()).discard(table_full_name)
+    _pref_delete(table_full_name, "bookmark")
+
+def is_bookmarked(table_full_name: str) -> bool:
+    return table_full_name in st.session_state.get("bookmarks", set())
+
+def add_col_bookmark(col_id: str) -> None:
+    st.session_state.setdefault("col_bookmarks", set()).add(col_id)
+    _pref_upsert(col_id, "col_bookmark")
+
+def remove_col_bookmark(col_id: str) -> None:
+    st.session_state.setdefault("col_bookmarks", set()).discard(col_id)
+    _pref_delete(col_id, "col_bookmark")
+
+def is_col_bookmarked(col_id: str) -> bool:
+    return col_id in st.session_state.get("col_bookmarks", set())
+
+def add_recent_view(table_full_name: str) -> None:
+    _rv = st.session_state.get("recent_views", [])
+    if not _rv or _rv[0] != table_full_name:
+        st.session_state.recent_views = [table_full_name] + [x for x in _rv if x != table_full_name][:49]
+        _pref_upsert(table_full_name, "recent")
+
+
+
+
+def add_bookmark(table_full_name: str) -> None:
+    st.session_state.setdefault("bookmarks", set()).add(table_full_name)
+    _pref_upsert(table_full_name, "bookmark")
+
+def remove_bookmark(table_full_name: str) -> None:
+    st.session_state.setdefault("bookmarks", set()).discard(table_full_name)
+    _pref_delete(table_full_name, "bookmark")
+
+def is_bookmarked(table_full_name: str) -> bool:
+    return table_full_name in st.session_state.get("bookmarks", set())
+
+def add_col_bookmark(col_id: str) -> None:
+    st.session_state.setdefault("col_bookmarks", set()).add(col_id)
+    _pref_upsert(col_id, "col_bookmark")
+
+def remove_col_bookmark(col_id: str) -> None:
+    st.session_state.setdefault("col_bookmarks", set()).discard(col_id)
+    _pref_delete(col_id, "col_bookmark")
+
+def is_col_bookmarked(col_id: str) -> bool:
+    return col_id in st.session_state.get("col_bookmarks", set())
+
+def add_recent_view(table_full_name: str) -> None:
+    _rv = st.session_state.get("recent_views", [])
+    if not _rv or _rv[0] != table_full_name:
+        st.session_state.recent_views = [table_full_name] + [x for x in _rv if x != table_full_name][:49]
+        _pref_upsert(table_full_name, "recent")
+
+
 def _sync_prefs_to_session() -> None:
     """Populate in-memory sets from the storage backend on first load."""
     st.session_state.bookmarks = set(_pref_load("bookmark"))

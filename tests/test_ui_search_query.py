@@ -387,8 +387,8 @@ def test_add_remove_bookmark():
          patch("src.pages.search.get_column_overrides", return_value={}), \
          patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
          patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
-         patch("src.pages.search._pref_upsert") as mock_upsert, \
-         patch("src.pages.search._pref_delete") as mock_delete, \
+         patch("src.personalization._pref_upsert") as mock_upsert, \
+         patch("src.personalization._pref_delete") as mock_delete, \
          patch("src.pages.search.t", side_effect=lambda k, **kw: k):
 
         at.run()
@@ -448,8 +448,8 @@ def test_add_remove_col_bookmark():
          patch("src.pages.search.get_column_overrides", return_value={}), \
          patch("src.pages.search.get_table_columns", return_value=mock_columns), \
          patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
-         patch("src.pages.search._pref_upsert") as mock_upsert, \
-         patch("src.pages.search._pref_delete") as mock_delete, \
+         patch("src.personalization._pref_upsert") as mock_upsert, \
+         patch("src.personalization._pref_delete") as mock_delete, \
          patch("src.pages.search.t", side_effect=lambda k, **kw: k):
 
         at.run()

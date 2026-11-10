@@ -19,7 +19,7 @@ from src.db.queries import (
 )
 from src.analytics import SearchEvent, track_search
 from src.audit import get_column_overrides, get_table_columns
-from src.personalization import _pref_upsert, _pref_delete, is_power_user
+from src.personalization import _pref_upsert, _pref_delete, is_power_user, add_bookmark, remove_bookmark, is_bookmarked, add_col_bookmark, remove_col_bookmark, is_col_bookmarked, add_recent_view, add_bookmark, remove_bookmark, is_bookmarked, add_col_bookmark, remove_col_bookmark, is_col_bookmarked, add_recent_view
 from src.auth import is_admin
 from src.comments import get_table_comments, save_comment
 from src.audit import save_business_name, get_table_steward
@@ -201,7 +201,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                     )
 
         # Bookmark + full_name row
-        _is_bk = full_name in st.session_state.get("bookmarks", set())
+        _is_bk = is_bookmarked(full_name)
         _c_code, _c_bk = st.columns([11, 1], gap="small")
         with _c_code:
             st.code(full_name, language=None)
@@ -213,20 +213,15 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                 use_container_width=True,
             ):
                 if _is_bk:
-                    st.session_state.get("bookmarks", set()).discard(full_name)
-                    _pref_delete(full_name, "bookmark")
+                    remove_bookmark(full_name)
                     st.toast(t("personalization.bookmark_removed"))
                 else:
-                    st.session_state.get("bookmarks", set()).add(full_name)
-                    _pref_upsert(full_name, "bookmark")
+                    add_bookmark(full_name)
                     st.toast(t("personalization.bookmark_added"))
                 st.rerun()
 
         # Record recently viewed
-        _rv = st.session_state.get("recent_views", [])
-        if not _rv or _rv[0] != full_name:
-            st.session_state.recent_views = [full_name] + [x for x in _rv if x != full_name][:49]
-            _pref_upsert(full_name, "recent")
+        add_recent_view(full_name)
 
         # Columns section
         col_overrides = get_column_overrides(full_name)
@@ -306,15 +301,13 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
                         st.rerun()
 
                 _col_bk_id = f"{full_name}::{_cname}"
-                _is_col_bk = _col_bk_id in st.session_state.get("col_bookmarks", set())
+                _is_col_bk = is_col_bookmarked(_col_bk_id)
                 if _r_star.button("★" if _is_col_bk else "☆", key=f"colbk_{_edit_key}", help=t("personalization.remove_bookmark") if _is_col_bk else t("personalization.add_bookmark"), use_container_width=True):
                     if _is_col_bk:
-                        st.session_state.get("col_bookmarks", set()).discard(_col_bk_id)
-                        _pref_delete(_col_bk_id, "col_bookmark")
+                        remove_col_bookmark(_col_bk_id)
                         st.toast(t("personalization.bookmark_removed"))
                     else:
-                        st.session_state.get("col_bookmarks", set()).add(_col_bk_id)
-                        _pref_upsert(_col_bk_id, "col_bookmark")
+                        add_col_bookmark(_col_bk_id)
                         st.toast(t("personalization.bookmark_added"))
                     st.rerun()
 

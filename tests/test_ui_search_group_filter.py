@@ -39,7 +39,7 @@ def test_search_group_filter_browse():
          patch("src.pages.search.get_column_overrides", return_value={}), \
          patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
          patch("src.pages.search.run_query", return_value=pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])), \
-         patch("src.pages.search._pref_upsert"):
+         patch("src.personalization._pref_upsert"):
 
         at.run()
 
