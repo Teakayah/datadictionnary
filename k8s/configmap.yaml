@@ -6,6 +6,9 @@ metadata:
   labels:
     app.kubernetes.io/name: data-dictionary
     app.kubernetes.io/component: config
+    app.kubernetes.io/part-of: data-dictionary
+    app.kubernetes.io/managed-by: kubectl
+    app.kubernetes.io/version: ${IMAGE_TAG}
 data:
   ENVIRONMENT: "production"
   ENABLE_MOCK_AUTH: "false"

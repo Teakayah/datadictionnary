@@ -6,6 +6,9 @@ metadata:
   labels:
     app.kubernetes.io/name: data-dictionary
     app.kubernetes.io/component: autoscaler
+    app.kubernetes.io/part-of: data-dictionary
+    app.kubernetes.io/managed-by: kubectl
+    app.kubernetes.io/version: ${IMAGE_TAG}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1

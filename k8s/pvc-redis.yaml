@@ -6,9 +6,12 @@ metadata:
   labels:
     app.kubernetes.io/name: data-dictionary
     app.kubernetes.io/component: redis
+    app.kubernetes.io/part-of: data-dictionary
+    app.kubernetes.io/managed-by: kubectl
+    app.kubernetes.io/version: ${IMAGE_TAG}
 spec:
   accessModes:
-    - ReadWriteOnce
+  - ReadWriteOnce
   resources:
     requests:
       storage: 1Gi

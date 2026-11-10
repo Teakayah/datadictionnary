@@ -6,12 +6,15 @@ metadata:
   labels:
     app.kubernetes.io/name: data-dictionary
     app.kubernetes.io/component: service
+    app.kubernetes.io/part-of: data-dictionary
+    app.kubernetes.io/managed-by: kubectl
+    app.kubernetes.io/version: ${IMAGE_TAG}
 spec:
   type: ClusterIP
   selector:
     app: dd-app
   ports:
-    - name: http
-      protocol: TCP
-      port: 8501
-      targetPort: 8501
+  - name: http
+    protocol: TCP
+    port: 8501
+    targetPort: 8501

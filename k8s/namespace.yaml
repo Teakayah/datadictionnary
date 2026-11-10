@@ -5,3 +5,5 @@ metadata:
   labels:
     app.kubernetes.io/name: data-dictionary
     app.kubernetes.io/managed-by: kubectl
+    app.kubernetes.io/part-of: data-dictionary
+    app.kubernetes.io/version: ${IMAGE_TAG}

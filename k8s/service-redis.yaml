@@ -6,12 +6,15 @@ metadata:
   labels:
     app.kubernetes.io/name: data-dictionary
     app.kubernetes.io/component: redis
+    app.kubernetes.io/part-of: data-dictionary
+    app.kubernetes.io/managed-by: kubectl
+    app.kubernetes.io/version: ${IMAGE_TAG}
 spec:
   type: ClusterIP
   selector:
     app: dd-redis
   ports:
-    - name: redis
-      protocol: TCP
-      port: 6379
-      targetPort: 6379
+  - name: redis
+    protocol: TCP
+    port: 6379
+    targetPort: 6379
