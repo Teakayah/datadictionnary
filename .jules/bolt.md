@@ -137,3 +137,7 @@
 ## 2024-10-25 - Remove Redundant Cache Wrappers
 **Learning:** Adding `@st.cache_data` locally around database functions that are already cached at their source (e.g. `get_authorized_table_names` in `src/db/queries.py`) creates duplicate caching layers and unnecessary memory overhead.
 **Action:** Import and use the base function directly instead of wrapping it in a redundant local `@st.cache_data` decorator within UI components.
+
+## 2026-10-25 - Optimize pandas iteration overhead
+**Learning:** Calling `df["column"].tolist()` directly on a Pandas Series is slower than calling `df["column"].to_numpy().tolist()` because Pandas Series iteration adds Python object overhead, whereas converting to a NumPy array first leverages optimized C-level arrays for conversion, providing a measurable performance improvement.
+**Action:** Always prefer `df["column"].to_numpy().tolist()` over `df["column"].tolist()` when converting a DataFrame column into a standard Python list.
