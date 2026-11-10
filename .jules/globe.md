@@ -61,3 +61,7 @@
 ## 2025-03-01 - Avoid Concatenating Icons with Localized Text
 **Learning:** Hardcoding string concatenations like `f"← {t('common.back')}"` forces a specific English-centric layout (icon on the left) that breaks RTL languages and prevents translators from adapting the button layout naturally.
 **Action:** Extract the entire string, including formatting templates like icons and arrows, into a unified translation key (e.g., `common.back_btn`: `"← Back"`) to give full control back to the translation dictionary.
+
+## 2026-11-10 - Extract Hardcoded Mock Department Selector Labels
+**Learning:** Hardcoding display names for selectboxes (e.g., `_MOCK_DEPTS = {"Finance": ...}`) forces English strings on users. The keys should be kept as internal representations, and a `format_func` with a localized string via `t()` should be used to display them correctly based on the locale.
+**Action:** When working with `st.selectbox` where the options are tied to logic, use `format_func=lambda x: t(...)` to localize the user-facing labels without changing the underlying keys used for backend logic.
