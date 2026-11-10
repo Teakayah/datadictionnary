@@ -272,6 +272,13 @@ def _get_shared_duckdb_connection(read_only: bool | None = None):
     Uses double-checked locking so the connection is created once and reused.
     Returns None (without caching it) when the DuckDB file isn't available yet,
     so the next call retries — matching the validate= behaviour of st.cache_resource.
+
+    WHY IT EXISTS:
+    DuckDB embedded databases only allow a single process to hold a write lock on the database file.
+    In a multi-threaded Streamlit application, multiple concurrent sessions instantiating their own
+    connection objects will cause file-locking contention and `duckdb.IOException` errors.
+    By enforcing a shared singleton connection protected by a thread lock (`_db_write_lock`),
+    we guarantee thread-safe access and prevent database locking conflicts.
     """
     global _shared_connection
     if _shared_connection is not None:

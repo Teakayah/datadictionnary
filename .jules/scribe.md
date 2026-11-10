@@ -28,3 +28,6 @@
 ## 2024-11-20 - Adding "Why It Exists" to regex explainers
 **Learning:** Security gates and authentication dependencies (like `get_current_user` in FastAPI) require complete docstrings explaining not just their arguments and returns, but also the specific HTTP exceptions they raise to prevent developers from mishandling auth failures or returning incorrect status codes.
 **Action:** Always ensure that when documenting FastAPI security dependencies, the docstring includes a detailed "Raises" section clearly mapping exception types to HTTP status codes (e.g., 401 Unauthorized, 500 Internal Server Error).
+## 2024-11-20 - Adding "Why It Exists" for DuckDB singleton connections
+**Learning:** The application uses a shared singleton connection for embedded databases (e.g. DuckDB `_get_shared_duckdb_connection`) to prevent `duckdb.IOException` caused by multiple Streamlit sessions attempting to acquire concurrent file locks. This critical architectural decision must be documented.
+**Action:** Always ensure that when documenting singleton connection management functions for embedded databases (e.g., DuckDB), explicitly include a `WHY IT EXISTS:` block in the docstring to explain the concurrency or file-locking issue the singleton resolves.
