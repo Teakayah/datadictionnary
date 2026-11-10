@@ -51,3 +51,6 @@
 ## 2025-01-20 - Ensure aria-current for custom Streamlit Navigation
 **Learning:** When building custom HTML navigation components in Streamlit (e.g., bypassing standard `st.navigation`), active visual states (like the `active` CSS class) are not automatically announced by screen readers.
 **Action:** Always ensure custom HTML tabs or toggle links programmatically inject `aria-current="page"` or `aria-current="true"` when their state matches the active selection.
+## 2026-11-10 - [Avoid aria_label in st.button]
+**Learning:** In Streamlit, `st.button` does not accept the `aria_label` keyword argument natively (it throws a TypeError). Our repository automatically hoists the `help` attribute into an `aria-label` using a JS mutation observer in `src/ui/css.py`.
+**Action:** When making buttons accessible, especially icon-only buttons, use the `help` attribute (`help=t(...)`) rather than attempting to pass an explicit `aria-label`.
