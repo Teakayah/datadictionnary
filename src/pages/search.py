@@ -81,7 +81,7 @@ def _render_comment_form(
                 st.rerun()
         if not steward and not parent_comment_id:
             st.markdown(
-                f'<p class="dd-comment-no-steward">{t("comment.no_steward")}</p>',
+                f'<p class="dd-comment-no-steward">{_html.escape(t("comment.no_steward"))}</p>',
                 unsafe_allow_html=True,
             )
 
@@ -92,7 +92,7 @@ def _render_result_card(full_name: str, name: str, desc: str, match_type: str, d
     st.markdown(f'''
     <div style="background:var(--paper); border:1px solid var(--ink-10); border-radius:4px; padding:14px 18px; height:100%;">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-            <span class="dd-dq-badge {_gcls}" title="{t("catalog.completeness_grade", grade=_grade)}">{_grade}</span>
+            <span class="dd-dq-badge {_gcls}" title="{_html.escape(t("catalog.completeness_grade", grade=_grade))}">{_grade}</span>
             <span style="font-family:var(--font-mono); font-size:11px; color:var(--ink-60); text-transform:uppercase; letter-spacing:0.08em;">{_html.escape(match_type)}</span>
         </div>
         <div style="font-family:var(--font-sans); font-size:15px; font-weight:600; color:var(--ink); margin-bottom:2px;">{_html.escape(name)}</div>
@@ -138,7 +138,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
 
         st.markdown(
             f'<div class="dd-detail-header" style="margin-top: 0;">'
-            f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.title")}</span>'
+            f'<span class="dd-eyebrow" style="margin-bottom:0">{_html.escape(t("detail.title"))}</span>'
             f'</div>',
             unsafe_allow_html=True,
         )
@@ -176,7 +176,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             f'<div class="dd-detail-table-name" style="margin-bottom:0">{_h1}</div>'
             f'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">'
             f'<span class="dd-dq-badge {_gcls}" style="width:32px;height:32px;font-size:14px;" '
-            f'title="{t("catalog.completeness_score", score=int(_score))}">{_grade}</span>'
+            f'title="{_html.escape(t("catalog.completeness_score", score=int(_score)))}">{_grade}</span>'
             f'<span style="font-family:var(--font-mono);font-size:13px;color:var(--ink-60);">{_score:.0f}%</span>'
             f'</div>'
             f'</div>'
@@ -188,10 +188,10 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         if is_power_user():
             _c_em, _c_efn = st.columns([1, 1], gap="small")
             with _c_em:
-                if st.button(f"✎ {t('detail.edit_table')}", key=f"edit_tbl_{full_name}", help=t("detail.edit_table_help"), type="secondary", use_container_width=True):
+                if st.button(f"✎ {_html.escape(t('detail.edit_table'))}", key=f"edit_tbl_{full_name}", help=t("detail.edit_table_help"), type="secondary", use_container_width=True):
                     render_table_metadata_editor(full_name, _raw_desc, _steward)
             with _c_efn:
-                if st.button(f"✎ {t('detail.edit_friendly_name')}", key=f"edit_friendly_{full_name}", help=t("detail.edit_friendly_name_help"), type="secondary", use_container_width=True):
+                if st.button(f"✎ {_html.escape(t('detail.edit_friendly_name'))}", key=f"edit_friendly_{full_name}", help=t("detail.edit_friendly_name_help"), type="secondary", use_container_width=True):
                     render_table_business_name_editor(
                         full_name,
                         current_name_en=str(row.get("business_name_en", "") or ""),
@@ -251,7 +251,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
 
         st.markdown(
             f'<div class="dd-section-header">'
-            f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_columns")}</span>'
+            f'<span class="dd-eyebrow" style="margin-bottom:0">{_html.escape(t("detail.section_columns"))}</span>'
             f'<span class="dd-section-count">{n_cols}</span>'
             f'</div>',
             unsafe_allow_html=True,
@@ -320,7 +320,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
 
                 if _col_edit == _edit_key:
                     st.markdown(
-                        f'<div class="dd-edit-banner">{t("editor.edit_mode_banner")}</div>',
+                        f'<div class="dd-edit-banner">{_html.escape(t("editor.edit_mode_banner"))}</div>',
                         unsafe_allow_html=True,
                     )
                     _inp_name = st.text_input(
@@ -379,7 +379,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         from src.i18n import format_number
         st.markdown(
             f'<div class="dd-section-header">'
-            f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_comments")}</span>'
+            f'<span class="dd-eyebrow" style="margin-bottom:0">{_html.escape(t("detail.section_comments"))}</span>'
             f'<span class="dd-section-count">{format_number(_n_comments)}</span>'
             f'</div>',
             unsafe_allow_html=True,
@@ -429,7 +429,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         n_grants = len(grants) if grants is not None and not grants.empty else 0
         st.markdown(
             f'<div class="dd-section-header" style="margin-top:0">'
-            f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_grants")}</span>'
+            f'<span class="dd-eyebrow" style="margin-bottom:0">{_html.escape(t("detail.section_grants"))}</span>'
             f'<span class="dd-section-count">{n_grants}</span>'
             f'</div>',
             unsafe_allow_html=True,
@@ -478,7 +478,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
 
         st.markdown(
             f'<div class="dd-section-header">'
-            f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_downstream")}</span>'
+            f'<span class="dd-eyebrow" style="margin-bottom:0">{_html.escape(t("detail.section_downstream"))}</span>'
             f'<span class="dd-section-count">{format_number(_n_downstream)}</span>'
             f'</div>',
             unsafe_allow_html=True,
@@ -493,7 +493,7 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
             if _has_critical:
                 st.markdown(
                     f'<p style="font-family:var(--font-sans);font-size:12px;color:var(--accent);'
-                    f'padding:4px 0 8px;">{t("detail.downstream_certified_warning")}</p>',
+                    f'padding:4px 0 8px;">{_html.escape(t("detail.downstream_certified_warning"))}</p>',
                     unsafe_allow_html=True,
                 )
             st.markdown(
@@ -561,8 +561,8 @@ def _render_detail_panel(row: "_pd.Series", full_name: str, query_groups: tuple)
         with _lin_hdr_col:
             st.markdown(
                 f'<div class="dd-section-header">'
-                f'<span class="dd-eyebrow" style="margin-bottom:0">{t("detail.section_lineage")} & {t("detail.section_related")}</span>'
-                f'<span class="dd-section-count">{t("detail.related_count", formatted_count=format_number(n_related))}</span>'
+                f'<span class="dd-eyebrow" style="margin-bottom:0">{_html.escape(t("detail.section_lineage"))} & {_html.escape(t("detail.section_related"))}</span>'
+                f'<span class="dd-section-count">{_html.escape(t("detail.related_count", formatted_count=format_number(n_related)))}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
@@ -615,9 +615,9 @@ def render_search_page(query_groups: tuple) -> None:
 
     st.markdown(f'''
     <div class="dd-search-hero">
-      <div class="dd-eyebrow">{t('search.eyebrow')}</div>
-      <h1>{t('search.hero_title')}</h1>
-      <p class="lead">{t('search.hero_subtitle')}</p>
+      <div class="dd-eyebrow">{_html.escape(t('search.eyebrow'))}</div>
+      <h1>{_html.escape(t('search.hero_title'))}</h1>
+      <p class="lead">{_html.escape(t('search.hero_subtitle'))}</p>
     </div>
     ''', unsafe_allow_html=True)
 
@@ -648,7 +648,7 @@ def render_search_page(query_groups: tuple) -> None:
             else:
                 st.info(t("search.group_filter_active", group=active_group))
         with c2:
-            if st.button(f"← {t('common.back')}", help=t("help.btn_common_back"), use_container_width=True, type="secondary"):
+            if st.button(f"← {_html.escape(t('common.back'))}", help=t("help.btn_common_back"), use_container_width=True, type="secondary"):
                 st.session_state.pop("group_filter", None)
                 st.rerun()
 
@@ -700,7 +700,7 @@ def render_search_page(query_groups: tuple) -> None:
 
         st.markdown(
             f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);margin-bottom:12px">'
-            f'{t("search.results_count", count=len(_gr))}</p>',
+            f'{_html.escape(t("search.results_count", count=len(_gr)))}</p>',
             unsafe_allow_html=True,
         )
         # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration over pre-computed list of dicts
@@ -712,7 +712,7 @@ def render_search_page(query_groups: tuple) -> None:
             with _gc:
                 _render_result_card(_fn, str(_row.get("name") or _row.get("table_name", "")), str(_row.get("description") or ""), "Table", str(_row.get("dq_score") or ""))
             with _gb:
-                if st.button(f"{t('search.view_details')} →", key=f"gview_{_fn}_{_i}", help=t("search.view_details_help"), use_container_width=True):
+                if st.button(f"{_html.escape(t('search.view_details'))} →", key=f"gview_{_fn}_{_i}", help=t("search.view_details_help"), use_container_width=True):
                     if _fn in _auth_full_names:
                         st.session_state["dd_search_override"] = str(_row.get("name") or _row.get("table_name", ""))
                         st.session_state["dd_nav_select"] = _fn
@@ -757,7 +757,7 @@ def render_search_page(query_groups: tuple) -> None:
 
                     st.markdown(
                         f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);margin-bottom:12px">'
-                        f'{t("search.results_count", count=len(results))}</p>',
+                        f'{_html.escape(t("search.results_count", count=len(results)))}</p>',
                         unsafe_allow_html=True,
                     )
                     # ⚡ Bolt: Replace slow itertuples() and getattr() with fast native dictionary iteration over pre-computed list of dicts
@@ -769,7 +769,7 @@ def render_search_page(query_groups: tuple) -> None:
                         with _card_col:
                             _render_result_card(_fn, _s(_sr.get("name")), _s(_sr.get("description")), _s(_sr.get("match_type")), _s(_sr.get("dq_score", "")))
                         with _btn_col:
-                            if st.button(f"{t('search.view_details')} →", key=f"view_{_fn}_{_sr_i}", help=t("search.view_details_help"), use_container_width=True):
+                            if st.button(f"{_html.escape(t('search.view_details'))} →", key=f"view_{_fn}_{_sr_i}", help=t("search.view_details_help"), use_container_width=True):
                                 if _fn in _auth_full_names:
                                     st.session_state["_dd_sticky_nav"] = _fn
                                     st.rerun()
@@ -780,7 +780,7 @@ def render_search_page(query_groups: tuple) -> None:
                 if _nav_idx is not None:
                     _row     = _table_results[_table_results["table_name"] == _table_names[_nav_idx]].iloc[0]
                     full_name = f"{_row['catalog_name']}.{_row['schema_name']}.{_row['table_name']}"
-                    if st.button(f"← {t('search.back_to_results')}", key="search_back", help=t("search.back_to_results_help")):
+                    if st.button(f"← {_html.escape(t('search.back_to_results'))}", key="search_back", help=t("search.back_to_results_help")):
                         st.session_state.pop("_dd_sticky_nav", None)
                         st.rerun()
                     _render_detail_panel(_row, full_name, query_groups)
@@ -791,6 +791,6 @@ def render_search_page(query_groups: tuple) -> None:
     else:
         st.markdown(
             f'<p style="font-family:var(--font-sans);font-size:15px;color:var(--ink-60);margin-top:8px">'
-            f'{t("search.start_typing")}</p>',
+            f'{_html.escape(t("search.start_typing"))}</p>',
             unsafe_allow_html=True,
         )
