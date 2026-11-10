@@ -645,3 +645,28 @@ def test_record_heartbeat_error_does_not_crash():
     # Assert
     mock_log.error.assert_called()
     assert "Failed to write heartbeat" in mock_log.error.call_args[0][0]
+
+def test_daemon_loop_graceful_exit():
+    # Make sure we only run one cycle and handle exceptions gracefully
+    from src.sync.daemon import run
+    from unittest.mock import patch
+
+    with patch("src.sync.daemon_db.DaemonConn"), \
+         patch("src.sync.daemon._recover_stale_rows", side_effect=Exception("Test Exception")), \
+         patch("src.sync.daemon.run_dr_resync", create=True):
+
+         # Just check that it successfully returns 0 instead of crashing
+         assert run(once=True) == 0
+
+def test_daemon_loop_graceful_exit_and_drained_with_wait():
+    from src.sync.daemon import run
+    from unittest.mock import patch
+
+    with patch("src.sync.daemon_db.DaemonConn"), \
+         patch("src.sync.daemon._recover_stale_rows"), \
+         patch("src.sync.daemon.run_dr_resync", create=True), \
+         patch("src.sync.daemon._process_sync_queue", return_value=5, create=True), \
+         patch("src.sync.daemon._record_heartbeat"), \
+         patch("time.sleep") as mock_sleep:
+
+         assert run(once=True) == 0

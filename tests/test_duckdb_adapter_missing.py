@@ -75,3 +75,17 @@ def test_duckdb_adapter_executemany_write():
     sql = "INSERT INTO test (a) VALUES (1)"
     cursor.executemany_write(sql)
     con_mock.executemany.assert_called_once_with(sql)
+
+def test_duckdb_ensure_user_data_attached_no_con():
+    # Calling internal _ensure_user_data_attached with no connection raises exception
+    from src.db.duckdb_adapter import _ensure_user_data_attached
+    with pytest.raises(Exception):
+        _ensure_user_data_attached(None, "fake_path")
+
+def test_duckdb_ensure_user_data_attached_calls_global():
+    # Make sure _ensure_user_data_attached attaches the file
+    from src.db.duckdb_adapter import _ensure_user_data_attached
+    from unittest.mock import MagicMock, call
+    mock_con = MagicMock()
+    _ensure_user_data_attached(mock_con, "fake_path.duckdb")
+    mock_con.execute.assert_has_calls([call('ATTACH IF NOT EXISTS \'fake_path.duckdb\' AS "user_data"')])

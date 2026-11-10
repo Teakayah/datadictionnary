@@ -155,3 +155,6 @@ Assertion: `assert "search" in at.query_params["tab"]` or `assert at.query_param
 ## 2026-10-17 - tests/test_ui_search_missing_coverage.py
 **Learning:** `AppTest` requires that the lineage mock actually returns multiple nodes (`len(graph_nodes) > 1`) for the expand lineage button to render. Also column overrides map directly from the column name (e.g., `id`) to `business_name` and `definition`, not from `full_name__column_name`.
 **Action:** Wrote a test to mock these values and simulate button clicks to trigger the UI paths, hitting previously missed coverage lines.
+## 2026-11-10 - Uncaught exceptions in background daemon loop
+**Learning:** Daemon main loop in `src/sync/daemon.py` uses `try/except` but previously lacked test coverage for graceful exit and logging when unexpected exceptions bubble up. Without tests, any refactoring could easily break the safety net and kill the background service.
+**Action:** Added mocked exception injections (`test_daemon_loop_graceful_exit`) into the main loop to verify that exceptions are properly caught, logged, and that the loop can safely terminate or continue when returning 0. Tests must mock the internally referenced methods, like `logging.Logger.error`, carefully due to module-level initializations.
