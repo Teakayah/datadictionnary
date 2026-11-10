@@ -606,3 +606,295 @@ def test_save_business_name_exceptions():
         with patch("src.pages.search.save_business_name", side_effect=PermissionError("Permission Denied")):
             at.button(key="col_biz_save_main.sales.orders__col_1").click().run()
             assert any("editor.permission_error" in e.value for e in at.error)
+
+def test_power_user_edit_buttons_click_and_render():
+    import pandas as pd
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "dq_score": 100,
+        "match_type": "Table",
+        "description": "desc"
+    }])
+
+    mock_search = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "dq_score": 100,
+        "match_type": "Table",
+        "description": "desc",
+        "business_name_en": "Orders",
+        "business_name_fr": "Commandes",
+        "business_definition_en": "The orders.",
+        "business_definition_fr": "Les commandes.",
+        "steward_email": "test@example.com"
+    }])
+
+    mock_cols = pd.DataFrame([
+        {"column_name": "id", "data_type": "int", "comment": ""}
+    ])
+    mock_grants = pd.DataFrame()
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_search), \
+         patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search.run_query", return_value=mock_grants), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search.render_table_metadata_editor") as mock_meta, \
+         patch("src.pages.search.render_table_business_name_editor") as mock_biz:
+
+        at = AppTest.from_function(render_search)
+        at.session_state["_dd_sticky_nav"] = "main.sales.orders"
+        at.session_state["catalog_search"] = "orders"
+
+        at.run()
+        assert not at.exception
+
+        btn_tbl = None
+        btn_friendly = None
+        for b in at.button:
+            if b.key == "edit_tbl_main.sales.orders":
+                btn_tbl = b
+            elif b.key == "edit_friendly_main.sales.orders":
+                btn_friendly = b
+
+        assert btn_tbl is not None
+        assert btn_friendly is not None
+
+        btn_tbl.click().run()
+        assert mock_meta.called
+
+        at = AppTest.from_function(render_search)
+        at.session_state["_dd_sticky_nav"] = "main.sales.orders"
+        at.session_state["catalog_search"] = "orders"
+        at.run()
+
+        btn_friendly = None
+        for b in at.button:
+            if b.key == "edit_friendly_main.sales.orders":
+                btn_friendly = b
+
+        assert btn_friendly is not None
+        btn_friendly.click().run()
+        assert mock_biz.called
+
+def test_power_user_edit_column_save_and_cancel_buttons():
+    import pandas as pd
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "dq_score": 100,
+        "match_type": "Table",
+        "description": "desc"
+    }])
+
+    mock_search = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "dq_score": 100,
+        "match_type": "Table",
+        "description": "desc",
+        "business_name_en": "Orders",
+        "business_name_fr": "Commandes",
+        "business_definition_en": "The orders.",
+        "business_definition_fr": "Les commandes.",
+        "steward_email": "test@example.com"
+    }])
+
+    mock_cols = pd.DataFrame([
+        {"column_name": "id", "data_type": "int", "comment": ""}
+    ])
+
+    mock_grants = pd.DataFrame()
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_search), \
+         patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search.run_query", return_value=mock_grants), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search.save_business_name") as mock_save:
+
+        at = AppTest.from_function(render_search)
+        at.session_state["_dd_sticky_nav"] = "main.sales.orders"
+        at.session_state["catalog_search"] = "orders"
+        at.session_state["dd_col_edit_mode"] = "main.sales.orders__id"
+
+        at.run()
+        assert not at.exception
+
+        btn_col_save = None
+        for b in at.button:
+            if b.key == "col_biz_save_main.sales.orders__id":
+                btn_col_save = b
+
+        assert btn_col_save is not None
+        btn_col_save.click().run()
+        assert mock_save.called
+        assert "dd_col_edit_mode" not in at.session_state
+
+        at = AppTest.from_function(render_search)
+        at.session_state["_dd_sticky_nav"] = "main.sales.orders"
+        at.session_state["catalog_search"] = "orders"
+        at.session_state["dd_col_edit_mode"] = "main.sales.orders__id"
+
+        at.run()
+        assert not at.exception
+
+        btn_col_cancel = None
+        for b in at.button:
+            if b.key == "col_biz_cancel_main.sales.orders__id":
+                btn_col_cancel = b
+
+        assert btn_col_cancel is not None
+        btn_col_cancel.click().run()
+        assert "dd_col_edit_mode" not in at.session_state
+
+def test_power_user_edit_column_save_button_exceptions():
+    import pandas as pd
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "dq_score": 100,
+        "match_type": "Table",
+        "description": "desc"
+    }])
+
+    mock_search = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "dq_score": 100,
+        "match_type": "Table",
+        "description": "desc",
+        "business_name_en": "Orders",
+        "business_name_fr": "Commandes",
+        "business_definition_en": "The orders.",
+        "business_definition_fr": "Les commandes.",
+        "steward_email": "test@example.com"
+    }])
+
+    mock_cols = pd.DataFrame([
+        {"column_name": "id", "data_type": "int", "comment": ""}
+    ])
+
+    mock_grants = pd.DataFrame()
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_search), \
+         patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search.run_query", return_value=mock_grants), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search.save_business_name", side_effect=ValueError("Validation Failed")):
+
+        at = AppTest.from_function(render_search)
+        at.session_state["_dd_sticky_nav"] = "main.sales.orders"
+        at.session_state["catalog_search"] = "orders"
+        at.session_state["dd_col_edit_mode"] = "main.sales.orders__id"
+
+        at.run()
+        btn_col_save = None
+        for b in at.button:
+            if b.key == "col_biz_save_main.sales.orders__id":
+                btn_col_save = b
+        btn_col_save.click().run()
+        assert any("common.error" in e.value for e in at.error)
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_search), \
+         patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search.run_query", return_value=mock_grants), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search.save_business_name", side_effect=Exception("Save Failed")):
+
+        at = AppTest.from_function(render_search)
+        at.session_state["_dd_sticky_nav"] = "main.sales.orders"
+        at.session_state["catalog_search"] = "orders"
+        at.session_state["dd_col_edit_mode"] = "main.sales.orders__id"
+
+        at.run()
+        btn_col_save = None
+        for b in at.button:
+            if b.key == "col_biz_save_main.sales.orders__id":
+                btn_col_save = b
+        btn_col_save.click().run()
+        assert any("common.error" in e.value for e in at.error)
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_search), \
+         patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search.run_query", return_value=mock_grants), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.is_power_user", return_value=True), \
+         patch("src.pages.search.save_business_name", side_effect=PermissionError("Permission Denied")):
+
+        at = AppTest.from_function(render_search)
+        at.session_state["_dd_sticky_nav"] = "main.sales.orders"
+        at.session_state["catalog_search"] = "orders"
+        at.session_state["dd_col_edit_mode"] = "main.sales.orders__id"
+
+        at.run()
+        btn_col_save = None
+        for b in at.button:
+            if b.key == "col_biz_save_main.sales.orders__id":
+                btn_col_save = b
+        btn_col_save.click().run()
+        assert any("editor.permission_error" in e.value for e in at.error)
