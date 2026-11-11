@@ -137,3 +137,7 @@
 ## 2024-10-25 - Remove Redundant Cache Wrappers
 **Learning:** Adding `@st.cache_data` locally around database functions that are already cached at their source (e.g. `get_authorized_table_names` in `src/db/queries.py`) creates duplicate caching layers and unnecessary memory overhead.
 **Action:** Import and use the base function directly instead of wrapping it in a redundant local `@st.cache_data` decorator within UI components.
+
+## 2024-11-11 - Optimize set construction from Pandas Series
+**Learning:** Constructing a set from a Pandas Series where you wish to bypass Pandas object iteration overhead by using `set(df['col'].to_numpy())` is faster than `set(df['col'].unique())` because it relies directly on Python's highly optimized native set implementation for deduplication.
+**Action:** Always prefer `set(df['col'].to_numpy())` over `set(df['col'].unique())` when constructing a set from a Pandas Series to avoid Pandas iteration overhead.

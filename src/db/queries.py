@@ -191,7 +191,7 @@ def run_query(query, params=None):
 def get_authorized_table_names(groups):
     """Retrieve a set of full names for tables the user is authorized to access."""
     df = get_authorized_tables(groups)
-    return set(df["full_name"].unique()) if df is not None and not df.empty else set()
+    return set(df["full_name"].to_numpy()) if df is not None and not df.empty else set()
 
 
 @st.cache_data(ttl="1h", show_spinner=False)
@@ -356,8 +356,8 @@ def search_all_metadata(query: str, groups: tuple):
     # 3. Weighted fusion. Keyword `_score` is normalized to [0, 1]; the
     # semantic contribution decays linearly with rank in `semantic_fns`.
     combined = keyword_results.copy()
-    # ⚡ Bolt: Replace .unique().tolist() with just .unique() for faster set construction
-    known_fns = set(combined["full_name"].unique())
+    # ⚡ Bolt: Replace .unique() with .to_numpy() for faster set construction
+    known_fns = set(combined["full_name"].to_numpy())
     missing_fns = [fn for fn in semantic_fns if fn not in known_fns]
     if missing_fns:
         extra = _fetch_metadata_for_fns(missing_fns, groups)
