@@ -9,6 +9,12 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done
 
 ## Next steps (open)
 
+- [ ] **Make mutable storage safe before enabling HA replicas.** The retained HA proposal
+  scales Streamlit over shared writable DuckDB files. Design a multi-process-safe path for
+  mutable `user_data` (for example PostgreSQL), migrate all affected writes and the sync
+  worker, and test concurrent writes, failure recovery, and rollout before enabling replicas.
+  Do not merge the HA proposal as-is; read-only mode alone would disable existing writes.
+
 - [x] **Docs bundle rebuild**: `docs/data-dictionary-docs.html` (SPA bundle) and `docs/data-dictionary-docs.pdf` are rebuilt (commit 2c36fb9).
 - [x] **Semantic search production hardening**: Wired `DATABRICKS_EMBEDDING_ENDPOINT`, added `ENABLE_SEMANTIC_SEARCH` env gate, and validated DuckDB VSS (commit 564614d).
 - [x] **Search analytics alerts**: Enqueued a Health-dashboard notification for zero-result queries that persist for > 7 days (Localized in commit fb38cf8).
