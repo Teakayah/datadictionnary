@@ -1,5 +1,3 @@
-from __future__ import annotations
-from typing import Optional
 """Authentication and authorization logic.
 
 Handles Microsoft Entra ID (OIDC) via MSAL, mock authentication for development,
@@ -31,8 +29,8 @@ Three failure modes are guarded against:
    before stopping so the user lands on a clean sign-in page rather than an
    error loop.
 """
-
-
+from __future__ import annotations
+from typing import Optional
 import logging
 import functools
 import os
@@ -81,6 +79,14 @@ def _clear_auth_session() -> None:
 def _resolve_user_groups(claims: dict, access_token: str) -> list[str]:
     """Return the user's security-group membership list.
 
+    WHY IT EXISTS:
+    Entra ID limits the number of groups returned in the `groups` claim of an ID token
+    (typically ~150). If a user belongs to more groups, Entra ID omits the `groups` claim
+    and instead provides a `_claim_names.groups` pointer. This function abstracts that
+    complexity, checking the inline claim first, and automatically falling back to an explicit
+    Microsoft Graph API call (`getMemberObjects`) if an overage is detected. Without this
+    logic, power users with many group assignments would silently lose access to all tables.
+
     Three branches:
       1. ID token has inline ``groups`` claim → use it (the common case).
       2. ID token signals overage (``_claim_names.groups`` set, no inline
@@ -88,6 +94,13 @@ def _resolve_user_groups(claims: dict, access_token: str) -> list[str]:
          >~150 groups; without this they would see zero tables.
       3. Neither → empty list. Logged once at INFO so a tenant misconfig
          (no groups at all) is visible in logs.
+
+    Args:
+        claims (dict): The decoded claims from the Entra ID token.
+        access_token (str): The valid MSAL access token required for Graph API fallback.
+
+    Returns:
+        list[str]: A list of Entra ID group Object IDs the user belongs to.
     """
     inline = claims.get("groups")
     if inline is not None:
@@ -106,8 +119,13 @@ def _resolve_user_groups(claims: dict, access_token: str) -> list[str]:
 def _try_silent_refresh() -> bool:
     """Attempt a silent token refresh using MSAL's cached account.
 
-    Args:
-        None
+    WHY IT EXISTS:
+    Access tokens obtained via OIDC expire after a short period (typically 1 hour).
+    To avoid interrupting the user's session with frequent, explicit sign-in prompts,
+    we use the MSAL library's `acquire_token_silent` method. This method leverages
+    the cached refresh token to seamlessly acquire a new access token in the background.
+    If the silent refresh fails (e.g., the refresh token is also expired or revoked),
+    we fall back to a full re-authentication flow.
 
     Returns:
         bool: True if a fresh token was successfully retrieved and stored, False otherwise.
@@ -196,30 +214,32 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
 
         if mock:
             _MOCK_DEPTS = {
-                "Finance":  (["finance_group",  "SELECT_ALL_USERS"], "finance.user@research-org.ca"),
-                "Research": (["research_group", "SELECT_ALL_USERS"], "research.user@research-org.ca"),
-                "HR":       (["hr_group",        "SELECT_ALL_USERS"], "hr.user@research-org.ca"),
-                "IT":       (["it_group",        "SELECT_ALL_USERS"], "it.user@research-org.ca"),
-                "Admin":    (
+                "finance":  (["finance_group",  "SELECT_ALL_USERS"], "finance.user@research-org.ca"),
+                "research": (["research_group", "SELECT_ALL_USERS"], "research.user@research-org.ca"),
+                "hr":       (["hr_group",        "SELECT_ALL_USERS"], "hr.user@research-org.ca"),
+                "it":       (["it_group",        "SELECT_ALL_USERS"], "it.user@research-org.ca"),
+                "admin":    (
                     ["finance_group", "research_group", "hr_group", "it_group",
                      "SELECT_ALL_USERS", "finance_dept_id", "all_employees_id",
                      "mock_admin_group"],
                     "admin@research-org.ca",
                 ),
             }
-            _default_dept = MOCK_DEPT
+            # Fallback handling in case MOCK_DEPT uses Title Case from old env config
+            _default_dept = MOCK_DEPT.lower() if MOCK_DEPT and MOCK_DEPT.lower() in _MOCK_DEPTS else "finance"
             _dept_opts = list(_MOCK_DEPTS.keys())
             _dept_sel = st.selectbox(
                 t("auth.mock_department"),
                 _dept_opts,
                 index=_dept_opts.index(_default_dept) if _default_dept in _dept_opts else 0,
+                format_func=lambda x: t(f"auth.dept_{x}"),
                 label_visibility="collapsed",
             )
             if st.button(t("auth.sign_in"), use_container_width=True, type="primary"):
                 _groups, _email = _MOCK_DEPTS[_dept_sel]
                 st.session_state.authenticated = True
                 st.session_state.user_groups   = _groups
-                st.session_state.user_name     = f"{_dept_sel} User"
+                st.session_state.user_name     = t("auth.mock_user_name", dept=t(f"auth.dept_{_dept_sel}"))
                 st.session_state.user_email    = _email
                 st.rerun()
             st.markdown(
@@ -241,12 +261,8 @@ def render_signin_page(auth_url: Optional[str] = None, mock: bool = False):
             """, unsafe_allow_html=True)
 
 
-def check_auth(sync_prefs_callback: Optional[callable] = None):
+def check_auth():
     """Main authentication gate. Handles OIDC flow and session initialisation.
-
-    Args:
-        sync_prefs_callback (Optional[callable]): Optional callable to seed personalisation data on
-                             first login (usually _sync_prefs_to_session).
 
     Returns:
         None
@@ -325,8 +341,8 @@ def check_auth(sync_prefs_callback: Optional[callable] = None):
                                                   or claims.get("preferred_username", ""))
             st.session_state.user_oid         = claims.get("oid", "")
 
-            if sync_prefs_callback:
-                sync_prefs_callback()
+            from src.personalization import _sync_prefs_to_session
+            _sync_prefs_to_session()
             st.session_state["_prefs_loaded"] = True
 
             st.rerun()

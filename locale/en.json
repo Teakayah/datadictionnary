@@ -30,7 +30,13 @@
     "mock_department": "Department",
     "mock_prompt": "Mock authentication — select a department to filter by its grants.",
     "policy_agreement": "By signing in you agree to the data access policy.",
-    "hero_eyebrow": "Business Data Dictionary"
+    "hero_eyebrow": "Business Data Dictionary",
+    "dept_finance": "Finance",
+    "dept_research": "Research",
+    "dept_hr": "HR",
+    "dept_it": "IT",
+    "dept_admin": "Admin",
+    "mock_user_name": "{dept} User"
   },
   "search": {
     "hero_title": "Search the catalog.",
@@ -128,14 +134,24 @@
     "placeholder_desc": "Describe the table's contents, grain, and common use cases...",
     "placeholder_steward": "e.g. data.steward@example.com",
     "edit_table_btn": "✎ Edit table metadata",
-    "edit_friendly_name_btn": "✎ Edit friendly name"
+    "edit_friendly_name_btn": "✎ Edit friendly name",
+    "friendly_name_en_placeholder": "e.g. Daily Sales",
+    "friendly_name_fr_placeholder": "e.g. Ventes Quotidiennes",
+    "friendly_definition_en_placeholder": "Enter English definition...",
+    "friendly_definition_fr_placeholder": "Enter French definition..."
   },
   "editor": {
     "save": "Save",
     "cancel": "Cancel",
     "edit": "Edit",
     "title": "Edit business name and definition",
-    "last_edited_by": "Last edited by {user} · {date}"
+    "last_edited_by": "Last edited by {user} · {date}",
+    "business_name_label": "Business name",
+    "definition_label": "Definition",
+    "placeholder_biz_name": "e.g., Customer Loyalty ID",
+    "placeholder_biz_def": "Explain what this column represents in business terms.",
+    "edit_mode_banner": "You are proposing a change. An admin must approve it before it is published.",
+    "permission_error": "You do not have permission to edit this asset."
   },
   "comment": {
     "leave_a_comment": "Leave a comment",
@@ -224,7 +240,10 @@
     "reviews_approved_toast": "Approved '{col}'.",
     "reviews_rejected_toast": "Rejected '{col}'.",
     "table_friendly_approved_toast": "Approved friendly name for '{table}'.",
-    "table_friendly_rejected_toast": "Rejected friendly name for '{table}'."
+    "table_friendly_rejected_toast": "Rejected friendly name for '{table}'.",
+    "integrity_no_dq_failures": "No data quality failures detected.",
+    "integrity_all_stewards_assigned": "All data stewards have been assigned.",
+    "groups_cache_flush_help": "Clear the groups cache"
   },
   "health": {
     "title": "§ Catalog health",
@@ -477,7 +496,8 @@
     "dismiss": "Dismiss",
     "mark_all_read": "Mark all as read",
     "dismissed_toast": "Notification dismissed.",
-    "all_read_toast": "All notifications marked as read."
+    "all_read_toast": "All notifications marked as read.",
+    "mark_all_read_help": "Mark all notifications as read"
   },
   "date": {
     "months": {

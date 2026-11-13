@@ -95,7 +95,7 @@ def _show_pipeline_create_dialog():
 
     _s, _c = st.columns(2)
     with _s:
-        if st.button(t("common.save"), type="primary", use_container_width=True, key="pl_save"):
+        if st.button(t("common.save"), help=t("help.btn_common_save"), type="primary", use_container_width=True, key="pl_save"):
             with st.spinner(t("common.saving")):
                 if not title.strip():
                     st.error(t("pipelines.error_title"))
@@ -197,9 +197,17 @@ def render_pipelines_page():
     polled_results = {}
     if runs_to_poll:
         from concurrent.futures import ThreadPoolExecutor
+        from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+
+        # ⚡ Bolt: Always inject the Streamlit context into newly spawned background threads
+        ctx = get_script_run_ctx()
         with ThreadPoolExecutor(max_workers=10) as executor:
             # list of results matches runs_to_poll
-            results = list(executor.map(lambda pair: poll_run_status(pair[0], pair[1]), runs_to_poll))
+            def _poll_with_ctx(pair):
+                import threading
+                add_script_run_ctx(threading.current_thread(), ctx)
+                return poll_run_status(pair[0], pair[1])
+            results = list(executor.map(_poll_with_ctx, runs_to_poll))
             for (pl, _), res in zip(runs_to_poll, results):
                 polled_results[pl["pipeline_id"]] = res
 

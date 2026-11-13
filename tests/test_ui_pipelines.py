@@ -5,7 +5,7 @@ from src.pipelines import PipelineDefParams
 import pytest
 from streamlit.testing.v1 import AppTest
 
-with open("locale/en.json", "r") as f:
+with open("locale/en.json") as f:
     en_locale = json.load(f)
 
 def create_dialog_app():
@@ -365,7 +365,7 @@ class TestRenderPipelinesPage:
                     "triggered_by": "user1",
                     "triggered_at": "2023-01-01"
                 }
-            elif pid == "2":
+            if pid == "2":
                 return {
                     "backend_run_id": "r2",
                     "triggered_by": "user2",
@@ -383,7 +383,7 @@ class TestRenderPipelinesPage:
                     "message": "Done",
                     "is_terminal": True
                 }
-            elif pipeline["pipeline_id"] == "2":
+            if pipeline["pipeline_id"] == "2":
                 return {
                     "status": "FAILED",
                     "progress": 100,

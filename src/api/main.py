@@ -1,4 +1,3 @@
-from __future__ import annotations
 """FastAPI application — REST API + MCP server for the Data Dictionary.
 
 Start with:
@@ -15,7 +14,7 @@ GET  /api/v1/lineage/{cat}/{schema}/{tbl} lineage graph
 POST /mcp                                MCP Streamable HTTP endpoint
 GET  /docs                               OpenAPI UI
 """
-
+from __future__ import annotations
 import json
 import logging
 import os
@@ -45,6 +44,8 @@ _SECURITY_HEADERS = [
     (b"x-xss-protection", b"0"),
     # API responses must not be cached by proxies or browsers.
     (b"cache-control", b"no-store"),
+    # Defense in depth: strict baseline Content-Security-Policy
+    (b"content-security-policy", b"default-src 'none'; frame-ancestors 'none';"),
 ]
 
 if os.getenv("ENVIRONMENT") == "production":

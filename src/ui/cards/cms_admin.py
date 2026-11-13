@@ -75,7 +75,7 @@ def _show_cms_create_dialog():
 
     _save, _cancel = st.columns([1, 1], gap="small")
     with _save:
-        if st.button(t("common.save"), type="primary", use_container_width=True, key="cms_save_btn"):
+        if st.button(t("common.save"), help=t("help.btn_common_save"), type="primary", use_container_width=True, key="cms_save_btn"):
             with st.spinner(t("common.saving")):
                 if not title.strip():
                     st.error(t("cms.error_title_required"))

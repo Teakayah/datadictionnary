@@ -1,10 +1,9 @@
-from __future__ import annotations
 """Entra ID JWT validation for the FastAPI / MCP layer.
 
 Validates RS256-signed tokens from Microsoft Entra ID, extracts identity
 claims, and resolves groups (including overage via Microsoft Graph).
 """
-
+from __future__ import annotations
 import logging
 import os
 import time
@@ -51,6 +50,9 @@ def _validate_auth_config() -> None:
     The critical failure mode we guard against: when CLIENT_ID and API_AUDIENCE
     are both unset, python-jose receives audience=None and skips the audience
     check entirely — any valid Entra ID token from any app would be accepted.
+
+    Raises:
+        RuntimeError: If neither CLIENT_ID nor API_AUDIENCE is set, or if TENANT_ID is missing.
     """
     if _is_mock_auth():
         logger.warning("Mock auth enabled — Entra ID validation is DISABLED. Development only.")
@@ -100,6 +102,12 @@ async def validate_token(token: str) -> AuthenticatedUser:
     In development with ENABLE_MOCK_AUTH=true, accepts sentinel tokens of the
     form "mock-<dept>" (e.g. "mock-finance") and returns a synthetic user with
     the corresponding group memberships. Never active in production.
+
+    Args:
+        token (str): The JWT Bearer token extracted from the Authorization header.
+
+    Returns:
+        AuthenticatedUser: The resolved identity containing the user's OID, email, name, and Entra ID groups.
 
     Raises:
         RuntimeError: server is misconfigured (TENANT_ID or audience missing).
@@ -159,7 +167,23 @@ async def validate_token(token: str) -> AuthenticatedUser:
 
 
 async def _fetch_groups_graph(access_token: str, user_oid: str) -> list[str]:
-    """Resolve group memberships via Microsoft Graph (groups overage path)."""
+    """Resolve group memberships via Microsoft Graph (groups overage path).
+
+    WHY IT EXISTS:
+    When a user belongs to more than ~150 Entra ID groups, Microsoft omits the
+    `groups` claim from the JWT token to prevent header bloat and instead includes
+    a `_claim_names` field. This function provides the necessary fallback mechanism
+    to query the Microsoft Graph API directly to resolve the user's groups,
+    ensuring that users with many group memberships can still authenticate and
+    be properly authorized.
+
+    Args:
+        access_token (str): The valid Entra ID Bearer token.
+        user_oid (str): The Object ID of the user.
+
+    Returns:
+        list[str]: A list of string group Object IDs the user belongs to.
+    """
     ck = cache_key("api_groups", user_oid)
     cached = await rcache_get(ck)
     if cached is not None:

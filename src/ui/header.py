@@ -75,8 +75,8 @@ def _render_proxy_buttons(tabs: list[str]) -> None:
 
 def _inject_wiring_js(tabs: list[str]) -> None:
     tab_map = {tid: t(f"nav.{tid}") for tid in tabs}
-    tab_map_js = _json.dumps(tab_map)
-    nav_labels_js = _json.dumps(list(tab_map.values()))
+    tab_map_js = _json.dumps(tab_map).replace("</", "<\\/")
+    nav_labels_js = _json.dumps(list(tab_map.values())).replace("</", "<\\/")
 
     components.html(f"""
     <div style="display:none;">
@@ -159,11 +159,12 @@ def render_header(
     pipelines_link = link(t("nav.pipelines"), "pipelines") if show_pipelines else ""
     lang_toggle = _build_lang_toggle(locale)
     aria_nav = t("nav.aria_main_navigation")
+    logo_aria = ' aria-current="page"' if active_tab == "search" else ""
 
     st.html(f'''
 <div class="dd-header" lang="{locale}">
   <div class="dd-header-inner">
-    <a href="#" data-tab="search" class="dd-logo-link">
+    <a href="#" data-tab="search" class="dd-logo-link"{logo_aria}>
       {LOGO_MARK_SVG}
       <span class="dd-logo-text">{t("common.app_title")}</span>
       <span class="dd-pill">{t("common.beta")}</span>

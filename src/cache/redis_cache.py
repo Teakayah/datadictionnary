@@ -1,10 +1,9 @@
-from __future__ import annotations
 """Async Redis cache with graceful degradation.
 
 All public functions silently swallow Redis errors so a missing or
 unavailable Redis instance never breaks the API or MCP server.
 """
-
+from __future__ import annotations
 import hashlib
 import json
 import logging

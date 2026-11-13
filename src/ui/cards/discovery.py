@@ -14,6 +14,7 @@ from __future__ import annotations
 import html as _html
 import logging
 
+import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -138,14 +139,14 @@ def render_notification_strip() -> None:
         for n in notifications:
             tbl = _html.escape(n["table_full_name"])
             summary = _html.escape(n["summary"])
-            by = _html.escape(n.get("changed_by") or "")
+            by = n.get("changed_by") or ""
             by_str = t("discovery.by_user", user=by) if by else ""
             card_html = (
                 f'<div style="font-family:var(--font-sans);font-size:13px;'
                 f'color:var(--ink);padding:6px 0;border-bottom:1px solid var(--ink-10);">'
                 f'<span style="font-family:var(--font-mono);color:var(--ink-60);">{tbl}</span>'
                 f' — {summary}'
-                f'<span style="color:var(--ink-40);font-size:11px;">{by_str}</span>'
+                f'<span style="color:var(--ink-40);font-size:11px;">{_html.escape(by_str)}</span>'
                 f'</div>'
             )
             col_card, col_btn = st.columns([11, 1], gap="small")
@@ -164,7 +165,7 @@ def render_notification_strip() -> None:
                     st.rerun()
 
         st.markdown("<div style='margin-top:8px'></div>", unsafe_allow_html=True)
-        if st.button(t("notifications.mark_all_read"), key="notif_mark_all"):
+        if st.button(t("notifications.mark_all_read"), key="notif_mark_all", help=t("notifications.mark_all_read_help")):
             with st.spinner(t("common.loading")):
                 mark_all_read(user_oid)
             st.toast(t("notifications.all_read_toast"))
@@ -331,7 +332,8 @@ def _render_bookmarks_tab(groups):
                     _render_empty_state("★", t("personalization.no_bookmarks"))
                     return
                 all_tables = get_authorized_tables(groups)
-                bk_df = all_tables[all_tables["full_name"].isin(valid_bookmarks)]
+                # ⚡ Bolt: Use np.isin with .to_numpy() to skip index alignment overhead
+                bk_df = all_tables[np.isin(all_tables["full_name"].to_numpy(), valid_bookmarks)]
                 if bk_df.empty:
                     _render_empty_state("★", t("personalization.no_bookmarks"))
                 else:
@@ -448,7 +450,8 @@ def _render_recommended_tab(groups):
             _render_empty_state("💡", t("personalization.recommended_empty"))
             return
         all_tables = get_authorized_tables(groups)
-        rec_df = all_tables[all_tables["full_name"].isin(recommended_fns)].copy()
+        # ⚡ Bolt: Use np.isin with .to_numpy() to skip index alignment overhead
+        rec_df = all_tables[np.isin(all_tables["full_name"].to_numpy(), recommended_fns)].copy()
         # ⚡ Bolt: Replace .map() ordering with pd.Categorical for faster sorting and to avoid creating/dropping temp columns
         rec_df["full_name"] = pd.Categorical(rec_df["full_name"], categories=recommended_fns, ordered=True)
         rec_df = rec_df.sort_values("full_name")
@@ -483,7 +486,8 @@ def _render_recent_tab(groups):
                 _render_empty_state("⏱", t("personalization.no_recent"))
                 return
             all_tables = get_authorized_tables(groups)
-            rv_df = all_tables[all_tables["full_name"].isin(valid_recent)].copy()
+            # ⚡ Bolt: Use np.isin with .to_numpy() to skip index alignment overhead
+            rv_df = all_tables[np.isin(all_tables["full_name"].to_numpy(), valid_recent)].copy()
             # ⚡ Bolt: Replace .map() ordering with pd.Categorical for faster sorting and to avoid creating/dropping temp columns
             rv_df["full_name"] = pd.Categorical(rv_df["full_name"], categories=recent_views, ordered=True)
             rv_df = rv_df.sort_values("full_name")

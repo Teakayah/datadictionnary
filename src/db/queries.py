@@ -368,7 +368,7 @@ def search_all_metadata(query: str, groups: tuple):
 
     if "_score" in combined.columns:
         kw_score = (
-            pd.to_numeric(combined["_score"], errors="coerce").fillna(0.0) / 5.0
+            pd.to_numeric(combined["_score"], errors="coerce").fillna(0.0).to_numpy() / 5.0
         )
     else:
         kw_score = 0.0

@@ -60,7 +60,10 @@ class MockEmbeddingEngine:
         # Return deterministic dummy vectors (384-dim)
         res = []
         for t in texts:
+            # Repeat the input string enough times to reach 384 characters, then slice exactly to 384.
+            # This ensures short texts still produce a full-length vector without crashing.
             base = (t * (384 // len(t) + 1))[:384] if t else " " * 384
+            # Normalize ASCII ordinals to a 0.0-1.0 float range to mimic a real embedding vector's scale.
             res.append([float(ord(c)) / 255.0 for c in base])
         return res
 
@@ -146,7 +149,8 @@ def semantic_search(query: str, top_n: int = 10) -> List[str]:
         df = run_query(sql, (vector, top_n))
         
         if df is not None and not df.empty:
-            return df["table_full_name"].tolist()
+            # ⚡ Bolt: Use .to_numpy().tolist() for faster conversion from Series to list
+            return df["table_full_name"].to_numpy().tolist()
         return []
     except Exception as e:
         logging.error("Semantic search failed: %s", e)

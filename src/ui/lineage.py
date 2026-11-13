@@ -89,6 +89,27 @@ def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, ru
 
 
 def _lineage_vis_html(graph_nodes: list, graph_links: list, height: int = 350, container_id: str = "mynetwork", spring_length: int = 120) -> str:
+    nodes_js = json.dumps(graph_nodes).replace("</", "<\\/")
+    edges_js = json.dumps(graph_links).replace("</", "<\\/")
+    """Generate the HTML payload to render a vis.js network graph.
+
+    WHY IT EXISTS:
+    Streamlit lacks a native network graph component. This function bridges that gap by
+    injecting the raw vis.js library and a configuration script directly into an HTML
+    iframe via `components.html()`. It maps Python node/edge dictionaries into JavaScript
+    DataSets to render the interactive lineage visualization on the client side.
+
+    Args:
+        graph_nodes (list): A list of dictionaries representing the graph nodes (must contain 'id' and 'label').
+        graph_links (list): A list of dictionaries representing the directed edges (must contain 'from' and 'to').
+        height (int, optional): The pixel height of the rendered iframe container. Defaults to 350.
+        container_id (str, optional): The DOM ID for the vis.js injection target. Defaults to "mynetwork".
+        spring_length (int, optional): The physics configuration for edge length. Defaults to 120.
+
+    Returns:
+        str: A complete HTML snippet containing the container `div`, the vis.js library script tag,
+             and the initialization script to render the graph.
+    """
     nodes_js = json.dumps(graph_nodes)
     edges_js = json.dumps(graph_links)
     return (

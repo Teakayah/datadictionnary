@@ -100,13 +100,15 @@ def _render_concept_map(selected_term: str, term_row) -> None:
         graph_nodes.append({"id": table_fn, "label": t_label, "current": False, "relationship": "Table"})
         graph_links.append({"from": "TERM", "to": table_fn})
 
+    nodes_js = json.dumps(graph_nodes).replace("</", "<\\/")
+    edges_js = json.dumps(graph_links).replace("</", "<\\/")
     graph_html = (
         f'<div id="mynetwork_glossary" style="width: 100%; height: 300px; background: #F2EDE1; '
         f'border-radius: 4px; border: 1px solid #C9C2B4; overflow: hidden; margin-top: 16px;"></div>'
         f'<script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>'
         f'<script type="text/javascript">'
-        f'var nodes = new vis.DataSet({json.dumps(graph_nodes)}); '
-        f'var edges = new vis.DataSet({json.dumps(graph_links)}); '
+        f'var nodes = new vis.DataSet({nodes_js}); '
+        f'var edges = new vis.DataSet({edges_js}); '
         f'var container = document.getElementById("mynetwork_glossary"); '
         f'var data = {{ nodes: nodes, edges: edges }}; '
         f'var options = {{ '
@@ -148,14 +150,15 @@ def render_glossary(query_groups) -> None:
     )
 
     if selected_term:
-        # ⚡ Bolt: Use .to_numpy() to skip index alignment overhead
-        term_row = _DEMO_GLOSSARY[_DEMO_GLOSSARY["term"].to_numpy() == selected_term].iloc[0]
+        with st.spinner(t("common.loading")):
+            # ⚡ Bolt: Use .to_numpy() to skip index alignment overhead
+            term_row = _DEMO_GLOSSARY[_DEMO_GLOSSARY["term"].to_numpy() == selected_term].iloc[0]
 
-        col_main, col_side = st.columns([7, 5], gap="large")
+            col_main, col_side = st.columns([7, 5], gap="large")
 
-        with col_main:
-            _render_term_details(term_row, _authorized_fns)
+            with col_main:
+                _render_term_details(term_row, _authorized_fns)
 
-        with col_side:
-            _render_stewardship(term_row)
-            _render_concept_map(selected_term, term_row)
+            with col_side:
+                _render_stewardship(term_row)
+                _render_concept_map(selected_term, term_row)

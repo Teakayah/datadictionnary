@@ -606,3 +606,161 @@ def test_save_business_name_exceptions():
         with patch("src.pages.search.save_business_name", side_effect=PermissionError("Permission Denied")):
             at.button(key="col_biz_save_main.sales.orders__col_1").click().run()
             assert any("editor.permission_error" in e.value for e in at.error)
+
+def test_related_tables_rendering_multiple_unique_keys():
+    from streamlit.testing.v1 import AppTest
+    from unittest.mock import patch
+
+    def run_detail_panel():
+        import streamlit as st
+        import pandas as pd
+        from src.pages.search import _render_detail_panel
+
+        st.session_state["user_email"] = "test@example.com"
+
+        row = pd.Series({
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "table_name": "orders",
+            "full_name": "main.sales.orders",
+            "description": "Table containing sales orders.",
+            "dq_score": 50,
+            "steward_email": "test@example.com"
+        })
+        _render_detail_panel(row, "main.sales.orders", ("group1",))
+
+    at = AppTest.from_function(run_detail_panel)
+
+    import pandas as pd
+    mock_cols = pd.DataFrame([])
+
+    def mock_run_query(query, params=None):
+        if "permissions_cache" in query and "columns_metadata" not in query:
+            return pd.DataFrame(columns=["grant_group_0", "principal", "privilege"])
+        else:
+            # We mock related tables where the table_full_name is the SAME (e.g. duplicate relationships found)
+            # This exercises the unique key suffix addition logic for `rel_main.sales.related1_0`
+            return pd.DataFrame([
+             {"full_name": "main.sales.related1", "table_name": "related1", "catalog_name": "main", "schema_name": "sales", "relationship": "Same schema"},
+             {"full_name": "main.sales.related1", "table_name": "related1", "catalog_name": "main", "schema_name": "sales", "relationship": "Shared column"}
+         ])
+
+    with patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search._compute_live_completeness", return_value=50.0), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value="test@example.com"), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.run_query", side_effect=mock_run_query), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.get_multi_hop_lineage", return_value=([], [])):
+
+        at.run()
+
+        # Test that duplicate keys don't throw an error and buttons render correctly
+        assert not at.exception
+
+        at.button(key="rel_main.sales.related1_0").click().run()
+        assert at.session_state["dd_search_override"] == "related1"
+        assert at.session_state["dd_nav_select"] == "main.sales.related1"
+def test_uncovered_lines_search():
+    import pandas as pd
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+
+    def app_wrapper():
+        import streamlit as st
+        from src.pages.search import render_search_page
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(app_wrapper)
+
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "dq_score": 100,
+        "match_type": "Table",
+        "description": "desc"
+    }])
+
+    mock_search = pd.DataFrame([{
+        "full_name": "main.sales.orders",
+        "table_name": "orders",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "dq_score": 100,
+        "match_type": "Table",
+        "description": "desc"
+    }])
+
+    mock_cols = pd.DataFrame([
+        {"column_name": "col_1", "data_type": "int", "comment": "col 1 comment"}
+    ])
+
+    mock_lineage = pd.DataFrame([{
+        "source": "main.sales.orders",
+        "target": "main.sales.summary",
+        "direction": "downstream",
+        "full_name": "main.sales.summary",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "table_name": "summary",
+        "relationship": "Shared column"
+    }])
+
+    def mock_run_query(query, params=None, **kwargs):
+        if "privilege" in query.lower():
+            return pd.DataFrame([{"principal": "user_1", "privilege": "SELECT", "grant_group_0": "finance"}])
+        return pd.DataFrame([{
+            "full_name": "main.sales.summary",
+            "table_name": "summary",
+            "catalog_name": "main",
+            "schema_name": "sales",
+            "relationship": "Shared column"
+        }])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_search), \
+         patch("src.pages.search.get_table_columns", return_value=mock_cols), \
+         patch("src.pages.search.run_query", side_effect=mock_run_query), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={"col_1": {"definition": "custom def"}}), \
+         patch("src.pages.search.get_multi_hop_lineage", return_value=mock_lineage), \
+         patch("src.pages.search._build_lineage_graph", return_value=([{"id": "main.sales.summary", "label": "summary"}], [{"source": "main.sales.orders", "target": "main.sales.summary"}])), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k):
+
+        at.run()
+
+        # Test back button (line 784-785)
+        at.session_state["_dd_sticky_nav"] = "main.sales.orders"
+        at.session_state["catalog_search"] = "orders"
+        at.run()
+
+        # Click back button
+        at.button(key="search_back").click().run()
+        assert "_dd_sticky_nav" not in at.session_state
+
+        # Now test unauthorized related table click (line 721)
+        at.session_state["_dd_sticky_nav"] = "main.sales.orders"
+        at.session_state["catalog_search"] = "orders"
+        at.run()
+
+        # Look for the rel_ button and click it to trigger unauthorized error
+        for btn in at.button:
+            if btn.key and btn.key.startswith("rel_"):
+                btn.click().run()
+                break
+
+        # Test fullscreen lineage button (line 571)
+        at.session_state["_dd_sticky_nav"] = "main.sales.orders"
+        at.run()
+
+        for btn in at.button:
+            if btn.key and btn.key.startswith("expand_lin_"):
+                btn.click().run()
+                break
+
+        assert not at.exception

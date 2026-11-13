@@ -110,6 +110,9 @@ def enqueue_sync(sync_type: str, table_full_name: Optional[str], payload: dict, 
         table_full_name (str): The Unity Catalog full name of the table (catalog.schema.table), or None if not applicable.
         payload (dict): A dictionary containing the type-specific data for the sync operation.
         queued_by (str): The identifier (e.g., email) of the user who initiated the action.
+
+    Raises:
+        ValueError: If a table name is provided but fails Unity Catalog identifier validation.
     """
     if not _duckdb_available():
         return
@@ -182,6 +185,9 @@ def _push_to_databricks(sync_type: str, table_full_name: Optional[str], payload:
         sync_type (str): The type of metadata change to push (e.g., 'COLUMN_DEF', 'TABLE_DESC', 'STEWARD', 'AUDIT', 'COMMENT').
         table_full_name (str): The Unity Catalog full name of the table (catalog.schema.table), or None if not applicable.
         payload (dict): A dictionary containing the data to push, matching the sync_type requirements.
+
+    Raises:
+        RuntimeError: If Databricks credentials are not configured in the environment.
     """
     host = os.getenv("DATABRICKS_HOST", "").strip()
     http_path = os.getenv("DATABRICKS_HTTP_PATH", "").strip()
@@ -390,6 +396,9 @@ def _process_sync_queue(conn=None) -> int:
 
     Returns:
         int: The number of sync items that were processed (either successful or failed).
+
+    Raises:
+        RuntimeError: If Databricks credentials are not configured in the environment.
 
     Priority ordering (weight ASC, queued_at ASC):
         1. Metadata    — COLUMN_DEF, TABLE_DESC

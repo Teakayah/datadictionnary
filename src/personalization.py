@@ -94,7 +94,8 @@ def _pref_load(pref_type: str, limit: int = 20) -> list[str]:
             )
             rows = cur.fetchall_as_pandas()
             if rows is not None and not rows.empty:
-                return rows["table_full_name"].tolist()
+                # ⚡ Bolt: Use .to_numpy().tolist() for faster conversion from Series to list
+                return rows["table_full_name"].to_numpy().tolist()
     except Exception as exc:
         log.warning("Could not load user preferences: %s", exc)
     return []

@@ -234,35 +234,41 @@ def get_dq_alerts() -> pd.DataFrame:
 def _show_biz_log_dialog():
     st.markdown(VIS_WIDE_CSS, unsafe_allow_html=True)
     biz_log = get_business_name_change_log()
-    st.dataframe(
-        biz_log,
-        column_config={
-            "object_name": st.column_config.TextColumn(t("admin.col_object")),
-            "old_value":   st.column_config.TextColumn(t("admin.col_old_name")),
-            "new_value":   st.column_config.TextColumn(t("admin.col_new_name")),
-            "actor_email": st.column_config.TextColumn(t("admin.col_changed_by")),
-            "created_at":  st.column_config.TextColumn(t("admin.col_changed_at")),
-        },
-        hide_index=True,
-        use_container_width=True,
-    )
+    if biz_log.empty:
+        _render_empty_state("📋", t("common.empty"))
+    else:
+        st.dataframe(
+            biz_log,
+            column_config={
+                "object_name": st.column_config.TextColumn(t("admin.col_object")),
+                "old_value":   st.column_config.TextColumn(t("admin.col_old_name")),
+                "new_value":   st.column_config.TextColumn(t("admin.col_new_name")),
+                "actor_email": st.column_config.TextColumn(t("admin.col_changed_by")),
+                "created_at":  st.column_config.TextColumn(t("admin.col_changed_at")),
+            },
+            hide_index=True,
+            use_container_width=True,
+        )
 
 
 @st.dialog(t("admin.comment_log_title"), width="large")
 def _show_comment_log_dialog():
     st.markdown(VIS_WIDE_CSS, unsafe_allow_html=True)
     comment_log = get_comment_log()
-    st.dataframe(
-        comment_log,
-        column_config={
-            "object_name":     st.column_config.TextColumn(t("admin.col_object")),
-            "comment_preview": st.column_config.TextColumn(t("admin.col_comment_preview")),
-            "actor_email":     st.column_config.TextColumn(t("admin.col_author")),
-            "created_at":      st.column_config.TextColumn(t("admin.col_posted_at")),
-        },
-        hide_index=True,
-        use_container_width=True,
-    )
+    if comment_log.empty:
+        _render_empty_state("📋", t("common.empty"))
+    else:
+        st.dataframe(
+            comment_log,
+            column_config={
+                "object_name":     st.column_config.TextColumn(t("admin.col_object")),
+                "comment_preview": st.column_config.TextColumn(t("admin.col_comment_preview")),
+                "actor_email":     st.column_config.TextColumn(t("admin.col_author")),
+                "created_at":      st.column_config.TextColumn(t("admin.col_posted_at")),
+            },
+            hide_index=True,
+            use_container_width=True,
+        )
 
 
 def _render_admin_stats_section():
@@ -490,6 +496,7 @@ def _render_admin_groups_cache_section():
     )
     if st.button(
         t("admin.groups_cache_flush"),
+        help=t("admin.groups_cache_flush_help"),
         key="admin_groups_cache_flush",
         type="secondary",
     ):

@@ -69,6 +69,11 @@ class DaemonConn:
         return self
 
     def __exit__(self, *_) -> None:
+        # WHY IT EXISTS:
+        # The daemon manages the connection lifecycle explicitly in its main loop
+        # across multiple cycles rather than reopening it per query. The __exit__
+        # method intentionally does nothing so the connection is not prematurely
+        # closed when used inside a context manager (e.g., `with DaemonConn() as conn:`).
         # Owner is the daemon main loop — don't close here.
         pass
 

@@ -1,10 +1,9 @@
-from __future__ import annotations
 """FastMCP server exposing the data dictionary to AI assistants (Copilot, Claude, etc.).
 
 User identity is injected by MCPAuthMiddleware (in src/api/main.py) via the
 _current_user ContextVar before each request reaches these tools.
 """
-
+from __future__ import annotations
 import asyncio
 import json
 import logging
@@ -26,6 +25,23 @@ _current_user: ContextVar[Optional[AuthenticatedUser]] = ContextVar(
 
 
 def _require_user() -> AuthenticatedUser:
+    """Extract the authenticated user from the current MCP context.
+
+    WHY IT EXISTS:
+    The MCP server operates over a single HTTP endpoint or stdio stream where
+    individual tool calls do not natively pass an authentication token. We use
+    a FastAPI middleware (`MCPAuthMiddleware`) to validate the token once per
+    request and inject the `AuthenticatedUser` into a context variable (`_current_user`).
+    This function retrieves that injected user, ensuring that every tool call
+    is securely bound to a verified identity and fails closed if the context
+    was lost or never populated.
+
+    Returns:
+        AuthenticatedUser: The verified user profile for the current request.
+
+    Raises:
+        RuntimeError: If called outside an authenticated MCP context.
+    """
     user = _current_user.get()
     if user is None:
         raise RuntimeError("No authenticated user in MCP context")

@@ -910,3 +910,16 @@ iframe[height="0"] { display: none !important; }
     position: absolute !important;
     pointer-events: none !important;
 }
+
+/* ── Keyboard Accessibility Focus States ── */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--accent) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 4px var(--paper) !important;
+}

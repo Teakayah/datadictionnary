@@ -276,7 +276,7 @@ class TestRenderSigninPage:
     @patch("src.auth.st.columns")
     @patch("src.auth.st.markdown")
     @patch("src.auth._get_catalog_stats")
-    @patch("src.auth.t", lambda k: k)
+    @patch("src.auth.t", lambda k, **kwargs: k)
     def test_render_signin_page_live(self, mock_get_stats, mock_markdown, mock_columns):
         from src.auth import render_signin_page
         col_hero = MagicMock()
@@ -303,7 +303,7 @@ class TestRenderSigninPage:
     @patch("src.auth.st.rerun")
     @patch("src.auth._get_catalog_stats")
     @patch("src.auth.st.session_state", new_callable=MockSessionState)
-    @patch("src.auth.t", lambda k: k)
+    @patch("src.auth.t", lambda k, **kwargs: k)
     def test_render_signin_page_mock_mode_submit(self, mock_session, mock_get_stats, mock_rerun, mock_button, mock_selectbox, mock_markdown, mock_columns):
         from src.auth import render_signin_page
         col_hero = MagicMock()
@@ -316,7 +316,7 @@ class TestRenderSigninPage:
         col_card.__enter__ = MagicMock(return_value=col_card)
         col_card.__exit__ = MagicMock(return_value=None)
 
-        mock_selectbox.return_value = "Finance"
+        mock_selectbox.return_value = "finance"
         mock_button.return_value = True
 
         render_signin_page(mock=True)
@@ -325,7 +325,7 @@ class TestRenderSigninPage:
         mock_button.assert_called_once()
         assert mock_session["authenticated"] is True
         assert mock_session["user_groups"] == ["finance_group", "SELECT_ALL_USERS"]
-        assert mock_session["user_name"] == "Finance User"
+        assert mock_session["user_name"] == "auth.mock_user_name"
         assert mock_session["user_email"] == "finance.user@research-org.ca"
         mock_rerun.assert_called_once()
 
@@ -519,25 +519,25 @@ class TestCheckAuth:
 
         mock_time.time.return_value = 1000
         mock_resolve_groups.return_value = ["group1"]
-        sync_prefs_mock = MagicMock()
 
-        check_auth(sync_prefs_callback=sync_prefs_mock)
+        with patch("src.personalization._sync_prefs_to_session") as sync_prefs_mock:
+            check_auth()
 
-        mock_qp.clear.assert_called_once()
-        mock_msal_app.acquire_token_by_authorization_code.assert_called_once()
-        mock_clear_cache.assert_called_once_with("user_oid")
+            mock_qp.clear.assert_called_once()
+            mock_msal_app.acquire_token_by_authorization_code.assert_called_once()
+            mock_clear_cache.assert_called_once_with("user_oid")
 
-        assert session["auth_token"] == {"access_token": "token123", "expires_in": 3600, "id_token_claims": {"nonce": "expected_nonce", "oid": "user_oid", "name": "Test User", "email": "test@test.com"}}
-        assert session["token_expires_at"] == 4600
-        assert session["authenticated"] is True
-        assert session["user_groups"] == ["group1"]
-        assert session["user_name"] == "Test User"
-        assert session["user_email"] == "test@test.com"
-        assert session["user_oid"] == "user_oid"
-        assert session["_prefs_loaded"] is True
+            assert session["auth_token"] == {"access_token": "token123", "expires_in": 3600, "id_token_claims": {"nonce": "expected_nonce", "oid": "user_oid", "name": "Test User", "email": "test@test.com"}}
+            assert session["token_expires_at"] == 4600
+            assert session["authenticated"] is True
+            assert session["user_groups"] == ["group1"]
+            assert session["user_name"] == "Test User"
+            assert session["user_email"] == "test@test.com"
+            assert session["user_oid"] == "user_oid"
+            assert session["_prefs_loaded"] is True
 
-        sync_prefs_mock.assert_called_once()
-        mock_rerun.assert_called_once()
+            sync_prefs_mock.assert_called_once()
+            mock_rerun.assert_called_once()
 
 
     @patch("src.auth.get_msal_app")

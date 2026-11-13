@@ -1,4 +1,3 @@
-from __future__ import annotations
 """Configuration constants for the Data Dictionary application.
 
 This module owns all environment-variable reads and compile-time constants.
@@ -6,7 +5,7 @@ No other module should call os.getenv() for these values — import from here.
 Only stdlib (os) is imported so this module is safe to import in the test
 environment where databricks, msal, and dotenv are stubbed.
 """
-
+from __future__ import annotations
 import os
 
 # ── Entra ID / MSAL OAuth ────────────────────────────────────────────────────
@@ -43,6 +42,13 @@ USER_DATA_PATH = (
 # that a baseline deploy shouldn't require. Read at call time so tests can
 # flip it with monkeypatch.setenv.
 def pipelines_enabled() -> bool:
+    """Return True if the pipelines feature is enabled via environment variables.
+
+    Reads the ENABLE_PIPELINES environment variable.
+
+    Returns:
+        bool: True if pipelines are enabled, False otherwise.
+    """
     return os.getenv("ENABLE_PIPELINES", "false").lower() == "true"
 
 

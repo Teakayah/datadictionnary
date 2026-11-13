@@ -126,6 +126,16 @@ def log_audit_event(
 
     Local persistence is demo session state or ``user_data.audit_log``;
     Databricks sync happens via the sidecar daemon (``enqueue_sync``).
+
+    Args:
+        event_type (str): The type of event (e.g., UPDATE_TABLE_METADATA).
+        object_type (str): The type of object (e.g., table, column).
+        object_name (str): The fully qualified name of the object.
+        old_value (str): The value before the modification.
+        new_value (str): The value after the modification.
+
+    Returns:
+        None
     """
     actor_email = st.session_state.get("user_email", "")
     event = {
@@ -152,6 +162,14 @@ def save_table_metadata(
     Local durability: writes to user_data.table_metadata_overrides (readable
     immediately). Catalog cache (read-only) is left untouched — it refreshes
     nightly via the sync job.
+
+    Args:
+        table_full_name (str): The Unity Catalog full name of the table.
+        description (Optional[str], optional): The new table description to save. Defaults to None.
+        steward_email (Optional[str], optional): The new steward email to save. Defaults to None.
+
+    Raises:
+        PermissionError: If the current user does not have power user privileges.
     """
     if not is_power_user():
         raise PermissionError("Only power users can update table metadata.")
