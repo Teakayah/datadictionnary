@@ -97,6 +97,10 @@ kubectl -n data-dictionary exec -it deploy/dd-sync-worker -- \
 `--healthz-port 0` disables the HTTP listener (avoids port collision when
 running ad hoc).
 
+### On-demand sync from the Admin panel
+
+Admins can also trigger a single sync cycle directly from **Admin → § Synchronization status → Sync now** (`_trigger_manual_sync()` in `src/ui/cards/admin.py`). It verifies admin access, local DuckDB availability (disabled in demo mode), and Databricks credentials (`DATABRICKS_HOST`, `DATABRICKS_HTTP_PATH`, `DATABRICKS_TOKEN`), then runs `run_dr_resync()` followed by `_process_sync_queue()` and displays the pushed count and DR status.
+
 ---
 
 ## Configuration

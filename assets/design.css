@@ -136,6 +136,12 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
 [data-testid="stSelectbox"] input {
     color: var(--ink) !important;
 }
+[data-testid="stSelectbox"] [data-baseweb="select"] [value],
+[data-testid="stSelectbox"] [data-baseweb="select"] [value] * {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    cursor: text !important;
+}
 
 /* Dataframe */
 [data-testid="stDataFrame"] {
@@ -922,4 +928,47 @@ select:focus-visible,
     outline: 2px solid var(--accent) !important;
     outline-offset: 2px !important;
     box-shadow: 0 0 0 4px var(--paper) !important;
+}
+
+/* BaseWeb select/multiselect embeds a narrow inner <input> over the placeholder;
+   move the focus ring onto the outer select control so it doesn't box the first letter. */
+[data-baseweb="select"] input:focus,
+[data-baseweb="select"] input:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+}
+[data-baseweb="select"]:has(input:focus-visible) > div:first-child {
+    outline: 2px solid var(--accent) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 4px var(--paper) !important;
+}
+
+/* ── BaseWeb dropdown popover / menu (portal outside .stApp) ── */
+[data-baseweb="popover"],
+[data-baseweb="popover"] > div,
+[data-baseweb="menu"],
+[role="listbox"] {
+    background: var(--paper) !important;
+    color: var(--ink) !important;
+    border-color: var(--ink-20) !important;
+    font-family: var(--font-sans) !important;
+}
+[data-baseweb="menu"] {
+    border: 1px solid var(--ink-20) !important;
+    border-radius: 2px !important;
+    box-shadow: 0 8px 24px rgba(20, 17, 12, 0.08) !important;
+}
+[data-baseweb="menu"] [role="option"],
+[role="listbox"] [role="option"] {
+    background: var(--paper) !important;
+    color: var(--ink) !important;
+    font-family: var(--font-sans) !important;
+    font-size: 14px !important;
+}
+[data-baseweb="menu"] [role="option"]:hover,
+[role="listbox"] [role="option"]:hover,
+[data-baseweb="menu"] [role="option"][aria-selected="true"],
+[role="listbox"] [role="option"][aria-selected="true"] {
+    background: var(--paper-deep) !important;
+    color: var(--ink) !important;
 }

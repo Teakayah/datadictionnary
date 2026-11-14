@@ -9,7 +9,7 @@ from urllib.parse import quote
 
 import pandas as _pd
 import streamlit as st
-import streamlit.components.v1 as components
+import streamlit.components.v1 as components  # noqa: F401 - kept for test patches
 
 from src.config import CATALOG_CACHE, SCHEMA_CACHE, MAX_BUSINESS_NAME_LEN
 from src.i18n import t, get_current_locale
@@ -29,7 +29,12 @@ from src.ui.cards.detail import (
     render_table_business_name_editor,
     render_table_metadata_editor,
 )
-from src.ui.lineage import _build_lineage_graph, _lineage_vis_html, render_lineage_fullscreen
+from src.ui.lineage import (
+    _build_lineage_graph,
+    _trigger_lineage_navigation,
+    render_lineage_fullscreen,
+    render_lineage_graph,
+)
 from src.ui.cards._shared import _render_empty_state
 
 
@@ -411,6 +416,7 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
             with _reply_form_col:
                 _render_comment_form(full_name, _steward_email, f"{full_name}_{_cid}", _cid)
 
+        st.markdown('<div style="margin-top: 12px;"></div>', unsafe_allow_html=True)
         _render_comment_form(full_name, _steward_email, full_name)
 
     with col_side:
@@ -571,7 +577,18 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
             if st.button("⤢", key=f"expand_lin_{full_name}", help=t("detail.expand_lineage"), use_container_width=True):
                 render_lineage_fullscreen(graph_nodes, graph_links, full_name)
 
-        components.html(_lineage_vis_html(graph_nodes, graph_links, height=350), height=380)
+        _lin_nav_target = render_lineage_graph(
+            graph_nodes,
+            graph_links,
+            height=350,
+            key=f"lin_vis_{full_name}",
+        )
+        _trigger_lineage_navigation(_lin_nav_target, full_name)
+        st.markdown(
+            f'<p style="font-family:var(--font-sans);font-size:12px;color:var(--ink-60);margin:4px 0 0;">'
+            f'{_html.escape(t("detail.lineage_hint"))}</p>',
+            unsafe_allow_html=True,
+        )
 
         if n_related > 0:
             st.markdown('<div style="margin-top: 16px;"></div>', unsafe_allow_html=True)

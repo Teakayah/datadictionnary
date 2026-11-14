@@ -57,6 +57,16 @@ def render_css() -> None:
         "var tt=btn.querySelector('[data-testid=\"stTooltipHoverTarget\"]');"
         "if(tt&&tt.title){btn.setAttribute('aria-label',tt.title);}"
         "});"
+        "doc.querySelectorAll('[data-testid=\"stSelectbox\"] [data-baseweb=\"select\"] [value]').forEach(function(val){"
+        "if(val._ddSelWired)return;val._ddSelWired=true;"
+        "val.addEventListener('mousedown',function(e){e.stopPropagation();},true);"
+        "val.addEventListener('click',function(e){"
+        "var s=win.getSelection?win.getSelection().toString():'';"
+        "if(s&&s.length>0){e.stopPropagation();return;}"
+        "var sel=val.closest('[data-baseweb=\"select\"]');"
+        "var inp=sel?sel.querySelector('input'):null;"
+        "if(inp){inp.focus();}},true);"
+        "});"
     )
 
     _patch_el = (
@@ -74,9 +84,22 @@ def render_css() -> None:
         "if(tt&&tt.title){btn.setAttribute('aria-label',tt.title);}"
         "}}"
     )
+    _patch_sel_el = (
+        "function _ps(val){"
+        "if(val._ddSelWired)return;val._ddSelWired=true;"
+        "val.addEventListener('mousedown',function(e){e.stopPropagation();},true);"
+        "val.addEventListener('click',function(e){"
+        "var s=win.getSelection?win.getSelection().toString():'';"
+        "if(s&&s.length>0){e.stopPropagation();return;}"
+        "var sel=val.closest('[data-baseweb=\"select\"]');"
+        "var inp=sel?sel.querySelector('input'):null;"
+        "if(inp){inp.focus();}},true);"
+        "}"
+    )
     _observer_js = (
         _patch_el
         + _patch_btn_el
+        + _patch_sel_el
         + "try{new (win.MutationObserver)(function(ms){"
         "ms.forEach(function(m){"
         "if(m.type==='attributes'&&m.target&&m.target.nodeType===1){"
@@ -85,8 +108,10 @@ def render_css() -> None:
         "if(n.nodeType!==1)return;"
         "if(n.matches&&n.matches('div[aria-haspopup]'))_p(n);"
         "if(n.matches&&n.matches('button'))_pb(n);"
+        "if(n.matches&&n.matches('[data-testid=\"stSelectbox\"] [data-baseweb=\"select\"] [value]'))_ps(n);"
         "n.querySelectorAll&&n.querySelectorAll('div[aria-haspopup]').forEach(_p);"
         "n.querySelectorAll&&n.querySelectorAll('button').forEach(_pb);"
+        "n.querySelectorAll&&n.querySelectorAll('[data-testid=\"stSelectbox\"] [data-baseweb=\"select\"] [value]').forEach(_ps);"
         "});})"
         "}).observe(doc.body,{childList:true,subtree:true,"
         "attributes:true,attributeFilter:['aria-haspopup']});"

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 
 import json
+import weakref
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -110,8 +111,7 @@ def _lineage_vis_html(graph_nodes: list, graph_links: list, height: int = 350, c
         str: A complete HTML snippet containing the container `div`, the vis.js library script tag,
              and the initialization script to render the graph.
     """
-    nodes_js = json.dumps(graph_nodes)
-    edges_js = json.dumps(graph_links)
+    min_scale = 0.8 if height < 600 else 0.75
     return (
         f'<div id="{container_id}" style="width:100%;height:{height}px;background:#F2EDE1;border-radius:4px;'
         f'border:1px solid #C9C2B4;overflow:hidden;margin-top:16px;"></div>'
@@ -120,9 +120,9 @@ def _lineage_vis_html(graph_nodes: list, graph_links: list, height: int = 350, c
         f'var nodes=new vis.DataSet({nodes_js});'
         f'var edges=new vis.DataSet({edges_js});'
         f'var container=document.getElementById("{container_id}");'
-        f'var options={{nodes:{{shape:"box",margin:10,font:{{size:14,face:"sans-serif"}},borderWidth:1,shadow:true,widthConstraint:{{maximum:180}}}},'
+        f'var options={{nodes:{{shape:"box",margin:10,font:{{size:14,face:"sans-serif"}},borderWidth:1,shadow:true,widthConstraint:{{maximum:220}}}},'
         f'edges:{{arrows:"to",color:"#C9C2B4",smooth:{{type:"cubicBezier",forceDirection:"horizontal"}}}},'
-        f'physics:{{solver:"repulsion",repulsion:{{nodeDistance:180,centralGravity:0.2,springLength:{spring_length},springConstant:0.05,damping:0.09}},stabilization:{{iterations:100,updateInterval:20}}}},'
+        f'physics:{{solver:"barnesHut",barnesHut:{{gravitationalConstant:-3500,centralGravity:0.35,springLength:{spring_length},springConstant:0.04,damping:0.09,avoidOverlap:0.85}},stabilization:{{iterations:120,updateInterval:20}}}},'
         f'interaction:{{hover:false,dragNodes:true,dragView:true,zoomView:true}}}}; '
         f'var upd=[];nodes.forEach(function(n){{'
         f'var bg=n.current?"#B8362A":(n.relationship==="Shared column"?"#DDE4EC":"#FAF7F0");'
@@ -131,9 +131,256 @@ def _lineage_vis_html(graph_nodes: list, graph_links: list, height: int = 350, c
         f'upd.push({{id:n.id,color:{{background:bg,border:bdr,highlight:{{background:bg,border:bdr}}}},font:{{color:txt}}}});}});'
         f'nodes.update(upd);'
         f'var net=new vis.Network(container,{{nodes:nodes,edges:edges}},options);'
-        f'net.once("stabilizationIterationsDone",function(){{net.fit();}});'
+        f'net.once("stabilizationIterationsDone",function(){{'
+        f'net.fit({{animation:false}});'
+        f'var sc=net.getScale();'
+        f'if(sc<{min_scale}){{'
+        f'var cur=nodes.get({{filter:function(n){{return n.current;}}}});'
+        f'var pos=cur.length?net.getPositions([cur[0].id])[cur[0].id]:net.getViewPosition();'
+        f'net.moveTo({{position:pos||net.getViewPosition(),scale:{min_scale}}});'
+        f'}}else if(sc>1.15){{'
+        f'net.moveTo({{position:net.getViewPosition(),scale:1.15}});'
+        f'}}}});'
+        f'net.on("doubleClick",function(params){{'
+        f'if(!params.nodes||params.nodes.length!==1)return;'
+        f'var nid=params.nodes[0];'
+        f'var nobj=nodes.get(nid);'
+        f'if(!nobj||nobj.current)return;'
+        f'var hex=Array.from(new TextEncoder().encode(String(nid))).map(function(b){{return b.toString(16).padStart(2,"0");}}).join("");'
+        f'var lbl="LINNAV-"+hex;'
+        f'var btns=Array.from(window.parent.document.querySelectorAll("button"));'
+        f'var btn=btns.find(function(b){{return b.textContent.trim()===lbl;}});'
+        f'if(btn)btn.click();'
+        f'}});'
         f'</script>'
     )
+
+
+_LINEAGE_V2_JS = """
+export default function(component) {
+    const { data, parentElement, setTriggerValue } = component;
+    const cfg = data || {};
+    const h = Number(cfg.height || 350);
+    const minScale = Number(cfg.minScale || 0.8);
+    const springLength = Number(cfg.springLength || 120);
+
+    parentElement.innerHTML = "";
+    const box = document.createElement("div");
+    box.className = "dd-lineage-box";
+    box.style.cssText =
+        "width:100%;height:" + h + "px;background:#F2EDE1;border-radius:4px;" +
+        "border:1px solid #C9C2B4;overflow:hidden;margin-top:16px;position:relative;";
+    parentElement.appendChild(box);
+
+    let net = null;
+    let destroyed = false;
+
+    function loadVis() {
+        if (window.vis && window.vis.Network) {
+            return Promise.resolve(window.vis);
+        }
+        if (!window._ddVisPromise) {
+            window._ddVisPromise = new Promise((resolve, reject) => {
+                const existing = document.querySelector('script[data-dd-vis="1"]');
+                if (existing) {
+                    if (existing.dataset.ddLoaded === "1" && window.vis) {
+                        resolve(window.vis);
+                        return;
+                    }
+                    existing.addEventListener("load", () => resolve(window.vis), { once: true });
+                    existing.addEventListener("error", () => {
+                        window._ddVisPromise = null;
+                        reject(new Error("vis load failed"));
+                    }, { once: true });
+                    return;
+                }
+                const s = document.createElement("script");
+                s.src = "https://unpkg.com/vis-network/standalone/umd/vis-network.min.js";
+                s.dataset.ddVis = "1";
+                s.onload = () => {
+                    s.dataset.ddLoaded = "1";
+                    resolve(window.vis);
+                };
+                s.onerror = () => {
+                    window._ddVisPromise = null;
+                    reject(new Error("vis load failed"));
+                };
+                document.head.appendChild(s);
+            });
+        }
+        return window._ddVisPromise;
+    }
+
+    loadVis().then((vis) => {
+        if (destroyed || !vis || !vis.Network) return;
+        const nodes = new vis.DataSet(cfg.nodes || []);
+        const edges = new vis.DataSet(cfg.links || []);
+        const upd = [];
+        nodes.forEach((n) => {
+            const bg = n.current ? "#B8362A" : (n.relationship === "Shared column" ? "#DDE4EC" : "#FAF7F0");
+            const bdr = n.current ? "#8C271E" : (n.relationship === "Shared column" ? "#2B4A6B" : "#C9C2B4");
+            const txt = n.current ? "#FAF7F0" : (n.relationship === "Shared column" ? "#2B4A6B" : "#14110C");
+            upd.push({
+                id: n.id,
+                color: { background: bg, border: bdr, highlight: { background: bg, border: bdr } },
+                font: { color: txt },
+            });
+        });
+        nodes.update(upd);
+
+        const options = {
+            nodes: {
+                shape: "box",
+                margin: 10,
+                font: { size: 14, face: "sans-serif" },
+                borderWidth: 1,
+                shadow: true,
+                widthConstraint: { maximum: 220 },
+            },
+            edges: {
+                arrows: "to",
+                color: "#C9C2B4",
+                smooth: { type: "cubicBezier", forceDirection: "horizontal" },
+            },
+            physics: {
+                solver: "barnesHut",
+                barnesHut: {
+                    gravitationalConstant: -3500,
+                    centralGravity: 0.35,
+                    springLength: springLength,
+                    springConstant: 0.04,
+                    damping: 0.09,
+                    avoidOverlap: 0.85,
+                },
+                stabilization: { iterations: 120, updateInterval: 20 },
+            },
+            interaction: { hover: true, dragNodes: true, dragView: true, zoomView: true },
+        };
+
+        net = new vis.Network(box, { nodes, edges }, options);
+        box._ddNet = net;
+
+        net.once("stabilizationIterationsDone", () => {
+            if (destroyed || !net) return;
+            net.fit({ animation: false });
+            const sc = net.getScale();
+            if (sc < minScale) {
+                const cur = nodes.get({ filter: (n) => n.current });
+                const pos = cur.length ? net.getPositions([cur[0].id])[cur[0].id] : net.getViewPosition();
+                net.moveTo({ position: pos || net.getViewPosition(), scale: minScale });
+            } else if (sc > 1.15) {
+                net.moveTo({ position: net.getViewPosition(), scale: 1.15 });
+            }
+        });
+
+        net.on("hoverNode", (params) => {
+            const nobj = nodes.get(params.node);
+            box.style.cursor = nobj && !nobj.current ? "pointer" : "grab";
+        });
+        net.on("blurNode", () => {
+            box.style.cursor = "grab";
+        });
+
+        let lastNavAt = 0;
+        function navigateNode(nid) {
+            if (!nid) return;
+            const nobj = nodes.get(nid);
+            if (!nobj || nobj.current) return;
+            const now = Date.now();
+            if (now - lastNavAt < 500) return;
+            lastNavAt = now;
+            setTriggerValue("nav", String(nid));
+        }
+
+        net.on("doubleClick", (params) => {
+            if (!params.nodes || params.nodes.length !== 1) return;
+            navigateNode(params.nodes[0]);
+        });
+
+        box.addEventListener("dblclick", (e) => {
+            if (destroyed || !net) return;
+            const canvas = box.querySelector("canvas");
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            const nid = net.getNodeAt({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+            navigateNode(nid);
+        });
+
+        requestAnimationFrame(() => {
+            if (net && !destroyed) net.redraw();
+        });
+    }).catch(() => {});
+
+    return () => {
+        destroyed = true;
+        if (net) {
+            net.destroy();
+            net = null;
+        }
+    };
+}
+"""
+
+
+_LINEAGE_COMPONENT_CACHE: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+
+
+def _get_lineage_component():
+    """Return the v2 lineage component registered on the active Streamlit runtime."""
+    if not (hasattr(st, "components") and hasattr(st.components, "v2")):
+        return None
+    mgr = st.components.v2.get_bidi_component_manager()
+    comp = _LINEAGE_COMPONENT_CACHE.get(mgr)
+    if comp is None:
+        comp = st.components.v2.component(
+            "dd_lineage_vis",
+            js=_LINEAGE_V2_JS,
+            isolate_styles=False,
+        )
+        _LINEAGE_COMPONENT_CACHE[mgr] = comp
+    return comp
+
+
+def _trigger_lineage_navigation(target_fn: str | None, current_fn: str) -> None:
+    """Navigate the Search page to ``target_fn`` when a non-current node is double-clicked."""
+    if not target_fn or target_fn == current_fn:
+        return
+    st.session_state["dd_search_override"] = str(target_fn).split(".")[-1]
+    st.session_state["dd_nav_select"] = str(target_fn)
+    st.rerun()
+
+
+def render_lineage_graph(
+    graph_nodes: list,
+    graph_links: list,
+    *,
+    height: int = 350,
+    spring_length: int = 120,
+    key: str = "dd_lineage_vis",
+) -> str | None:
+    """Render the interactive vis-network lineage graph and return any double-clicked node ID."""
+    min_scale = 0.8 if height < 600 else 0.75
+    comp = _get_lineage_component()
+    if comp is not None:
+        res = comp(
+            data={
+                "nodes": graph_nodes,
+                "links": graph_links,
+                "height": height,
+                "minScale": min_scale,
+                "springLength": spring_length,
+            },
+            key=key,
+            on_nav_change=lambda: None,
+        )
+        nav = getattr(res, "nav", None)
+        return str(nav) if nav else None
+
+    components.html(
+        _lineage_vis_html(graph_nodes, graph_links, height=height, spring_length=spring_length),
+        height=height + 30,
+    )
+    return None
 
 
 @st.dialog(t("detail.lineage_graph"), width="large")
@@ -150,6 +397,12 @@ def render_lineage_fullscreen(graph_nodes: list, graph_links: list, full_name: s
     """
     st.markdown(VIS_WIDE_CSS, unsafe_allow_html=True)
     st.markdown(f"**{full_name}** — {t('detail.lineage_graph_subtitle', table=full_name.split('.')[-1])}")
-    _graph_h = 1800
-    graph_html = _lineage_vis_html(graph_nodes, graph_links, height=_graph_h, container_id="mynetwork_full", spring_length=220)
-    components.html(graph_html, height=_graph_h + 20, scrolling=False)
+    _graph_h = 700
+    _nav_target = render_lineage_graph(
+        graph_nodes,
+        graph_links,
+        height=_graph_h,
+        spring_length=180,
+        key=f"lin_vis_full_{full_name}",
+    )
+    _trigger_lineage_navigation(_nav_target, full_name)

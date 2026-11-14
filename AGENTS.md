@@ -165,9 +165,14 @@ Set `DUCKDB_PATH=data/test_data.duckdb` in `.env`, then run without `DEMO_DATA=t
 - Standalone process: `python -m src.sync.daemon [--once] [--healthz-port N]`
 - Drains `user_data.pending_sync` and runs DR resync (pulls new audit / comment / override rows back from Databricks every 20 cycles)
 - Stale-row recovery: rows in `'syncing'` for >`STALE_ROW_TIMEOUT_S` (300s, module constant) flip back to `'pending'` at the top of every cycle
-- Status keys written to `user_data.site_settings`: `worker_heartbeat`, `dr_resync_status`. Admin sync panel reads via `src.sync.worker.read_dr_resync_status()` / `read_worker_heartbeat()`
+- Status keys written to `user_data.site_settings`: `worker_heartbeat`, `dr_resync_status`. Admin sync panel reads via `src.sync.worker.read_dr_resync_status()` / `read_worker_heartbeat()` and exposes an on-demand **Sync now** button (`_trigger_manual_sync()` in `src/ui/cards/admin.py`) that runs `run_dr_resync` + `_process_sync_queue` when DuckDB and Databricks credentials are available.
 - Timing values (poll intervals, DR cadence, stale-row + heartbeat timeouts) are module constants in `src/sync/daemon.py`; the only env tunable is `SYNC_HEALTHZ_PORT` (8765)
 - Background: ADR 004 + `docs/runbooks/sync-worker.md`
+
+### Interactive lineage graph & Search UX (`src/ui/lineage.py`, `src/ui/css.py`)
+- `render_lineage_graph()` mounts a `st.components.v2` bidirectional component (`dd_lineage_vis`, cached per `WeakKeyDictionary` runtime manager via `_get_lineage_component()` so multiple `AppTest` runtimes stay isolated) rendering `vis-network` with `barnesHut` (`avoidOverlap: 0.85`) and clamped initial zoom (`[0.8, 1.15]` inline, `[0.75, 1.15]` fullscreen centered on the active table).
+- Double-clicking any non-current table node (via `vis.Network` `"doubleClick"` or native DOM `"dblclick"` + `net.getNodeAt(...)`) fires `setTriggerValue("nav", full_name)` and `_trigger_lineage_navigation()` updates `dd_search_override` + `dd_nav_select` to open that table directly (also supported in `render_lineage_fullscreen()`).
+- Search selectbox text selection: `assets/design.css` enables `user-select: text` on BaseWeb selectbox values and styles the dropdown popover in `--paper`/`--ink`; `src/ui/css.py` (`_ps`) allows drag/double-click text selection for copy-paste without interfering with single-click dropdown opening.
 
 ### `src/ui/cards/` package layout
 The 1083-line `src/ui/cards.py` was split into 7 submodules (TODO #3):

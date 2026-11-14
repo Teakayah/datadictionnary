@@ -62,6 +62,10 @@ def test_lineage_vis_html():
     assert "test_container" in html
     assert "500px" in html
     assert "vis.DataSet" in html
+    assert "net.getScale()" in html
+    assert "doubleClick" in html
+    assert "LINNAV-" in html
+    assert "avoidOverlap" in html
 
 def test_render_lineage_fullscreen_apptest():
     def app():
@@ -80,3 +84,50 @@ def test_render_lineage_fullscreen_apptest():
             found = True
             break
     assert found
+
+
+def test_lineage_v2_component_js_and_render():
+    from src.ui.lineage import _LINEAGE_V2_JS, render_lineage_graph
+
+    assert "setTriggerValue" in _LINEAGE_V2_JS
+    assert "doubleClick" in _LINEAGE_V2_JS
+    assert "avoidOverlap" in _LINEAGE_V2_JS
+
+    def app():
+        from src.ui.lineage import render_lineage_graph as _render
+        _render(
+            [
+                {"id": "db.s.a", "label": "a", "current": True, "relationship": "Current"},
+                {"id": "db.s.b", "label": "b", "current": False, "relationship": "Same schema"},
+            ],
+            [{"from": "db.s.a", "to": "db.s.b"}],
+            height=350,
+            key="test_lin_v2",
+        )
+
+    at = AppTest.from_function(app).run()
+    assert not at.exception
+
+
+def test_trigger_lineage_navigation_sets_state_and_reruns():
+    from unittest.mock import patch
+    from src.ui.lineage import _trigger_lineage_navigation
+    import streamlit as st
+
+    class _RerunExc(Exception):
+        pass
+
+    with patch.object(st, "rerun", side_effect=_RerunExc):
+        # Ignoring None or same table does not rerun
+        _trigger_lineage_navigation(None, "db.s.a")
+        _trigger_lineage_navigation("db.s.a", "db.s.a")
+
+        st.session_state.pop("dd_search_override", None)
+        st.session_state.pop("dd_nav_select", None)
+        try:
+            _trigger_lineage_navigation("db.s.target_tbl", "db.s.a")
+            assert False, "Expected st.rerun()"
+        except _RerunExc:
+            pass
+        assert st.session_state.get("dd_search_override") == "target_tbl"
+        assert st.session_state.get("dd_nav_select") == "db.s.target_tbl"

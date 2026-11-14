@@ -18,6 +18,7 @@ the renderers below — moving them out would be premature.
 
 import html as _html
 import logging
+import os
 
 import pandas as pd
 import streamlit as st
@@ -346,6 +347,11 @@ def _render_admin_integrity_report():
     st.markdown("<div style='margin-top:24px'></div>", unsafe_allow_html=True)
     with st.expander(t("admin.integrity_stewardship_title")):
         st.caption(t("admin.integrity_stewardship_subtitle"))
+        st.markdown(
+            f'<p style="font-family:var(--font-sans);font-size:13px;color:var(--ink-60);'
+            f'line-height:1.5;margin:4px 0 12px;">{_html.escape(t("admin.integrity_stewardship_remediation"))}</p>',
+            unsafe_allow_html=True,
+        )
         stew_gaps = get_stewardship_gaps()
         if not stew_gaps.empty:
             st.dataframe(stew_gaps, use_container_width=True, hide_index=True)
@@ -382,6 +388,48 @@ def _render_admin_search_analytics_section():
         )
 
 
+def _trigger_manual_sync() -> tuple[str, str]:
+    """Run one sync cycle (DR resync + queue drain) from the Admin panel.
+
+    Returns:
+        tuple[str, str]: (feedback_level, status_message) where level is
+            'success', 'warning', or 'info'.
+    """
+    if not is_admin():
+        raise PermissionError("Admin access required.")
+    if is_demo_mode() or not _duckdb_available():
+        return "info", t("admin.sync_unavailable")
+
+    host = os.getenv("DATABRICKS_HOST", "").strip()
+    http_path = os.getenv("DATABRICKS_HTTP_PATH", "").strip()
+    token = os.getenv("DATABRICKS_TOKEN", "").strip()
+    if not (host and http_path and token):
+        return "warning", t("admin.sync_no_creds")
+
+    from src.sync.dr_resync import run_dr_resync  # noqa: PLC0415
+    from src.sync.push import _process_sync_queue  # noqa: PLC0415
+
+    conn = _get_write_connection()
+
+    def _set_dr_status(val: str) -> None:
+        with conn.cursor() as cur:
+            cur.execute_write(
+                """
+                INSERT INTO user_data.site_settings (key, value, updated_at, updated_by)
+                VALUES (%(k)s, %(v)s, current_localtimestamp(), %(by)s)
+                ON CONFLICT (key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = excluded.updated_at,
+                    updated_by = excluded.updated_by
+                """,
+                {"k": "dr_resync_status", "v": val, "by": st.session_state.get("user_email", "admin")},
+            )
+
+    dr_status = run_dr_resync(conn, status_setter=_set_dr_status)
+    processed = _process_sync_queue(conn=conn) or 0
+    return "success", t("admin.sync_now_complete", count=processed, status=dr_status)
+
+
 def _render_admin_sync_section():
     st.markdown(
         f'<div class="dd-section-header" style="margin-top:32px;">'
@@ -402,6 +450,34 @@ def _render_admin_sync_section():
         bc2.caption(t("admin.sync_processing", count=sync_stats.get("processing", 0)))
         bc3.caption(t("admin.sync_done", count=sync_stats.get("done", 0)))
         bc4.caption(t("admin.sync_failed", count=sync_stats.get("failed", 0)))
+
+        st.markdown('<div style="margin-top:12px;"></div>', unsafe_allow_html=True)
+        if st.button(
+            t("admin.sync_now_btn"),
+            key="admin_sync_now",
+            help=t("admin.sync_now_help"),
+            type="secondary",
+        ):
+            with st.spinner(t("admin.sync_now_running")):
+                try:
+                    level, msg = _trigger_manual_sync()
+                    st.session_state["_admin_sync_feedback"] = (level, msg)
+                except Exception as exc:
+                    logging.error("Manual sync failed: %s", exc, exc_info=True)
+                    st.session_state["_admin_sync_feedback"] = ("error", t("common.error"))
+            st.rerun()
+
+        _fb = st.session_state.pop("_admin_sync_feedback", None)
+        if _fb:
+            _fb_level, _fb_msg = _fb
+            if _fb_level == "success":
+                st.success(_fb_msg)
+            elif _fb_level == "warning":
+                st.warning(_fb_msg)
+            elif _fb_level == "error":
+                st.error(_fb_msg)
+            else:
+                st.info(_fb_msg)
 
     with sc2:
         # Sidecar daemon status, written into user_data.site_settings.

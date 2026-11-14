@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 import os
 import pandas as pd
+import pytest
 from streamlit.testing.v1 import AppTest
 
 from tests.conftest import sql_returns
@@ -985,3 +986,81 @@ def test_render_admin_page_none_tab(monkeypatch):
         at.session_state["_admin_tab_idx"] = 0
         at.run()
         assert not at.exception
+
+
+def test_render_admin_integrity_report_stewardship_remediation():
+    def app():
+        from src.ui.cards.admin import _render_admin_integrity_report
+        _render_admin_integrity_report()
+
+    with patch("src.ui.cards.admin.get_high_impact_gaps", return_value=pd.DataFrame()), \
+         patch("src.ui.cards.admin.get_dq_alerts", return_value=pd.DataFrame()), \
+         patch("src.ui.cards.admin.get_stewardship_gaps", return_value=pd.DataFrame([{"full_name": "db.s.t"}])):
+
+        at = AppTest.from_function(app)
+        at.run()
+        assert not at.exception
+        assert any("Edit table metadata" in md.value for md in at.markdown)
+
+
+def test_trigger_manual_sync_requires_admin():
+    from src.ui.cards.admin import _trigger_manual_sync
+
+    with patch("src.ui.cards.admin.is_admin", return_value=False):
+        with pytest.raises(PermissionError):
+            _trigger_manual_sync()
+
+
+def test_trigger_manual_sync_no_creds(monkeypatch):
+    from src.ui.cards.admin import _trigger_manual_sync
+
+    monkeypatch.delenv("DATABRICKS_HOST", raising=False)
+    monkeypatch.delenv("DATABRICKS_HTTP_PATH", raising=False)
+    monkeypatch.delenv("DATABRICKS_TOKEN", raising=False)
+
+    with patch("src.ui.cards.admin.is_admin", return_value=True), \
+         patch("src.ui.cards.admin.is_demo_mode", return_value=False), \
+         patch("src.ui.cards.admin._duckdb_available", return_value=True):
+        level, msg = _trigger_manual_sync()
+        assert level == "warning"
+        assert "credentials" in msg.lower()
+
+
+def test_trigger_manual_sync_runs_cycle(monkeypatch):
+    from unittest.mock import MagicMock
+    from src.ui.cards.admin import _trigger_manual_sync
+
+    monkeypatch.setenv("DATABRICKS_HOST", "https://example.azuredatabricks.net")
+    monkeypatch.setenv("DATABRICKS_HTTP_PATH", "/sql/1.0/warehouses/abc")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dapi123")
+
+    fake_conn = MagicMock()
+    with patch("src.ui.cards.admin.is_admin", return_value=True), \
+         patch("src.ui.cards.admin.is_demo_mode", return_value=False), \
+         patch("src.ui.cards.admin._duckdb_available", return_value=True), \
+         patch("src.ui.cards.admin._get_write_connection", return_value=fake_conn), \
+         patch("src.sync.dr_resync.run_dr_resync", return_value="Up-to-date") as mock_dr, \
+         patch("src.sync.push._process_sync_queue", return_value=2) as mock_push:
+        level, msg = _trigger_manual_sync()
+        assert level == "success"
+        assert "2" in msg
+        assert "Up-to-date" in msg
+        mock_dr.assert_called_once()
+        mock_push.assert_called_once_with(conn=fake_conn)
+
+
+def test_render_admin_sync_section_button():
+    def app():
+        from src.ui.cards.admin import _render_admin_sync_section
+        _render_admin_sync_section()
+
+    with patch("src.ui.cards.admin.get_sync_queue_stats", return_value={"pending": 1, "processing": 0, "done": 2, "failed": 0}), \
+         patch("src.sync.worker.read_dr_resync_status", return_value="Idle"), \
+         patch("src.sync.worker.read_worker_heartbeat", return_value=""), \
+         patch("src.ui.cards.admin._trigger_manual_sync", return_value=("success", "Sync complete: 1 queued item(s) pushed (DR status: Up-to-date).")) as mock_sync:
+        at = AppTest.from_function(app)
+        at.run()
+        assert not at.exception
+        at.button(key="admin_sync_now").click().run()
+        mock_sync.assert_called_once()
+        assert any("Sync complete" in s.value for s in at.success)
