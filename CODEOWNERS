@@ -1,0 +1,3 @@
+# Replace @your-org/data-engineering with your organization's team handle(s)
+# before enabling branch-protection CODEOWNERS enforcement.
+* @your-org/data-engineering

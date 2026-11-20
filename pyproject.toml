@@ -1,0 +1,20 @@
+[project]
+name = "data-dictionary"
+version = "0.1.0"
+description = "Permission-filtered, search-first business data dictionary for Databricks Unity Catalog."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: mark test as integration test.",
+]

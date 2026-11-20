@@ -12,44 +12,47 @@ Apply manifests in dependency order so each resource exists before the next refe
 # 1. Namespace — must exist before everything else
 kubectl apply -f k8s/namespace.yaml
 
-# 2. Network policy — restrict ingress/egress before workloads start
-kubectl apply -f k8s/networkpolicy.yaml
+# 2. Default ServiceAccount (disables automounted token)
+kubectl apply -f k8s/serviceaccount.yaml
 
-# 3. Resource quota — enforce namespace-level limits
+# 3. Network policies — restrict ingress/egress before workloads start
+kubectl apply -f k8s/networkpolicies.yaml
+
+# 4. Resource quota — enforce namespace-level limits
 kubectl apply -f k8s/resourcequota.yaml
 
-# 4. Persistent volume claim (DuckDB cache file)
+# 5. Persistent volume claims (DuckDB cache file + Redis cache)
 kubectl apply -f k8s/pvc.yaml
+kubectl apply -f k8s/pvc-redis.yaml
 
-# 5. Secrets (Databricks creds, Entra ID, GHCR pull secret)
+# 6. Secrets (Databricks creds, Entra ID, GHCR pull secret)
 kubectl apply -f k8s/secret.yaml
 
-# 6. ConfigMap (non-sensitive env vars)
+# 7. ConfigMap (non-sensitive env vars)
 kubectl apply -f k8s/configmap.yaml
 
-# 7. Deployment — Streamlit UI
+# 8. Deployments — Redis, Streamlit UI, REST/MCP API, and sidecar sync worker
+kubectl apply -f k8s/deployment-redis.yaml
 kubectl apply -f k8s/deployment.yaml
-
-# 8. Deployment — sidecar sync worker (drains pending_sync → Databricks)
+kubectl apply -f k8s/deployment-api.yaml
 kubectl apply -f k8s/deployment-sync-worker.yaml
 
-# 9. PodDisruptionBudget (keep ≥1 dd-app replica during node drains)
+# 9. PodDisruptionBudget (keep ≥1 dd-api replica during node drains)
 kubectl apply -f k8s/pdb.yaml
 
-# 10. Service
+# 10. Services
+kubectl apply -f k8s/service-redis.yaml
 kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/service-api.yaml
 
 # 11. Ingress
 kubectl apply -f k8s/ingress.yaml
 
-# 12. Horizontal Pod Autoscaler (dd-app only)
+# 12. Horizontal Pod Autoscaler (dd-api)
 kubectl apply -f k8s/hpa.yaml
 
 # 13. CronJob (nightly full catalog rebuild)
 kubectl apply -f k8s/cronjob.yaml
-
-# 14. NetworkPolicy for the sync worker
-kubectl apply -f k8s/networkpolicy-sync.yaml
 ```
 
 Or apply everything at once after the first run:
@@ -73,7 +76,7 @@ modes).
 Create the application secret from literal values:
 
 ```bash
-kubectl create secret generic dd-app-secrets \
+kubectl create secret generic dd-secrets \
   --namespace data-dictionary \
   --from-literal=DATABRICKS_HOST="https://<workspace>.azuredatabricks.net" \
   --from-literal=DATABRICKS_HTTP_PATH="/sql/1.0/warehouses/<id>" \
@@ -81,7 +84,7 @@ kubectl create secret generic dd-app-secrets \
   --from-literal=TENANT_ID="<entra-tenant-id>" \
   --from-literal=CLIENT_ID="<app-registration-client-id>" \
   --from-literal=CLIENT_SECRET="<app-registration-secret>" \
-  --from-literal=REDIRECT_URI="https://data-dictionary.your-domain.com/callback"
+  --from-literal=REDIRECT_URI="https://datadictionary.internal/"
 ```
 
 Create the GHCR image pull secret:
@@ -101,7 +104,7 @@ kubectl create secret docker-registry ghcr-pull-secret \
 Patch a single key without recreating the whole secret:
 
 ```bash
-kubectl patch secret dd-app-secrets \
+kubectl patch secret dd-secrets \
   --namespace data-dictionary \
   --type='json' \
   -p='[{"op":"replace","path":"/data/DATABRICKS_TOKEN","value":"'"$(echo -n '<new-token>' | base64)"'"}]'
@@ -110,7 +113,7 @@ kubectl patch secret dd-app-secrets \
 Or delete and recreate (causes a brief pod restart):
 
 ```bash
-kubectl delete secret dd-app-secrets -n data-dictionary
+kubectl delete secret dd-secrets -n data-dictionary
 # Re-run the kubectl create secret ... command from section 1
 kubectl rollout restart deployment/dd-app -n data-dictionary
 ```
@@ -173,10 +176,12 @@ kubectl create job --from=cronjob/dd-sync post-rollback-sync-$(date +%s) \
 
 ## 5. Scaling manually
 
-Override the HPA and set a fixed replica count:
+`dd-app` is intentionally kept at `replicas: 1` until mutable `user_data` storage is moved off shared DuckDB files (see `TODO.md`). `dd-api` is stateless/read-only and is autoscaled by `k8s/hpa.yaml`.
+
+Override the `dd-api` HPA and set a fixed replica count:
 
 ```bash
-kubectl scale deployment/dd-app --replicas=4 -n data-dictionary
+kubectl scale deployment/dd-api --replicas=4 -n data-dictionary
 ```
 
 To re-enable autoscaling after a manual override, patch the HPA min/max or simply delete and re-apply `k8s/hpa.yaml`.

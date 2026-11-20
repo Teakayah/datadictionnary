@@ -60,12 +60,23 @@ cp .env.example .env
 ENABLE_MOCK_AUTH=true ENVIRONMENT=development DEMO_DATA=true streamlit run app.py
 ```
 
+### Showcase with Docker Compose
+
+Run the self-contained offline stack (Streamlit UI, FastAPI/MCP server, and Redis) with built-in demo data and mock Entra ID login:
+
+```bash
+docker compose up --build
+```
+
+- **Streamlit UI**: `http://localhost:8501`
+- **REST API & OpenAPI docs**: `http://localhost:8080/docs`
+
 ### With real data
 
 ```bash
 # Fill in DATABRICKS_HOST, DATABRICKS_HTTP_PATH, DATABRICKS_TOKEN,
 # TENANT_ID, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI in .env
-python scripts/nightly_sync.py   # populate local DuckDB cache
+python scripts/sync_metadata.py   # populate local DuckDB cache
 streamlit run app.py
 ```
 
@@ -146,7 +157,7 @@ kubectl apply -f k8s/                   # apply everything else
 
 | Deployment | Min pods | Max pods | Scale trigger |
 |---|---|---|---|
-| `dd-app` (Streamlit) | 2 | 10 | CPU > 70% or memory > 80% |
+| `dd-app` (Streamlit) | 1 | 1 (singleton until `user_data` moves off DuckDB; see [`TODO.md`](TODO.md)) | — |
 | `dd-api` (FastAPI) | 2 | 8 | CPU > 65% or memory > 80% |
 | `dd-sync-worker` | 1 | 1 (singleton) | — |
 | `dd-redis` | 1 | 1 (cache, not HA) | — |
@@ -220,6 +231,9 @@ Dockerfile               Multi-stage build
 | [`docs/runbooks/`](docs/runbooks/) | Sync-worker ops, secret rotation |
 | [`design_system/README.md`](design_system/README.md) | UI design system and tokens |
 | [`CLAUDE.md`](CLAUDE.md) | Codebase guide for Claude Code sessions |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Development workflow, checks, and PR guidelines |
+| [`SECURITY.md`](SECURITY.md) | Vulnerability reporting and security architecture |
+| [`CHANGELOG.md`](CHANGELOG.md) | Release and change history |
 
 ---
 

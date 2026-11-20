@@ -1,0 +1,55 @@
+services:
+  dd-redis:
+    image: redis:7.2.4-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  dd-app:
+    build:
+      context: .
+    ports:
+      - "8501:8501"
+    environment:
+      ENVIRONMENT: development
+      ENABLE_MOCK_AUTH: "true"
+      DEMO_DATA: "true"
+      ADMIN_GROUPS: mock_admin_group
+      EDITOR_GROUPS: mock_admin_group,finance_group,research_group,hr_group,it_group
+      REDIS_URL: redis://dd-redis:6379
+    depends_on:
+      dd-redis:
+        condition: service_healthy
+
+  dd-api:
+    build:
+      context: .
+    command: ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8080"]
+    ports:
+      - "8080:8080"
+    environment:
+      ENVIRONMENT: development
+      DEMO_DATA: "true"
+      TENANT_ID: demo-tenant
+      CLIENT_ID: demo-client
+      REDIS_URL: redis://dd-redis:6379
+    depends_on:
+      dd-redis:
+        condition: service_healthy
+
+  dd-sync-worker:
+    profiles: ["sync"]
+    build:
+      context: .
+    command: ["python", "-m", "src.sync.daemon"]
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./data:/data
+    environment:
+      DUCKDB_PATH: /data/test_data.duckdb
+      SYNC_HEALTHZ_PORT: "8765"

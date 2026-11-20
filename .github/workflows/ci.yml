@@ -34,7 +34,7 @@ jobs:
       - name: Run Ruff
         uses: astral-sh/ruff-action@v3
         with:
-          args: check src/ scripts/ tests/ --ignore E501
+          args: check app.py src/ scripts/ tests/ --ignore E501
         continue-on-error: true
 
       - name: Verify docs and HTML synchronization
@@ -57,11 +57,12 @@ jobs:
           cache-dependency-path: |
             requirements.txt
             requirements-dev.txt
+            constraints.txt
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-dev.txt
+          pip install -c constraints.txt -r requirements.txt -r requirements-dev.txt
 
       - name: Run shared CI checks
         run: python scripts/auto_ci.py --junit-xml test-results.xml
@@ -120,7 +121,34 @@ jobs:
             docker:
               - 'Dockerfile'
               - 'requirements.txt'
+              - 'constraints.txt'
+              - '.streamlit/**'
               - 'scripts/**'
+
+  dependency-audit:
+    name: Dependency Vulnerability Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install runtime dependencies with security constraints
+        run: |
+          python -m pip install --upgrade pip
+          pip install -c constraints.txt -r requirements.txt
+          pip install pip-audit
+
+      # Advisory during showcase/development; switch to false (blocking) before production authorization.
+      - name: Run pip-audit
+        run: pip-audit --desc
+        continue-on-error: true
 
   docker-validate:
     name: Validate Docker Build
