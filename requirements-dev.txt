@@ -2,7 +2,7 @@
 # Install with: pip install -r requirements.txt -r requirements-dev.txt
 
 # --- Test framework ---
-pytest>=8.0
+pytest>=9.2.0
 pytest-cov>=5.0
 
 # --- Load testing ---
