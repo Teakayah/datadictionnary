@@ -124,6 +124,7 @@ jobs:
               - 'constraints.txt'
               - '.streamlit/**'
               - 'scripts/**'
+              - 'assets/**'
 
   dependency-audit:
     name: Dependency Vulnerability Audit
@@ -163,24 +164,36 @@ jobs:
         uses: azure/setup-helm@v4
 
       - name: Lint Helm chart
-        run: helm lint charts/data-dictionary
+        run: |
+          helm lint --strict charts/data-dictionary
+          helm lint --strict charts/data-dictionary -f charts/data-dictionary/values-showcase.yaml
+          helm lint --strict charts/data-dictionary -f charts/data-dictionary/values-prod.yaml
 
       - name: Render Helm templates across profiles
         run: |
           helm template dd-default charts/data-dictionary > /dev/null
           helm template dd-showcase charts/data-dictionary -f charts/data-dictionary/values-showcase.yaml > /dev/null
           helm template dd-prod charts/data-dictionary -f charts/data-dictionary/values-prod.yaml > /dev/null
+          if helm template dd-invalid charts/data-dictionary \
+            --set config.environment=production \
+            --set config.features.enableMockAuth=true > /dev/null 2>&1; then
+            echo "ERROR: values.schema.json failed to reject enableMockAuth=true in production"
+            exit 1
+          fi
 
   docker-validate:
     name: Validate Docker Build
     needs: detect-docker-changes
-    if: github.event_name == 'pull_request' && needs.detect-docker-changes.outputs.docker == 'true'
+    if: ${{ !cancelled() && (github.event_name == 'push' || (needs.detect-docker-changes.result == 'success' && needs.detect-docker-changes.outputs.docker == 'true')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Validate docker-compose configuration
+        run: docker compose config -q
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

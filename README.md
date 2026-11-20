@@ -138,11 +138,11 @@ Key test files:
 
 ## Deployment (Azure DevOps → AKS)
 
-GitHub Actions validation is defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml); [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) handles image publishing, Kubernetes deployment, and tagged releases. Azure DevOps continues to run the shared checks through [`azure-pipelines.yml`](azure-pipelines.yml):
+GitHub Actions validation is defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml); [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) handles image publishing, Helm chart deployment, and tagged releases. Azure DevOps runs the matching 3-stage pipeline through [`azure-pipelines.yml`](azure-pipelines.yml):
 
-1. **Test** — `pytest` with JUnit output
-2. **Build** — multi-stage Docker build, push to ACR
-3. **Deploy** — `kubectl apply` across all k8s manifests, waits for rollout of `dd-app`, `dd-api`, `dd-sync-worker`
+1. **Test** — `pytest` with JUnit output + Helm chart lint/template validation (`charts/data-dictionary/`)
+2. **Build** — multi-stage Docker build and registry push (skipped safely if registry secrets are unset)
+3. **Deploy** — `helm upgrade --install` using [`charts/data-dictionary/`](charts/data-dictionary/) with atomic rollout wait
 
 ### First-time cluster setup
 

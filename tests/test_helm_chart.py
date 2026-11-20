@@ -102,3 +102,26 @@ def test_templates_have_balanced_helm_delimiters():
         opens = len(block_open_re.findall(no_comments))
         ends = len(block_end_re.findall(no_comments))
         assert opens == ends, f"Unbalanced template blocks in {path.name}: {opens} opens vs {ends} ends"
+
+
+def test_ci_and_cd_pipelines_use_helm_and_parse_cleanly():
+    repo_root = Path(__file__).resolve().parents[1]
+    ci_path = repo_root / ".github" / "workflows" / "ci.yml"
+    deploy_path = repo_root / ".github" / "workflows" / "deploy.yml"
+    azdo_path = repo_root / "azure-pipelines.yml"
+
+    for pipeline_path in (ci_path, deploy_path, azdo_path):
+        loaded = yaml.safe_load(pipeline_path.read_text(encoding="utf-8"))
+        assert isinstance(loaded, dict), f"Failed to parse {pipeline_path} as YAML mapping"
+
+    deploy_text = deploy_path.read_text(encoding="utf-8")
+    assert "helm upgrade --install" in deploy_text
+    assert "charts/data-dictionary" in deploy_text
+    assert "kubectl apply -f k8s/" not in deploy_text
+    assert "k8s/secret.yaml" not in deploy_text
+
+    azdo_text = azdo_path.read_text(encoding="utf-8")
+    assert "HelmDeploy@0" in azdo_text
+    assert "charts/data-dictionary" in azdo_text
+    assert "k8s/secret.yaml" not in azdo_text
+    assert "k8s/deployment.yaml" not in azdo_text

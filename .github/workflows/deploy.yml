@@ -6,21 +6,41 @@ on:
       - main
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      values_file:
+        description: "Helm values preset file"
+        type: choice
+        options:
+          - charts/data-dictionary/values-prod.yaml
+          - charts/data-dictionary/values-showcase.yaml
+        default: charts/data-dictionary/values-prod.yaml
+      image_tag:
+        description: "Optional existing image tag to deploy (defaults to sha-<commit>)"
+        type: string
+        default: ""
+      dry_run:
+        description: "Validate Helm render only without applying to a cluster"
+        type: boolean
+        default: false
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ghcr.io/org/data-dictionary
+  REGISTRY: ${{ vars.CONTAINER_REGISTRY || 'ghcr.io' }}
+  IMAGE_NAME: ${{ vars.IMAGE_NAME || 'ghcr.io/org/data-dictionary' }}
+  HELM_RELEASE: ${{ vars.HELM_RELEASE || 'data-dictionary' }}
+  HELM_NAMESPACE: ${{ vars.HELM_NAMESPACE || 'data-dictionary' }}
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
-  # 1. BUILD — push to main only
+  # 1. BUILD — push to main or manual dispatch
   # ─────────────────────────────────────────────────────────────────────────────
   build:
     name: Build and push Docker image
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     outputs:
-      image_tag: ${{ steps.meta.outputs.sha_tag }}
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      pushed: ${{ steps.registry.outputs.can_push }}
 
     permissions:
       contents: read
@@ -30,82 +50,148 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set image tag
+        id: meta
+        env:
+          INPUT_TAG: ${{ github.event.inputs.image_tag || '' }}
+        run: |
+          if [ -n "${INPUT_TAG}" ]; then
+            IMAGE_TAG="${INPUT_TAG}"
+          else
+            IMAGE_TAG="sha-${{ github.sha }}"
+          fi
+          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "Resolved image tag: ${IMAGE_NAME}:${IMAGE_TAG}"
+
+      - name: Check registry credentials
+        id: registry
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          CUSTOM_TAG: ${{ github.event.inputs.image_tag || '' }}
+        run: |
+          if [ -n "${CUSTOM_TAG}" ]; then
+            echo "::notice::Skipping image build/push because an existing image tag (${CUSTOM_TAG}) was requested."
+            echo "can_push=false" >> "$GITHUB_OUTPUT"
+          elif [ -n "${GHCR_TOKEN}" ]; then
+            echo "can_push=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping registry push: configure GHCR_TOKEN secret (and optional vars.IMAGE_NAME) to publish images."
+            echo "can_push=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Log in to GitHub Container Registry
+        if: steps.registry.outputs.can_push == 'true'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN }}
 
-      - name: Set image tags
-        id: meta
-        run: |
-          SHA_TAG="sha-${{ github.sha }}"
-          echo "sha_tag=${SHA_TAG}" >> "$GITHUB_OUTPUT"
-          echo "Building tags: ${IMAGE_NAME}:${SHA_TAG}, ${IMAGE_NAME}:latest"
-
       - name: Set up Docker Buildx
+        if: steps.registry.outputs.can_push == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push image
+        if: steps.registry.outputs.can_push == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.sha_tag }}
+            ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.image_tag }}
             ${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # 2. DEPLOY — after build, on push to main
+  # 2. DEPLOY — Helm validate + upgrade on push to main or manual dispatch
   # ─────────────────────────────────────────────────────────────────────────────
   deploy:
     name: Deploy to Kubernetes
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     environment:
       name: production
-      url: https://datadictionary.internal
+      url: ${{ vars.APP_URL || 'https://datadictionary.internal' }}
+
+    env:
+      HELM_VALUES_FILE: ${{ github.event.inputs.values_file || vars.HELM_VALUES_FILE || 'charts/data-dictionary/values-prod.yaml' }}
+      IMAGE_PULL_SECRET: ${{ vars.IMAGE_PULL_SECRET || '' }}
+      IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
         with:
           version: "latest"
 
+      - name: Validate Helm chart render
+        run: |
+          PULL_SECRET_ARGS=()
+          if [ -n "${IMAGE_PULL_SECRET}" ]; then
+            PULL_SECRET_ARGS=(--set "image.pullSecrets[0].name=${IMAGE_PULL_SECRET}")
+          fi
+          helm lint --strict charts/data-dictionary -f "${HELM_VALUES_FILE}"
+          helm template "${HELM_RELEASE}" charts/data-dictionary \
+            --namespace "${HELM_NAMESPACE}" \
+            -f "${HELM_VALUES_FILE}" \
+            --set "image.repository=${IMAGE_NAME}" \
+            --set "image.tag=${IMAGE_TAG}" \
+            "${PULL_SECRET_ARGS[@]}" > /dev/null
+
+      - name: Check cluster credentials
+        id: cluster
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: |
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "::notice::Dry-run enabled; Helm chart linted and rendered without applying to cluster."
+            echo "can_deploy=false" >> "$GITHUB_OUTPUT"
+          elif [ -n "${KUBE_CONFIG}" ]; then
+            echo "can_deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping cluster deploy: configure KUBE_CONFIG secret (and optional vars.HELM_VALUES_FILE) to deploy via Helm."
+            echo "can_deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Configure kubeconfig
+        if: steps.cluster.outputs.can_deploy == 'true'
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
           mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+          printf '%s' "${KUBE_CONFIG}" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
 
-      - name: Substitute image tag in deployment manifest
+      - name: Deploy with Helm
+        if: steps.cluster.outputs.can_deploy == 'true'
         run: |
-          export IMAGE_TAG="${{ needs.build.outputs.image_tag }}"
-          for file in k8s/*.yaml; do
-            envsubst '${IMAGE_TAG}' < "$file" > "$file.tmp" && mv "$file.tmp" "$file"
-          done
-          echo "Deploying image: ${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
-
-      - name: Apply Kubernetes manifests
-        run: kubectl apply -f k8s/
-
-      - name: Wait for rollout to complete
-        run: |
-          kubectl rollout status deployment/dd-app -n data-dictionary --timeout=120s
-          kubectl rollout status deployment/dd-api -n data-dictionary --timeout=120s
-          kubectl rollout status deployment/dd-sync-worker -n data-dictionary --timeout=120s
+          PULL_SECRET_ARGS=()
+          if [ -n "${IMAGE_PULL_SECRET}" ]; then
+            PULL_SECRET_ARGS=(--set "image.pullSecrets[0].name=${IMAGE_PULL_SECRET}")
+          fi
+          helm upgrade --install "${HELM_RELEASE}" charts/data-dictionary \
+            --namespace "${HELM_NAMESPACE}" \
+            --create-namespace \
+            -f "${HELM_VALUES_FILE}" \
+            --set "image.repository=${IMAGE_NAME}" \
+            --set "image.tag=${IMAGE_TAG}" \
+            "${PULL_SECRET_ARGS[@]}" \
+            --atomic \
+            --wait \
+            --timeout 5m
 
       - name: Verify deployment health
-        run: |
-          kubectl get pods -n data-dictionary
-          kubectl get svc -n data-dictionary
+        if: steps.cluster.outputs.can_deploy == 'true'
+        run: kubectl get deployments,pods,svc,ingress -n "${HELM_NAMESPACE}" -l "app.kubernetes.io/instance=${HELM_RELEASE}"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # 3. RELEASE — triggered on tags matching v*.*.*
@@ -129,7 +215,20 @@ jobs:
         id: tag
         run: echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
 
+      - name: Check registry credentials
+        id: registry
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          if [ -n "${GHCR_TOKEN}" ]; then
+            echo "can_push=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping release image push: configure GHCR_TOKEN secret to publish tagged images."
+            echo "can_push=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Log in to GitHub Container Registry
+        if: steps.registry.outputs.can_push == 'true'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -137,9 +236,11 @@ jobs:
           password: ${{ secrets.GHCR_TOKEN }}
 
       - name: Set up Docker Buildx
+        if: steps.registry.outputs.can_push == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push release image
+        if: steps.registry.outputs.can_push == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -161,6 +262,16 @@ jobs:
 
             ```
             docker pull ${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.version }}
+            ```
+
+            ## Helm deployment
+
+            ```bash
+            helm upgrade --install ${{ env.HELM_RELEASE }} charts/data-dictionary \
+              --namespace ${{ env.HELM_NAMESPACE }} --create-namespace \
+              -f charts/data-dictionary/values-prod.yaml \
+              --set image.repository=${{ env.IMAGE_NAME }} \
+              --set image.tag=${{ steps.tag.outputs.version }}
             ```
 
             Full changelog is auto-generated below.

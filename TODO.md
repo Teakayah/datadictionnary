@@ -80,11 +80,9 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done
   and API routers so group ordering differences don't fragment the cache, and invalidate/bump
   cache namespaces when Streamlit edits are approved or saved.
 
-- [ ] **Promote CI `pip-audit` to blocking and deploy via Helm.**
-  Set `continue-on-error: false` on `dependency-audit` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml),
-  and update [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) /
-  [`azure-pipelines.yml`](azure-pipelines.yml) to deploy `charts/data-dictionary/` with
-  externally managed Secrets instead of applying placeholder `k8s/secret.yaml`.
+- [ ] **Promote CI `pip-audit` to blocking.**
+  Set `continue-on-error: false` on `dependency-audit` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+  once all runtime dependencies are free of blocking advisories.
 
 ### Remaining UX & product enhancements
 
@@ -120,6 +118,7 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done
 - [x] **Search analytics alerts**: Enqueued a Health-dashboard notification for zero-result queries that persist for > 7 days (Localized in commit fb38cf8).
 - [x] **Review**: Perform a detailed technical and editorial review of the [Recommendation Engine](docs/feature-recommendation-engine.html) documentation and implementation.
 - [x] **Deployment**: Deploy the updated Kubernetes manifests to apply new security labels and hardened configurations. (Automated via CI/CD on push to main)
+- [x] **Helm CD pipeline migration**: Migrated [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) and [`azure-pipelines.yml`](azure-pipelines.yml) to deploy [`charts/data-dictionary/`](charts/data-dictionary/) (never applying placeholder `k8s/secret.yaml`), and enabled strict Helm validation + `push`-triggered Docker/Compose validation in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ---
 

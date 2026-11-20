@@ -19,6 +19,8 @@ variables:
   IMAGE_REPO: "$(ACR_NAME).azurecr.io/data-dictionary"
   K8S_NAMESPACE: "data-dictionary"
   K8S_CONNECTION: "$(K8S_SERVICE_CONNECTION)"  # AKS service connection name
+  HELM_RELEASE: "data-dictionary"
+  HELM_VALUES_FILE: "charts/data-dictionary/values-prod.yaml"
 
 stages:
 
@@ -54,6 +56,31 @@ stages:
             inputs:
               testResultsFiles: test-results.xml
               testRunTitle: "pytest"
+
+      - job: helm_validate
+        displayName: Validate Helm chart
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: HelmInstaller@1
+            displayName: Install Helm
+            inputs:
+              helmVersionToInstall: latest
+
+          - script: |
+              helm lint --strict charts/data-dictionary
+              helm lint --strict charts/data-dictionary -f charts/data-dictionary/values-showcase.yaml
+              helm lint --strict charts/data-dictionary -f charts/data-dictionary/values-prod.yaml
+              helm template dd-default charts/data-dictionary > /dev/null
+              helm template dd-showcase charts/data-dictionary -f charts/data-dictionary/values-showcase.yaml > /dev/null
+              helm template dd-prod charts/data-dictionary -f charts/data-dictionary/values-prod.yaml > /dev/null
+              if helm template dd-invalid charts/data-dictionary \
+                --set config.environment=production \
+                --set config.features.enableMockAuth=true > /dev/null 2>&1; then
+                echo "ERROR: values.schema.json failed to reject enableMockAuth=true in production"
+                exit 1
+              fi
+            displayName: Lint and render Helm templates
 
 # ── 2. Build ──────────────────────────────────────────────────────────────────
 
@@ -94,7 +121,7 @@ stages:
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     jobs:
       - deployment: deploy_aks
-        displayName: kubectl apply
+        displayName: Helm upgrade
         environment: production
         pool:
           vmImage: ubuntu-latest
@@ -104,94 +131,42 @@ stages:
               steps:
                 - checkout: self
 
-                - task: KubernetesManifest@1
-                  displayName: Apply namespace
+                - task: HelmInstaller@1
+                  displayName: Install Helm
                   inputs:
-                    action: deploy
-                    connectionType: kubernetesServiceConnection
-                    kubernetesServiceConnection: $(K8S_CONNECTION)
-                    namespace: $(K8S_NAMESPACE)
-                    manifests: k8s/namespace.yaml
+                    helmVersionToInstall: latest
 
-                - task: KubernetesManifest@1
-                  displayName: Apply config & secrets
-                  inputs:
-                    action: deploy
-                    connectionType: kubernetesServiceConnection
-                    kubernetesServiceConnection: $(K8S_CONNECTION)
-                    namespace: $(K8S_NAMESPACE)
-                    manifests: |
-                      k8s/configmap.yaml
-                      k8s/secret.yaml
+                - bash: |
+                    if [ -n "${PULL_SECRET_VAL}" ] && [ "${PULL_SECRET_VAL}" != '$(IMAGE_PULL_SECRET)' ]; then
+                      echo "##vso[task.setvariable variable=EXTRA_HELM_ARGS]--set image.pullSecrets[0].name=${PULL_SECRET_VAL}"
+                    else
+                      echo "##vso[task.setvariable variable=EXTRA_HELM_ARGS]"
+                    fi
+                  displayName: Resolve optional Helm overrides
+                  env:
+                    PULL_SECRET_VAL: $(IMAGE_PULL_SECRET)
 
-                - task: KubernetesManifest@1
-                  displayName: Apply network policies
+                - task: HelmDeploy@0
+                  displayName: Helm upgrade --install
                   inputs:
-                    action: deploy
-                    connectionType: kubernetesServiceConnection
+                    connectionType: Kubernetes Service Connection
                     kubernetesServiceConnection: $(K8S_CONNECTION)
                     namespace: $(K8S_NAMESPACE)
-                    manifests: |
-                      k8s/networkpolicies.yaml
-
-                - task: KubernetesManifest@1
-                  displayName: Apply storage
-                  inputs:
-                    action: deploy
-                    connectionType: kubernetesServiceConnection
-                    kubernetesServiceConnection: $(K8S_CONNECTION)
-                    namespace: $(K8S_NAMESPACE)
-                    manifests: |
-                      k8s/pvc.yaml
-                      k8s/pvc-redis.yaml
-
-                - task: KubernetesManifest@1
-                  displayName: Apply workloads
-                  inputs:
-                    action: deploy
-                    connectionType: kubernetesServiceConnection
-                    kubernetesServiceConnection: $(K8S_CONNECTION)
-                    namespace: $(K8S_NAMESPACE)
-                    manifests: |
-                      k8s/deployment.yaml
-                      k8s/deployment-api.yaml
-                      k8s/deployment-sync-worker.yaml
-                      k8s/deployment-redis.yaml
-                      k8s/service.yaml
-                      k8s/service-api.yaml
-                      k8s/service-redis.yaml
-                      k8s/ingress.yaml
-                      k8s/hpa.yaml
-                      k8s/pdb.yaml
-                      k8s/resourcequota.yaml
-                    containers: |
-                      $(IMAGE_REPO):$(Build.BuildId)
-                    imagePullSecrets: |
-                      $(IMAGE_PULL_SECRET)
+                    command: upgrade
+                    install: true
+                    waitForExecution: true
+                    chartType: FilePath
+                    chartPath: charts/data-dictionary
+                    releaseName: $(HELM_RELEASE)
+                    valueFile: $(HELM_VALUES_FILE)
+                    overrideValues: image.repository=$(IMAGE_REPO),image.tag=$(Build.BuildId)
+                    arguments: --create-namespace --atomic --timeout 5m $(EXTRA_HELM_ARGS)
 
                 - task: Kubernetes@1
-                  displayName: Wait for dd-app rollout
+                  displayName: Verify Helm release workloads
                   inputs:
                     connectionType: kubernetesServiceConnection
                     kubernetesServiceEndpoint: $(K8S_CONNECTION)
                     namespace: $(K8S_NAMESPACE)
-                    command: rollout
-                    arguments: status deployment/dd-app --timeout=5m
-
-                - task: Kubernetes@1
-                  displayName: Wait for dd-api rollout
-                  inputs:
-                    connectionType: kubernetesServiceConnection
-                    kubernetesServiceEndpoint: $(K8S_CONNECTION)
-                    namespace: $(K8S_NAMESPACE)
-                    command: rollout
-                    arguments: status deployment/dd-api --timeout=5m
-
-                - task: Kubernetes@1
-                  displayName: Wait for dd-sync-worker rollout
-                  inputs:
-                    connectionType: kubernetesServiceConnection
-                    kubernetesServiceEndpoint: $(K8S_CONNECTION)
-                    namespace: $(K8S_NAMESPACE)
-                    command: rollout
-                    arguments: status deployment/dd-sync-worker --timeout=5m
+                    command: get
+                    arguments: deployments,pods,svc,ingress -l app.kubernetes.io/instance=$(HELM_RELEASE)

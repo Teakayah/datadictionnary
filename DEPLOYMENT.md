@@ -271,23 +271,28 @@ kubectl get events -n data-dictionary --sort-by='.lastTimestamp' | tail -30
 
 ## 8. Release process
 
-1. Merge all changes to `main`. The `test → build → deploy` pipeline runs automatically and deploys the `sha-<commit>` image to the cluster.
+1. Merge all changes to `main`. `.github/workflows/deploy.yml` builds/pushes the `sha-<commit>` image (when `GHCR_TOKEN` is configured), strictly lints and renders `charts/data-dictionary/`, and runs `helm upgrade --install` (when `KUBE_CONFIG` is configured and `dry_run` is not set). You can also trigger `.github/workflows/deploy.yml` manually via **workflow_dispatch** to choose `values-prod.yaml` or `values-showcase.yaml`, supply an existing `image_tag`, or run a Helm render-only `dry_run`.
 
-2. When ready to cut a versioned release, tag `main`:
+2. GitHub Actions deployment configuration (all optional until connecting a cluster):
+   - **Secrets**: `GHCR_TOKEN` (container registry push token), `KUBE_CONFIG` (base64-encoded kubeconfig).
+   - **Repository variables**: `IMAGE_NAME` (default `ghcr.io/org/data-dictionary`), `CONTAINER_REGISTRY` (default `ghcr.io`), `IMAGE_PULL_SECRET`, `HELM_RELEASE` (default `data-dictionary`), `HELM_NAMESPACE` (default `data-dictionary`), `HELM_VALUES_FILE` (default `charts/data-dictionary/values-prod.yaml`), `APP_URL`.
+
+3. When ready to cut a versioned release, tag `main`:
 
    ```bash
    git tag v1.2.0
    git push origin v1.2.0
    ```
 
-3. The `release` job in GitHub Actions triggers automatically, builds the image tagged `v1.2.0` and `stable`, and creates a GitHub Release with an auto-generated changelog.
+4. The `release` job in GitHub Actions triggers automatically, builds the image tagged `v1.2.0` and `stable` (when `GHCR_TOKEN` is set), and creates a GitHub Release with an auto-generated changelog.
 
-4. To deploy the release image to the cluster, update `k8s/deployment.yaml` to reference the new tag and push to `main` (or apply directly):
+5. Deploy a versioned release image via Helm:
 
    ```bash
-   sed -i 's|image: ghcr.io/org/data-dictionary:.*|image: ghcr.io/org/data-dictionary:v1.2.0|' k8s/deployment.yaml
-   git commit -am "chore: deploy v1.2.0"
-   git push
+   helm upgrade --install data-dictionary charts/data-dictionary \
+     --namespace data-dictionary --create-namespace \
+     -f charts/data-dictionary/values-prod.yaml \
+     --set image.tag=v1.2.0
    ```
 
 ---
