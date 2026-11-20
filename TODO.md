@@ -9,11 +9,111 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done
 
 ## Next steps (open)
 
-- [ ] **Make mutable storage safe before enabling HA replicas.** The retained HA proposal
-  scales Streamlit over shared writable DuckDB files. Design a multi-process-safe path for
-  mutable `user_data` (for example PostgreSQL), migrate all affected writes and the sync
-  worker, and test concurrent writes, failure recovery, and rollout before enabling replicas.
-  Do not merge the HA proposal as-is; read-only mode alone would disable existing writes.
+### Before live Entra ID + Unity Catalog production
+
+- [ ] **Make mutable storage safe before enabling HA replicas (also fixes DuckDB single-writer lock contention).**
+  The retained HA proposal scales Streamlit over shared writable DuckDB files, and `dd-app`
+  ([`src/db/duckdb_adapter.py`](src/db/duckdb_adapter.py)) plus `dd-sync-worker`
+  ([`src/sync/daemon_db.py`](src/sync/daemon_db.py)) both currently hold long-lived read-write
+  DuckDB connections to `user_data` on the shared RWX PVC. Move mutable `user_data` to a
+  multi-process-safe store (for example PostgreSQL), migrate all affected writes and the sync
+  worker, and test concurrent writes, failure recovery, and rollout before scaling `dd-app`
+  beyond 1 replica. Do not merge the HA proposal as-is; read-only mode alone would disable
+  existing writes.
+
+- [ ] **Partition MSAL token cache per session (`src/auth.py`).**
+  `get_msal_app()` caches a single `ConfidentialClientApplication` (with an in-memory shared
+  token cache) via `@st.cache_resource`, and `_try_silent_refresh()` falls back to
+  `msal_app.get_accounts()[0]` when `user_email` is empty while skipping group re-resolution.
+  Store a per-session `msal.SerializableTokenCache` in `st.session_state`, look up accounts
+  strictly by `home_account_id` / `oid` (no `accounts[0]` fallback), and re-resolve user
+  groups on silent refresh.
+
+- [ ] **Reconcile Entra Group OIDs with Unity Catalog grants and inherited privileges (`scripts/sync_metadata.py`).**
+  `permissions_cache` currently ingests raw `grantee` strings from
+  `system.information_schema.table_privileges` (display names/emails, direct table grants only),
+  while Entra ID claims and Graph `getMemberObjects` return Group Object IDs (GUIDs). Map
+  Entra Group OIDs to Unity Catalog principals during sync, union inherited
+  `catalog_privileges` and `schema_privileges` with `table_privileges`, and map Databricks
+  `account users` to `SELECT_ALL_USERS`.
+
+- [ ] **Harden Data Preview against privilege & row-filter/column-mask bypass (`src/ui/cards/detail.py`).**
+  `render_data_sample()` runs `SELECT * LIMIT 100` using the shared `DATABRICKS_TOKEN` PAT
+  after checking only cached membership in `permissions_cache` (without checking
+  `privilege = 'SELECT'`, risking metadata-only `BROWSE` escalation and bypassing Unity Catalog
+  row filters / column masks). Execute preview using the caller's OBO Databricks token, or gate
+  preview behind an explicit `ENABLE_DATA_PREVIEW` flag restricted to `SELECT` grants on
+  unmasked/unfiltered tables.
+
+- [ ] **Fix live API/MCP Entra groups overage and JWKS rotation (`src/api/auth.py`).**
+  `_fetch_groups_graph()` currently sends the API-audience JWT directly to
+  `graph.microsoft.com/v1.0/me/getMemberObjects` (Entra rejects wrong-audience tokens),
+  does not follow `@odata.nextLink` pagination, and caches failed `[]` responses in Redis for
+  1 hour. Switch Graph lookup to On-Behalf-Of (OBO) or app-only client credentials, add
+  pagination matching `src/auth_graph.py`, never cache transient errors in Redis, and force a
+  `_get_jwks()` refresh when a token `kid` is missing from cached keys.
+
+### Security hardening before ITSG-33 / production sign-off
+
+- [ ] **Tighten API CORS and Redis transport/auth defaults.**
+  Replace the `ALLOWED_ORIGINS = ["*"]` fallback in [`src/api/main.py`](src/api/main.py)
+  with explicit environment origins (already set in `values-prod.yaml`), and configure Redis
+  with authentication (`--requirepass` / Secret) and TLS in Kubernetes/Helm.
+
+- [ ] **Enforce permission filtering on downstream lineage counts and write-path target tables.**
+  `get_multi_hop_lineage()` ([`src/db/queries.py`](src/db/queries.py)) called by
+  [`src/pages/search.py`](src/pages/search.py) omits the `permissions_cache` join (disclosing
+  counts/certified flags of unauthorized downstream tables), and `save_table_metadata()`
+  ([`src/audit.py`](src/audit.py)) checks `is_power_user()` globally without checking access to
+  `table_full_name`. Add group filtering to `get_multi_hop_lineage()` and verify table-level
+  authorization on writes.
+
+- [ ] **Harden Graph pagination, pipeline URL parameters, and API override table routing.**
+  Validate `next_url.startswith("https://graph.microsoft.com/")` before sending the Bearer
+  token in [`src/auth_graph.py`](src/auth_graph.py); URL-encode/validate ADF & ADO path
+  segments in [`src/pipelines.py`](src/pipelines.py); and replace hardcoded
+  `user_data.business_name_overrides` in [`src/api/queries.py`](src/api/queries.py)
+  (`get_table_details`) with `_overrides_tables()`.
+
+- [ ] **Normalize Redis cache keys and invalidate API/MCP cache on metadata writes.**
+  Sort `user.groups` before hashing cache keys in [`src/mcp_server/server.py`](src/mcp_server/server.py)
+  and API routers so group ordering differences don't fragment the cache, and invalidate/bump
+  cache namespaces when Streamlit edits are approved or saved.
+
+- [ ] **Promote CI `pip-audit` to blocking and deploy via Helm.**
+  Set `continue-on-error: false` on `dependency-audit` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml),
+  and update [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) /
+  [`azure-pipelines.yml`](azure-pipelines.yml) to deploy `charts/data-dictionary/` with
+  externally managed Secrets instead of applying placeholder `k8s/secret.yaml`.
+
+### Remaining UX & product enhancements
+
+- [ ] **Shareable deep-link URLs (`?tab=search&table=...`).**
+  Persist the selected `full_name` in `st.query_params` in [`src/pages/search.py`](src/pages/search.py)
+  so table detail views survive refreshes and can be shared with colleagues.
+
+- [ ] **Unify metadata + friendly-name editing and surface field-level validation errors.**
+  Consolidate *Edit table* and *Edit friendly name* into a single clear editorial workflow,
+  pass the unescaped `steward_email` rather than HTML-escaped `_steward` into
+  `render_table_metadata_editor()` ([`src/pages/search.py`](src/pages/search.py#L197)), and
+  render actionable validation errors in [`src/ui/cards/detail.py`](src/ui/cards/detail.py).
+
+- [ ] **Back business glossary search with a real UC/DuckDB table.**
+  Replace `_DEMO_GLOSSARY` dependency in [`src/db/queries.py`](src/db/queries.py) with a
+  synced glossary table (or UC tags/table) so glossary search works in non-demo environments.
+
+- [ ] **Search pagination and catalog/schema/DQ facet filters.**
+  Replace the hard `50`-row cap in [`src/pages/search.py`](src/pages/search.py) with pagination
+  plus catalog, schema, and completeness-grade facets.
+
+- [ ] **UI polish & air-gapped font hosting.**
+  Clean up per-rerun `MutationObserver` registration in [`src/ui/header.py`](src/ui/header.py),
+  render `f"{CATALOG_CACHE}.{SCHEMA_CACHE}"` dynamically in the footer, remove remaining UI
+  emojis in [`src/pages/catalog.py`](src/pages/catalog.py), [`src/pages/search.py`](src/pages/search.py),
+  [`src/ui/cards/discovery.py`](src/ui/cards/discovery.py), and [`src/ui/cards/detail.py`](src/ui/cards/detail.py),
+  and vendor fonts locally for air-gapped networks.
+
+### Completed items
 
 - [x] **Docs bundle rebuild**: `docs/data-dictionary-docs.html` (SPA bundle) and `docs/data-dictionary-docs.pdf` are rebuilt (commit 2c36fb9).
 - [x] **Semantic search production hardening**: Wired `DATABRICKS_EMBEDDING_ENDPOINT`, added `ENABLE_SEMANTIC_SEARCH` env gate, and validated DuckDB VSS (commit 564614d).
