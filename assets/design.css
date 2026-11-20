@@ -257,6 +257,21 @@ code, pre, .stCode {
     font-size: 12px;
     color: var(--ink-80); /* was ink-40 (~2.8:1); ink-80 gives ~5.5:1 — WCAG AA */
 }
+.dd-nav a.dd-nav-signout {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-60);
+    border: 1px solid var(--ink-20);
+    border-radius: 2px;
+    padding: 3px 8px;
+    line-height: 1.3;
+    text-decoration: none;
+    transition: color var(--dur-hover) var(--ease), border-color var(--dur-hover) var(--ease);
+}
+.dd-nav a.dd-nav-signout:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+}
 
 /* ── Eyebrow ── */
 .dd-eyebrow {

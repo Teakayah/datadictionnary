@@ -255,6 +255,21 @@ class TestRenderDataSample:
 
     @patch("src.ui.cards.detail.get_authorized_table_names")
     @patch("src.ui.cards.detail.is_demo_mode")
+    def test_render_data_sample_bounded_height(self, mock_demo, mock_auth):
+        import streamlit as st
+        mock_auth.return_value = {"cat.sch.tbl"}
+        mock_demo.return_value = True
+
+        with patch.object(st, "dataframe", wraps=st.dataframe) as mock_df:
+            at = AppTest.from_function(data_sample_app, args=("cat.sch.tbl",)).run()
+
+        assert not at.exception
+        mock_df.assert_called_once()
+        height = mock_df.call_args.kwargs.get("height")
+        assert height is not None and 160 <= height <= 600
+
+    @patch("src.ui.cards.detail.get_authorized_table_names")
+    @patch("src.ui.cards.detail.is_demo_mode")
     @patch("src.ui.cards.detail._duckdb_available")
     @patch("src.ui.cards.detail.run_query")
     def test_render_data_sample_duckdb_query(self, mock_run, mock_duckdb, mock_demo, mock_auth):

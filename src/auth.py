@@ -76,6 +76,26 @@ def _clear_auth_session() -> None:
         st.session_state.pop(key, None)
 
 
+def sign_out() -> None:
+    """Sign out the current user and reset auth/navigation session state."""
+    _clear_auth_session()
+    for key in (
+        "group_filter",
+        "_dd_sticky_nav",
+        "dd_nav_select",
+        "dd_search_override",
+        "catalog_search",
+        "_dd_current_search_query",
+        "bookmarks",
+        "col_bookmarks",
+        "recent_views",
+        "dd_col_edit_mode",
+        "_editing_enabled_cache",
+    ):
+        st.session_state.pop(key, None)
+    st.query_params.clear()
+
+
 def _resolve_user_groups(claims: dict, access_token: str) -> list[str]:
     """Return the user's security-group membership list.
 

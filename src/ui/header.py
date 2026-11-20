@@ -61,7 +61,13 @@ def _build_lang_toggle(locale: str) -> str:
     )
 
 
-def _render_proxy_buttons(tabs: list[str]) -> None:
+def _handle_sign_out() -> None:
+    # Lazy import breaks the src.auth <-> src.ui.header circular dependency.
+    from src.auth import sign_out
+    sign_out()
+
+
+def _render_proxy_buttons(tabs: list[str], show_sign_out: bool = False) -> None:
     with st.container():
         st.markdown('<div id="dd-proxy-anchor"></div>', unsafe_allow_html=True)
         for tab_id in tabs:
@@ -71,6 +77,8 @@ def _render_proxy_buttons(tabs: list[str]) -> None:
         # on_click fires before rerun so render_header() picks up the new locale.
         st.button("LOCALE_EN", key="lang_btn_en", on_click=set_locale, args=("en",))
         st.button("LOCALE_FR", key="lang_btn_fr", on_click=set_locale, args=("fr",))
+        if show_sign_out:
+            st.button("ACTION_SIGNOUT", key="nav_sign_out", on_click=_handle_sign_out)
 
 
 def _inject_wiring_js(tabs: list[str]) -> None:
@@ -119,6 +127,18 @@ def _inject_wiring_js(tabs: list[str]) -> None:
                     if (btn) btn.click();
                 }});
             }});
+
+            // 4. Wire Sign out
+            parentDoc.querySelectorAll('a.dd-nav-signout[data-action="signout"]').forEach(link => {{
+                if (link._wired === iframeId) return;
+                link._wired = iframeId;
+                link.addEventListener('click', function(e) {{
+                    e.preventDefault();
+                    const currentBtns = Array.from(parentDoc.querySelectorAll('button'));
+                    const btn = currentBtns.find(b => b.textContent.trim() === 'ACTION_SIGNOUT');
+                    if (btn) btn.click();
+                }});
+            }});
         }}
 
         // Initial wire
@@ -145,9 +165,11 @@ def render_header(
 
     user_section = ""
     if user_name:
+        sign_out_label = _html.escape(t("nav.sign_out"))
         user_section = (
             f'<span class="dd-nav-sep"></span>'
             f'<span class="dd-nav-user">{_html.escape(user_name)}</span>'
+            f'<a href="#" data-action="signout" class="dd-nav-signout" title="{sign_out_label}">{sign_out_label}</a>'
         )
 
     def link(label: str, tab_id: str) -> str:
@@ -190,7 +212,7 @@ def render_header(
     if show_admin:
         tabs.append("admin")
 
-    _render_proxy_buttons(tabs)
+    _render_proxy_buttons(tabs, show_sign_out=bool(user_name))
     _inject_wiring_js(tabs)
 
 

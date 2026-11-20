@@ -165,7 +165,8 @@ def render_data_sample(table_full_name: str):
             query = "".join(["SELECT * FROM ", _safe_table_name, " LIMIT 100"])
             df = run_query(query, params)
         if df is not None and not df.empty:
-            st.dataframe(df, use_container_width=True, height=2000)
+            _preview_height = min(600, max(160, (len(df) + 1) * 35 + 16))
+            st.dataframe(df, use_container_width=True, height=_preview_height)
         else:
             _render_empty_state("📭", t("detail.preview_needs_data"))
     except Exception as e:

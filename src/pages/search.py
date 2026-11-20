@@ -619,6 +619,66 @@ def _render_detail_panel(row: _pd.Series, full_name: str, query_groups: tuple) -
                         st.rerun()
 
 
+def _match_row_by_full_name(df: _pd.DataFrame | None, target_fn: str) -> _pd.Series | None:
+    """Return the first row in ``df`` whose full_name equals ``target_fn``."""
+    if df is None or df.empty:
+        return None
+    if "full_name" in df.columns:
+        mask = df["full_name"].fillna("").astype(str).to_numpy() == target_fn
+        matched = df[mask]
+        if not matched.empty:
+            return matched.iloc[0]
+    if {"catalog_name", "schema_name", "table_name"}.issubset(df.columns):
+        computed = (
+            df["catalog_name"].fillna("").astype(str)
+            + "."
+            + df["schema_name"].fillna("").astype(str)
+            + "."
+            + df["table_name"].fillna("").astype(str)
+        ).to_numpy()
+        matched = df[computed == target_fn]
+        if not matched.empty:
+            return matched.iloc[0]
+    return None
+
+
+def _resolve_selected_table_row(
+    nav_target: str | None,
+    results: _pd.DataFrame,
+    all_tables: _pd.DataFrame | None,
+) -> tuple[_pd.Series | None, str | None]:
+    """Resolve ``nav_target`` to a metadata row and canonical ``full_name``.
+
+    Matches exact ``full_name`` in ``Table`` search hits first, then falls back
+    to the authorized tables catalog so clicking a Column or Glossary card
+    opens the parent table even when the table itself wasn't a ``Table`` hit.
+    Bare ``table_name`` matching is only used when no dotted full_name is
+    available in minimal test fixtures.
+    """
+    if not nav_target:
+        return None, None
+    table_results = (
+        results[results["match_type"].to_numpy() == "Table"]
+        if "match_type" in results.columns
+        else results
+    )
+    row = _match_row_by_full_name(table_results, nav_target)
+    if row is None:
+        row = _match_row_by_full_name(all_tables, nav_target)
+    if row is None and ("." not in nav_target or "full_name" not in table_results.columns):
+        if "table_name" in table_results.columns:
+            nav_name = nav_target.split(".")[-1]
+            matched = table_results[table_results["table_name"].fillna("").astype(str).to_numpy() == nav_name]
+            if not matched.empty:
+                row = matched.iloc[0]
+    if row is None:
+        return None, None
+    fn = str(row["full_name"]) if "full_name" in row and row["full_name"] else ""
+    if not fn or fn == "nan" or fn == "None":
+        fn = f"{row['catalog_name']}.{row['schema_name']}.{row['table_name']}"
+    return row, fn
+
+
 def render_search_page(query_groups: tuple) -> None:
     """Render the search tab: hero, search box, result cards, and table detail panel."""
     active_group = st.session_state.get("group_filter")
@@ -683,6 +743,10 @@ def render_search_page(query_groups: tuple) -> None:
             else []
         )
 
+    _active_query = st.session_state.get("catalog_search")
+    if isinstance(_active_query, str) and _active_query and _active_query not in _table_options:
+        _table_options = [_active_query, *_table_options]
+
     search_query = st.selectbox(
         t("common.search"),
         options=_table_options,
@@ -691,6 +755,7 @@ def render_search_page(query_groups: tuple) -> None:
         label_visibility="collapsed",
         key="catalog_search",
         help=t("search.start_typing"),
+        accept_new_options=True,
     )
 
     _prev_query = st.session_state.get("_dd_current_search_query")
@@ -756,17 +821,10 @@ def render_search_page(query_groups: tuple) -> None:
                 logging.warning("Failed to track search analytics: %s", ae)
 
             if results is not None and not results.empty:
-                # ⚡ Bolt: Use .to_numpy() to skip index alignment overhead
-                _table_results = results[results["match_type"].to_numpy() == "Table"] if "match_type" in results.columns else results
-                _table_names   = _table_results["table_name"].tolist()
-                _nav_target    = st.session_state.get("_dd_sticky_nav")
-                _nav_idx       = None
-                if _nav_target:
-                    _nav_name = _nav_target.split(".")[-1]
-                    if _nav_name in _table_names:
-                        _nav_idx = _table_names.index(_nav_name)
+                _nav_target = st.session_state.get("_dd_sticky_nav")
+                _selected_row, _selected_fn = _resolve_selected_table_row(_nav_target, results, _all_tables)
 
-                if _nav_idx is None:
+                if _selected_row is None:
                     def _s(v):
                         return "" if _pd.isna(v) else str(v)
                     _results_to_show = results
@@ -796,14 +854,11 @@ def render_search_page(query_groups: tuple) -> None:
                                     st.error(t("detail.unauthorized"))
                         st.markdown('<div style="margin-bottom:8px;"></div>', unsafe_allow_html=True)
 
-                if _nav_idx is not None:
-                    # ⚡ Bolt: Use .to_numpy() to skip index alignment overhead
-                    _row     = _table_results[_table_results["table_name"].to_numpy() == _table_names[_nav_idx]].iloc[0]
-                    full_name = f"{_row['catalog_name']}.{_row['schema_name']}.{_row['table_name']}"
+                if _selected_row is not None and _selected_fn is not None:
                     if st.button(t('search.back_to_results_btn'), key="search_back", help=t("search.back_to_results_help")):
                         st.session_state.pop("_dd_sticky_nav", None)
                         st.rerun()
-                    _render_detail_panel(_row, full_name, query_groups)
+                    _render_detail_panel(_selected_row, _selected_fn, query_groups)
             else:
                 _render_empty_state("🔍", t("search.no_results", query=search_query))
 

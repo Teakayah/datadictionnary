@@ -764,3 +764,136 @@ def test_uncovered_lines_search():
                 break
 
         assert not at.exception
+
+
+def test_search_query_free_text_not_in_table_options():
+    """Users can type arbitrary free-text business terms via accept_new_options=True."""
+    import streamlit as st
+
+    def render_search():
+        import streamlit as st_inner
+        from src.pages.search import render_search_page
+
+        st_inner.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+    at.session_state["catalog_search"] = "revenue"
+    mock_authorized = pd.DataFrame([{
+        "full_name": "main.sales.fct_gross_sales",
+        "table_name": "fct_gross_sales",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "table_description": "Gross revenue summary",
+    }])
+    mock_results = pd.DataFrame([{
+        "full_name": "main.sales.fct_gross_sales",
+        "name": "fct_gross_sales",
+        "table_name": "fct_gross_sales",
+        "match_type": "Table",
+        "catalog_name": "main",
+        "schema_name": "sales",
+        "description": "Gross revenue summary",
+        "dq_score": 90,
+    }])
+
+    orig_selectbox = st.selectbox
+    captured_kwargs = {}
+
+    def spy_selectbox(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+        return orig_selectbox(*args, **kwargs)
+
+    with patch("src.pages.search.st.selectbox", side_effect=spy_selectbox), \
+         patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_results) as mock_search, \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.track_search"):
+        at.run()
+
+        assert not at.exception
+        assert captured_kwargs.get("accept_new_options") is True
+        mock_search.assert_called_once_with("revenue", ("group1",))
+        assert any(b.key and b.key.startswith("view_main.sales.fct_gross_sales_") for b in at.button)
+
+
+def test_search_duplicate_table_names_resolves_exact_full_name():
+    """Clicking View details on main.gold.orders opens main.gold.orders, not main.bronze.orders."""
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+    mock_authorized = pd.DataFrame([
+        {"full_name": "main.bronze.orders", "table_name": "orders", "catalog_name": "main", "schema_name": "bronze", "table_description": "Raw orders"},
+        {"full_name": "main.gold.orders", "table_name": "orders", "catalog_name": "main", "schema_name": "gold", "table_description": "Curated orders"},
+    ])
+    mock_results = pd.DataFrame([
+        {"full_name": "main.bronze.orders", "name": "orders", "table_name": "orders", "match_type": "Table", "catalog_name": "main", "schema_name": "bronze", "description": "Raw orders", "dq_score": 50},
+        {"full_name": "main.gold.orders", "name": "orders", "table_name": "orders", "match_type": "Table", "catalog_name": "main", "schema_name": "gold", "description": "Curated orders", "dq_score": 100},
+    ])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_results), \
+         patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame()), \
+         patch("src.pages.search.get_multi_hop_lineage", return_value=pd.DataFrame()), \
+         patch("src.pages.search._build_lineage_graph", return_value=([{"id": "main.gold.orders", "label": "orders", "current": True}], [])), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.track_search"), \
+         patch("src.pages.search._pref_upsert"):
+        at.run()
+        at.selectbox(key="catalog_search").set_value("orders").run()
+
+        gold_btn = next(b for b in at.button if b.key and b.key.startswith("view_main.gold.orders_"))
+        gold_btn.click().run()
+
+        assert not at.exception
+        assert at.session_state["_dd_sticky_nav"] == "main.gold.orders"
+        assert any("main.gold.orders" in c.value for c in at.code)
+
+
+def test_search_column_match_opens_parent_table_detail():
+    """Clicking View details on a Column match opens the parent table detail panel."""
+    def render_search():
+        import streamlit as st
+        from src.pages.search import render_search_page
+
+        st.session_state["user_email"] = "test@example.com"
+        render_search_page(("group1",))
+
+    at = AppTest.from_function(render_search)
+    at.session_state["catalog_search"] = "net_revenue"
+    mock_authorized = pd.DataFrame([
+        {"full_name": "main.sales.orders", "table_name": "orders", "catalog_name": "main", "schema_name": "sales", "table_description": "Customer orders", "dq_score": 85},
+    ])
+    mock_results = pd.DataFrame([
+        {"full_name": "main.sales.orders", "name": "net_revenue", "table_name": "orders", "match_type": "Column", "catalog_name": "main", "schema_name": "sales", "description": "Order total", "dq_score": 85},
+    ])
+
+    with patch("src.pages.search.get_authorized_tables", return_value=mock_authorized), \
+         patch("src.pages.search.search_all_metadata", return_value=mock_results), \
+         patch("src.pages.search.get_table_columns", return_value=pd.DataFrame(columns=["column_name", "data_type", "comment"])), \
+         patch("src.pages.search.get_table_comments", return_value=[]), \
+         patch("src.pages.search.get_table_steward", return_value=""), \
+         patch("src.pages.search.get_column_overrides", return_value={}), \
+         patch("src.pages.search.run_query", return_value=pd.DataFrame()), \
+         patch("src.pages.search.get_multi_hop_lineage", return_value=pd.DataFrame()), \
+         patch("src.pages.search._build_lineage_graph", return_value=([{"id": "main.sales.orders", "label": "orders", "current": True}], [])), \
+         patch("src.pages.search.t", side_effect=lambda k, **kw: k), \
+         patch("src.pages.search.track_search"), \
+         patch("src.pages.search._pref_upsert"):
+        at.run()
+
+        view_btn = next(b for b in at.button if b.key and b.key.startswith("view_main.sales.orders_"))
+        view_btn.click().run()
+
+        assert not at.exception
+        assert at.session_state["_dd_sticky_nav"] == "main.sales.orders"
+        assert any("main.sales.orders" in c.value for c in at.code)

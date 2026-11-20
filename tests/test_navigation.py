@@ -668,3 +668,36 @@ class TestAuthHardening:
             at.run()
         assert not at.exception, f"Exception: {at.exception}"
         mock_app.acquire_token_silent.assert_called_once()
+
+    def test_sign_out_renders_control_and_clears_session(self, monkeypatch):
+        """Signed-in header renders a sign-out control and resets mock session state on click."""
+        monkeypatch.setenv("ENABLE_MOCK_AUTH", "true")
+        monkeypatch.setenv("ENVIRONMENT", "development")
+        monkeypatch.setenv("DEMO_DATA", "true")
+        sql_returns(make_tables_df())
+
+        at = authenticated_app(tab="search", mock_login=True)
+        at.session_state["user_email"] = "finance.user@research-org.ca"
+        at.session_state["group_filter"] = "finance_group"
+        at.session_state["_dd_sticky_nav"] = "main.sales.orders"
+        at.run()
+
+        assert not at.exception, f"Exception: {at.exception}"
+        signout_btn = next((b for b in at.button if b.key == "nav_sign_out"), None)
+        assert signout_btn is not None
+        html_bodies = [
+            getattr(el.proto, "body", "")
+            for el in getattr(at, "main", [])
+            if type(el).__name__ in ("Html", "UnknownElement") and getattr(el, "type", "") == "html"
+        ]
+        assert any("dd-nav-signout" in body and t("nav.sign_out") in body for body in html_bodies)
+
+        signout_btn.click().run()
+
+        assert not at.exception, f"Exception: {at.exception}"
+        assert not at.session_state["authenticated"]
+        assert "user_groups" not in at.session_state
+        assert "user_name" not in at.session_state
+        assert "user_email" not in at.session_state
+        assert "mock_login" not in at.query_params
+        assert len(at.selectbox) > 0  # Mock department selector is back on sign-in screen

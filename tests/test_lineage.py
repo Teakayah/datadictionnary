@@ -131,3 +131,23 @@ def test_trigger_lineage_navigation_sets_state_and_reruns():
             pass
         assert st.session_state.get("dd_search_override") == "target_tbl"
         assert st.session_state.get("dd_nav_select") == "db.s.target_tbl"
+
+
+def test_lineage_uses_vendored_vis_network_offline():
+    from src.ui.lineage import _LINEAGE_V2_JS, _build_lineage_v2_js, _load_vis_network_js
+
+    vendored = _load_vis_network_js()
+    assert len(vendored) > 200_000
+    assert "DataSet" in vendored and "Network" in vendored
+
+    assert "unpkg.com" not in _LINEAGE_V2_JS
+    built_v2 = _build_lineage_v2_js()
+    assert "unpkg.com" not in built_v2
+    assert "__DD_VIS_SRC__" in built_v2
+
+    html = _lineage_vis_html(
+        [{"id": "n1", "label": "n1", "current": True, "relationship": "Current"}],
+        [],
+    )
+    assert "unpkg.com" not in html
+    assert "vis.DataSet" in html

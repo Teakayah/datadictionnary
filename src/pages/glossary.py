@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html as _html
 import json
+import re
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -12,6 +13,7 @@ from src.db.queries import get_authorized_table_names
 from src.demo.data import _DEMO_GLOSSARY
 from src.i18n import t
 from src.personalization import _pref_upsert, _pref_delete
+from src.ui.lineage import _load_vis_network_js
 
 
 
@@ -102,10 +104,11 @@ def _render_concept_map(selected_term: str, term_row) -> None:
 
     nodes_js = json.dumps(graph_nodes).replace("</", "<\\/")
     edges_js = json.dumps(graph_links).replace("</", "<\\/")
+    vis_js = re.sub(r"</script", r"<\\/script", _load_vis_network_js(), flags=re.IGNORECASE)
     graph_html = (
         f'<div id="mynetwork_glossary" style="width: 100%; height: 300px; background: #F2EDE1; '
         f'border-radius: 4px; border: 1px solid #C9C2B4; overflow: hidden; margin-top: 16px;"></div>'
-        f'<script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>'
+        f'<script type="text/javascript">{vis_js}</script>'
         f'<script type="text/javascript">'
         f'var nodes = new vis.DataSet({nodes_js}); '
         f'var edges = new vis.DataSet({edges_js}); '

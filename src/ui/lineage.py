@@ -2,8 +2,11 @@ from __future__ import annotations
 """Lineage graph building and rendering components."""
 
 
+import functools
 import json
+import re
 import weakref
+from pathlib import Path
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -11,6 +14,14 @@ import streamlit.components.v1 as components
 from src.config import CATALOG_CACHE, SCHEMA_CACHE
 from src.i18n import t
 from src.ui.css import VIS_WIDE_CSS
+
+_VIS_VENDOR_PATH = Path(__file__).resolve().parents[2] / "assets" / "vendor" / "vis-network.min.js"
+
+
+@functools.lru_cache(maxsize=1)
+def _load_vis_network_js() -> str:
+    """Load the vendored vis-network UMD bundle for offline lineage rendering."""
+    return _VIS_VENDOR_PATH.read_text(encoding="utf-8")
 
 
 def _build_lineage_graph(start_fn: str, start_label: str, query_groups: list, run_query, max_depth: int = 2):
@@ -112,10 +123,11 @@ def _lineage_vis_html(graph_nodes: list, graph_links: list, height: int = 350, c
              and the initialization script to render the graph.
     """
     min_scale = 0.8 if height < 600 else 0.75
+    vis_js = re.sub(r"</script", r"<\\/script", _load_vis_network_js(), flags=re.IGNORECASE)
     return (
         f'<div id="{container_id}" style="width:100%;height:{height}px;background:#F2EDE1;border-radius:4px;'
         f'border:1px solid #C9C2B4;overflow:hidden;margin-top:16px;"></div>'
-        f'<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>'
+        f'<script>{vis_js}</script>'
         f'<script>'
         f'var nodes=new vis.DataSet({nodes_js});'
         f'var edges=new vis.DataSet({edges_js});'
@@ -179,36 +191,20 @@ export default function(component) {
         if (window.vis && window.vis.Network) {
             return Promise.resolve(window.vis);
         }
-        if (!window._ddVisPromise) {
-            window._ddVisPromise = new Promise((resolve, reject) => {
-                const existing = document.querySelector('script[data-dd-vis="1"]');
-                if (existing) {
-                    if (existing.dataset.ddLoaded === "1" && window.vis) {
-                        resolve(window.vis);
-                        return;
-                    }
-                    existing.addEventListener("load", () => resolve(window.vis), { once: true });
-                    existing.addEventListener("error", () => {
-                        window._ddVisPromise = null;
-                        reject(new Error("vis load failed"));
-                    }, { once: true });
-                    return;
-                }
-                const s = document.createElement("script");
-                s.src = "https://unpkg.com/vis-network/standalone/umd/vis-network.min.js";
-                s.dataset.ddVis = "1";
-                s.onload = () => {
-                    s.dataset.ddLoaded = "1";
-                    resolve(window.vis);
-                };
-                s.onerror = () => {
-                    window._ddVisPromise = null;
-                    reject(new Error("vis load failed"));
-                };
-                document.head.appendChild(s);
-            });
+        if (typeof __DD_VIS_SRC__ !== "string" || !__DD_VIS_SRC__) {
+            return Promise.reject(new Error("vendored vis-network source missing"));
         }
-        return window._ddVisPromise;
+        const existing = document.querySelector('script[data-dd-vis="1"]');
+        if (!existing) {
+            const s = document.createElement("script");
+            s.dataset.ddVis = "1";
+            s.textContent = __DD_VIS_SRC__;
+            document.head.appendChild(s);
+            s.dataset.ddLoaded = "1";
+        }
+        return window.vis && window.vis.Network
+            ? Promise.resolve(window.vis)
+            : Promise.reject(new Error("vis load failed"));
     }
 
     loadVis().then((vis) => {
@@ -325,6 +321,12 @@ export default function(component) {
 _LINEAGE_COMPONENT_CACHE: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
 
 
+def _build_lineage_v2_js() -> str:
+    """Return the v2 component module JS with the vendored vis-network bundle inlined."""
+    vis_src_js = json.dumps(_load_vis_network_js()).replace("</", "<\\/")
+    return f"const __DD_VIS_SRC__ = {vis_src_js};\n{_LINEAGE_V2_JS}"
+
+
 def _get_lineage_component():
     """Return the v2 lineage component registered on the active Streamlit runtime."""
     if not (hasattr(st, "components") and hasattr(st.components, "v2")):
@@ -334,7 +336,7 @@ def _get_lineage_component():
     if comp is None:
         comp = st.components.v2.component(
             "dd_lineage_vis",
-            js=_LINEAGE_V2_JS,
+            js=_build_lineage_v2_js(),
             isolate_styles=False,
         )
         _LINEAGE_COMPONENT_CACHE[mgr] = comp
