@@ -146,6 +146,25 @@ GitHub Actions validation is defined in [`.github/workflows/ci.yml`](.github/wor
 
 ### First-time cluster setup
 
+#### Option A — Helm chart (recommended)
+
+The chart under [`charts/data-dictionary/`](charts/data-dictionary/) packages all workloads and validates inputs via [`values.schema.json`](charts/data-dictionary/values.schema.json):
+
+```bash
+# Offline showcase (mock auth + demo data, no external dependencies)
+helm upgrade --install dd-showcase charts/data-dictionary \
+  --namespace data-dictionary --create-namespace \
+  -f charts/data-dictionary/values-showcase.yaml
+
+# Production (uses externally managed Secret `dd-secrets` and RWX storage)
+helm upgrade --install data-dictionary charts/data-dictionary \
+  --namespace data-dictionary --create-namespace \
+  -f charts/data-dictionary/values-prod.yaml \
+  --set image.tag=<release-tag>
+```
+
+#### Option B — Raw Kubernetes manifests
+
 ```bash
 kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/secret.yaml        # fill placeholders first
@@ -208,7 +227,8 @@ src/
   db/                    DuckDB query layer (Streamlit)
   ui/                    Streamlit UI components
   sync/                  Sidecar daemon + push queue
-k8s/                     Kubernetes manifests
+charts/data-dictionary/  Helm v3 chart (values.yaml, presets, schema)
+k8s/                     Raw Kubernetes reference manifests
 tests/                   ~800 unit + integration tests
 docs/
   adr/                   Architecture decision records (001–007)

@@ -1,0 +1,67 @@
+{{- if .Values.cronJob.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "data-dictionary.cronJobFullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "data-dictionary.labels" . | nindent 4 }}
+    app.kubernetes.io/component: sync-job
+spec:
+  schedule: {{ .Values.cronJob.schedule | quote }}
+  startingDeadlineSeconds: {{ .Values.cronJob.startingDeadlineSeconds }}
+  concurrencyPolicy: {{ .Values.cronJob.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.cronJob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.cronJob.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.cronJob.backoffLimit }}
+      template:
+        metadata:
+          labels:
+            {{- include "data-dictionary.labels" . | nindent 12 }}
+            app.kubernetes.io/component: sync-job
+        spec:
+          serviceAccountName: {{ include "data-dictionary.serviceAccountName" . }}
+          automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+          {{- with .Values.image.pullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          restartPolicy: OnFailure
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: sync
+              image: {{ include "data-dictionary.image" . }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command:
+                - python
+                - scripts/sync_metadata.py
+              securityContext:
+                {{- toYaml .Values.containerSecurityContext | nindent 16 }}
+              resources:
+                {{- toYaml .Values.cronJob.resources | nindent 16 }}
+              envFrom:
+                - configMapRef:
+                    name: {{ include "data-dictionary.configMapName" . }}
+                {{- if or .Values.secrets.create .Values.secrets.existingSecret }}
+                - secretRef:
+                    name: {{ include "data-dictionary.secretName" . }}
+                {{- end }}
+              volumeMounts:
+                - name: data
+                  mountPath: {{ .Values.storage.mountPath }}
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: data
+              {{- if .Values.storage.enabled }}
+              persistentVolumeClaim:
+                claimName: {{ include "data-dictionary.pvcName" . }}
+              {{- else }}
+              emptyDir: {}
+              {{- end }}
+            - name: tmp
+              emptyDir: {}
+{{- end }}

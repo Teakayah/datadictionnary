@@ -1,0 +1,242 @@
+# Default configuration values for the Data Dictionary Helm chart.
+# Validated against values.schema.json at install/upgrade/template time.
+#
+# Presets:
+#   - values-showcase.yaml : offline demo mode (mock auth + fixture data)
+#   - values-prod.yaml     : hardened production template (external Secrets)
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Extra labels applied to all chart resources.
+commonLabels: {}
+
+# ── Container image (shared by dd-app, dd-api, dd-sync-worker, and dd-sync) ───
+image:
+  repository: ghcr.io/org/data-dictionary
+  # Defaults to Chart.appVersion when empty.
+  tag: ""
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# ── Service account ───────────────────────────────────────────────────────────
+serviceAccount:
+  create: true
+  name: ""
+  automountServiceAccountToken: false
+  annotations: {}
+
+# ── Pod & container security defaults (UID/GID 10001 matches Dockerfile) ─────
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+
+containerSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+# ── Streamlit UI (dd-app) ─────────────────────────────────────────────────────
+app:
+  # Keep at 1 until mutable user_data storage moves off shared DuckDB files.
+  replicas: 1
+  strategyType: Recreate
+  port: 8501
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+      ephemeral-storage: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+      ephemeral-storage: 1Gi
+  nodeSelector: {}
+  tolerations: []
+
+# ── REST API + MCP server (dd-api) ────────────────────────────────────────────
+api:
+  enabled: true
+  # Used only when api.hpa.enabled is false.
+  replicas: 2
+  port: 8080
+  workers: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 384Mi
+      ephemeral-storage: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 768Mi
+      ephemeral-storage: 512Mi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 65
+    targetMemoryUtilizationPercentage: 80
+  pdb:
+    enabled: true
+    minAvailable: 1
+  nodeSelector: {}
+  tolerations: []
+
+# ── Sidecar write-back sync worker (dd-sync-worker) ───────────────────────────
+syncWorker:
+  enabled: true
+  port: 8765
+  terminationGracePeriodSeconds: 60
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+      ephemeral-storage: 256Mi
+    limits:
+      cpu: 500m
+      memory: 768Mi
+      ephemeral-storage: 1Gi
+  nodeSelector: {}
+  tolerations: []
+
+# ── Nightly Unity Catalog metadata sync (CronJob dd-sync) ─────────────────────
+cronJob:
+  enabled: true
+  schedule: "0 3 * * *"
+  startingDeadlineSeconds: 300
+  concurrencyPolicy: Forbid
+  backoffLimit: 2
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+      ephemeral-storage: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+      ephemeral-storage: 1Gi
+
+# ── Redis cache ───────────────────────────────────────────────────────────────
+redis:
+  enabled: true
+  # Set externalUrl (and redis.enabled=false) to use an external Redis cluster.
+  externalUrl: ""
+  image:
+    repository: redis
+    tag: "7.2.4-alpine"
+    pullPolicy: IfNotPresent
+  port: 6379
+  maxmemory: "256mb"
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClassName: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+      ephemeral-storage: 128Mi
+    limits:
+      cpu: 250m
+      memory: 320Mi
+      ephemeral-storage: 256Mi
+
+# ── Shared DuckDB storage PVC ─────────────────────────────────────────────────
+storage:
+  enabled: true
+  existingClaim: ""
+  accessModes:
+    - ReadWriteMany
+  size: 5Gi
+  # Must be a ReadWriteMany-capable storage class when sharing across pods.
+  storageClassName: standard
+  mountPath: /data
+
+# ── Application configuration (ConfigMap) ─────────────────────────────────────
+config:
+  environment: production
+  logLevel: INFO
+  redirectUri: https://datadictionary.internal/
+  duckdbPath: /data/dictionary_cache.duckdb
+  syncHealthzPort: 8765
+  # Comma-separated CORS origins for dd-api (leave empty for "*" in dev).
+  allowedOrigins: ""
+  # Leave empty to default to CLIENT_ID.
+  apiAudience: ""
+  businessNames:
+    table: governance.dictionary.business_names
+    colFullName: full_name
+    colNameEn: friendly_name_eng
+    colNameFr: friendly_name_fr
+    colDefEn: field_definition_eng
+    colDefFr: field_definition_fr
+  features:
+    # enableMockAuth=true is allowed ONLY when config.environment=development.
+    enableMockAuth: false
+    demoData: false
+    enablePipelines: false
+    enableSemanticSearch: false
+    databricksEmbeddingEndpoint: ""
+  extraEnv: {}
+
+# ── Secrets (Databricks, Entra ID, optional SMTP & RBAC group IDs) ────────────
+secrets:
+  # For production, set create: false and supply an externally managed Secret.
+  create: true
+  existingSecret: ""
+  data:
+    DATABRICKS_HOST: placeholder
+    DATABRICKS_HTTP_PATH: placeholder
+    DATABRICKS_TOKEN: placeholder
+    TENANT_ID: placeholder
+    CLIENT_ID: placeholder
+    CLIENT_SECRET: placeholder
+    SMTP_HOST: placeholder
+    SMTP_PORT: placeholder
+    SMTP_USER: placeholder
+    SMTP_PASSWORD: placeholder
+    SMTP_FROM: placeholder
+    EDITOR_GROUPS: placeholder
+    ADMIN_GROUPS: placeholder
+
+# ── Ingress (nginx) ───────────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: nginx
+  host: datadictionary.internal
+  tls:
+    enabled: true
+    secretName: dd-tls-cert
+    clusterIssuer: letsencrypt-prod
+  # When true and api.enabled=true, expose /api and /mcp on the same host.
+  exposeApi: true
+  annotations: {}
+
+# ── NetworkPolicies ───────────────────────────────────────────────────────────
+networkPolicies:
+  enabled: true
+  ingressNamespace: ingress-nginx
+  allowSmtpEgress: false
+  smtpPort: 587
+
+# ── Namespace ResourceQuota ───────────────────────────────────────────────────
+resourceQuota:
+  enabled: true
+  hard:
+    requestsCpu: "4"
+    requestsMemory: 6Gi
+    limitsCpu: "12"
+    limitsMemory: 12Gi

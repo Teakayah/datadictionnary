@@ -1,0 +1,181 @@
+{{- if .Values.networkPolicies.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "data-dictionary.appFullname" . }}-netpol
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "data-dictionary.labels" . | nindent 4 }}
+    app.kubernetes.io/component: network-policy
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "data-dictionary.selectorLabels" (dict "ctx" . "component" "app") | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicies.ingressNamespace }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.app.port }}
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 443
+    {{- if .Values.networkPolicies.allowSmtpEgress }}
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.networkPolicies.smtpPort }}
+    {{- end }}
+    {{- if .Values.api.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "data-dictionary.selectorLabels" (dict "ctx" . "component" "api") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.api.port }}
+    {{- end }}
+    {{- if .Values.redis.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "data-dictionary.selectorLabels" (dict "ctx" . "component" "redis") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.redis.port }}
+    {{- end }}
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+{{- if .Values.api.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "data-dictionary.apiFullname" . }}-netpol
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "data-dictionary.labels" . | nindent 4 }}
+    app.kubernetes.io/component: network-policy
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "data-dictionary.selectorLabels" (dict "ctx" . "component" "api") | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicies.ingressNamespace }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.api.port }}
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "data-dictionary.name" . }}
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.api.port }}
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 443
+    {{- if .Values.redis.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "data-dictionary.selectorLabels" (dict "ctx" . "component" "redis") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.redis.port }}
+    {{- end }}
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+{{- end }}
+{{- if or .Values.syncWorker.enabled .Values.cronJob.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "data-dictionary.syncWorkerFullname" . }}-netpol
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "data-dictionary.labels" . | nindent 4 }}
+    app.kubernetes.io/component: network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "data-dictionary.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - sync-worker
+          - sync-job
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 443
+    {{- if .Values.redis.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "data-dictionary.selectorLabels" (dict "ctx" . "component" "redis") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.redis.port }}
+    {{- end }}
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+{{- end }}
+{{- if .Values.redis.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "data-dictionary.redisFullname" . }}-netpol
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "data-dictionary.labels" . | nindent 4 }}
+    app.kubernetes.io/component: network-policy
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "data-dictionary.selectorLabels" (dict "ctx" . "component" "redis") | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "data-dictionary.name" . }}
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.redis.port }}
+  egress: []
+{{- end }}
+{{- end }}

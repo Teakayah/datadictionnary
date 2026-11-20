@@ -1,0 +1,59 @@
+# Offline / disconnected showcase preset.
+# Deploy with:
+#   helm upgrade --install dd-showcase charts/data-dictionary -f charts/data-dictionary/values-showcase.yaml
+
+app:
+  replicas: 1
+
+api:
+  enabled: true
+  replicas: 1
+  hpa:
+    enabled: false
+  pdb:
+    enabled: false
+
+# Demo mode does not connect to Databricks or write to DuckDB on disk.
+syncWorker:
+  enabled: false
+
+cronJob:
+  enabled: false
+
+storage:
+  enabled: false
+
+redis:
+  enabled: true
+  persistence:
+    enabled: false
+
+config:
+  environment: development
+  logLevel: INFO
+  redirectUri: http://localhost:8501/
+  duckdbPath: ""
+  allowedOrigins: "*"
+  features:
+    enableMockAuth: true
+    demoData: true
+    enablePipelines: false
+    enableSemanticSearch: false
+
+secrets:
+  create: true
+  data:
+    TENANT_ID: demo-tenant
+    CLIENT_ID: demo-client
+    CLIENT_SECRET: demo-secret
+    ADMIN_GROUPS: mock_admin_group
+    EDITOR_GROUPS: mock_admin_group,finance_group,research_group,hr_group,it_group
+
+ingress:
+  enabled: false
+
+networkPolicies:
+  enabled: false
+
+resourceQuota:
+  enabled: false

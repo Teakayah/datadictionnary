@@ -1,0 +1,40 @@
+# Production starter preset.
+# Deploy with:
+#   helm upgrade --install data-dictionary charts/data-dictionary \
+#     -f charts/data-dictionary/values-prod.yaml \
+#     --set image.tag=<release-tag>
+
+storage:
+  enabled: true
+  # Set to a ReadWriteMany storage class available in your cluster (e.g. azurefile-csi, efs-sc).
+  storageClassName: azurefile-csi
+
+config:
+  environment: production
+  logLevel: INFO
+  redirectUri: https://datadictionary.internal/
+  allowedOrigins: https://datadictionary.internal
+  features:
+    enableMockAuth: false
+    demoData: false
+
+# Never store real credentials in Helm values — reference a Secret created by
+# External Secrets Operator / Key Vault CSI / Sealed Secrets.
+secrets:
+  create: false
+  existingSecret: dd-secrets
+
+ingress:
+  enabled: true
+  host: datadictionary.internal
+  exposeApi: true
+  tls:
+    enabled: true
+    secretName: dd-tls-cert
+    clusterIssuer: letsencrypt-prod
+
+networkPolicies:
+  enabled: true
+
+resourceQuota:
+  enabled: true

@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "data-dictionary.configMapName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "data-dictionary.labels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+data:
+  ENVIRONMENT: {{ .Values.config.environment | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  ENABLE_MOCK_AUTH: {{ ternary "true" "false" .Values.config.features.enableMockAuth | quote }}
+  DEMO_DATA: {{ ternary "true" "false" .Values.config.features.demoData | quote }}
+  ENABLE_PIPELINES: {{ ternary "true" "false" .Values.config.features.enablePipelines | quote }}
+  ENABLE_SEMANTIC_SEARCH: {{ ternary "true" "false" .Values.config.features.enableSemanticSearch | quote }}
+  SYNC_HEALTHZ_PORT: {{ .Values.config.syncHealthzPort | quote }}
+  REDIRECT_URI: {{ .Values.config.redirectUri | quote }}
+  DUCKDB_PATH: {{ .Values.config.duckdbPath | quote }}
+  {{- if .Values.config.features.databricksEmbeddingEndpoint }}
+  DATABRICKS_EMBEDDING_ENDPOINT: {{ .Values.config.features.databricksEmbeddingEndpoint | quote }}
+  {{- end }}
+  {{- $redisUrl := include "data-dictionary.redisUrl" . }}
+  {{- if $redisUrl }}
+  REDIS_URL: {{ $redisUrl | quote }}
+  {{- end }}
+  {{- if .Values.config.allowedOrigins }}
+  ALLOWED_ORIGINS: {{ .Values.config.allowedOrigins | quote }}
+  {{- end }}
+  {{- if .Values.config.apiAudience }}
+  API_AUDIENCE: {{ .Values.config.apiAudience | quote }}
+  {{- end }}
+  BUSINESS_NAMES_TABLE: {{ .Values.config.businessNames.table | quote }}
+  BUSINESS_NAMES_COL_FULL_NAME: {{ .Values.config.businessNames.colFullName | quote }}
+  BUSINESS_NAMES_COL_NAME_EN: {{ .Values.config.businessNames.colNameEn | quote }}
+  BUSINESS_NAMES_COL_NAME_FR: {{ .Values.config.businessNames.colNameFr | quote }}
+  BUSINESS_NAMES_COL_DEF_EN: {{ .Values.config.businessNames.colDefEn | quote }}
+  BUSINESS_NAMES_COL_DEF_FR: {{ .Values.config.businessNames.colDefFr | quote }}
+  {{- range $k, $v := .Values.config.extraEnv }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}

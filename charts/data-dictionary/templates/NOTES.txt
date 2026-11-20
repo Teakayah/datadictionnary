@@ -1,0 +1,29 @@
+Data Dictionary ({{ .Release.Name }}) has been deployed to namespace {{ .Release.Namespace }}.
+
+1. Services:
+   - Streamlit UI : {{ include "data-dictionary.appFullname" . }}:{{ .Values.app.port }}
+   {{- if .Values.api.enabled }}
+   - REST & MCP   : {{ include "data-dictionary.apiFullname" . }}:{{ .Values.api.port }}
+   {{- end }}
+   {{- if .Values.redis.enabled }}
+   - Redis Cache  : {{ include "data-dictionary.redisFullname" . }}:{{ .Values.redis.port }}
+   {{- end }}
+
+2. Access the application:
+{{- if .Values.ingress.enabled }}
+   - UI  : https://{{ .Values.ingress.host }}/
+   {{- if and .Values.api.enabled .Values.ingress.exposeApi }}
+   - API : https://{{ .Values.ingress.host }}/api/v1/
+   - MCP : https://{{ .Values.ingress.host }}/mcp
+   {{- end }}
+{{- else }}
+   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "data-dictionary.appFullname" . }} {{ .Values.app.port }}:{{ .Values.app.port }}
+   {{- if .Values.api.enabled }}
+   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "data-dictionary.apiFullname" . }} {{ .Values.api.port }}:{{ .Values.api.port }}
+   {{- end }}
+{{- end }}
+{{- if and .Values.secrets.create (not .Values.secrets.existingSecret) (eq .Values.config.environment "production") }}
+
+WARNING: secrets.create=true is active in production. Replace placeholder credentials
+or switch to secrets.create=false with secrets.existingSecret before serving users.
+{{- end }}

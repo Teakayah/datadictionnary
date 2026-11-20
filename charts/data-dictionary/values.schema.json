@@ -1,0 +1,269 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Data Dictionary Helm Chart Values",
+  "type": "object",
+  "required": ["image", "app", "api", "redis", "storage", "config", "secrets", "ingress"],
+  "properties": {
+    "nameOverride": { "type": "string" },
+    "fullnameOverride": { "type": "string" },
+    "commonLabels": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "image": {
+      "type": "object",
+      "required": ["repository", "pullPolicy"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string" },
+        "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] },
+        "pullSecrets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": { "name": { "type": "string", "minLength": 1 } }
+          }
+        }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create": { "type": "boolean" },
+        "name": { "type": "string" },
+        "automountServiceAccountToken": { "type": "boolean" },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "podSecurityContext": { "type": "object" },
+    "containerSecurityContext": { "type": "object" },
+    "app": {
+      "type": "object",
+      "required": ["replicas", "strategyType", "port"],
+      "properties": {
+        "replicas": { "type": "integer", "minimum": 1 },
+        "strategyType": { "type": "string", "enum": ["Recreate", "RollingUpdate"] },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "resources": { "type": "object" },
+        "nodeSelector": { "type": "object" },
+        "tolerations": { "type": "array" }
+      }
+    },
+    "api": {
+      "type": "object",
+      "required": ["enabled", "replicas", "port", "workers"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "replicas": { "type": "integer", "minimum": 1 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "workers": { "type": "integer", "minimum": 1 },
+        "resources": { "type": "object" },
+        "hpa": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "minReplicas": { "type": "integer", "minimum": 1 },
+            "maxReplicas": { "type": "integer", "minimum": 1 },
+            "targetCPUUtilizationPercentage": { "type": "integer", "minimum": 1, "maximum": 100 },
+            "targetMemoryUtilizationPercentage": { "type": "integer", "minimum": 1, "maximum": 100 }
+          }
+        },
+        "pdb": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "minAvailable": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "nodeSelector": { "type": "object" },
+        "tolerations": { "type": "array" }
+      }
+    },
+    "syncWorker": {
+      "type": "object",
+      "required": ["enabled", "port"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "terminationGracePeriodSeconds": { "type": "integer", "minimum": 1 },
+        "resources": { "type": "object" },
+        "nodeSelector": { "type": "object" },
+        "tolerations": { "type": "array" }
+      }
+    },
+    "cronJob": {
+      "type": "object",
+      "required": ["enabled", "schedule"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "schedule": { "type": "string", "minLength": 1 },
+        "startingDeadlineSeconds": { "type": "integer", "minimum": 1 },
+        "concurrencyPolicy": { "type": "string", "enum": ["Allow", "Forbid", "Replace"] },
+        "backoffLimit": { "type": "integer", "minimum": 0 },
+        "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
+        "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 },
+        "resources": { "type": "object" }
+      }
+    },
+    "redis": {
+      "type": "object",
+      "required": ["enabled", "port"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "externalUrl": { "type": "string" },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": { "type": "string", "minLength": 1 },
+            "tag": { "type": "string", "minLength": 1 },
+            "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
+          }
+        },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "maxmemory": { "type": "string" },
+        "persistence": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "size": { "type": "string", "minLength": 1 },
+            "storageClassName": { "type": "string" }
+          }
+        },
+        "resources": { "type": "object" }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "required": ["enabled", "mountPath"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "existingClaim": { "type": "string" },
+        "accessModes": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany"] }
+        },
+        "size": { "type": "string", "minLength": 1 },
+        "storageClassName": { "type": "string" },
+        "mountPath": { "type": "string", "minLength": 1 }
+      }
+    },
+    "config": {
+      "type": "object",
+      "required": ["environment", "logLevel", "features"],
+      "properties": {
+        "environment": { "type": "string", "enum": ["production", "staging", "development"] },
+        "logLevel": { "type": "string", "enum": ["DEBUG", "INFO", "WARNING", "ERROR"] },
+        "redirectUri": { "type": "string" },
+        "duckdbPath": { "type": "string" },
+        "syncHealthzPort": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "allowedOrigins": { "type": "string" },
+        "apiAudience": { "type": "string" },
+        "businessNames": {
+          "type": "object",
+          "properties": {
+            "table": { "type": "string" },
+            "colFullName": { "type": "string" },
+            "colNameEn": { "type": "string" },
+            "colNameFr": { "type": "string" },
+            "colDefEn": { "type": "string" },
+            "colDefFr": { "type": "string" }
+          }
+        },
+        "features": {
+          "type": "object",
+          "required": ["enableMockAuth", "demoData"],
+          "properties": {
+            "enableMockAuth": { "type": "boolean" },
+            "demoData": { "type": "boolean" },
+            "enablePipelines": { "type": "boolean" },
+            "enableSemanticSearch": { "type": "boolean" },
+            "databricksEmbeddingEndpoint": { "type": "string" }
+          }
+        },
+        "extraEnv": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "anyOf": [
+        {
+          "properties": { "environment": { "const": "development" } },
+          "required": ["environment"]
+        },
+        {
+          "not": {
+            "properties": {
+              "features": {
+                "properties": { "enableMockAuth": { "const": true } },
+                "required": ["enableMockAuth"]
+              }
+            },
+            "required": ["features"]
+          }
+        }
+      ]
+    },
+    "secrets": {
+      "type": "object",
+      "required": ["create"],
+      "properties": {
+        "create": { "type": "boolean" },
+        "existingSecret": { "type": "string" },
+        "data": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "required": ["enabled", "host"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string" },
+        "host": { "type": "string", "minLength": 1 },
+        "tls": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "secretName": { "type": "string" },
+            "clusterIssuer": { "type": "string" }
+          }
+        },
+        "exposeApi": { "type": "boolean" },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "networkPolicies": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "ingressNamespace": { "type": "string", "minLength": 1 },
+        "allowSmtpEgress": { "type": "boolean" },
+        "smtpPort": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    },
+    "resourceQuota": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "hard": {
+          "type": "object",
+          "properties": {
+            "requestsCpu": { "type": "string" },
+            "requestsMemory": { "type": "string" },
+            "limitsCpu": { "type": "string" },
+            "limitsMemory": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

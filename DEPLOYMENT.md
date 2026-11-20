@@ -6,6 +6,25 @@ Operations reference for the `data-dictionary` Kubernetes deployment.
 
 ## 1. First-time cluster setup
 
+### Option A — Helm chart (recommended)
+
+All cluster workloads, ConfigMap/Secret wiring, Ingress routes (`/`, `/api`, `/mcp`), NetworkPolicies, HPA/PDB, and the nightly sync CronJob are packaged in `charts/data-dictionary/`. Configuration is documented in [`charts/data-dictionary/values.yaml`](charts/data-dictionary/values.yaml) and validated on install/upgrade by [`charts/data-dictionary/values.schema.json`](charts/data-dictionary/values.schema.json).
+
+```bash
+# Offline / disconnected showcase (mock auth + demo data)
+helm upgrade --install dd-showcase charts/data-dictionary \
+  --namespace data-dictionary --create-namespace \
+  -f charts/data-dictionary/values-showcase.yaml
+
+# Production (requires pre-created Secret `dd-secrets` and RWX StorageClass)
+helm upgrade --install data-dictionary charts/data-dictionary \
+  --namespace data-dictionary --create-namespace \
+  -f charts/data-dictionary/values-prod.yaml \
+  --set image.tag=<release-tag>
+```
+
+### Option B — Raw manifests
+
 Apply manifests in dependency order so each resource exists before the next references it.
 
 ```bash

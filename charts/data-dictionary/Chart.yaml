@@ -1,0 +1,18 @@
+apiVersion: v2
+name: data-dictionary
+description: Permission-filtered, search-first business data dictionary for Databricks Unity Catalog (Streamlit UI, FastAPI/MCP API, Redis cache, and sidecar sync worker).
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - databricks
+  - unity-catalog
+  - data-dictionary
+  - streamlit
+  - fastapi
+  - mcp
+home: https://github.com/org/data-dictionary
+sources:
+  - https://github.com/org/data-dictionary
+maintainers:
+  - name: Data Engineering

@@ -1,0 +1,15 @@
+{{- if and .Values.api.enabled .Values.api.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "data-dictionary.apiFullname" . }}-pdb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "data-dictionary.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pdb
+spec:
+  minAvailable: {{ .Values.api.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "data-dictionary.selectorLabels" (dict "ctx" . "component" "api") | nindent 6 }}
+{{- end }}

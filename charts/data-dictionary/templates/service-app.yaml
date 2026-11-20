@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "data-dictionary.appFullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "data-dictionary.labels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "data-dictionary.selectorLabels" (dict "ctx" . "component" "app") | nindent 4 }}
+  ports:
+    - name: http
+      protocol: TCP
+      port: {{ .Values.app.port }}
+      targetPort: http
