@@ -1,7 +1,8 @@
 import re
 import os
+from pathlib import Path
 
-DOCS_DIR = "/Users/nicolasleclerc/github/datadictionnary/docs"
+DOCS_DIR = str(Path(__file__).resolve().parents[1] / "docs")
 FILES = [
     "adr-001-duckdb-local-cache.html",
     "adr-002-push-down-sql-auth.html",

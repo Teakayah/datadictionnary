@@ -27,7 +27,7 @@ A refined, editorial design system for **Business Data Dictionary**, an enterpri
 ## Sources
 
 - **Local codebase:** `datadictionnary/` — Streamlit app + sync scripts (read via `local_ls` / `local_read`).
-- **GitHub mirror:** `Teakayah/datadictionnary` (default branch `main`) — same code, same structure.
+- **GitHub mirror:** `<org>/data-dictionary` (default branch `main`) — same code, same structure.
 - **No existing Figma, brand book, or visual assets.** The system below is designed from scratch to match the tool's purpose (a catalog) and the company's request (modern, corporate).
 
 > Because no visual reference was provided, every visual decision below is a deliberate original choice. Treat this as v1 — the user should confirm direction before production adoption.

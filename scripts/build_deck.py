@@ -660,7 +660,7 @@ def slide_cta(prs):
         Inches(4.3),
         Inches(12),
         Inches(0.6),
-        text="github.com/Teakayah/datadictionnary",
+        text="github.com/<org>/data-dictionary",
         font_size=14,
         color=ACCENT,
         align=PP_ALIGN.CENTER,

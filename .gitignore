@@ -52,7 +52,9 @@ streamlit.log
 new_streamlit.log
 
 # --- Project Specific ---
+.antigravitycli/
 .digest/
+.jules/
 data/
 screenshots/
 !screenshots/latest/
