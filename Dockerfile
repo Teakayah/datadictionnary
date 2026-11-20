@@ -1,5 +1,5 @@
 # ─── Stage 1: builder ────────────────────────────────────────────────────────
-FROM python:3.11-slim AS builder
+FROM python:3.15-slim AS builder
 
 WORKDIR /build
 
@@ -17,7 +17,7 @@ RUN pip install --upgrade pip \
 
 
 # ─── Stage 2: final ──────────────────────────────────────────────────────────
-FROM python:3.11-slim AS final
+FROM python:3.15-slim AS final
 
 # Install curl for the healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends \
