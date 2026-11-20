@@ -3,7 +3,7 @@
 
 streamlit>=1.50,<2                 # 1.56.0
 databricks-sql-connector>=4.2,<5   # 4.2.6
-databricks-sdk>=0.100,<1           # 0.105.0
+databricks-sdk>=0.167.0,<1           # 0.105.0
 msal>=1.30,<2                      # 1.36.0
 pandas>=2.2,<3                     # 2.3.3
 numpy>=2.0,<3                      # 2.4.6 — imported directly in src/db/queries.py & discovery.py
