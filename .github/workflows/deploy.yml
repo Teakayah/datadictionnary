@@ -93,7 +93,7 @@ jobs:
 
       - name: Build and push image
         if: steps.registry.outputs.can_push == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
@@ -241,7 +241,7 @@ jobs:
 
       - name: Build and push release image
         if: steps.registry.outputs.can_push == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
