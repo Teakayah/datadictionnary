@@ -148,7 +148,7 @@ DuckDB speaks standard SQL, runs in-process (zero infrastructure for local devel
 <h3><code>databricks-sql-connector</code> — <code>>=4.2,<5</code> (installed: 4.2.6)</h3>
 <p><strong>What it does.</strong> The official Databricks SQL Warehouse connector for Python. Provides a DBAPI 2.0-compliant cursor interface to execute SQL against a Databricks SQL Warehouse over HTTPS. Used exclusively by:
 <ul>
-  <li>The <strong>nightly sync job</strong> (<code>scripts/nightly_sync.py</code>) to write the catalog snapshot (<code>TRUNCATE</code> + <code>INSERT INTO</code>) to <code>data_governance.dictionary_cache</code>.</li>
+  <li>The <strong>nightly sync job</strong> (<code>scripts/sync_metadata.py</code>) to write the catalog snapshot (<code>TRUNCATE</code> + <code>INSERT INTO</code>) to <code>data_governance.dictionary_cache</code>.</li>
   <li>The <strong>sidecar sync worker</strong> (<code>src/sync/push.py</code>) to push queued metadata changes back to Unity Catalog (<code>ALTER TABLE … COMMENT</code>, <code>INSERT INTO audit_log</code>).</li>
 </ul>
 The Streamlit pods themselves <strong>never</strong> open a connection to the SQL Warehouse — they query DuckDB locally.</p>
@@ -177,7 +177,7 @@ Also used transitively by <code>msal</code>, <code>databricks-sdk</code>, and <c
 <p><strong>Known trade-offs.</strong> Synchronous only. If the pipeline control-plane APIs are slow to respond (>several seconds), the Streamlit process blocks. In practice, API calls are fast (<200 ms); the 3-second poll interval provides sufficient slack.</p>
 <hr>
 <h3><code>python-dotenv</code> — <code>>=1.0,<2</code> (installed: 1.2.2)</h3>
-<p><strong>What it does.</strong> Reads a <code>.env</code> file from the project root and injects its key-value pairs as environment variables at process startup. Invoked in <code>app.py</code> and <code>scripts/nightly_sync.py</code> via <code>load_dotenv()</code>.</p>
+<p><strong>What it does.</strong> Reads a <code>.env</code> file from the project root and injects its key-value pairs as environment variables at process startup. Invoked in <code>app.py</code> and <code>scripts/sync_metadata.py</code> via <code>load_dotenv()</code>.</p>
 <p><strong>Why it was chosen.</strong> Local development requires setting ~10 environment variables (<code>DATABRICKS_HOST</code>, <code>DATABRICKS_TOKEN</code>, <code>TENANT_ID</code>, etc.). Typing them into every terminal session is impractical; a <code>.env</code> file is the universal convention. In Kubernetes, the <code>.env</code> file is not used — env vars are injected from <code>ConfigMap</code> and <code>Secret</code> at pod level. <code>python-dotenv</code> is a no-op when no <code>.env</code> file is present, making it safe to include in the production image without risk.</p>
 <p><strong>Known trade-offs.</strong> None meaningful. It is a single-purpose, zero-dependency utility library.</p>
 <hr>

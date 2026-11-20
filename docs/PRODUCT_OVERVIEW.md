@@ -175,7 +175,7 @@ WCAG 2.0 Level AA compliance on every public page, measured by axe-core. Two kno
               dict_user_data.duckdb (overrides, queue, audit, comments)
 ```
 
-**Component 1 — Nightly sync job (`scripts/nightly_sync.py`)**
+**Component 1 — Nightly sync job (`scripts/sync_metadata.py`)**
 
 Runs as a Kubernetes CronJob every night at 03:00 UTC. Uses the `databricks-sdk` (`WorkspaceClient`) to crawl the Unity Catalog hierarchy (catalogs → schemas → tables → columns → grants → lineage). Writes the results via truncate-and-reload into five cache tables in the local DuckDB file and into `data_governance.dictionary_cache` on Databricks. The local file is replaced atomically (`os.replace`) so in-flight reads are never interrupted.
 

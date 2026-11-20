@@ -260,6 +260,25 @@ class TestDuckDBAdapter:
             assert con1 is con2
             _adapter._clear_shared_duckdb_connection()
 
+    def test_shared_connection_uses_extension_directory_env(self, tmp_path, monkeypatch):
+        import src.db.duckdb_adapter as _adapter
+        _adapter._clear_shared_duckdb_connection()
+        db = str(tmp_path / "cache.duckdb")
+        user_db = str(tmp_path / "user.duckdb")
+        ext_dir = str(tmp_path / "duckdb_ext")
+        os.makedirs(ext_dir, exist_ok=True)
+        duckdb.connect(db).close()
+        monkeypatch.setenv("DUCKDB_EXTENSION_DIRECTORY", ext_dir)
+        try:
+            with patch.object(_adapter, "DUCKDB_PATH", db), \
+                 patch.object(_adapter, "USER_DATA_PATH", user_db):
+                con = _adapter._get_shared_duckdb_connection()
+                assert con is not None
+                configured = con.execute("SELECT current_setting('extension_directory')").fetchone()[0]
+                assert configured == ext_dir
+        finally:
+            _adapter._clear_shared_duckdb_connection()
+
     def test_shared_connection_double_check_locking(self, tmp_path):
         import src.db.duckdb_adapter as _adapter
         _adapter._clear_shared_duckdb_connection()

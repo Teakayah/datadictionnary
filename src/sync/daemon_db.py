@@ -9,6 +9,7 @@ can be called with either.
 """
 
 import logging
+import os
 from pathlib import Path
 
 import duckdb
@@ -34,7 +35,9 @@ class DaemonConn:
                 "USER_DATA_PATH (derived from DUCKDB_PATH) is empty — "
                 "set DUCKDB_PATH in the environment before starting the daemon."
             )
-        self._con = duckdb.connect(":memory:")
+        ext_dir = os.getenv("DUCKDB_EXTENSION_DIRECTORY", "").strip()
+        connect_kwargs = {"config": {"extension_directory": ext_dir}} if ext_dir else {}
+        self._con = duckdb.connect(":memory:", **connect_kwargs)
 
         # Sanitize paths to prevent SQL injection when using f-strings for ATTACH
         safe_duckdb_path = DUCKDB_PATH.replace("\x00", "").replace("'", "''") if DUCKDB_PATH else ""

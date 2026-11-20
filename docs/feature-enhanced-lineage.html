@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Data Dictionary — Feature 6: Enhanced Multi-hop Lineage</title>
+  <title>Data Dictionary — Interactive Multi-hop Lineage</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -90,26 +90,19 @@
       </header>
       <section class="hero">
         <div class="eyebrow">Features</div>
-        <h1>Feature 6: Enhanced Multi-hop Lineage</h1>
+        <h1>Interactive Multi-hop Lineage</h1>
       </section>
-      <section class="section" id="description">
-<h2>Description</h2>
-<p>This feature transforms the static 1-hop lineage view into an interactive exploration tool, allowing users to trace data dependencies across the entire organization by expanding nodes on click.</p>
+      <section class="section" id="overview">
+<h2>Overview</h2>
+<p>The table detail view (<code>src/pages/search.py</code>) renders an interactive multi-hop lineage graph (<code>src/ui/lineage.py</code>) built with <code>vis-network</code> (<code>barnesHut</code> layout with <code>avoidOverlap: 0.85</code>). Users can drag to pan, scroll to zoom, open an expanded fullscreen modal (<code>render_lineage_fullscreen</code>), and <strong>double-click any non-current table node</strong> to jump directly to that table's detail view.</p>
 </section>
-<section class="section" id="implementation-strategy">
-<h2>Implementation Strategy</h2>
+<section class="section" id="implementation">
+<h2>Implementation</h2>
 <ol class="steps">
-  <li><strong>Interactive Visualization:</strong> Update the <code>vis-network</code> JavaScript configuration to enable <code>selectNode</code> events.</li>
-  <li><strong>Dynamic Loading:</strong> Implement a Streamlit callback (via <code>st.query_params</code> or a custom component event) that triggers a fetch for the next level of lineage when a node is selected.</li>
-  <li><strong>Graph Persistence:</strong> Maintain a local graph state (nodes and edges) that grows as the user explores.</li>
+  <li><strong>Multi-hop graph assembly (<code>_build_lineage_graph</code>):</strong> Recursively traverses <code>WITH RECURSIVE</code> lineage edges up to <code>max_depth=2</code> (permission-filtered by <code>query_groups</code>), highlighting the active table in accent red (<code>#B8362A</code>) and related tables by relationship type.</li>
+  <li><strong>Readable initial zoom:</strong> After stabilization, <code>net.fit()</code> is clamped between <code>min_scale</code> (<code>0.8</code> inline, <code>0.75</code> fullscreen) and <code>1.15</code>, centering on the current table node when the graph is large so labels remain legible.</li>
+  <li><strong>Bidirectional double-click navigation (<code>dd_lineage_vis</code>):</strong> Mounted via <code>st.components.v2.component</code> (<code>render_lineage_graph</code>, cached per Streamlit runtime via <code>_get_lineage_component()</code>). Both <code>vis.Network</code> <code>"doubleClick"</code> and native DOM <code>"dblclick"</code> (<code>net.getNodeAt(...)</code>, 500 ms debounce) call <code>setTriggerValue("nav", nodeId)</code> so <code>_trigger_lineage_navigation()</code> updates <code>dd_search_override</code> + <code>dd_nav_select</code> and reruns into the target table.</li>
 </ol>
-</section>
-<section class="section" id="initial-scaffolding">
-<h2>Initial Scaffolding</h2>
-<ul>
-  <li>Added documentation in <a href="FEATURE_PLAN.html"><code>FEATURE_PLAN.md</code></a> regarding the <code>vis-network</code> event integration.</li>
-  <li>Added a placeholder for the multi-hop lineage retrieval logic in <code>app.py</code>.</li>
-</ul>
 </section>
       <footer class="site-footer">
         <p>Data Dictionary · Documented by Data Engineering</p>

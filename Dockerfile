@@ -11,9 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and install Python dependencies into a prefix directory
-COPY requirements.txt .
+COPY requirements.txt constraints.txt ./
 RUN pip install --upgrade pip \
-    && pip install --prefix=/install --no-cache-dir -r requirements.txt
+    && pip install --prefix=/install --no-cache-dir -c constraints.txt -r requirements.txt
 
 
 # ─── Stage 2: final ──────────────────────────────────────────────────────────
@@ -27,12 +27,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy installed packages from builder
 COPY --from=builder /install /usr/local
 
-# Create non-root user
-RUN groupadd --gid 1000 appuser \
-    && useradd --uid 1000 --gid 1000 --no-create-home --shell /bin/bash appuser
+# Create non-root user (UID/GID 10001 matches Kubernetes pod securityContext)
+RUN groupadd --gid 10001 appuser \
+    && useradd --uid 10001 --gid 10001 --no-create-home --shell /bin/bash appuser
 
-# Create app and data directories
-RUN mkdir -p /app /data && chown appuser:appuser /app /data
+# Create app, data, and shared DuckDB extension directories
+RUN mkdir -p /app /data /opt/duckdb_extensions \
+    && chown appuser:appuser /app /data /opt/duckdb_extensions
 
 WORKDIR /app
 
@@ -43,11 +44,16 @@ COPY --chown=appuser:appuser scripts/       ./scripts/
 COPY --chown=appuser:appuser locale/        ./locale/
 COPY --chown=appuser:appuser assets/        ./assets/
 COPY --chown=appuser:appuser design_system/ ./design_system/
+COPY --chown=appuser:appuser .streamlit/    ./.streamlit/
+
+ENV HOME=/tmp \
+    DUCKDB_EXTENSION_DIRECTORY=/opt/duckdb_extensions
 
 USER appuser
 
-# Pre-cache the DuckDB vss extension for offline usage in production environments
-RUN python -c "import duckdb; con = duckdb.connect(':memory:'); con.execute('INSTALL vss;')"
+# Pre-cache the DuckDB vss extension for offline usage under readOnlyRootFilesystem
+RUN python -c "import duckdb; con = duckdb.connect(':memory:', config={'extension_directory': '/opt/duckdb_extensions'}); con.execute('INSTALL vss;')" \
+    && chmod -R a+rX /opt/duckdb_extensions
 
 # The same image is used for three workloads:
 #   - dd-app          (default CMD)              — Streamlit UI on 8501

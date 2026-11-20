@@ -44,7 +44,7 @@ spec:
             - name: sync
               image: ghcr.io/org/data-dictionary:${IMAGE_TAG}
               imagePullPolicy: IfNotPresent
-              command: ["python", "scripts/nightly_sync.py"]
+              command: ["python", "scripts/sync_metadata.py"]
 
               securityContext:
                 seccompProfile:

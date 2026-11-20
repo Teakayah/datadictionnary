@@ -125,7 +125,7 @@ file). It runs in its own pod, separate from the Streamlit app.</p>
 └──────────┬─────────┘            └─────────┬──────────┘         └──────────────┘
            │                                │
            └────────────  PVC dd-data  ─────┘
-                  /data/dict.duckdb              (catalog cache, written by nightly_sync)
+                  /data/dict.duckdb              (catalog cache, written by sync_metadata.py)
                   /data/dict_user_data.duckdb    (queue + overrides + audit log + comments)
                        ↑ daemon writes worker_heartbeat + dr_resync_status here;
                          Streamlit reads them back via user_data.site_settings</pre></details>
@@ -168,6 +168,8 @@ print(con.execute('''
   python -m src.sync.daemon --once --healthz-port 0</code></pre>
 <p><code>--healthz-port 0</code> disables the HTTP listener (avoids port collision when
 running ad hoc).</p>
+<h3>On-demand sync from the Admin panel</h3>
+<p>Admins can also trigger a single sync cycle directly from <strong>Admin → § Synchronization status → Sync now</strong> (<code>_trigger_manual_sync()</code> in <code>src/ui/cards/admin.py</code>). It verifies admin access, local DuckDB availability (disabled in demo mode), and Databricks credentials (<code>DATABRICKS_HOST</code>, <code>DATABRICKS_HTTP_PATH</code>, <code>DATABRICKS_TOKEN</code>), then runs <code>run_dr_resync()</code> followed by <code>_process_sync_queue()</code> and displays the pushed count and DR status.</p>
 <hr>
 </section>
 <section class="section" id="configuration">

@@ -77,7 +77,7 @@ DuckDB speaks standard SQL, runs in-process (zero infrastructure for local devel
 ### `databricks-sql-connector` — `>=4.2,<5` (installed: 4.2.6)
 
 **What it does.** The official Databricks SQL Warehouse connector for Python. Provides a DBAPI 2.0-compliant cursor interface to execute SQL against a Databricks SQL Warehouse over HTTPS. Used exclusively by:
-- The **nightly sync job** (`scripts/nightly_sync.py`) to write the catalog snapshot (`TRUNCATE` + `INSERT INTO`) to `data_governance.dictionary_cache`.
+- The **nightly sync job** (`scripts/sync_metadata.py`) to write the catalog snapshot (`TRUNCATE` + `INSERT INTO`) to `data_governance.dictionary_cache`.
 - The **sidecar sync worker** (`src/sync/push.py`) to push queued metadata changes back to Unity Catalog (`ALTER TABLE … COMMENT`, `INSERT INTO audit_log`).
 
 The Streamlit pods themselves **never** open a connection to the SQL Warehouse — they query DuckDB locally.
@@ -125,7 +125,7 @@ Also used transitively by `msal`, `databricks-sdk`, and `databricks-sql-connecto
 
 ### `python-dotenv` — `>=1.0,<2` (installed: 1.2.2)
 
-**What it does.** Reads a `.env` file from the project root and injects its key-value pairs as environment variables at process startup. Invoked in `app.py` and `scripts/nightly_sync.py` via `load_dotenv()`.
+**What it does.** Reads a `.env` file from the project root and injects its key-value pairs as environment variables at process startup. Invoked in `app.py` and `scripts/sync_metadata.py` via `load_dotenv()`.
 
 **Why it was chosen.** Local development requires setting ~10 environment variables (`DATABRICKS_HOST`, `DATABRICKS_TOKEN`, `TENANT_ID`, etc.). Typing them into every terminal session is impractical; a `.env` file is the universal convention. In Kubernetes, the `.env` file is not used — env vars are injected from `ConfigMap` and `Secret` at pod level. `python-dotenv` is a no-op when no `.env` file is present, making it safe to include in the production image without risk.
 

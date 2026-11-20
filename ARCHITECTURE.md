@@ -58,7 +58,7 @@ Output is written to:
 - The Databricks `data_governance.dictionary_cache` schema (truncate-and-reload via SQL Warehouse)
 - A local DuckDB file at `DUCKDB_PATH` (atomic swap via `os.replace` so in-flight reads are never interrupted)
 
-A separate script, `scripts/nightly_sync.py`, is the entry point for the CronJob container. The in-app DR resync worker is a different, lighter process (see below).
+`scripts/sync_metadata.py` is the entry point for the nightly CronJob container. The sidecar sync worker (`src/sync/daemon.py`) is a separate, long-lived process for write-back and DR resync (see below).
 
 ### DuckDB local cache layer
 

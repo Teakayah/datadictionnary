@@ -285,7 +285,9 @@ def _get_shared_duckdb_connection(read_only: bool | None = None):
             return _shared_connection
         import duckdb
         try:
-            con = duckdb.connect(":memory:")
+            ext_dir = os.getenv("DUCKDB_EXTENSION_DIRECTORY", "").strip()
+            connect_kwargs = {"config": {"extension_directory": ext_dir}} if ext_dir else {}
+            con = duckdb.connect(":memory:", **connect_kwargs)
 
             def _escape_id(val: str) -> str:
                 return '"' + val.replace('"', '""') + '"'

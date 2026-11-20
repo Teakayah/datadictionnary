@@ -12,7 +12,7 @@ pip install -r requirements.txt
 streamlit run app.py
 
 # Run the metadata sync job (must be run before the app has any data)
-python scripts/nightly_sync.py
+python scripts/sync_metadata.py
 
 # Configure environment
 cp .env.example .env
@@ -33,7 +33,7 @@ This is a **Python-native Business Data Dictionary** for Databricks Unity Catalo
 
 ### Three-component design
 
-**`scripts/nightly_sync.py` — Metadata Sync Job**
+**`scripts/sync_metadata.py` — Metadata Sync Job**
 - Uses `databricks-sdk` (`WorkspaceClient`) to crawl Unity Catalog hierarchy (catalogs → schemas → tables → columns)
 - Extracts structural metadata, comments/tags, and all `GRANT` permissions per table
 - Writes results via truncate-and-reload into three cache tables in `data_governance.dictionary_cache`:
@@ -43,7 +43,7 @@ This is a **Python-native Business Data Dictionary** for Databricks Unity Catalo
 
 **`app.py` — Streamlit Frontend** (~180 lines, just the entry point)
 - On startup: refuses to boot with `ENABLE_MOCK_AUTH=true` outside `ENVIRONMENT=development`. If both are set, runs the mock-auth path (department selector); otherwise the real MSAL OIDC flow.
-- All business logic lives in `src/`: auth (`src/auth.py`, `src/auth_graph.py`), queries (`src/db/`), storage backends (`src/storage/`), UI components (`src/ui/cards/` package), pages (`src/pages/`), sync (`src/sync/`).
+- All business logic lives in `src/`: auth (`src/auth.py`, `src/auth_graph.py`), queries (`src/db/`), UI components (`src/ui/cards/` package), pages (`src/pages/`), sync (`src/sync/`).
 - Search queries always `JOIN tables_metadata` with `permissions_cache` filtered by `p.principal IN (user's groups)` — users mathematically cannot see unauthorized tables.
 - Group resolution: inline `groups` claim when present; Microsoft Graph `getMemberObjects` for users in 150+ groups (overage). 1 h process-level cache keyed by user OID; cleared on sign-out so a fresh sign-in always reflects current Entra state.
 

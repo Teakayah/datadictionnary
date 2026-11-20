@@ -30,7 +30,7 @@ file). It runs in its own pod, separate from the Streamlit app.
 └──────────┬─────────┘            └─────────┬──────────┘         └──────────────┘
            │                                │
            └────────────  PVC dd-data  ─────┘
-                  /data/dict.duckdb              (catalog cache, written by nightly_sync)
+                  /data/dict.duckdb              (catalog cache, written by sync_metadata.py)
                   /data/dict_user_data.duckdb    (queue + overrides + audit log + comments)
                        ↑ daemon writes worker_heartbeat + dr_resync_status here;
                          Streamlit reads them back via user_data.site_settings
