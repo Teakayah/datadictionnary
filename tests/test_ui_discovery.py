@@ -51,6 +51,7 @@ class TestDiscoveryTabs:
         html = [m.value for m in at.markdown]
         assert any(en_locale['personalization']['tab_notable'] in val for
             val in html)
+        assert any("Sales orders" in card.proto.body for card in at.get("html"))
 
     @patch('src.ui.cards.discovery.st.segmented_control')
     @patch('src.ui.cards.discovery.get_active_posts')
@@ -63,7 +64,7 @@ class TestDiscoveryTabs:
         at.run()
         html = [m.value for m in at.markdown]
         assert any('My Bookmarks' in val for val in html)
-        assert any('orders' in val for val in html)
+        assert any("Sales orders" in card.proto.body for card in at.get("html"))
 
     @patch('src.ui.cards.discovery.st.segmented_control')
     @patch('src.ui.cards.discovery.get_active_posts')
@@ -76,7 +77,7 @@ class TestDiscoveryTabs:
         html = [m.value for m in at.markdown]
         assert any(en_locale['personalization']['tab_recent'] in val for
             val in html)
-        assert any('ledger' in val for val in html)
+        assert any("Finance ledger" in card.proto.body for card in at.get("html"))
 
     @patch('src.ui.cards.discovery.st.segmented_control')
     @patch('src.ui.cards.discovery.get_active_posts')
@@ -90,7 +91,7 @@ class TestDiscoveryTabs:
             html = [m.value for m in at.markdown]
             assert any(en_locale['personalization']['recommended_title'] in
                 val for val in html)
-            assert any('orders' in val for val in html)
+            assert any("Sales orders" in card.proto.body for card in at.get("html"))
 
     @patch('src.ui.cards.discovery.get_active_posts')
     def test_discovery_table_click(self, mock_get_posts):

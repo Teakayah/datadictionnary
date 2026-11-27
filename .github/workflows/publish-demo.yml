@@ -15,13 +15,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      SOURCE_REVISION: '302f8a0534490cf71d97d376d34b29e4f31a477f'
+      SOURCE_REVISION: 'b5d88fe1a45480c0d20197dd1d04ce084f77ab9f'
       CHECK_URL: 'http://127.0.0.1:8501/_stcore/health'
     steps:
       - name: Check out reviewed source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: '302f8a0534490cf71d97d376d34b29e4f31a477f'
+          ref: 'b5d88fe1a45480c0d20197dd1d04ce084f77ab9f'
           persist-credentials: false
 
       - name: Build Linux container
@@ -51,6 +51,22 @@ jobs:
           for attempt in {1..30}; do
             if docker exec "$container" python -c 'import sys, urllib.request; assert urllib.request.urlopen(sys.argv[1], timeout=2).status == 200' "$CHECK_URL" 2>/dev/null; then
               echo "Demo startup health endpoint returned HTTP 200."
+              docker exec -i "$container" python - <<'PY'
+          from streamlit.testing.v1 import AppTest
+
+          app = AppTest.from_file("app.py", default_timeout=20)
+          app.query_params["tab"] = "discovery"
+          app.run()
+          app.selectbox[0].select("admin")
+          next(button for button in app.button if button.label == "Sign in").click().run()
+
+          assert not app.exception and not app.error
+          assert any("Raw event stream ingested" in card.proto.body for card in app.get("html"))
+          app.button(key="nav_admin").click().run()
+          assert not app.exception and not app.error
+          assert any("Administration." in element.value for element in app.markdown)
+          print("Discovery cards and the demo Administration page passed.")
+          PY
               exit 0
             fi
             if [[ "$(docker inspect --format '{{.State.Running}}' "$container")" != true ]]; then
