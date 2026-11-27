@@ -93,7 +93,7 @@ def _render_table_card(row: dict, key_prefix: str) -> None:
     _dq_status = str(row.get("dq_status", "") or "")
     _dq_html = _render_dq_badge(_dq_score, _dq_status)
 
-    st.markdown(f'''
+    st.html(f'''
     <div style="background:var(--paper); border:1px solid var(--ink-10); padding:16px 20px 4px; margin-bottom:4px; border-radius:2px;">
         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
             <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-40); text-transform:uppercase; letter-spacing:0.1em;">{_html.escape(str(row.get("catalog_name", "")))} · {_html.escape(str(row.get("schema_name", "")))}</div>
@@ -104,7 +104,7 @@ def _render_table_card(row: dict, key_prefix: str) -> None:
         </div>
         <p style="font-family:var(--font-sans); font-size:13px; color:var(--ink-60); line-height:1.5; margin:4px 0 8px;">{_html.escape(str(row.get("table_description", "")))}</p>
     </div>
-    ''', unsafe_allow_html=True)
+    ''')
 
     _c_name, _c_star = st.columns([11, 1], gap="small")
     with _c_name:
