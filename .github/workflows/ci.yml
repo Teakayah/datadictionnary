@@ -120,6 +120,7 @@ jobs:
           filters: |
             docker:
               - 'Dockerfile'
+              - 'docker-compose.yml'
               - 'requirements.txt'
               - 'constraints.txt'
               - '.streamlit/**'
@@ -198,10 +199,44 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image without pushing
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Start and verify the default Docker demo
+        run: |
+          docker compose up --build --wait --wait-timeout 300
+          docker compose exec -T dd-app python - <<'PY'
+          from streamlit.testing.v1 import AppTest
+
+          visible_tables = {}
+          for persona in ("admin", "finance", "research", "hr", "it"):
+              app = AppTest.from_file("app.py", default_timeout=20).run()
+              app.selectbox[0].select(persona)
+              next(button for button in app.button if button.label == "Sign in").click().run()
+              assert not app.error and not app.exception, persona
+              assert any(button.key == "nav_admin" for button in app.button) == (persona == "admin")
+              visible_tables[persona] = set(app.selectbox(key="catalog_search").options)
+
+              if persona == "finance":
+                  app.selectbox(key="catalog_search").select("encumbrances").run()
+                  next(
+                      button for button in app.button
+                      if button.key and button.key.startswith("view_research_org.finance.encumbrances_")
+                  ).click().run()
+                  app.button(key="preview_research_org.finance.encumbrances").click().run()
+                  assert not app.error and not app.exception
+                  assert any(len(frame.value) == 25 for frame in app.dataframe)
+
+          assert len(visible_tables["admin"]) == 2400
+          department_tables = [visible_tables[role] for role in ("finance", "research", "hr", "it")]
+          assert all(600 <= len(tables) < 2400 for tables in department_tables)
+          assert len({frozenset(tables) for tables in department_tables}) == 4
+          PY
+
+      - name: Verify the optional Dictionary API startup
+        run: docker compose --profile api up --build --wait --wait-timeout 120 dd-api
+
+      - name: Show Docker demo logs
+        if: failure()
+        run: docker compose --profile api logs --no-color
+
+      - name: Stop the Docker demo
+        if: always()
+        run: docker compose --profile api down
