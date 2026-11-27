@@ -301,6 +301,8 @@ kubectl get events -n data-dictionary --sort-by='.lastTimestamp' | tail -30
 
 This section covers running the app on a laptop without a Kubernetes cluster or Databricks connection.
 
+For a one-command demo with 2,400 synthetic tables and persona sign-in, use the [Docker Compose quickstart](README.md#showcase-with-docker-compose). The steps below cover running Streamlit directly.
+
 ### Generate the test dataset
 
 The test dataset is a pre-populated DuckDB file that seeds the app with realistic demo data across four departments.
@@ -319,9 +321,9 @@ Add the following to your `.env` file (or export as shell variables):
 DUCKDB_PATH=data/test_data.duckdb
 ENABLE_MOCK_AUTH=true
 ENVIRONMENT=development
-DEMO_DATA=true
-EDITOR_GROUPS=finance_dept_id
-ADMIN_GROUPS=finance_dept_id
+DEMO_DATA=false
+EDITOR_GROUPS=mock_admin_group,finance_group,research_group,hr_group,it_group
+ADMIN_GROUPS=mock_admin_group
 ```
 
 `DUCKDB_PATH` tells the app to serve all queries from the local file instead of opening a network connection to Databricks.
@@ -334,15 +336,16 @@ streamlit run app.py
 
 ### Mock authentication
 
-When `ENABLE_MOCK_AUTH=true` and `ENVIRONMENT=development` are set, the sign-in page renders four department login buttons instead of the Entra ID redirect:
+When `ENABLE_MOCK_AUTH=true` and `ENVIRONMENT=development` are set, the sign-in page offers five demo personas.
 
-| Button | Groups injected | Visible tables |
+| Persona | Groups used for catalog permissions | Visible tables |
 |--------|----------------|----------------|
-| Finance | `finance_dept_id`, `all_employees_id` | Finance + public |
-| Research | `research_dept_id`, `all_employees_id` | Research + public |
-| HR | `hr_dept_id`, `all_employees_id` | HR + public |
-| IT | `it_dept_id`, `all_employees_id` | IT + public |
+| Finance | `finance_group` | Finance and tables shared with Finance |
+| Research | `research_group` | Research and tables shared with Research |
+| HR | `hr_group` | HR and tables shared with HR |
+| IT | `it_group` | IT and tables shared with IT |
+| Admin | All four department groups and `mock_admin_group` | All generated tables |
 
-Each button sets `st.session_state.user_groups` to the corresponding list. The permission JOIN in every search query then filters results to only the tables those groups are authorized to see, exactly as in production.
+Each persona also sees the tables granted to `SELECT_ALL_USERS`. The app filters catalog queries by the groups assigned to the signed-in persona.
 
 No Databricks credentials are needed for local development. The sync job does not need to run if `DUCKDB_PATH` points to the pre-generated test file.

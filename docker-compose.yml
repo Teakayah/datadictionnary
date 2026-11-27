@@ -1,5 +1,6 @@
 services:
   dd-redis:
+    profiles: ["api"]
     image: redis:7.2.4-alpine
     ports:
       - "6379:6379"
@@ -13,19 +14,25 @@ services:
     build:
       context: .
     ports:
-      - "8501:8501"
+      - "127.0.0.1:8501:8501"
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        if [ ! -s "$${DUCKDB_PATH}" ]; then
+          python scripts/generate_test_data.py --seed 42 --tables 600 --out "$${DUCKDB_PATH}"
+        fi
+        exec streamlit run app.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true
     environment:
       ENVIRONMENT: development
       ENABLE_MOCK_AUTH: "true"
-      DEMO_DATA: "true"
+      DEMO_DATA: "false"
+      DUCKDB_PATH: /data/demo-catalog.duckdb
       ADMIN_GROUPS: mock_admin_group
       EDITOR_GROUPS: mock_admin_group,finance_group,research_group,hr_group,it_group
-      REDIS_URL: redis://dd-redis:6379
-    depends_on:
-      dd-redis:
-        condition: service_healthy
 
   dd-api:
+    profiles: ["api"]
     build:
       context: .
     command: ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8080"]
