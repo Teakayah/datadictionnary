@@ -41,7 +41,7 @@ import msal
 import streamlit as st
 
 from src.config import (
-    CLIENT_ID, AUTHORITY, CLIENT_SECRET, SCOPE, REDIRECT_URI, MOCK_DEPT,
+    CLIENT_ID, AUTHORITY, CLIENT_SECRET, SCOPE, REDIRECT_URI, MOCK_DEPT, is_demo_mode,
 )
 from src.i18n import t
 from src.ui.header import render_footer, MS_LOGO_SVG
@@ -416,12 +416,21 @@ def is_pipeline_user() -> bool:
 
 
 def is_admin() -> bool:
-    """True if the current user belongs to at least one ADMIN_GROUPS group.
+    """Check membership in the configured admin groups.
 
-    No demo-mode bypass — admins must be in the real Entra group even in
-    demo/development mode, unlike is_power_user() which may have a mock shortcut.
+    In the development mock-auth demo, use the Admin persona's group when
+    ADMIN_GROUPS is unset. An explicit setting takes precedence.
     """
-    admin_groups = _parse_groups(os.getenv("ADMIN_GROUPS", ""))
+    group_setting = os.getenv("ADMIN_GROUPS")
+    if (
+        group_setting is None
+        and os.getenv("ENVIRONMENT", "production").lower() == "development"
+        and os.getenv("ENABLE_MOCK_AUTH", "false").lower() == "true"
+        and is_demo_mode()
+    ):
+        group_setting = "mock_admin_group"
+
+    admin_groups = _parse_groups(group_setting or "")
     if not admin_groups:
         return False
     return not admin_groups.isdisjoint(st.session_state.get("user_groups", []))

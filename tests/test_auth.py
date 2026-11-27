@@ -76,6 +76,32 @@ class TestIsAdmin:
         monkeypatch.setattr("src.auth.st.session_state", {"user_groups": ["admin_group"]})
         assert is_admin() is False
 
+    @pytest.mark.parametrize(
+        "environment,mock_auth,demo_data,setting,group,expected",
+        [
+            ("development", "true", "true", None, "mock_admin_group", True),
+            ("development", "true", "true", None, "finance_group", False),
+            ("development", "true", "true", "", "mock_admin_group", False),
+            ("development", "true", "true", "custom_admin", "mock_admin_group", False),
+            ("development", "false", "true", None, "mock_admin_group", False),
+            ("development", "true", "false", None, "mock_admin_group", False),
+            ("production", "true", "true", None, "mock_admin_group", False),
+        ],
+    )
+    def test_mock_admin_default(
+        self, monkeypatch, environment, mock_auth, demo_data, setting, group, expected
+    ):
+        monkeypatch.setenv("ENVIRONMENT", environment)
+        monkeypatch.setenv("ENABLE_MOCK_AUTH", mock_auth)
+        monkeypatch.setenv("DEMO_DATA", demo_data)
+        if setting is None:
+            monkeypatch.delenv("ADMIN_GROUPS", raising=False)
+        else:
+            monkeypatch.setenv("ADMIN_GROUPS", setting)
+        monkeypatch.setattr("src.auth.st.session_state", {"user_groups": [group]})
+
+        assert is_admin() is expected
+
     def test_false_when_env_empty(self, monkeypatch):
         """is_admin returns False when ADMIN_GROUPS is empty string."""
         monkeypatch.setenv("ADMIN_GROUPS", "")

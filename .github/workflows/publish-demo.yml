@@ -1,0 +1,92 @@
+name: Publish demo image
+
+on:
+  push:
+    branches:
+      - codex/publish-demo-images
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-publish:
+    name: Build, check and publish the Linux demo image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SOURCE_REVISION: 'b5d88fe1a45480c0d20197dd1d04ce084f77ab9f'
+      CHECK_URL: 'http://127.0.0.1:8501/_stcore/health'
+    steps:
+      - name: Check out reviewed source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 'b5d88fe1a45480c0d20197dd1d04ce084f77ab9f'
+          persist-credentials: false
+
+      - name: Build Linux container
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_REVISION"
+          image="ghcr.io/${GITHUB_REPOSITORY,,}-demo"
+          ref="$image:sha-$SOURCE_REVISION"
+          echo "DEMO_IMAGE=$image" >> "$GITHUB_ENV"
+          echo "DEMO_REF=$ref" >> "$GITHUB_ENV"
+          docker build --pull --platform linux/amd64 \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$SOURCE_REVISION" \
+            --tag "$ref" .
+
+      - name: Check synthetic demo startup
+        shell: bash
+        run: |
+          container=$(docker run --detach --network none --read-only \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs /data:rw,uid=10001,gid=10001,mode=0770 \
+            --tmpfs /tmp:rw,mode=1777 \
+            --env ENVIRONMENT=development --env ENABLE_MOCK_AUTH=true --env DEMO_DATA=true \
+            --env USER_DATA_PATH=/data/demo.duckdb --env DUCKDB_CATALOG_PATH=/data/unused.duckdb \
+            --env DUCKDB_PATH= --env DD_API_URL= "$DEMO_REF")
+          trap 'docker rm -f "$container" >/dev/null' EXIT
+          for attempt in {1..30}; do
+            if docker exec "$container" python -c 'import sys, urllib.request; assert urllib.request.urlopen(sys.argv[1], timeout=2).status == 200' "$CHECK_URL" 2>/dev/null; then
+              echo "Demo startup health endpoint returned HTTP 200."
+              docker exec -i "$container" python - <<'PY'
+          from streamlit.testing.v1 import AppTest
+
+          app = AppTest.from_file("app.py", default_timeout=20)
+          app.query_params["tab"] = "discovery"
+          app.run()
+          app.selectbox[0].select("admin")
+          next(button for button in app.button if button.label == "Sign in").click().run()
+
+          assert not app.exception and not app.error
+          assert any("Raw event stream ingested" in card.proto.body for card in app.get("html"))
+          app.button(key="nav_admin").click().run()
+          assert not app.exception and not app.error
+          assert any("Administration." in element.value for element in app.markdown)
+          print("Discovery cards and the demo Administration page passed.")
+          PY
+              exit 0
+            fi
+            if [[ "$(docker inspect --format '{{.State.Running}}' "$container")" != true ]]; then
+              break
+            fi
+            sleep 2
+          done
+          docker logs "$container"
+          exit 1
+
+      - name: Publish and verify the registry reference
+        env:
+          DEMO_REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          printf '%s' "$DEMO_REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          trap 'docker logout ghcr.io >/dev/null' EXIT
+          docker push "$DEMO_REF"
+          digest=$(docker buildx imagetools inspect "$DEMO_REF" | awk '/^Digest:/ {print $2; exit}')
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          docker pull "$DEMO_IMAGE@$digest"
+          printf 'Verified image %s@%s\n' "$DEMO_IMAGE" "$digest"
+          printf 'Tag: `%s`\n\nDigest reference: `%s@%s`\n' "$DEMO_REF" "$DEMO_IMAGE" "$digest" >> "$GITHUB_STEP_SUMMARY"
