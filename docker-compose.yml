@@ -20,9 +20,15 @@ services:
       - -ec
       - |
         if [ ! -s "$${DUCKDB_PATH}" ]; then
-          python scripts/generate_test_data.py --seed 42 --tables 600 --preview-rows 25 --out "$${DUCKDB_PATH}"
+          python -u scripts/generate_test_data.py --seed 42 --tables 600 --preview-rows 25 --out "$${DUCKDB_PATH}"
         fi
         exec streamlit run app.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8501/_stcore/health"]
+      interval: 5s
+      timeout: 3s
+      start_period: 4m
+      retries: 6
     environment:
       ENVIRONMENT: development
       ENABLE_MOCK_AUTH: "true"

@@ -70,6 +70,8 @@ docker compose up --build --wait
 
 Open [Data Dictionary](http://127.0.0.1:8501) on the machine running Docker. Choose **Admin** to see all 2,400 tables in Search. Sign out and select **Finance**, **Research**, **HR**, or **IT** to show that each persona sees its own tables and any shared tables it can access. The demo requires no Entra ID or Databricks credentials.
 
+If the first startup is still waiting, run `docker compose logs -f dd-app` in a second terminal to see the catalog generation progress.
+
 Use `docker compose stop` to pause the demo and `docker compose start` to reuse the same container and its data. Use `docker compose down` to remove the demo container and reset its data. To start the optional API and Redis development services as well, add `--profile api` before `up`. API docs are at `http://localhost:8080/docs`.
 
 ### With real data

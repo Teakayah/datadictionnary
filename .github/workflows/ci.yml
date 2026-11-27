@@ -201,7 +201,7 @@ jobs:
 
       - name: Start and verify the default Docker demo
         run: |
-          docker compose up --build --wait --wait-timeout 120
+          docker compose up --build --wait --wait-timeout 300
           docker compose exec -T dd-app python - <<'PY'
           from streamlit.testing.v1 import AppTest
 
