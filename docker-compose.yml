@@ -38,6 +38,12 @@ services:
     command: ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8080"]
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8080/health/ready"]
+      interval: 5s
+      timeout: 3s
+      start_period: 15s
+      retries: 6
     environment:
       ENVIRONMENT: development
       DEMO_DATA: "true"
