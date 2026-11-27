@@ -20,7 +20,7 @@ services:
       - -ec
       - |
         if [ ! -s "$${DUCKDB_PATH}" ]; then
-          python scripts/generate_test_data.py --seed 42 --tables 600 --out "$${DUCKDB_PATH}"
+          python scripts/generate_test_data.py --seed 42 --tables 600 --preview-rows 25 --out "$${DUCKDB_PATH}"
         fi
         exec streamlit run app.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true
     environment:

@@ -590,6 +590,8 @@ def generate(
     out_path: Path,
     depts: list[str],
     with_data: bool,
+    *,
+    preview_rows: int | None = None,
 ) -> None:
     rng = random.Random(seed)
 
@@ -765,6 +767,8 @@ def generate(
 
             # ── object tags ────────────────────────────────────────────────────
             row_count = rng.randint(110, 300)
+            if preview_rows is not None:
+                row_count = min(row_count, preview_rows)
             tags_rows.append({"object_type": "TABLE", "object_full_name": full_name,
                                "tag_key": "row_count", "tag_value": str(row_count)})
             tags_rows.append({"object_type": "TABLE", "object_full_name": full_name,
@@ -872,7 +876,9 @@ def generate(
     if tmp_path.exists():
         tmp_path.unlink()
 
-    con = duckdb.connect(str(tmp_path))
+    # The preview dataset writes thousands of small tables.
+    storage_config = {"default_block_size": 16384, "threads": 1} if preview_rows is not None else {}
+    con = duckdb.connect(str(tmp_path), config=storage_config)
 
     # Tables live in the "dictionary_cache" schema so that the app's 3-part SQL
     # (data_governance.dictionary_cache.table_name) resolves correctly when the
@@ -920,7 +926,7 @@ def generate(
     con.execute(f"CREATE INDEX IF NOT EXISTS idx_cols_table    ON {SCHEMA}.columns_metadata  (table_full_name)")
 
     # ── optional: create actual row data for Preview feature ─────────────────
-    if with_data:
+    if with_data or preview_rows is not None:
         _write_row_data(con, tables_rows, columns_rows, tags_rows, rng)
 
     con.close()
@@ -956,11 +962,9 @@ def _write_row_data(con, tables_rows, columns_rows, tags_rows, rng: random.Rando
         if not cols:
             continue
 
-        col_defs = ", ".join(f'"{c}" VARCHAR' for c, _ in cols)
         # Store under schema only (no catalog prefix) — the file is ATTACHed as the
         # Databricks catalog name by the app, so data_governance.<schema>.<table> resolves.
         con.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
-        con.execute(f'CREATE OR REPLACE TABLE "{schema}"."{tname}" ({col_defs})')
 
         rows = []
         for i in range(1, n_rows + 1):
@@ -984,12 +988,8 @@ def _write_row_data(con, tables_rows, columns_rows, tags_rows, rng: random.Rando
                     row.append(rng.choice(varchar_vals) + f"_{i:04d}")
             rows.append(row)
 
-        placeholders = ", ".join(["?" ] * len(cols))
-        col_names = ", ".join(f'"{c}"' for c, _ in cols)
-        con.executemany(
-            f'INSERT INTO "{schema}"."{tname}" ({col_names}) VALUES ({placeholders})',
-            rows
-        )
+        sample_rows = pd.DataFrame(rows, columns=[column_name for column_name, _ in cols])
+        con.execute(f'CREATE OR REPLACE TABLE "{schema}"."{tname}" AS SELECT * FROM sample_rows')
 
 
 # ── entry point ───────────────────────────────────────────────────────────────
@@ -1006,7 +1006,11 @@ def main() -> None:
                         help="Generate a single department subset (default: all)")
     parser.add_argument("--with-data", action="store_true",
                         help="Also create actual row data for the Preview feature")
+    parser.add_argument("--preview-rows", type=int, metavar="N",
+                        help="Generate up to N sample rows per table for the Preview feature")
     args = parser.parse_args()
+    if args.preview_rows is not None and args.preview_rows < 1:
+        parser.error("--preview-rows must be at least 1")
 
     depts = list(DEPT_SCHEMAS) if args.dept == "all" else [args.dept]
     total = args.tables * len(depts)
@@ -1020,6 +1024,7 @@ def main() -> None:
         out_path=Path(args.out),
         depts=depts,
         with_data=args.with_data,
+        preview_rows=args.preview_rows,
     )
 
 

@@ -62,7 +62,7 @@ ENABLE_MOCK_AUTH=true ENVIRONMENT=development DEMO_DATA=true streamlit run app.p
 
 ### Showcase with Docker Compose
 
-From a fresh clone, run this with Docker in Linux container mode. The app generates a local synthetic catalog with 2,400 tables across four departments on first startup.
+From a fresh clone, run this with Docker in Linux container mode. On first startup, the app generates a local synthetic catalog with 2,400 tables across four departments and sample rows for **Preview data**.
 
 ```bash
 docker compose up --build --wait
